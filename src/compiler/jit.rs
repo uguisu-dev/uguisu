@@ -1,16 +1,17 @@
 use std::mem;
-
-use cranelift::codegen::{settings, Context};
-use cranelift::codegen::ir;
-use cranelift::prelude::{FunctionBuilder, FunctionBuilderContext, AbiParam, Configurable, InstBuilder, Signature};
-use cranelift::prelude::types;
-use cranelift::prelude::isa::TargetIsa;
-use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{default_libcall_names, Linkage, Module, FuncId};
-
 use target_lexicon::{Triple, Architecture};
+use cranelift_codegen::{Context};
+use cranelift_codegen::ir;
+use cranelift_codegen::ir::{InstBuilder};
+use cranelift_codegen::ir::types;
+use cranelift_codegen::isa;
+use cranelift_codegen::settings;
+use cranelift_codegen::settings::{Configurable};
+use cranelift_module::{default_libcall_names, Linkage, Module, FuncId};
+use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
+use cranelift_jit::{JITBuilder, JITModule};
 
-use crate::compiler::builtin;
+use super::builtin;
 
 /*
  * NOTE:
@@ -62,7 +63,7 @@ impl Engine {
     module_builder.symbol("hello", builtin::hello as *const u8);
   }
 
-  fn setup_target() -> (Box<dyn TargetIsa>, Triple) {
+  fn setup_target() -> (Box<dyn isa::TargetIsa>, Triple) {
     let isa_builder = cranelift_native::builder().unwrap_or_else(|msg| {
       panic!("host machine is not supported: {}", msg);
     });
@@ -87,26 +88,26 @@ impl Engine {
     (isa, triple)
   }
 
-  fn declare_fn(&mut self, name: &str, params: Vec<PrimitiveType>, ret: ReturnValue, linkage: Linkage) -> (FuncId, Signature) {
+  fn declare_fn(&mut self, name: &str, params: Vec<PrimitiveType>, ret: ReturnValue, linkage: Linkage) -> (FuncId, ir::Signature) {
     // make function signature
     let mut signature = self.module.make_signature();
     for param in params {
       match param {
         PrimitiveType::Number => {
-          signature.params.push(AbiParam::new(types::I32));
+          signature.params.push(ir::AbiParam::new(types::I32));
         },
         PrimitiveType::Float => {
-          signature.params.push(AbiParam::new(types::F64));
+          signature.params.push(ir::AbiParam::new(types::F64));
         },
       }
     }
     match ret {
       ReturnValue::None => {},
       ReturnValue::Value(PrimitiveType::Number) => {
-        signature.returns.push(AbiParam::new(types::I32));
+        signature.returns.push(ir::AbiParam::new(types::I32));
       },
       ReturnValue::Value(PrimitiveType::Float) => {
-        signature.returns.push(AbiParam::new(types::F64));
+        signature.returns.push(ir::AbiParam::new(types::F64));
       },
     }
 

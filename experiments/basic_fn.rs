@@ -1,14 +1,15 @@
 use std::mem;
-
-use cranelift::codegen::{settings, Context};
-use cranelift::codegen::ir;
-use cranelift::prelude::{FunctionBuilder, FunctionBuilderContext, AbiParam, Configurable, InstBuilder};
-use cranelift::prelude::types;
-use cranelift::prelude::isa::TargetIsa;
-use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{default_libcall_names, Linkage, Module};
-
 use target_lexicon::{Triple, Architecture};
+use cranelift_codegen::{Context};
+use cranelift_codegen::ir;
+use cranelift_codegen::ir::{InstBuilder};
+use cranelift_codegen::ir::types;
+use cranelift_codegen::isa;
+use cranelift_codegen::settings;
+use cranelift_codegen::settings::{Configurable};
+use cranelift_module::{default_libcall_names, Linkage, Module};
+use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
+use cranelift_jit::{JITBuilder, JITModule};
 
 pub struct Engine {
     triple: Triple,
@@ -34,7 +35,7 @@ impl Engine {
         }
     }
 
-    fn setup_target() -> (Box<dyn TargetIsa>, Triple) {
+    fn setup_target() -> (Box<dyn isa::TargetIsa>, Triple) {
         let isa_builder = cranelift_native::builder().unwrap_or_else(|msg| {
             panic!("host machine is not supported: {}", msg);
         });
@@ -63,13 +64,13 @@ impl Engine {
 
         // (declare) fn a(arg1: i32) -> i32
         let mut sig_a = self.module.make_signature();
-        sig_a.params.push(AbiParam::new(types::I32));
-        sig_a.returns.push(AbiParam::new(types::I32));
+        sig_a.params.push(ir::AbiParam::new(types::I32));
+        sig_a.returns.push(ir::AbiParam::new(types::I32));
         let func_a = self.module.declare_function("a", Linkage::Local, &sig_a).unwrap();
 
         // (declare) fn b() -> i32
         let mut sig_b = self.module.make_signature();
-        sig_b.returns.push(AbiParam::new(types::I32));
+        sig_b.returns.push(ir::AbiParam::new(types::I32));
         let func_b = self.module.declare_function("b", Linkage::Local, &sig_b).unwrap();
 
         {
