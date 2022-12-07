@@ -1,16 +1,9 @@
-use crate::frontend::Engine;
+mod compiler;
+mod parser;
 
-mod frontend;
-mod mir;
-mod runtime;
-
-// mod experiments {
-//     pub mod basic_fn;
-// }
+use crate::compiler::jit;
 
 fn main() {
-    // experiments::basic_fn::run();
-
-    let mut engine = Engine::new();
-    engine.compile();
+    let mut jit_engine = jit::Engine::new();
+    jit_engine.compile();
 }

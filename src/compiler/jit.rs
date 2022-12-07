@@ -10,8 +10,7 @@ use cranelift_module::{default_libcall_names, Linkage, Module, FuncId};
 
 use target_lexicon::{Triple, Architecture};
 
-use crate::mir::{PrimitiveType, ReturnValue};
-use crate::runtime;
+use crate::compiler::builtin;
 
 /*
  * NOTE:
@@ -20,6 +19,17 @@ use crate::runtime;
  * - `module.declare_function()`
  * Functions to be registered must be declared as "Linkage::Import".
 */
+
+pub enum PrimitiveType {
+	Number,
+	Float,
+	//String,
+}
+
+pub enum ReturnValue {
+	None,
+	Value(PrimitiveType),
+}
 
 pub struct Engine {
     triple: Triple,
@@ -34,7 +44,7 @@ impl Engine {
         let (isa, triple) = Engine::setup_target();
         let mut module_builder = JITBuilder::with_isa(isa, default_libcall_names());
 
-        Engine::register_runtime(&mut module_builder);
+        Engine::define_builtin(&mut module_builder);
 
         let module = JITModule::new(module_builder);
         let gen_ctx = module.make_context();
@@ -48,8 +58,8 @@ impl Engine {
         }
     }
 
-    fn register_runtime(module_builder: &mut JITBuilder) {
-        module_builder.symbol("hello", runtime::hello as *const u8);
+    fn define_builtin(module_builder: &mut JITBuilder) {
+        module_builder.symbol("hello", builtin::hello as *const u8);
     }
 
     fn setup_target() -> (Box<dyn TargetIsa>, Triple) {
