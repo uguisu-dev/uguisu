@@ -1,10 +1,10 @@
 use std::mem;
 
-use cranelift::codegen::ir::UserFuncName;
+use cranelift::codegen::{settings, Context};
+use cranelift::codegen::ir;
 use cranelift::prelude::{FunctionBuilder, FunctionBuilderContext, AbiParam, Configurable, InstBuilder, Signature};
 use cranelift::prelude::types;
 use cranelift::prelude::isa::TargetIsa;
-use cranelift::codegen::{settings, Context};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{default_libcall_names, Linkage, Module, FuncId};
 
@@ -12,6 +12,14 @@ use target_lexicon::{Triple, Architecture};
 
 use crate::mir::{PrimitiveType, ReturnValue};
 use crate::runtime;
+
+/*
+ * NOTE:
+ * The runtime is registered using the following functions:
+ * - `module_builder.symbol()`
+ * - `module.declare_function()`
+ * Functions to be registered must be declared as "Linkage::Import".
+*/
 
 pub struct Engine {
     triple: Triple,
@@ -92,7 +100,7 @@ impl Engine {
             },
         }
 
-        // declare functions
+        // declare function
         let func_id = self.module
             .declare_function(name, linkage, &signature)
             .unwrap();
@@ -129,7 +137,7 @@ impl Engine {
             */
             //self.gen_ctx.set_disasm(true);
             self.gen_ctx.func.signature = sig_a;
-            self.gen_ctx.func.name = UserFuncName::user(0, func_a.as_u32());
+            self.gen_ctx.func.name = ir::UserFuncName::user(0, func_a.as_u32());
 
             let mut b = FunctionBuilder::new(&mut self.gen_ctx.func, &mut self.fb_ctx);
             let block = b.create_block();
@@ -164,7 +172,7 @@ impl Engine {
             */
             //self.gen_ctx.set_disasm(true);
             self.gen_ctx.func.signature = sig_b;
-            self.gen_ctx.func.name = UserFuncName::user(0, func_b.as_u32());
+            self.gen_ctx.func.name = ir::UserFuncName::user(0, func_b.as_u32());
 
             let mut b = FunctionBuilder::new(&mut self.gen_ctx.func, &mut self.fb_ctx);
             let block = b.create_block();
