@@ -1,10 +1,10 @@
+use std::collections::HashMap;
 use std::mem;
 use target_lexicon::{Triple, Architecture};
 use cranelift_codegen::{Context};
 use cranelift_codegen::ir;
 use cranelift_codegen::ir::{InstBuilder};
 use cranelift_codegen::ir::types;
-use cranelift_codegen::isa;
 use cranelift_codegen::settings;
 use cranelift_codegen::settings::{Configurable};
 use cranelift_module::{default_libcall_names, Linkage, Module, FuncId};
@@ -21,15 +21,17 @@ use super::builtin;
  * Functions to be registered must be declared as "Linkage::Import".
 */
 
-pub enum PrimitiveType {
+pub enum ValueType {
   Number,
   Float,
   //String,
 }
 
-pub enum ReturnValue {
-  None,
-  Value(PrimitiveType),
+struct BuiltinSig {
+  name: String,
+  params: Vec<ValueType>,
+  ret: Option<ValueType>,
+  fn_ptr: *const u8,
 }
 
 pub struct Engine {
@@ -38,104 +40,69 @@ pub struct Engine {
   gen_ctx: Context,
   /// NOTE: temporary used by function builders.
   fb_ctx: FunctionBuilderContext,
+
+  builtin_sig: Vec<BuiltinSig>,
+  builtin_table: HashMap<String, FuncId>, // <function name, func id>
 }
 
 impl Engine {
   pub fn new() -> Self {
-    let (isa, triple) = Engine::setup_target();
+    let isa_builder = cranelift_native::builder().unwrap();
+
+    let triple = isa_builder.triple().clone();
+
+    let mut flag_builder = settings::builder();
+    flag_builder.set("use_colocated_libcalls", "false").unwrap();
+
+    // FIXME set back to true once the x64 backend supports it.
+    let is_pic = if triple.architecture != Architecture::X86_64 { "true" } else { "false" };
+    flag_builder.set("is_pic", is_pic).unwrap();
+
+    let flags = settings::Flags::new(flag_builder);
+
+    let isa = isa_builder.finish(flags).unwrap();
+
     let mut module_builder = JITBuilder::with_isa(isa, default_libcall_names());
 
-    Engine::define_builtin(&mut module_builder);
+    let builtin_sig = prepare_builtin();
+
+    // add builtin symbols
+    for dec in builtin_sig.iter() {
+      module_builder.symbol(&dec.name, dec.fn_ptr);
+    }
 
     let module = JITModule::new(module_builder);
     let gen_ctx = module.make_context();
     let fb_ctx = FunctionBuilderContext::new(); // worker for functions
 
-    Engine {
+    Self {
       triple,
       module,
       gen_ctx,
       fb_ctx,
+      builtin_sig,
+      builtin_table: HashMap::new(),
     }
-  }
-
-  fn define_builtin(module_builder: &mut JITBuilder) {
-    module_builder.symbol("hello", builtin::hello as *const u8);
-  }
-
-  fn setup_target() -> (Box<dyn isa::TargetIsa>, Triple) {
-    let isa_builder = cranelift_native::builder().unwrap_or_else(|msg| {
-      panic!("host machine is not supported: {}", msg);
-    });
-
-    let mut flag_builder = settings::builder();
-    flag_builder.set("use_colocated_libcalls", "false").unwrap();
-
-    let triple = isa_builder.triple().clone();
-
-    // FIXME set back to true once the x64 backend supports it.
-    let is_pic = if triple.architecture != Architecture::X86_64 {
-      "true"
-    } else {
-      "false"
-    };
-    flag_builder.set("is_pic", is_pic).unwrap();
-
-    let isa = isa_builder
-      .finish(settings::Flags::new(flag_builder))
-      .unwrap();
-
-    (isa, triple)
-  }
-
-  fn declare_fn(&mut self, name: &str, params: Vec<PrimitiveType>, ret: ReturnValue, linkage: Linkage) -> (FuncId, ir::Signature) {
-    // make function signature
-    let mut signature = self.module.make_signature();
-    for param in params {
-      match param {
-        PrimitiveType::Number => {
-          signature.params.push(ir::AbiParam::new(types::I32));
-        },
-        PrimitiveType::Float => {
-          signature.params.push(ir::AbiParam::new(types::F64));
-        },
-      }
-    }
-    match ret {
-      ReturnValue::None => {},
-      ReturnValue::Value(PrimitiveType::Number) => {
-        signature.returns.push(ir::AbiParam::new(types::I32));
-      },
-      ReturnValue::Value(PrimitiveType::Float) => {
-        signature.returns.push(ir::AbiParam::new(types::F64));
-      },
-    }
-
-    // declare function
-    let func_id = self.module
-      .declare_function(name, linkage, &signature)
-      .unwrap();
-
-    (func_id, signature)
   }
 
   pub fn compile(&mut self) {
+    // declare builtin
+    for sig in &mut self.builtin_sig {
+      let (func_id, _) = declare_fn(&mut self.module, &sig.name, &sig.params, &sig.ret, Linkage::Import);
+      self.builtin_table.insert(sig.name.clone(), func_id);
+    }
+
     // TODO: get function information from the store
     // fn a(arg1: i32) -> i32
-    let mut params: Vec<PrimitiveType> = Vec::new();
-    params.push(PrimitiveType::Number);
-    let ret = ReturnValue::Value(PrimitiveType::Number);
-    let (func_a, sig_a) = self.declare_fn("a", params, ret, Linkage::Local);
+    let mut params: Vec<ValueType> = Vec::new();
+    params.push(ValueType::Number);
+    let ret = Some(ValueType::Number);
+    let (func_a, sig_a) = declare_fn(&mut self.module, "a", &params, &ret, Linkage::Local);
 
     // fn b() -> i32
-    let params: Vec<PrimitiveType> = Vec::new();
-    let ret = ReturnValue::Value(PrimitiveType::Number);
-    let (func_b, sig_b) = self.declare_fn("b", params, ret, Linkage::Local);
-
-    // api: hello()
-    let params: Vec<PrimitiveType> = Vec::new();
-    let ret = ReturnValue::None;
-    let (func_hello, _) = self.declare_fn("hello", params, ret, Linkage::Import);
+    let params: Vec<ValueType> = Vec::new();
+    let ret = Some(ValueType::Number);
+    let (func_b, sig_b) = declare_fn(&mut self.module, "b", &params, &ret, Linkage::Local);
 
     {
       /*
@@ -199,7 +166,8 @@ impl Engine {
         results[0].clone()
       };
       // call hello
-      let func_ref = self.module.declare_func_in_func(func_hello, &mut b.func);
+      let hello_id = self.builtin_table.get("hello").unwrap().clone();
+      let func_ref = self.module.declare_func_in_func(hello_id, &mut b.func);
       let call = b.ins().call(func_ref, &[]);
       let results = b.inst_results(call);
       assert_eq!(results.len(), 0);
@@ -226,4 +194,46 @@ impl Engine {
     println!("{}", res);
     assert_eq!(res, 42);
   }
+}
+
+fn prepare_builtin() -> Vec<BuiltinSig> {
+  let mut dec_list: Vec<BuiltinSig> = Vec::new();
+
+  dec_list.push(BuiltinSig {
+    name: String::from("hello"),
+    params: vec![],
+    ret: None,
+    fn_ptr: builtin::hello as *const u8,
+  });
+
+  dec_list
+}
+
+fn declare_fn(module: &mut JITModule, name: &str, params: &Vec<ValueType>, ret: &Option<ValueType>, linkage: Linkage) -> (FuncId, ir::Signature) {
+  // make signature
+  let mut signature = module.make_signature();
+  for param in params {
+    match param {
+      ValueType::Number => {
+        signature.params.push(ir::AbiParam::new(types::I32));
+      },
+      ValueType::Float => {
+        signature.params.push(ir::AbiParam::new(types::F64));
+      },
+    }
+  }
+  match ret {
+    None => {},
+    Some(ValueType::Number) => {
+      signature.returns.push(ir::AbiParam::new(types::I32));
+    },
+    Some(ValueType::Float) => {
+      signature.returns.push(ir::AbiParam::new(types::F64));
+    },
+  }
+
+  // declare function
+  let func_id = module.declare_function(name, linkage, &signature).unwrap();
+
+  (func_id, signature)
 }
