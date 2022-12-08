@@ -3,7 +3,7 @@ use std::mem;
 use target_lexicon::{Triple, Architecture};
 use cranelift_codegen::{Context};
 use cranelift_codegen::ir;
-use cranelift_codegen::ir::{InstBuilder};
+use cranelift_codegen::ir::{InstBuilder, Signature};
 use cranelift_codegen::ir::types;
 use cranelift_codegen::settings;
 use cranelift_codegen::settings::{Configurable};
@@ -21,17 +21,43 @@ use super::builtin;
  * Functions to be registered must be declared as "Linkage::Import".
 */
 
+#[derive(Debug, Clone, Copy)]
 pub enum ValueType {
   Number,
   Float,
   //String,
 }
 
-struct BuiltinSig {
+struct UserFuncDeclaration {
+  name: String,
+  params: Vec<ValueType>,
+  ret: Option<ValueType>,
+}
+
+struct BuiltinDeclaration {
   name: String,
   params: Vec<ValueType>,
   ret: Option<ValueType>,
   fn_ptr: *const u8,
+}
+
+enum FuncDeclaration {
+  User(UserFuncDeclaration),
+  Builtin(BuiltinDeclaration),
+}
+
+struct UserFuncInfo {
+  func_id: FuncId,
+  signature: Signature,
+}
+
+struct BuiltinFuncInfo {
+  func_id: FuncId,
+}
+
+enum FuncInfo {
+  User(UserFuncInfo),
+  Builtin(BuiltinFuncInfo),
 }
 
 pub struct Engine {
@@ -41,68 +67,97 @@ pub struct Engine {
   /// NOTE: temporary used by function builders.
   fb_ctx: FunctionBuilderContext,
 
-  builtin_sig: Vec<BuiltinSig>,
-  builtin_table: HashMap<String, FuncId>, // <function name, func id>
+  declarations: Vec<FuncDeclaration>,
+  func_table: HashMap<String, FuncInfo>, // <function name, func info>
 }
 
 impl Engine {
   pub fn new() -> Self {
     let isa_builder = cranelift_native::builder().unwrap();
-
     let triple = isa_builder.triple().clone();
+    let flags = {
+      let mut flag_builder = settings::builder();
+      flag_builder.set("use_colocated_libcalls", "false").unwrap();
 
-    let mut flag_builder = settings::builder();
-    flag_builder.set("use_colocated_libcalls", "false").unwrap();
+      // FIXME set back to true once the x64 backend supports it.
+      let is_pic = if triple.architecture != Architecture::X86_64 { "true" } else { "false" };
+      flag_builder.set("is_pic", is_pic).unwrap();
 
-    // FIXME set back to true once the x64 backend supports it.
-    let is_pic = if triple.architecture != Architecture::X86_64 { "true" } else { "false" };
-    flag_builder.set("is_pic", is_pic).unwrap();
-
-    let flags = settings::Flags::new(flag_builder);
-
+      settings::Flags::new(flag_builder)
+    };
     let isa = isa_builder.finish(flags).unwrap();
-
     let mut module_builder = JITBuilder::with_isa(isa, default_libcall_names());
 
-    let builtin_sig = prepare_builtin();
-
-    // add builtin symbols
-    for dec in builtin_sig.iter() {
-      module_builder.symbol(&dec.name, dec.fn_ptr);
+    // buildin
+    let declarations = prepare_builtin();
+    for dec in declarations.iter() {
+      match dec {
+        FuncDeclaration::Builtin(builtin) => {
+          module_builder.symbol(&builtin.name, builtin.fn_ptr);
+        },
+        _ => {},
+      };
     }
 
     let module = JITModule::new(module_builder);
     let gen_ctx = module.make_context();
-    let fb_ctx = FunctionBuilderContext::new(); // worker for functions
 
     Self {
       triple,
       module,
       gen_ctx,
-      fb_ctx,
-      builtin_sig,
-      builtin_table: HashMap::new(),
+      fb_ctx: FunctionBuilderContext::new(), // worker for functions
+      declarations,
+      func_table: HashMap::new(),
     }
   }
 
   pub fn compile(&mut self) {
-    // declare builtin
-    for sig in &mut self.builtin_sig {
-      let (func_id, _) = declare_fn(&mut self.module, &sig.name, &sig.params, &sig.ret, Linkage::Import);
-      self.builtin_table.insert(sig.name.clone(), func_id);
+    {
+      // fn a(arg1: i32) -> i32
+      let mut params: Vec<ValueType> = Vec::new();
+      params.push(ValueType::Number);
+      let ret = Some(ValueType::Number);
+      let dec = UserFuncDeclaration {
+        name: String::from("a"),
+        params,
+        ret,
+      };
+      self.declarations.push(FuncDeclaration::User(dec));
     }
 
-    // TODO: get function information from the store
-    // fn a(arg1: i32) -> i32
-    let mut params: Vec<ValueType> = Vec::new();
-    params.push(ValueType::Number);
-    let ret = Some(ValueType::Number);
-    let (func_a, sig_a) = declare_fn(&mut self.module, "a", &params, &ret, Linkage::Local);
+    {
+      // fn b() -> i32
+      let params: Vec<ValueType> = Vec::new();
+      let ret = Some(ValueType::Number);
+      let dec = UserFuncDeclaration {
+        name: String::from("b"),
+        params,
+        ret,
+      };
+      self.declarations.push(FuncDeclaration::User(dec));
+    }
 
-    // fn b() -> i32
-    let params: Vec<ValueType> = Vec::new();
-    let ret = Some(ValueType::Number);
-    let (func_b, sig_b) = declare_fn(&mut self.module, "b", &params, &ret, Linkage::Local);
+    // declare functions
+    for fn_dec in &mut self.declarations {
+      match fn_dec {
+        FuncDeclaration::Builtin(dec) => {
+          let (func_id, _) = declare_fn(&mut self.module, &dec.name, &dec.params, &dec.ret, Linkage::Import);
+          let info = BuiltinFuncInfo {
+            func_id,
+          };
+          self.func_table.insert(dec.name.clone(), FuncInfo::Builtin(info));
+        },
+        FuncDeclaration::User(dec) => {
+          let (func_id, signature) = declare_fn(&mut self.module, &dec.name, &dec.params, &dec.ret, Linkage::Local);
+          let info = UserFuncInfo {
+            func_id,
+            signature,
+          };
+          self.func_table.insert(dec.name.clone(), FuncInfo::User(info));
+        },
+      };
+    }
 
     {
       /*
@@ -114,8 +169,13 @@ impl Engine {
       }
       */
       //self.gen_ctx.set_disasm(true);
-      self.gen_ctx.func.signature = sig_a;
-      self.gen_ctx.func.name = ir::UserFuncName::user(0, func_a.as_u32());
+      let func_a = self.func_table.get("a").unwrap();
+      let func_a = match func_a {
+        FuncInfo::User(func_a) => func_a,
+        _ => panic!("a is not user function"),
+      };
+      self.gen_ctx.func.signature = func_a.signature.clone();
+      self.gen_ctx.func.name = ir::UserFuncName::user(0, func_a.func_id.as_u32());
 
       let mut b = FunctionBuilder::new(&mut self.gen_ctx.func, &mut self.fb_ctx);
       let block = b.create_block();
@@ -131,7 +191,7 @@ impl Engine {
       b.seal_all_blocks();
       b.finalize();
 
-      self.module.define_function(func_a, &mut self.gen_ctx).unwrap();
+      self.module.define_function(func_a.func_id, &mut self.gen_ctx).unwrap();
       //let compile_result = self.gen_ctx.compiled_code().unwrap().clone();
       //println!("{:?}", compile_result.code_buffer());
       //println!("{}", compile_result.disasm.unwrap());
@@ -149,15 +209,25 @@ impl Engine {
       }
       */
       //self.gen_ctx.set_disasm(true);
-      self.gen_ctx.func.signature = sig_b;
-      self.gen_ctx.func.name = ir::UserFuncName::user(0, func_b.as_u32());
+      let func_b = self.func_table.get("b").unwrap();
+      let func_b = match func_b {
+        FuncInfo::User(func_b) => func_b,
+        _ => panic!("b is not user function"),
+      };
+      self.gen_ctx.func.signature = func_b.signature.clone();
+      self.gen_ctx.func.name = ir::UserFuncName::user(0, func_b.func_id.as_u32());
 
       let mut b = FunctionBuilder::new(&mut self.gen_ctx.func, &mut self.fb_ctx);
       let block = b.create_block();
 
       b.switch_to_block(block);
       // call b
-      let func_ref = self.module.declare_func_in_func(func_a, &mut b.func);
+      let func_a = self.func_table.get("a").unwrap().clone();
+      let func_a = match func_a {
+        FuncInfo::User(func_a) => func_a,
+        _ => panic!("a is not user function"),
+      };
+      let func_ref = self.module.declare_func_in_func(func_a.func_id, &mut b.func);
       let arg = b.ins().iconst(types::I32, 5);
       let call = b.ins().call(func_ref, &[arg]);
       let value = {
@@ -166,8 +236,12 @@ impl Engine {
         results[0].clone()
       };
       // call hello
-      let hello_id = self.builtin_table.get("hello").unwrap().clone();
-      let func_ref = self.module.declare_func_in_func(hello_id, &mut b.func);
+      let func_hello = self.func_table.get("hello").unwrap().clone();
+      let func_hello = match func_hello {
+        FuncInfo::Builtin(func_hello) => func_hello,
+        _ => panic!("hello is not builtin function"),
+      };
+      let func_ref = self.module.declare_func_in_func(func_hello.func_id, &mut b.func);
       let call = b.ins().call(func_ref, &[]);
       let results = b.inst_results(call);
       assert_eq!(results.len(), 0);
@@ -176,7 +250,7 @@ impl Engine {
       b.seal_all_blocks();
       b.finalize();
 
-      self.module.define_function(func_b, &mut self.gen_ctx).unwrap();
+      self.module.define_function(func_b.func_id, &mut self.gen_ctx).unwrap();
       //let compile_result = self.gen_ctx.compiled_code().unwrap().clone();
       //println!("{:?}", compile_result.code_buffer());
       //println!("{}", compile_result.disasm.unwrap());
@@ -187,7 +261,12 @@ impl Engine {
     self.module.finalize_definitions().unwrap();
 
     // get generated function
-    let fn_b_ptr = self.module.get_finalized_function(func_b);
+    let func_b = self.func_table.get("b").unwrap();
+    let func_b = match func_b {
+      FuncInfo::User(func_b) => func_b,
+      _ => panic!("b is not user function"),
+    };
+    let fn_b_ptr = self.module.get_finalized_function(func_b.func_id);
     let fn_b = unsafe { mem::transmute::<*const u8, fn() -> u32>(fn_b_ptr) };
 
     let res = fn_b();
@@ -196,15 +275,16 @@ impl Engine {
   }
 }
 
-fn prepare_builtin() -> Vec<BuiltinSig> {
-  let mut dec_list: Vec<BuiltinSig> = Vec::new();
+fn prepare_builtin() -> Vec<FuncDeclaration> {
+  let mut dec_list: Vec<FuncDeclaration> = Vec::new();
 
-  dec_list.push(BuiltinSig {
+  let dec = BuiltinDeclaration {
     name: String::from("hello"),
     params: vec![],
     ret: None,
     fn_ptr: builtin::hello as *const u8,
-  });
+  };
+  dec_list.push(FuncDeclaration::Builtin(dec));
 
   dec_list
 }
