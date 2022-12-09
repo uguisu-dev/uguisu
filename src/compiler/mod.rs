@@ -1,3 +1,4 @@
-mod ir;
+mod types;
+mod backend;
 mod builtin;
-pub mod jit;
+pub mod frontend;
