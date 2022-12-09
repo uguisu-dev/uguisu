@@ -11,36 +11,21 @@ use super::backend;
 use super::builtin;
 use super::types::ValueType;
 
-struct UserFuncDeclaration {
+struct FuncDeclaration {
   name: String,
   params: Vec<ValueType>,
   ret: Option<ValueType>,
+  is_external: bool,
 }
 
-struct BuiltinDeclaration {
+struct BuiltinSymbol {
   name: String,
-  params: Vec<ValueType>,
-  ret: Option<ValueType>,
   fn_ptr: *const u8,
 }
 
-enum FuncDeclaration {
-  User(UserFuncDeclaration),
-  Builtin(BuiltinDeclaration),
-}
-
-struct UserFuncInfo {
+struct FuncInfo {
   func_id: FuncId,
   signature: Signature,
-}
-
-struct BuiltinFuncInfo {
-  func_id: FuncId,
-}
-
-enum FuncInfo {
-  User(UserFuncInfo),
-  Builtin(BuiltinFuncInfo),
 }
 
 pub struct Engine {
@@ -58,21 +43,19 @@ impl Engine {
 
     let mut declarations: Vec<FuncDeclaration> = Vec::new();
 
-    let dec = BuiltinDeclaration {
-      name: String::from("hello"),
-      params: vec![],
-      ret: None,
-      fn_ptr: builtin::hello as *const u8,
-    };
-    declarations.push(FuncDeclaration::Builtin(dec));
+    let mut symbols: Vec<BuiltinSymbol> = Vec::new();
 
-    for dec in declarations.iter() {
-      match dec {
-        FuncDeclaration::Builtin(builtin) => {
-          backend::add_builtin_fn(&mut module_builder, &builtin.name, builtin.fn_ptr);
-        },
-        _ => {},
-      };
+    // [builtin] fn hello()
+    symbols.push(BuiltinSymbol {
+      name: String::from("hello"),
+      fn_ptr: builtin::hello as *const u8,
+    });
+
+    // NOTE: needs to declare the function signature for builtin functions using Backend::declare_fn()
+
+    // register builtin symbols.
+    for symbol in symbols.iter() {
+      backend::add_symbol_manually(&mut module_builder, &symbol.name, symbol.fn_ptr);
     }
 
     let (module, ctx) = backend::make_module(module_builder);
@@ -91,49 +74,58 @@ impl Engine {
 
   pub fn compile(&mut self) {
     {
+      // builtin fn hello()
+      let params: Vec<ValueType> = Vec::new();
+      let ret = None;
+      let dec = FuncDeclaration {
+        name: String::from("hello"),
+        params,
+        ret,
+        is_external: true,
+      };
+      self.declarations.push(dec);
+    }
+
+    {
       // fn a(arg1: i32) -> i32
       let mut params: Vec<ValueType> = Vec::new();
       params.push(ValueType::Number);
       let ret = Some(ValueType::Number);
-      let dec = UserFuncDeclaration {
+      let dec = FuncDeclaration {
         name: String::from("a"),
         params,
         ret,
+        is_external: false,
       };
-      self.declarations.push(FuncDeclaration::User(dec));
+      self.declarations.push(dec);
     }
 
     {
       // fn b() -> i32
       let params: Vec<ValueType> = Vec::new();
       let ret = Some(ValueType::Number);
-      let dec = UserFuncDeclaration {
+      let dec = FuncDeclaration {
         name: String::from("b"),
         params,
         ret,
+        is_external: false,
       };
-      self.declarations.push(FuncDeclaration::User(dec));
+      self.declarations.push(dec);
     }
 
     // declare functions
     for fn_dec in &mut self.declarations {
-      match fn_dec {
-        FuncDeclaration::Builtin(dec) => {
-          let (func_id, _) = backend::declare_fn(&mut self.module, &dec.name, &dec.params, &dec.ret, Linkage::Import);
-          let info = BuiltinFuncInfo {
-            func_id,
-          };
-          self.func_table.insert(dec.name.clone(), FuncInfo::Builtin(info));
-        },
-        FuncDeclaration::User(dec) => {
-          let (func_id, signature) = backend::declare_fn(&mut self.module, &dec.name, &dec.params, &dec.ret, Linkage::Local);
-          let info = UserFuncInfo {
-            func_id,
-            signature,
-          };
-          self.func_table.insert(dec.name.clone(), FuncInfo::User(info));
-        },
+      let linkage = if fn_dec.is_external {
+        Linkage::Import
+      } else {
+        Linkage::Local
       };
+      let (func_id, signature) = backend::declare_fn(&mut self.module, &fn_dec.name, &fn_dec.params, &fn_dec.ret, linkage);
+      let info = FuncInfo {
+        func_id,
+        signature,
+      };
+      self.func_table.insert(fn_dec.name.clone(), info);
     }
 
     {
@@ -147,11 +139,6 @@ impl Engine {
       */
       //self.backend_module.ctx.set_disasm(true);
       let func_a = self.func_table.get("a").unwrap();
-      let func_a = match func_a {
-        FuncInfo::User(func_a) => func_a,
-        _ => panic!("a is not user function"),
-      };
-      
       self.ctx.func.signature = func_a.signature.clone();
       self.ctx.func.name = ir::UserFuncName::user(0, func_a.func_id.as_u32());
 
@@ -188,10 +175,6 @@ impl Engine {
       */
       //self.backend_module.ctx.set_disasm(true);
       let func_b = self.func_table.get("b").unwrap();
-      let func_b = match func_b {
-        FuncInfo::User(func_b) => func_b,
-        _ => panic!("b is not user function"),
-      };
       self.ctx.func.signature = func_b.signature.clone();
       self.ctx.func.name = ir::UserFuncName::user(0, func_b.func_id.as_u32());
 
@@ -201,10 +184,6 @@ impl Engine {
       b.switch_to_block(block);
       // call b
       let func_a = self.func_table.get("a").unwrap().clone();
-      let func_a = match func_a {
-        FuncInfo::User(func_a) => func_a,
-        _ => panic!("a is not user function"),
-      };
       let func_ref = self.module.declare_func_in_func(func_a.func_id, &mut b.func);
       let arg = b.ins().iconst(types::I32, 5);
       let call = b.ins().call(func_ref, &[arg]);
@@ -215,10 +194,6 @@ impl Engine {
       };
       // call hello
       let func_hello = self.func_table.get("hello").unwrap().clone();
-      let func_hello = match func_hello {
-        FuncInfo::Builtin(func_hello) => func_hello,
-        _ => panic!("hello is not builtin function"),
-      };
       let func_ref = self.module.declare_func_in_func(func_hello.func_id, &mut b.func);
       let call = b.ins().call(func_ref, &[]);
       let results = b.inst_results(call);
@@ -239,10 +214,6 @@ impl Engine {
 
     // get generated function
     let func_b = self.func_table.get("b").unwrap();
-    let func_b = match func_b {
-      FuncInfo::User(func_b) => func_b,
-      _ => panic!("b is not user function"),
-    };
     let fn_b = backend::get_function(&self.module, func_b.func_id);
     let fn_b = unsafe { mem::transmute::<*const u8, fn() -> u32>(fn_b) };
 

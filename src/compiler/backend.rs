@@ -48,8 +48,7 @@ pub fn make_builder_ctx() -> FunctionBuilderContext {
   FunctionBuilderContext::new()
 }
 
-/// NOTE: needs to declare the function signature by BackendModule.declare_function()
-pub fn add_builtin_fn(module_builder: &mut JITBuilder, name: &str, fn_ptr: *const u8) {
+pub fn add_symbol_manually(module_builder: &mut JITBuilder, name: &str, fn_ptr: *const u8) {
   module_builder.symbol(name, fn_ptr);
 }
 
