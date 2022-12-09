@@ -1,12 +1,12 @@
 言語仕様を考える
 
 ## 変数宣言
-変数
+変数の宣言と代入
 ```
 let a = 123;
 ```
 
-再代入不可な変数
+再代入不可な変数の宣言と代入
 ```
 const b = 123;
 ```
@@ -28,6 +28,14 @@ fn add(a: number, b: number): number {
 
 ```
 external fn add(a: number, b: number): number;
+```
+
+### プロジェクトのエントリポイント
+プログラムが実行されるとmain関数が最初に呼び出される。
+```
+fn main(): void {
+  print("hello");
+}
 ```
 
 ## モジュール
@@ -64,4 +72,8 @@ fn main(): void {
 他のモジュールからインポートするには以下のように書く。
 ```
 import Hoge::Piyo::ExampleModule;
+
+fn main(): void {
+  ExampleModule.hoge();
+}
 ```
