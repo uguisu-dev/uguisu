@@ -1,6 +1,39 @@
 ## PEG
 ```peg
 
+// Global
+
+Global
+	= ImportStatement
+	/ FuncDeclaration
+
+ImportStatement
+	= "import" ModulePath ";"
+
+ModulePath
+	= IDENTIFIER ("::" IDENTIFIER)*
+
+FuncDeclaration
+	= FuncAttr* "fn" IDENTIFIER "(" IDENTIFIER ":" IDENTIFIER ("," IDENTIFIER ":" IDENTIFIER)* ")" ":" IDENTIFIER ("{" Statement* "}" / ";")
+
+FuncAttr
+	= "export"
+	/ "external"
+
+// Statement
+
+Statement
+	= VarDeclaration
+	/ ReturnStatement
+
+VarDeclaration
+	= ("let" / "const") IDENTIFIER ":" IDENTIFIER "=" Expr ";"
+
+ReturnStatement
+	= "return" Expr? ";"
+
+// Expr
+
 Expr
 	= Expr2 (("+" / "-") Expr2)+
 	/ Expr2
@@ -18,19 +51,5 @@ Expr3
 
 Call
 	= IDENTIFIER "(" Expr ("," Expr)* ")"
-
-Statement
-	= VarDeclaration
-	/ FuncDeclaration
-
-VarDeclaration
-	= ("let" / "const") IDENTIFIER ":" IDENTIFIER "=" Expr ";"
-
-FuncAttr
-	= "export"
-	/ "external"
-
-FuncDeclaration
-	= FuncAttr* "fn" IDENTIFIER "(" IDENTIFIER ":" IDENTIFIER ("," IDENTIFIER ":" IDENTIFIER)* ")" ":" IDENTIFIER ("{" Statement* "}" / ";")
 
 ```
