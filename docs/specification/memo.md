@@ -11,15 +11,34 @@ let a = 123;
 const b = 123;
 ```
 
+### リテラル値
+数値リテラル
+```
+123
+```
+
+文字列リテラル
+```
+"abc"
+```
+
+ブール値
+```
+true
+false
+```
+
 ## 関数
-### 関数の定義
-関数は以下のように定義する。
+### 関数の宣言および定義
+関数は以下のように宣言および定義する。
 ```
 fn add(a: number, b: number): number {
   return a + b;
 }
 ```
 推論されないため、引数や戻り値の型は省略できない。
+
+関数はローカル空間には定義できない。
 
 ### 外部関数の宣言
 外部関数としてコンパイラに指示するには、externalを指定する。
@@ -36,6 +55,13 @@ external fn add(a: number, b: number): number;
 ```
 fn main(): void {
   print("hello");
+}
+```
+
+## 四則演算
+```
+fn calc(a: number, b: number, c: number): number {
+  return (a + b) * c / 10;
 }
 ```
 

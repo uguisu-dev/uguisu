@@ -43,13 +43,18 @@ Expr2
 	/ Expr3
 
 Expr3
-	= NUMBER
+	= Bool
+	/ NUMBER_LITERAL
 	/ STRING_LITERAL
 	/ Call
 	/ IDENTIFIER
 	/ "(" Expr ")"
 
+Bool
+	= "true"
+	/ "false"
+
 Call
-	= IDENTIFIER "(" Expr ("," Expr)* ")"
+	= IDENTIFIER ("." IDENTIFIER)* "(" Expr ("," Expr)* ")"
 
 ```
