@@ -3,9 +3,14 @@ Uguisu lang
 
 Not ready to use yet.
 
-## Run the experiment code
+## Run the JIT experiment
 ```
 cargo run
+```
+
+## Test
+```
+cargo test
 ```
 
 ## License
