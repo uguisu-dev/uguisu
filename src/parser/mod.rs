@@ -131,6 +131,10 @@ mod test {
     } else {
       panic!("incorrect result 3");
     }
+
+    if let Ok(_) = uguisu_parser::expr("$") {
+      panic!("incorrect result 4");
+    }
   }
 
   #[test]
