@@ -4,8 +4,11 @@ pub mod node;
 
 peg::parser! {
   grammar uguisu_parser() for str {
+    pub rule root() -> Vec<Node>
+      = e:(let_statement() ** (sp()*)) { e }
+
     pub rule let_statement() -> Node
-      = "let" sp()+ n:idenfitier() sp()* "=" sp()* e:expr() { Node::declaration_with_definition(n, vec![DeclarationAttr::Let], e) }
+      = "let" sp()+ n:idenfitier() sp()* "=" sp()* e:expr() ";" { Node::declaration_with_definition(n, vec![DeclarationAttr::Let], e) }
 
     pub rule expr() -> Node = precedence!{
       left:(@) sp()* "+" sp()* right:@ { Node::add(left, right) }
@@ -48,8 +51,8 @@ impl ParserError {
   }
 }
 
-pub fn parse(input: &str) -> Result<Node, ParserError> {
-  match uguisu_parser::expr(input) {
+pub fn parse(input: &str) -> Result<Vec<Node>, ParserError> {
+  match uguisu_parser::root(input) {
     Ok(n) => Ok(n),
     Err(_) => Err(ParserError::new("parse failed")),
   } 

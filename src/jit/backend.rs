@@ -60,9 +60,9 @@ pub fn declare_fn(module: &mut JITModule, name: &str, params: &Vec<ValueType>, r
       ValueType::Number => {
         signature.params.push(ir::AbiParam::new(types::I32));
       },
-      ValueType::Float => {
-        signature.params.push(ir::AbiParam::new(types::F64));
-      },
+      // ValueType::Float => {
+      //   signature.params.push(ir::AbiParam::new(types::F64));
+      // },
     }
   }
   match ret {
@@ -70,9 +70,9 @@ pub fn declare_fn(module: &mut JITModule, name: &str, params: &Vec<ValueType>, r
     Some(ValueType::Number) => {
       signature.returns.push(ir::AbiParam::new(types::I32));
     },
-    Some(ValueType::Float) => {
-      signature.returns.push(ir::AbiParam::new(types::F64));
-    },
+    // Some(ValueType::Float) => {
+    //   signature.returns.push(ir::AbiParam::new(types::F64));
+    // },
   }
 
   // declare function

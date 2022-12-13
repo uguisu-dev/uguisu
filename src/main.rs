@@ -1,9 +1,7 @@
-use crate::compiler::frontend;
-
 mod compiler;
+mod jit;
 mod parser;
 
 fn main() {
-  let mut jit_engine = frontend::Engine::new();
-  jit_engine.compile();
+  compiler::run("let abc = 1 + 1;");
 }
