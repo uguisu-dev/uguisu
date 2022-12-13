@@ -1,101 +1,80 @@
-use super::Token;
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Node {
-  Number(NumberNode),
-  Call(CallNode),
-  Func(FuncNode),
-  VarDeclaration(VarDeclarationNode),
-  FuncDeclaration(FuncDeclarationNode),
-  BinaryExpr(BinaryExprNode),
+  Number(u32),
+  BinaryOp(BinaryOpNode),
+  Identifier(String),
+  Declaration(DeclarationNode),
+  //Bool(bool),
+  //Func(FuncNode),
+  //Call(CallNode),
 }
 
-// Number
+impl Node {
+  pub fn number(value: u32) -> Node {
+    Node::Number(value)
+  }
 
-#[derive(Debug)]
-pub struct NumberNode {
-  value_int: u32,
+  pub fn add(left: Node, right: Node) -> Node {
+    Node::BinaryOp(BinaryOpNode {
+      op: OpKind::Add,
+      left: Box::new(left),
+      right: Box::new(right),
+    })
+  }
+
+  pub fn sub(left: Node, right: Node) -> Node {
+    Node::BinaryOp(BinaryOpNode {
+      op: OpKind::Sub,
+      left: Box::new(left),
+      right: Box::new(right),
+    })
+  }
+
+  pub fn mult(left: Node, right: Node) -> Node {
+    Node::BinaryOp(BinaryOpNode {
+      op: OpKind::Mult,
+      left: Box::new(left),
+      right: Box::new(right),
+    })
+  }
+
+  pub fn div(left: Node, right: Node) -> Node {
+    Node::BinaryOp(BinaryOpNode {
+      op: OpKind::Div,
+      left: Box::new(left),
+      right: Box::new(right),
+    })
+  }
+
+  pub fn identifier(name: &str) -> Node {
+    Node::Identifier(name.to_string())
+  }
+
+  pub fn declaration_with_definition(identifier: Node, attributes: Vec<DeclarationAttr>, definition: Node) -> Node {
+    Node::Declaration(DeclarationNode {
+      identifier: Box::new(identifier),
+      attributes,
+      definition: Some(Box::new(definition)),
+    })
+  }
+
+  // pub fn call(target_name: String, args: Vec<Node>) -> Node {
+  //   Node::Call(CallNode { target_name, args })
+  // }
+
+  // pub fn func(children: Vec<Node>) -> Node {
+  //   Node::Func(FuncNode { children })
+  // }
 }
 
-pub fn number_node(value: u32) -> Node {
-  Node::Number(NumberNode { value_int: value })
-}
-
-// Call
-
-#[derive(Debug)]
-pub struct CallNode {
-  target_name: String,
-  args: Vec<Node>,
-}
-
-pub fn call_node(target_name: String, args: Vec<Node>) -> Node {
-  Node::Call(CallNode { target_name, args })
-}
-
-// Func
-
-#[derive(Debug)]
-pub struct FuncNode {
-  // TODO: param types
-  // TODO: return type
-  children: Vec<Node>,
-}
-
-pub fn func_node(children: Vec<Node>) -> Node {
-  Node::Func(FuncNode { children })
-}
-
-// VarDeclaration
-
-#[derive(Debug)]
-pub struct VarDeclarationNode {
-  name: String,
-  attributes: Vec<VarDeclarationAttr>,
-  definition: Option<Box<Node>>,
-}
-
-#[derive(Debug)]
-pub enum VarDeclarationAttr {
-  Const,
-  Let,
-}
-
-pub fn var_declaration_node(name: String, attributes: Vec<VarDeclarationAttr>, definition: Option<Box<Node>>) -> Node {
-  Node::VarDeclaration(VarDeclarationNode { name, attributes, definition })
-}
-
-// FuncDeclaration
-
-#[derive(Debug)]
-pub struct FuncDeclarationNode {
-  name: String,
-  // TODO: param types
-  // TODO: return type
-  attributes: Vec<FuncDeclarationAttr>,
-  definition: Option<Vec<Node>>,
-}
-
-#[derive(Debug)]
-pub enum FuncDeclarationAttr {
-  Export,
-  External,
-}
-
-pub fn declare_func_node(name: String, attributes: Vec<FuncDeclarationAttr>, definition: Option<Vec<Node>>) -> Node {
-  Node::FuncDeclaration(FuncDeclarationNode { name, attributes, definition })
-}
-
-// Op
-
-#[derive(Debug)]
-pub struct BinaryExprNode {
+#[derive(Debug, PartialEq)]
+pub struct BinaryOpNode {
   op: OpKind,
   left: Box<Node>,
   right: Box<Node>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum OpKind {
   Add,
   Sub,
@@ -103,6 +82,30 @@ pub enum OpKind {
   Div,
 }
 
-pub fn binary_expr_node(op: OpKind, left: Box<Node>, right: Box<Node>) -> Node {
-  Node::BinaryExpr(BinaryExprNode { op, left, right })
+#[derive(Debug, PartialEq)]
+pub struct DeclarationNode {
+  identifier: Box<Node>,
+  attributes: Vec<DeclarationAttr>,
+  definition: Option<Box<Node>>,
 }
+
+#[derive(Debug, PartialEq)]
+pub enum DeclarationAttr {
+  Const,
+  Let,
+  //Export,
+  //External,
+}
+
+// #[derive(Debug, PartialEq)]
+// pub struct CallNode {
+//   target_name: String,
+//   args: Vec<Node>,
+// }
+
+// #[derive(Debug, PartialEq)]
+// pub struct FuncNode {
+//   // TODO: param types
+//   // TODO: return type
+//   children: Vec<Node>,
+// }
