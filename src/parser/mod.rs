@@ -5,17 +5,24 @@ pub mod node;
 peg::parser! {
   grammar uguisu_parser() for str {
     pub rule root() -> Vec<Node>
-      = e:(let_statement() ** (sp()*)) { e }
+      = sp()* s:statement() ** (sp()*) sp()* { s }
 
-    pub rule let_statement() -> Node
-      = "let" sp()+ n:idenfitier() sp()* "=" sp()* e:expr() ";" { Node::declaration_with_definition(n, vec![DeclarationAttr::Let], e) }
+    pub rule statement() -> Node
+      = var_declaration()
 
-    pub rule expr() -> Node = precedence!{
+    pub rule var_declaration() -> Node
+      = kind:("let" {DeclarationAttr::Let} / "const" {DeclarationAttr::Const}) sp()+ n:idenfitier() sp()* "=" sp()* e:expr() ";"
+    { Node::declaration_with_definition(n, vec![kind], e) }
+
+    pub rule expr() -> Node = precedence! {
       left:(@) sp()* "+" sp()* right:@ { Node::add(left, right) }
       left:(@) sp()* "-" sp()* right:@ { Node::sub(left, right) }
       --
       left:(@) sp()* "*" sp()* right:@ { Node::mult(left, right) }
       left:(@) sp()* "/" sp()* right:@ { Node::div(left, right) }
+      --
+      "+" sp()* right:(@) { right }
+      "-" sp()* right:(@) { Node::mult(Node::number(-1), right) }
       --
       n:number() { n }
       id:idenfitier() { id }
@@ -34,7 +41,7 @@ peg::parser! {
       / !['\u{00}'..='\u{7F}'] c:[_] { c }
 
     rule sp() -> char
-      = c:[' '|'\t'] { c }
+      = c:[' '|'\t'|'\r'|'\n'] { c }
   }
 }
 
@@ -55,7 +62,7 @@ pub fn parse(input: &str) -> Result<Vec<Node>, ParserError> {
   match uguisu_parser::root(input) {
     Ok(n) => Ok(n),
     Err(_) => Err(ParserError::new("parse failed")),
-  } 
+  }
 }
 
 #[cfg(test)]

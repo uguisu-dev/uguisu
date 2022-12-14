@@ -1,6 +1,6 @@
 #[derive(Debug, PartialEq)]
 pub enum Node {
-  Number(u32),
+  Number(i32),
   BinaryOp(BinaryOpNode),
   Identifier(String),
   Declaration(DeclarationNode),
@@ -10,7 +10,7 @@ pub enum Node {
 }
 
 impl Node {
-  pub fn number(value: u32) -> Node {
+  pub fn number(value: i32) -> Node {
     Node::Number(value)
   }
 
