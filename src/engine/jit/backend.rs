@@ -10,7 +10,7 @@ use cranelift_frontend::FunctionBuilderContext;
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_native;
 
-use super::types::ValueType;
+use crate::engine::jit::ValueType;
 
 /*
  * NOTE:

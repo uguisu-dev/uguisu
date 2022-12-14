@@ -1,9 +1,7 @@
-mod compiler;
-mod jit;
-mod parser;
+mod engine;
 
 fn main() {
-  compiler::run("
+  engine::run("
   fn main() {
     const abc = 10 + 2;
     return abc;

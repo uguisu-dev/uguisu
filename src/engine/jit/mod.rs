@@ -6,10 +6,16 @@ use cranelift_codegen::ir::types;
 use cranelift_jit::JITModule;
 use cranelift_module::{Linkage, FuncId, Module};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
-
-use super::backend;
 use super::builtin;
-use super::types::ValueType;
+
+mod backend;
+
+#[derive(Debug, Clone, Copy)]
+pub enum ValueType {
+  Number,
+  //Float,
+  //String,
+}
 
 struct FuncDeclaration {
   name: String,
@@ -28,7 +34,7 @@ struct FuncInfo {
   signature: Signature,
 }
 
-pub struct Engine {
+pub struct JITCompiler {
   module: JITModule,
   ctx: Context,
   builder_ctx: FunctionBuilderContext,
@@ -36,7 +42,7 @@ pub struct Engine {
   func_table: HashMap<String, FuncInfo>, // <function name, func info>
 }
 
-impl Engine {
+impl JITCompiler {
   pub fn new() -> Self {
     let isa = backend::make_isa();
     let mut module_builder = backend::make_module_builder(isa);

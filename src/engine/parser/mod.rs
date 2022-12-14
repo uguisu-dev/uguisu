@@ -1,6 +1,6 @@
 use self::node::*;
 
-pub mod node;
+mod node;
 
 peg::parser! {
   grammar uguisu_parser() for str {
@@ -77,7 +77,8 @@ pub fn parse(input: &str) -> Result<Vec<Node>, ParserError> {
 
 #[cfg(test)]
 mod test {
-  use crate::parser::{uguisu_parser, Node};
+    use crate::engine::parser::node::Node;
+    use super::uguisu_parser;
 
   #[test]
   fn test_digit() {
