@@ -6,6 +6,7 @@ fn main() {
   compiler::run("
   fn main() {
     const abc = 10 + 2;
+    return abc;
   }
   ");
 }

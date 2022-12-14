@@ -51,7 +51,7 @@ peg::parser! {
       / !['\u{00}'..='\u{7F}'] c:[_] { c }
 
     rule sp() -> char
-      = c:[' '|'\t'|'\r'|'\n'] { c }
+      = quiet! { c:[' '|'\t'|'\r'|'\n'] { c } }
   }
 }
 
@@ -71,7 +71,7 @@ impl ParserError {
 pub fn parse(input: &str) -> Result<Vec<Node>, ParserError> {
   match uguisu_parser::root(input) {
     Ok(n) => Ok(n),
-    Err(_) => Err(ParserError::new("parse failed")),
+    Err(e) => Err(ParserError::new(format!("expects {}. ({})", e.expected, e.location).as_str())),
   }
 }
 
