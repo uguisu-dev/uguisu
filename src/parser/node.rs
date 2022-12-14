@@ -4,8 +4,9 @@ pub enum Node {
   BinaryOp(BinaryOpNode),
   Identifier(String),
   Declaration(DeclarationNode),
+  Function(FunctionNode),
+  Return(Option<Box<Node>>),
   //Bool(bool),
-  //Func(FuncNode),
   //Call(CallNode),
 }
 
@@ -50,20 +51,30 @@ impl Node {
     Node::Identifier(name.to_string())
   }
 
-  pub fn declaration_with_definition(identifier: Node, attributes: Vec<DeclarationAttr>, definition: Node) -> Node {
+  pub fn declaration(identifier: Node, attributes: Vec<DeclarationAttr>, expr: Node) -> Node {
     Node::Declaration(DeclarationNode {
       identifier: Box::new(identifier),
       attributes,
-      definition: Some(Box::new(definition)),
+      definition: Some(Box::new(expr)),
     })
+  }
+
+  pub fn function(children: Vec<Node>) -> Node {
+    Node::Function(FunctionNode { children })
+  }
+
+  pub fn return_func(value: Option<Node>) -> Node {
+    Node::Return(
+      if let Some(v) = value {
+        Some(Box::new(v))
+      } else {
+        None
+      }
+    )
   }
 
   // pub fn call(target_name: String, args: Vec<Node>) -> Node {
   //   Node::Call(CallNode { target_name, args })
-  // }
-
-  // pub fn func(children: Vec<Node>) -> Node {
-  //   Node::Func(FuncNode { children })
   // }
 }
 
@@ -97,15 +108,16 @@ pub enum DeclarationAttr {
   //External,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct FunctionNode {
+  // TODO: param types
+  // TODO: return type
+  children: Vec<Node>,
+}
+
 // #[derive(Debug, PartialEq)]
 // pub struct CallNode {
 //   target_name: String,
 //   args: Vec<Node>,
 // }
 
-// #[derive(Debug, PartialEq)]
-// pub struct FuncNode {
-//   // TODO: param types
-//   // TODO: return type
-//   children: Vec<Node>,
-// }
