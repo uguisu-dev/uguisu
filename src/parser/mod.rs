@@ -9,10 +9,15 @@ peg::parser! {
 
     pub rule statement() -> Node
       = var_declaration()
+      / fn_declaration()
 
     pub rule var_declaration() -> Node
-      = kind:("let" {DeclarationAttr::Let} / "const" {DeclarationAttr::Const}) sp()+ n:idenfitier() sp()* "=" sp()* e:expr() ";"
-    { Node::declaration_with_definition(n, vec![kind], e) }
+      = kind:("let" {DeclarationAttr::Let} / "const" {DeclarationAttr::Const}) sp()+ id:idenfitier() sp()* "=" sp()* def:expr() ";"
+    { Node::declaration_with_definition(id, vec![kind], def) }
+
+    pub rule fn_declaration() -> Node
+      = "fn" sp()+ id:idenfitier() sp()* "(" sp()* ")" sp()* "{" sp()* s:statement() sp()* "}"
+    { Node::declaration_with_definition(id, vec![], s) }
 
     pub rule expr() -> Node = precedence! {
       left:(@) sp()* "+" sp()* right:@ { Node::add(left, right) }

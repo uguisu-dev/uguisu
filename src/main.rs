@@ -3,5 +3,9 @@ mod jit;
 mod parser;
 
 fn main() {
-  compiler::run("let abc = 1 + 1;");
+  compiler::run("
+  fn main() {
+    const abc = 10 + 2;
+  }
+  ");
 }
