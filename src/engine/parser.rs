@@ -1,6 +1,4 @@
-use self::node::*;
-
-mod node;
+use super::ast::*;
 
 peg::parser! {
   grammar uguisu_parser() for str {
@@ -8,29 +6,27 @@ peg::parser! {
       = sp()* s:statement() ** (sp()*) sp()* { s }
 
     pub rule statement() -> Node
-      = var_declaration()
-      / fn_declaration()
-      / return_func()
-
-    pub rule var_declaration() -> Node
-      = kind:("let" {DeclarationAttr::Let} / "const" {DeclarationAttr::Const}) sp()+ id:idenfitier() sp()* "=" sp()* def:expr() ";"
-    { Node::declaration(id, vec![kind], def) }
-
-    pub rule fn_declaration() -> Node
-      = "fn" sp()+ id:idenfitier() sp()* "(" sp()* ")" sp()* "{" sp()* children:statement() ** (sp()*) sp()* "}"
-    { Node::declaration(id, vec![], Node::function(children)) }
-
-    pub rule return_func() -> Node
-      = "return" sp()* e2:(e1:expr() sp()* { e1 })? ";"
-    { Node::return_func(e2) }
+      = declaration_var()
+      / declaration_func()
+      / return_statement()
 
     pub rule expr() -> Node = precedence! {
+      // left:(@) sp()* "==" sp()* right:@ { Node::eq(left, right) }
+      // left:(@) sp()* "!=" sp()* right:@ { Node::ne(left, right) }
+      // --
+      // left:(@) sp()* "<" sp()* right:@ { Node::lt(left, right) }
+      // left:(@) sp()* "<=" sp()* right:@ { Node::lte(left, right) }
+      // left:(@) sp()* ">" sp()* right:@ { Node::gt(left, right) }
+      // left:(@) sp()* ">=" sp()* right:@ { Node::gte(left, right) }
+      // --
       left:(@) sp()* "+" sp()* right:@ { Node::add(left, right) }
       left:(@) sp()* "-" sp()* right:@ { Node::sub(left, right) }
       --
       left:(@) sp()* "*" sp()* right:@ { Node::mult(left, right) }
       left:(@) sp()* "/" sp()* right:@ { Node::div(left, right) }
+      //left:(@) sp()* "%" sp()* right:@ { Node::mod(left, right) }
       --
+      // "!" sp()* right:(@) { right }
       "+" sp()* right:(@) { right }
       "-" sp()* right:(@) { Node::mult(Node::number(-1), right) }
       --
@@ -39,12 +35,23 @@ peg::parser! {
       "(" sp()* e:expr() sp()* ")" { e }
     }
 
+    rule declaration_var() -> Node
+      = kind:("let" {DeclarationAttr::Let} / "const" {DeclarationAttr::Const}) sp()+ id:idenfitier() sp()* "=" sp()* def:expr() ";"
+    { Node::declaration(id, vec![kind], def) }
+
+    rule declaration_func() -> Node
+      = "fn" sp()+ id:idenfitier() sp()* "(" sp()* ")" sp()* "{" sp()* children:statement() ** (sp()*) sp()* "}"
+    { Node::declaration(id, vec![], Node::function(children)) }
+
+    rule return_statement() -> Node
+      = "return" sp()* e2:(e1:expr() sp()* { e1 })? ";" { Node::return_func(e2) }
+
     rule number() -> Node
       = n:$(['1'..='9'] ['0'..='9']+) {? n.parse().or(Err("u32")).and_then(|n| Ok(Node::number(n))) }
       / n:$(['0'..='9']) {? n.parse().or(Err("u32")).and_then(|n| Ok(Node::number(n))) }
 
     rule idenfitier() -> Node
-      = s:$(!['0'..='9'] identifier_char() identifier_char()*) { Node::identifier(s) }
+      = !['0'..='9'] s:$(identifier_char()+) { Node::identifier(s) }
 
     rule identifier_char() -> char
       = &['\u{00}'..='\u{7F}'] c:['A'..='Z'|'a'..='z'|'0'..='9'|'_'] { c }
@@ -55,7 +62,7 @@ peg::parser! {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ParserError {
   pub message: String,
 }
@@ -77,8 +84,8 @@ pub fn parse(input: &str) -> Result<Vec<Node>, ParserError> {
 
 #[cfg(test)]
 mod test {
-    use crate::engine::parser::node::Node;
-    use super::uguisu_parser;
+  use crate::engine::ast::Node;
+  use super::uguisu_parser;
 
   #[test]
   fn test_digit() {
