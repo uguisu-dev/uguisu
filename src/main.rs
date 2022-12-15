@@ -1,12 +1,12 @@
 mod engine;
 
 fn main() {
-  engine::run("
-  external fn hello();
+    engine::run("
+    external fn hello();
 
-  fn main() {
-    hello();
-    return;
-  }
-  ");
+    fn main() {
+        hello();
+        return;
+    }
+    ");
 }
