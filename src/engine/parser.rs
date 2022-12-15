@@ -45,7 +45,9 @@ peg::parser! {
       = attrs:(a:dec_func_attrs() sp()+ {a})? "fn" sp()+ id:idenfitier() sp()* "(" sp()* ")" sp()* body:dec_func_body()
     {
       let attrs = if let Some(v) = attrs { v } else { vec![] };
-      Statement::func_declaration(id, body, attrs)
+      let params: Vec<String> = vec![]; // TODO
+      let ret = None; // TODO
+      Statement::func_declaration(id, params, ret, body, attrs)
     }
 
     rule dec_func_attrs() -> Vec<FuncAttribute>

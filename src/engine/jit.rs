@@ -18,32 +18,46 @@ use super::builtin;
  * Functions to be registered must be declared as "Linkage::Import".
 */
 
-#[derive(Debug, Clone, Copy)]
-pub enum ValueType {
+#[derive(Debug)]
+enum ValueType {
   Number,
   //Float,
   //String,
 }
 
-pub struct FuncSignature {
-  name: String,
-  //params: Vec<ValueType>,
-  //ret: Option<ValueType>,
-  is_external: bool,
+#[derive(Debug)]
+struct ParamSig {
+  pub name: String,
+  pub param_type: ValueType,
+}
+
+#[derive(Debug)]
+enum ReturnValueType {
+  None,
+  Value(ValueType),
+}
+
+#[derive(Debug)]
+struct FuncSignature {
+  pub name: String,
+  pub params: Vec<ParamSig>,
+  pub ret: ReturnValueType,
+  pub is_external: bool,
 }
 
 impl FuncSignature {
-  pub fn new(name: &str, is_external: bool/*, params: Vec<ValueType>, ret: Option<ValueType>*/) -> Self {
+  pub fn new(name: &str, params: Vec<ParamSig>, ret: ReturnValueType, is_external: bool) -> Self {
     Self {
       name: name.to_string(),
-      //params,
-      //ret,
+      params,
+      ret,
       is_external,
     }
   }
 }
 
-enum ReturnValue {
+#[derive(Debug)]
+enum TranslatedValue {
   None,
   Value(ir::Value),
 }
@@ -115,7 +129,9 @@ impl JITCompiler {
       match statement {
         ast::Statement::FuncDeclaration(decl_stmt) => {
           let is_external = decl_stmt.attributes.contains(&ast::FuncAttribute::External);
-          let sig = FuncSignature::new(&decl_stmt.identifier, is_external/*, None, false*/);
+          let params = vec![]; // TODO: resolve from decl_stmt.params
+          let ret = ReturnValueType::None;// TODO: resolve from decl_stmt.ret
+          let sig = FuncSignature::new(&decl_stmt.identifier, params, ret, is_external); 
           self.declare_func(sig);
           // define body
           match &decl_stmt.body {
@@ -152,11 +168,11 @@ impl JITCompiler {
               if let Err(_) = self.module.define_function(info.func_id, &mut self.ctx) {
                 return Err(CompileError::new("failed to define a function."));
               }
+              println!("{:?}", self.ctx.func);
               self.module.clear_context(&mut self.ctx);
             },
             None => {},
           }
-
         },
         ast::Statement::Return(_) => { return Err(CompileError::new("return statement is unexpected")); },
         ast::Statement::Expression(_) => { return Err(CompileError::new("expression is unexpected")); },
@@ -184,8 +200,6 @@ impl JITCompiler {
     self.func_table.insert(name, info);
   }
 
-  // cast a pointer to a function.
-  // let func = unsafe { mem::transmute::<*const u8, fn()>(func_ptr) };
   pub fn get_func_ptr(&self, func_name: &str) -> Result<*const u8, CompileError> {
     if let Some(info) = self.func_table.get(func_name) {
       let func_ptr = self.module.get_finalized_function(info.func_id);
@@ -226,8 +240,8 @@ impl JITCompiler {
           Some(expr) => {
             let value = Self::translate_expr(&expr, b, module, func_table);
             let value = match value {
-              Ok(ReturnValue::Value(v)) => v,
-              Ok(ReturnValue::None) => { return Err(CompileError::new("value not found")); },
+              Ok(TranslatedValue::Value(v)) => v,
+              Ok(TranslatedValue::None) => { return Err(CompileError::new("value not found")); },
               Err(e) => { return Err(e); },
             };
             b.ins().return_(&[value]);
@@ -248,22 +262,22 @@ impl JITCompiler {
     Ok(())
   }
 
-  fn translate_expr(expr: &ast::Expression, b: &mut FunctionBuilder, module: &mut JITModule, func_table: &HashMap<String, FuncTableItem>) -> Result<ReturnValue, CompileError> {
+  fn translate_expr(expr: &ast::Expression, b: &mut FunctionBuilder, module: &mut JITModule, func_table: &HashMap<String, FuncTableItem>) -> Result<TranslatedValue, CompileError> {
     match expr {
       ast::Expression::Number(value) => {
-        Ok(ReturnValue::Value(b.ins().iconst(types::I32, i64::from(*value))))
+        Ok(TranslatedValue::Value(b.ins().iconst(types::I32, i64::from(*value))))
       },
       ast::Expression::BinaryOp(op) => {
         let left = Self::translate_expr(&op.left, b, module, func_table);
         let left = match left {
-          Ok(ReturnValue::Value(v)) => v,
-          Ok(ReturnValue::None) => { return Err(CompileError::new("value not found")); },
+          Ok(TranslatedValue::Value(v)) => v,
+          Ok(TranslatedValue::None) => { return Err(CompileError::new("value not found")); },
           Err(e) => { return Err(e); },
         };
         let right = Self::translate_expr(&op.right, b, module, func_table);
         let right = match right {
-          Ok(ReturnValue::Value(v)) => v,
-          Ok(ReturnValue::None) => { return Err(CompileError::new("value not found")); },
+          Ok(TranslatedValue::Value(v)) => v,
+          Ok(TranslatedValue::None) => { return Err(CompileError::new("value not found")); },
           Err(e) => { return Err(e); },
         };
         let value = match op.kind {
@@ -272,7 +286,7 @@ impl JITCompiler {
           BinaryOpKind::Mult => b.ins().imul(left, right),
           BinaryOpKind::Div => b.ins().udiv(left, right),
         };
-        Ok(ReturnValue::Value(value))
+        Ok(TranslatedValue::Value(value))
       },
       ast::Expression::Call(call_expr) => {
         // TODO: args
@@ -286,9 +300,9 @@ impl JITCompiler {
         let call = b.ins().call(func_ref, &vec![]);
         let results = b.inst_results(call);
         if results.len() > 0 {
-          Ok(ReturnValue::Value(results[0]))
+          Ok(TranslatedValue::Value(results[0]))
         } else {
-          Ok(ReturnValue::None)
+          Ok(TranslatedValue::None)
         }
       },
     }

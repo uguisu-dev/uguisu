@@ -7,9 +7,11 @@ pub enum Statement {
 }
 
 impl Statement {
-  pub fn func_declaration(identifier: &str, body: Option<Vec<Statement>>, attributes: Vec<FuncAttribute>) -> Statement {
+  pub fn func_declaration(identifier: &str, params: Vec<String>, ret: Option<String>, body: Option<Vec<Statement>>, attributes: Vec<FuncAttribute>) -> Statement {
     Statement::FuncDeclaration(FuncDeclaration {
       identifier: identifier.to_string(),
+      params,
+      ret,
       body,
       attributes,
     })
@@ -114,10 +116,10 @@ pub enum BinaryOpKind {
 #[derive(Debug, PartialEq)]
 pub struct FuncDeclaration {
   pub identifier: String,
-  pub attributes: Vec<FuncAttribute>,
-  // TODO: param types
-  // TODO: return type
+  pub params: Vec<String>,
+  pub ret: Option<String>,
   pub body: Option<Vec<Statement>>,
+  pub attributes: Vec<FuncAttribute>,
 }
 
 #[derive(Debug, PartialEq)]
