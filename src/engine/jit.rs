@@ -7,7 +7,7 @@ use cranelift_jit::{JITModule, JITBuilder};
 use cranelift_module::{Linkage, FuncId, Module, default_libcall_names};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use target_lexicon::Architecture;
-use super::ast::{self, BinaryOpKind};
+use super::ast::{self, BinaryOpKind, Statement, FuncDeclaration};
 use super::builtin;
 
 /*
@@ -102,6 +102,11 @@ impl JITCompiler {
       name: String::from("hello"),
       fn_ptr: builtin::hello as *const u8,
     });
+    // [builtin] fn print_num(value: number)
+    symbols.push(BuiltinSymbol {
+      name: String::from("print_num"),
+      fn_ptr: builtin::print_num as *const u8,
+    });
     // NOTE:
     // needs to declare the function signature for builtin functions using declare_func_internal
     // register builtin symbols.
@@ -133,43 +138,12 @@ impl JITCompiler {
           let ret = ReturnValueType::None;// TODO: resolve from decl_stmt.ret
           let sig = FuncSignature::new(&decl_stmt.identifier, params, ret, is_external); 
           self.declare_func(sig);
-          // define body
           match &decl_stmt.body {
             Some(body) => {
-              let info = match self.func_table.get(&decl_stmt.identifier) {
-                Some(info) => info,
-                None => { return Err(CompileError::new("unknown function")); },
-              };
-              self.ctx.func.signature = self.make_ir_sig(&info.sig);
-              self.ctx.func.name = ir::UserFuncName::user(0, info.func_id.as_u32());
-
-              let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
-              let block = b.create_block();
-
-              b.switch_to_block(block);
-              let mut iter = body.iter().enumerate();
-              loop {
-                let child = match iter.next() {
-                  Some((_, child)) => child,
-                  None => { break; },
-                };
-                match Self::translate_statement(child, &mut b, &mut self.module, &self.func_table) {
-                  Err(e) => { return Err(e); },
-                  _ => {},
-                }
+              match self.define_fn_body(decl_stmt, &body) {
+                Ok(_) => {},
+                Err(e) => { return Err(e); },
               }
-              // TODO
-              // There must be a return statement at the end of a function.
-              // We can omit the following line only if there is a node of return
-              // statement at the end of a function definition:
-              //b.ins().return_(&[]);
-              b.seal_all_blocks();
-              b.finalize();
-              if let Err(_) = self.module.define_function(info.func_id, &mut self.ctx) {
-                return Err(CompileError::new("failed to define a function."));
-              }
-              println!("{:?}", self.ctx.func);
-              self.module.clear_context(&mut self.ctx);
             },
             None => {},
           }
@@ -184,7 +158,45 @@ impl JITCompiler {
     Ok(())
   }
 
-  pub fn declare_func(&mut self, sig: FuncSignature) {
+  fn define_fn_body(&mut self, decl_stmt: &FuncDeclaration, body: &Vec<Statement>) -> Result<(), CompileError> {
+    let info = match self.func_table.get(&decl_stmt.identifier) {
+      Some(info) => info,
+      None => { return Err(CompileError::new("unknown function")); },
+    };
+    self.ctx.func.signature = self.make_ir_sig(&info.sig);
+    self.ctx.func.name = ir::UserFuncName::user(0, info.func_id.as_u32());
+
+    let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
+    let block = b.create_block();
+
+    b.switch_to_block(block);
+    let mut iter = body.iter().enumerate();
+    loop {
+      let child = match iter.next() {
+        Some((_, child)) => child,
+        None => { break; },
+      };
+      match Self::translate_statement(child, &mut b, &mut self.module, &self.func_table) {
+        Ok(_) => {},
+        Err(e) => { return Err(e); },
+      }
+    }
+    // TODO
+    // There must be a return statement at the end of a function.
+    // We can omit the following line only if there is a node of return
+    // statement at the end of a function definition:
+    //b.ins().return_(&[]);
+    b.seal_all_blocks();
+    b.finalize();
+    if let Err(_) = self.module.define_function(info.func_id, &mut self.ctx) {
+      return Err(CompileError::new("failed to define a function."));
+    }
+    println!("{:?}", self.ctx.func);
+    self.module.clear_context(&mut self.ctx);
+    Ok(())
+  }
+
+  fn declare_func(&mut self, sig: FuncSignature) {
     let ir_sig = self.make_ir_sig(&sig);
     let linkage = if sig.is_external {
       Linkage::Import

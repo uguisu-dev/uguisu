@@ -28,9 +28,20 @@ pub fn run(code: &str) {
       func();
     },
     Err(_) => {
-      println!("function 'main' not found");
+      println!("Runtime Error: function 'main' not found");
       return;
     },
   }
-  println!("terminated");
+}
+
+#[cfg(test)]
+mod test {
+  #[test]
+  fn test_empty_return() {
+    super::run("
+      fn main() {
+        return;
+      }
+    ");
+  }
 }
