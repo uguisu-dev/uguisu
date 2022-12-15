@@ -1,5 +1,5 @@
 use std::mem;
-use jit::{JITCompiler, FuncDeclaration};
+use jit::JITCompiler;
 
 mod parser;
 mod ast;
@@ -14,33 +14,23 @@ pub fn run(code: &str) {
       return;
     },
   };
-  println!("{:#?}", nodes);
-
-  // TODO: use nodes
   let mut jit = JITCompiler::new();
-
-  let func_name = "abc";
-  let func = FuncDeclaration::new(func_name, vec![], None, false);
-
-  if let Err(e) = jit.define_func(&func) {
-    println!("{}", e.message);
-    return;
-  }
-
-  if let Err(e) = jit.link() {
-    println!("{}", e.message);
-    return;
-  }
-
-  let func = match jit.get_func_ptr(func_name) {
-    Ok(func_ptr) => unsafe { mem::transmute::<*const u8, fn()>(func_ptr) },
+  match jit.compile(&nodes) {
+    Ok(_) => {},
     Err(e) => {
-      println!("{}", e.message);
+      println!("Compile Error: {}", e.message);
       return;
     },
-  };
-
-  func();
-
+  }
+  match jit.get_func_ptr("main") {
+    Ok(func_ptr) => {
+      let func = unsafe { mem::transmute::<*const u8, fn()>(func_ptr) };
+      func();
+    },
+    Err(_) => {
+      println!("function 'main' not found");
+      return;
+    },
+  }
   println!("terminated");
 }

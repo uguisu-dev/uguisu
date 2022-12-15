@@ -1,13 +1,13 @@
 use std::collections::HashMap;
+use cranelift_codegen::ir::{self, InstBuilder, types};
 use cranelift_codegen::isa::TargetIsa;
 use cranelift_codegen::settings::Configurable;
-use cranelift_codegen::{ir, Context, settings};
-use cranelift_codegen::ir::{Signature, InstBuilder};
-use cranelift_codegen::ir::types;
+use cranelift_codegen::{Context, settings};
 use cranelift_jit::{JITModule, JITBuilder};
 use cranelift_module::{Linkage, FuncId, Module, default_libcall_names};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use target_lexicon::Architecture;
+use super::ast::{self, BinaryOpKind};
 use super::builtin;
 
 /*
@@ -17,6 +17,41 @@ use super::builtin;
  * - `JITModule.declare_function()`
  * Functions to be registered must be declared as "Linkage::Import".
 */
+
+#[derive(Debug, Clone, Copy)]
+pub enum ValueType {
+  Number,
+  //Float,
+  //String,
+}
+
+pub struct FuncSignature {
+  name: String,
+  //params: Vec<ValueType>,
+  //ret: Option<ValueType>,
+  //is_external: bool,
+}
+
+impl FuncSignature {
+  pub fn new(name: &str, /*params: Vec<ValueType>, ret: Option<ValueType>, is_external: bool*/) -> Self {
+    Self {
+      name: name.to_string(),
+      //params,
+      //ret,
+      //is_external,
+    }
+  }
+}
+
+struct BuiltinSymbol {
+  name: String,
+  fn_ptr: *const u8,
+}
+
+struct FuncTableItem {
+  func_id: FuncId,
+  sig: FuncSignature,
+}
 
 #[derive(Debug)]
 pub struct CompileError {
@@ -31,46 +66,10 @@ impl CompileError {
   }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum ValueType {
-  Number,
-  //Float,
-  //String,
-}
-
-pub struct FuncDeclaration {
-  name: String,
-  params: Vec<ValueType>,
-  ret: Option<ValueType>,
-  is_external: bool,
-}
-
-impl FuncDeclaration {
-  pub fn new(name: &str, params: Vec<ValueType>, ret: Option<ValueType>, is_external: bool) -> Self {
-    Self {
-      name: name.to_string(),
-      params,
-      ret,
-      is_external,
-    }
-  }
-}
-
-struct BuiltinSymbol {
-  name: String,
-  fn_ptr: *const u8,
-}
-
-struct FuncTableItem {
-  func_id: FuncId,
-  signature: Signature,
-}
-
 pub struct JITCompiler {
   module: JITModule,
   ctx: Context,
   builder_ctx: FunctionBuilderContext,
-  declarations: Vec<FuncDeclaration>,
   func_table: HashMap<String, FuncTableItem>, // <function name, func info>
 }
 
@@ -78,88 +77,102 @@ impl JITCompiler {
   pub fn new() -> Self {
     let isa = Self::make_isa();
     let mut module_builder = Self::make_module_builder(isa);
-
-    let mut declarations: Vec<FuncDeclaration> = Vec::new();
-
     let mut symbols: Vec<BuiltinSymbol> = Vec::new();
-
     // [builtin] fn hello()
     symbols.push(BuiltinSymbol {
       name: String::from("hello"),
       fn_ptr: builtin::hello as *const u8,
     });
-
-    // NOTE: needs to declare the function signature for builtin functions using declare_func_internal
-
+    // NOTE:
+    // needs to declare the function signature for builtin functions using declare_func_internal
     // register builtin symbols.
     for symbol in symbols.iter() {
       Self::add_symbol(&mut module_builder, &symbol.name, symbol.fn_ptr);
     }
-
     let (module, ctx) = Self::make_module(module_builder);
     let builder_ctx = FunctionBuilderContext::new();
-
     let func_table = HashMap::new();
-
     Self {
       module,
       ctx,
       builder_ctx,
-      declarations,
       func_table,
     }
   }
 
-  pub fn declare_func(&mut self, func: &FuncDeclaration) {
-    let linkage = if func.is_external {
-      Linkage::Import
-    } else {
-      Linkage::Local
-    };
-    let (func_id, signature) = self.gen_declare_func(&func.name, &func.params, &func.ret, linkage);
-    let info = FuncTableItem {
-      func_id,
-      signature,
-    };
-    self.func_table.insert(func.name.clone(), info);
-  }
+  pub fn compile(&mut self, ast: &Vec<ast::Statement>) -> Result<(), CompileError> {
+    let mut node_iter = ast.iter().enumerate();
+    loop {
+      let statement = match node_iter.next() {
+        Some((_, statement)) => statement,
+        None => { break; },
+      };
+      match statement {
+        ast::Statement::FuncDeclaration(decl_stmt) => {
+          let sig = FuncSignature::new(&decl_stmt.identifier/*, vec![], None, false*/);
+          self.declare_func(sig);
+          // define body
+          match &decl_stmt.body {
+            Some(body) => {
+              let info = match self.func_table.get(&decl_stmt.identifier) {
+                Some(info) => info,
+                _ => { return Err(CompileError::new("unknown function")); },
+              };
+              self.ctx.func.signature = self.make_ir_sig(&info.sig);
+              self.ctx.func.name = ir::UserFuncName::user(0, info.func_id.as_u32());
 
-  pub fn define_func(&mut self, func: &FuncDeclaration) -> Result<(), CompileError> {
-    let linkage = Linkage::Local;
-    let (func_id, signature) = self.gen_declare_func(&func.name, &func.params, &func.ret, linkage);
-    let info = FuncTableItem {
-      func_id,
-      signature: signature.clone(),
-    };
-    self.func_table.insert(func.name.clone(), info);
+              let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
+              let block = b.create_block();
 
-    self.ctx.func.signature = signature;
-    self.ctx.func.name = ir::UserFuncName::user(0, func_id.as_u32());
+              b.switch_to_block(block);
+              let mut iter = body.iter().enumerate();
+              loop {
+                let child = match iter.next() {
+                  Some((_, child)) => child,
+                  None => { break; },
+                };
+                Self::translate_statement(child, &mut b);
+              }
+              // TODO
+              // There must be a return statement at the end of a function.
+              // We can omit the following line only if there is a node of return
+              // statement at the end of a function definition:
+              //b.ins().return_(&[]);
+              b.seal_all_blocks();
+              b.finalize();
+              if let Err(_) = self.module.define_function(info.func_id, &mut self.ctx) {
+                return Err(CompileError::new("failed to define a function."));
+              }
+              self.module.clear_context(&mut self.ctx);
+            },
+            None => {},
+          }
 
-    let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
-
-    let block = b.create_block();
-    b.switch_to_block(block);
-    // TODO: build IR
-    b.ins().return_(&[]);
-
-    b.seal_all_blocks();
-    b.finalize();
-
-    if let Err(_) = self.module.define_function(func_id, &mut self.ctx) {
-      return Err(CompileError::new("failed to define a function."));
+        },
+        ast::Statement::Return(_) => { return Err(CompileError::new("return statement is unexpected")); },
+      }
     }
-    self.module.clear_context(&mut self.ctx);
-
+    if let Err(_) = self.module.finalize_definitions() {
+      return Err(CompileError::new("link failed"));
+    }
     Ok(())
   }
 
-  pub fn link(&mut self) -> Result<(), CompileError> {
-    if let Ok(_) = self.module.finalize_definitions() {
-      Ok(())
-    } else {
-      Err(CompileError::new("link failed"))
-    }
+  pub fn declare_func(&mut self, sig: FuncSignature) {
+    let ir_sig = self.make_ir_sig(&sig);
+    let linkage = Linkage::Local;
+    // let linkage = if decl.is_external {
+    //   Linkage::Import
+    // } else {
+    //   Linkage::Local
+    // };
+    let name = sig.name.clone();
+    let func_id = self.module.declare_function(&name, linkage, &ir_sig).unwrap();
+    let info = FuncTableItem {
+      func_id,
+      sig,
+    };
+    self.func_table.insert(name, info);
   }
 
   // cast a pointer to a function.
@@ -173,33 +186,63 @@ impl JITCompiler {
     }
   }
 
-  fn gen_declare_func(&mut self, name: &str, params: &Vec<ValueType>, ret: &Option<ValueType>, linkage: Linkage) -> (FuncId, ir::Signature) {
-    // make signature
+  fn make_ir_sig(&self, decl: &FuncSignature) -> ir::Signature {
     let mut signature = self.module.make_signature();
-    for param in params {
-      match param {
-        ValueType::Number => {
-          signature.params.push(ir::AbiParam::new(types::I32));
-        },
-        // ValueType::Float => {
-        //   signature.params.push(ir::AbiParam::new(types::F64));
-        // },
-      }
-    }
-    match ret {
-      None => {},
-      Some(ValueType::Number) => {
-        signature.returns.push(ir::AbiParam::new(types::I32));
+    // for param in decl.params {
+    //   match param {
+    //     ValueType::Number => {
+    //       signature.params.push(ir::AbiParam::new(types::I32));
+    //     },
+    //     // ValueType::Float => {
+    //     //   signature.params.push(ir::AbiParam::new(types::F64));
+    //     // },
+    //   }
+    // }
+    // match decl.ret {
+    //   None => {},
+    //   Some(ValueType::Number) => {
+    //     signature.returns.push(ir::AbiParam::new(types::I32));
+    //   },
+    //   // Some(ValueType::Float) => {
+    //   //   signature.returns.push(ir::AbiParam::new(types::F64));
+    //   // },
+    // }
+    signature
+  }
+
+  fn translate_statement(statement: &ast::Statement, b: &mut FunctionBuilder) {
+    match statement {
+      ast::Statement::Return(expr) => {
+        match expr {
+          Some(expr) => {
+            let value = Self::translate_expr(&expr, b);
+            b.ins().return_(&[value]);
+          },
+          None => {
+            b.ins().return_(&[]);
+          }
+        }
       },
-      // Some(ValueType::Float) => {
-      //   signature.returns.push(ir::AbiParam::new(types::F64));
-      // },
+      _ => {},
     }
-  
-    // declare function
-    let func_id = self.module.declare_function(name, linkage, &signature).unwrap();
-  
-    (func_id, signature)
+  }
+
+  fn translate_expr(expr: &ast::Expression, b: &mut FunctionBuilder) -> ir::Value {
+    match expr {
+      ast::Expression::Number(value) => {
+        b.ins().iconst(types::I32, i64::from(*value))
+      },
+      ast::Expression::BinaryOp(op) => {
+        let left = Self::translate_expr(&op.left, b);
+        let right = Self::translate_expr(&op.right, b);
+        match op.kind {
+          BinaryOpKind::Add => b.ins().iadd(left, right),
+          BinaryOpKind::Sub => b.ins().isub(left, right),
+          //BinaryOpKind::Mult => b.ins().imul(left, right),
+          //BinaryOpKind::Div => b.ins().sdiv(left, right),
+        }
+      },
+    }
   }
 
   fn add_symbol(module_builder: &mut JITBuilder, name: &str, fn_ptr: *const u8) {
