@@ -3,14 +3,15 @@ pub enum Statement {
   FuncDeclaration(FuncDeclaration),
   Return(Option<Box<Expression>>),
   //VarDeclaration(VarDeclaration),
+  Expression(Expression),
 }
 
 impl Statement {
-  pub fn func_declaration(identifier: &str, body: Option<Vec<Statement>>, /*attributes: Vec<FuncAttribute>,*/) -> Statement {
+  pub fn func_declaration(identifier: &str, body: Option<Vec<Statement>>, attributes: Vec<FuncAttribute>) -> Statement {
     Statement::FuncDeclaration(FuncDeclaration {
       identifier: identifier.to_string(),
       body,
-      //attributes,
+      attributes,
     })
   }
 
@@ -27,9 +28,9 @@ impl Statement {
 pub enum Expression {
   Number(i32),
   BinaryOp(BinaryOp),
+  Call(CallNode),
   //Identifier(String),
   //Bool(bool),
-  //Call(CallNode),
 }
 
 impl Expression {
@@ -53,29 +54,29 @@ impl Expression {
     })
   }
 
-  // pub fn mult(left: Expression, right: Expression) -> Expression {
-  //   Expression::BinaryOp(BinaryOp {
-  //     kind: BinaryOpKind::Mult,
-  //     left: Box::new(left),
-  //     right: Box::new(right),
-  //   })
-  // }
+  pub fn mult(left: Expression, right: Expression) -> Expression {
+    Expression::BinaryOp(BinaryOp {
+      kind: BinaryOpKind::Mult,
+      left: Box::new(left),
+      right: Box::new(right),
+    })
+  }
 
-  // pub fn div(left: Expression, right: Expression) -> Expression {
-  //   Expression::BinaryOp(BinaryOp {
-  //     kind: BinaryOpKind::Div,
-  //     left: Box::new(left),
-  //     right: Box::new(right),
-  //   })
-  // }
+  pub fn div(left: Expression, right: Expression) -> Expression {
+    Expression::BinaryOp(BinaryOp {
+      kind: BinaryOpKind::Div,
+      left: Box::new(left),
+      right: Box::new(right),
+    })
+  }
 
   // pub fn identifier(name: &str) -> Expression {
   //   Expression::Identifier(name.to_string())
   // }
 
-  // pub fn call(target_name: String, args: Vec<Expression>) -> Expression {
-  //   Expression::Call(CallNode { target_name, args })
-  // }
+  pub fn call(target_name: &str, args: Vec<Expression>) -> Expression {
+    Expression::Call(CallNode { target_name: target_name.to_string(), args })
+  }
 
   // pub fn function(children: Vec<Statement>) -> Expression {
   //   Expression::Function(FunctionNode { children })
@@ -93,8 +94,8 @@ pub struct BinaryOp {
 pub enum BinaryOpKind {
   Add,
   Sub,
-  //Mult,
-  //Div,
+  Mult,
+  Div,
 }
 
 // #[derive(Debug, PartialEq)]
@@ -113,7 +114,7 @@ pub enum BinaryOpKind {
 #[derive(Debug, PartialEq)]
 pub struct FuncDeclaration {
   pub identifier: String,
-  //attributes: Vec<FuncAttribute>,
+  pub attributes: Vec<FuncAttribute>,
   // TODO: param types
   // TODO: return type
   pub body: Option<Vec<Statement>>,
@@ -121,12 +122,12 @@ pub struct FuncDeclaration {
 
 #[derive(Debug, PartialEq)]
 pub enum FuncAttribute {
-  //External,
+  External,
   //Export,
 }
 
-// #[derive(Debug, PartialEq)]
-// pub struct CallNode {
-//   target_name: String,
-//   args: Vec<Node>,
-// }
+#[derive(Debug, PartialEq)]
+pub struct CallNode {
+  pub target_name: String,
+  pub args: Vec<Expression>,
+}

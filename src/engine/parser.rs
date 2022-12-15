@@ -8,6 +8,7 @@ peg::parser! {
     pub rule statement() -> Statement
       = declaration_func()
       / return_statement()
+      / e:expr() sp()* ";" { Statement::Expression(e) }
       // / declaration_var()
 
     pub rule expr() -> Expression = precedence! {
@@ -22,15 +23,16 @@ peg::parser! {
       left:(@) sp()* "+" sp()* right:@ { Expression::add(left, right) }
       left:(@) sp()* "-" sp()* right:@ { Expression::sub(left, right) }
       --
-      // left:(@) sp()* "*" sp()* right:@ { Expression::mult(left, right) }
-      // left:(@) sp()* "/" sp()* right:@ { Expression::div(left, right) }
+      left:(@) sp()* "*" sp()* right:@ { Expression::mult(left, right) }
+      left:(@) sp()* "/" sp()* right:@ { Expression::div(left, right) }
       // left:(@) sp()* "%" sp()* right:@ { Expression::mod(left, right) }
-      // --
+      --
       // "!" sp()* right:(@) { right }
       // "+" sp()* right:(@) { right }
       // "-" sp()* right:(@) { Expression::mult(Expression::number(-1), right) }
       // --
       n:number() { n }
+      name:idenfitier() sp()* "(" sp()* args:(expr() ** (sp()* "," sp()*)) sp()* ")" { Expression::call(name, args) }
       //id:idenfitier() { Expression::idenfitier(id) }
       "(" sp()* e:expr() sp()* ")" { e }
     }
@@ -40,8 +42,21 @@ peg::parser! {
     // { Node::declaration(id, vec![kind], def) }
 
     rule declaration_func() -> Statement
-      = "fn" sp()+ id:idenfitier() sp()* "(" sp()* ")" sp()* "{" sp()* body:statement() ** (sp()*) sp()* "}"
-    { Statement::func_declaration(id, Some(body)/*, vec![]*/) }
+      = attrs:(a:dec_func_attrs() sp()+ {a})? "fn" sp()+ id:idenfitier() sp()* "(" sp()* ")" sp()* body:dec_func_body()
+    {
+      let attrs = if let Some(v) = attrs { v } else { vec![] };
+      Statement::func_declaration(id, body, attrs)
+    }
+
+    rule dec_func_attrs() -> Vec<FuncAttribute>
+      = dec_func_attr() ++ (sp()+)
+
+    rule dec_func_attr() -> FuncAttribute
+      = "external" { FuncAttribute::External }
+
+    rule dec_func_body() -> Option<Vec<Statement>>
+      = "{" sp()* stmts:statement() ++ (sp()*) sp()* "}" { Some(stmts) }
+      / ";" { None }
 
     rule return_statement() -> Statement
       = "return" e2:(sp()+ e1:expr() { e1 })? sp()* ";"
@@ -129,24 +144,24 @@ mod test {
     }
   }
 
-  // #[test]
-  // fn test_calc() {
-  //   let actual = uguisu_parser::expr("1+2*(3+4)/5");
-  //   let expect = Ok(Expression::add(
-  //     Expression::number(1),
-  //     Expression::div(
-  //       Expression::mult(
-  //         Expression::number(2),
-  //         Expression::add(
-  //           Expression::number(3),
-  //           Expression::number(4),
-  //         ),
-  //       ),
-  //       Expression::number(5),
-  //     ),
-  //   ));
-  //   assert_eq!(actual, expect);
-  // }
+  #[test]
+  fn test_calc() {
+    let actual = uguisu_parser::expr("1+2*(3+4)/5");
+    let expect = Ok(Expression::add(
+      Expression::number(1),
+      Expression::div(
+        Expression::mult(
+          Expression::number(2),
+          Expression::add(
+            Expression::number(3),
+            Expression::number(4),
+          ),
+        ),
+        Expression::number(5),
+      ),
+    ));
+    assert_eq!(actual, expect);
+  }
 
   // #[test]
   // fn test_identifier_single_ascii() {
