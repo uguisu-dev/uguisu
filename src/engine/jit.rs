@@ -208,11 +208,7 @@ impl JITCompiler {
         Ok(ir_sig)
     }
 
-    fn define_func_body(
-        &mut self,
-        decl_stmt: &FuncDeclaration,
-        ir_sig: Signature,
-    ) -> Result<(), CompileError> {
+    fn define_func_body(&mut self, decl_stmt: &FuncDeclaration, ir_sig: Signature) -> Result<(), CompileError> {
         match &decl_stmt.body {
             Some(body) => {
                 let info = match self.func_table.get(&decl_stmt.identifier) {
@@ -269,7 +265,12 @@ struct Translator<'a> {
 }
 
 impl<'a> Translator<'a> {
-    pub fn new(module: &'a mut JITModule, func: &'a mut ir::Function, builder_ctx: &'a mut FunctionBuilderContext, func_table: &'a HashMap<String, FuncTableItem>) -> Self {
+    pub fn new(
+        module: &'a mut JITModule,
+        func: &'a mut ir::Function,
+        builder_ctx: &'a mut FunctionBuilderContext,
+        func_table: &'a HashMap<String, FuncTableItem>
+    ) -> Self {
         Self {
             module,
             b: FunctionBuilder::new(func, builder_ctx),
@@ -300,10 +301,7 @@ impl<'a> Translator<'a> {
         Ok(())
     }
 
-    fn translate_statement(
-        &mut self,
-        statement: &ast::Statement,
-    ) -> Result<(), CompileError> {
+    fn translate_statement(&mut self, statement: &ast::Statement) -> Result<(), CompileError> {
         match statement {
             ast::Statement::Return(expr) => {
                 // NOTE: When the return instruction is emitted, the block is finalized.
@@ -333,10 +331,7 @@ impl<'a> Translator<'a> {
         Ok(())
     }
 
-    fn translate_expr(
-        &mut self,
-        expr: &ast::Expression,
-    ) -> Result<TranslatedValue, CompileError> {
+    fn translate_expr(&mut self, expr: &ast::Expression) -> Result<TranslatedValue, CompileError> {
         match expr {
             ast::Expression::Number(value) => {
                 Ok(TranslatedValue::Value(self.b.ins().iconst(types::I32, i64::from(*value))))
