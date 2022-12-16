@@ -227,56 +227,56 @@ mod test {
         assert!(uguisu_parser::statement("fnabc(x:number,y:number):number{}").is_err());
     }
 
-    // #[test]
-    // fn test_identifier_single_ascii() {
-    //     if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("a") {
-    //         assert_eq!(name, "a");
-    //     } else {
-    //         panic!("incorrect result 1");
-    //     }
+    #[test]
+    fn test_identifier_single_ascii() {
+        if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("a") {
+            assert_eq!(name, "a");
+        } else {
+            panic!("incorrect result 1");
+        }
 
-    //     if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("z") {
-    //         assert_eq!(name, "z");
-    //     } else {
-    //         panic!("incorrect result 2");
-    //     }
+        if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("z") {
+            assert_eq!(name, "z");
+        } else {
+            panic!("incorrect result 2");
+        }
 
-    //     if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("_") {
-    //         assert_eq!(name, "_");
-    //     } else {
-    //         panic!("incorrect result 3");
-    //     }
+        if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("_") {
+            assert_eq!(name, "_");
+        } else {
+            panic!("incorrect result 3");
+        }
 
-    //     if let Ok(_) = uguisu_parser::expr("$") {
-    //         panic!("incorrect result 4");
-    //     }
-    // }
+        if let Ok(_) = uguisu_parser::expr("$") {
+            panic!("incorrect result 4");
+        }
+    }
 
-    // #[test]
-    // fn test_identifier_multi_ascii() {
-    //     if let Ok(Node::Identifier(name)) = uguisu_parser::expr("abc") {
-    //         assert_eq!(name, "abc");
-    //     } else {
-    //         panic!("incorrect result");
-    //     }
+    #[test]
+    fn test_identifier_multi_ascii() {
+        if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("abc") {
+            assert_eq!(name, "abc");
+        } else {
+            panic!("incorrect result");
+        }
 
-    //     if let Ok(_) = uguisu_parser::expr("0ab") {
-    //         panic!("incorrect result");
-    //     }
-    // }
+        if let Ok(_) = uguisu_parser::expr("0ab") {
+            panic!("incorrect result");
+        }
+    }
 
-    // #[test]
-    // fn test_identifier_multi_byte() {
-    //     if let Ok(Node::Identifier(name)) = uguisu_parser::expr("あ") {
-    //         assert_eq!(name, "あ");
-    //     } else {
-    //         panic!("incorrect result");
-    //     }
+    #[test]
+    fn test_identifier_multi_byte() {
+        if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("あ") {
+            assert_eq!(name, "あ");
+        } else {
+            panic!("incorrect result");
+        }
 
-    //     if let Ok(Node::Identifier(name)) = uguisu_parser::expr("変数1") {
-    //         assert_eq!(name, "変数1");
-    //     } else {
-    //         panic!("incorrect result");
-    //     }
-    // }
+        if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("変数1") {
+            assert_eq!(name, "変数1");
+        } else {
+            panic!("incorrect result");
+        }
+    }
 }
