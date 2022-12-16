@@ -7,7 +7,7 @@ peg::parser! {
         pub rule root() -> Vec<Statement>
             = __* s:statements()? __* { if let Some(v) = s { v } else { vec![] } }
 
-        pub rule statements() -> Vec<Statement>
+        rule statements() -> Vec<Statement>
             = statement() ++ (__*)
 
         pub rule statement() -> Statement
@@ -135,8 +135,7 @@ pub fn parse(input: &str) -> Result<Vec<Statement>, ParserError> {
 #[cfg(test)]
 mod test {
     use super::uguisu_parser;
-    use crate::engine::ast::Expression;
-    //use crate::engine::ast::Statement;
+    use crate::engine::ast::*;
 
     #[test]
     fn test_digit() {
@@ -186,6 +185,41 @@ mod test {
             ),
         ));
         assert_eq!(actual, expect);
+    }
+
+    #[test]
+    fn test_declare_func_no_annotations() {
+        let expect = Ok(Statement::func_declaration(
+            "abc",
+            vec![],
+            None,
+            Some(vec![]),
+            vec![],
+        ));
+        assert_eq!(uguisu_parser::statement("fn abc() { }"), expect);
+        assert_eq!(uguisu_parser::statement("fn abc(){}"), expect);
+        assert_eq!(uguisu_parser::statement("fn  abc(  )  {  }"), expect);
+
+        assert!(uguisu_parser::statement("fnabc(){}").is_err());
+    }
+
+    #[test]
+    fn test_declare_func_with_types() {
+        let expect = Ok(Statement::func_declaration(
+            "abc",
+            vec![
+                FuncParam { name: "x".to_string(), type_name: Some("number".to_string()) },
+                FuncParam { name: "y".to_string(), type_name: Some("number".to_string()) },
+            ],
+            Some("number".to_string()),
+            Some(vec![]),
+            vec![],
+        ));
+        assert_eq!(uguisu_parser::statement("fn abc(x: number, y: number): number { }"), expect);
+        assert_eq!(uguisu_parser::statement("fn abc(x:number,y:number):number{}"), expect);
+        assert_eq!(uguisu_parser::statement("fn  abc  (  x  :  number  ,  y  :  number  )  :  number  {  }"), expect);
+
+        assert!(uguisu_parser::statement("fnabc(x:number,y:number):number{}").is_err());
     }
 
     // #[test]
