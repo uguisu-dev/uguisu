@@ -102,11 +102,11 @@ impl JITCompiler {
             name: String::from("hello"),
             fn_ptr: builtin::hello as *const u8,
         });
-        // // [builtin] fn print_num(value: number)
-        // symbols.push(BuiltinSymbol {
-        //     name: String::from("print_num"),
-        //     fn_ptr: builtin::print_num as *const u8,
-        // });
+        // [builtin] fn print_num(value: number)
+        symbols.push(BuiltinSymbol {
+            name: String::from("print_num"),
+            fn_ptr: builtin::print_num as *const u8,
+        });
 
         // NOTE:
         // needs to declare the function signature for builtin functions using declare_func_internal
@@ -166,16 +166,36 @@ impl JITCompiler {
 
     fn declare_func(&mut self, decl_stmt: &FuncDeclaration) -> Result<Signature, CompileError> {
         let is_external = decl_stmt.attributes.contains(&ast::FuncAttribute::External);
-        if decl_stmt.params.len() > 0 {
-            return Err(CompileError::new("Declaring functions with parameters is not supported yet."));
+        let mut params = Vec::new();
+        for param in decl_stmt.params.iter() {
+            let param_type = match &param.type_name {
+                Some(type_name) => {
+                    // TODO: support other types
+                    if type_name != "number" {
+                        return Err(CompileError::new("unknown type"));
+                    }
+                    ValueType::Number
+                },
+                None => { return Err(CompileError::new("Parameter type is not specified.")); },
+            };
+            params.push(ParamSig {
+                name: param.name.clone(),
+                value_type: param_type,
+            });
         }
-        if let Some(_) = decl_stmt.ret {
-            return Err(CompileError::new("Declaring functions with return type is not supported yet."));
-        }
-        let params = vec![]; // TODO: resolve from decl_stmt.params
-        let ret = ReturnValueType::None;// TODO: resolve from decl_stmt.ret
-        let func_sig = FuncSignature::new(&decl_stmt.identifier, params, ret, is_external); 
+        let ret = match &decl_stmt.ret {
+            Some(type_name) => {
+                // TODO: support other types
+                if type_name != "number" {
+                    return Err(CompileError::new("unknown type"));
+                }
+                ReturnValueType::Value(ValueType::Number)
+            },
+            None => ReturnValueType::None,
+        };
+        let func_sig = FuncSignature::new(&decl_stmt.identifier, params, ret, is_external);
         println!("[Info] function '{}' is declared.", func_sig.name);
+        // make ir signature
         let mut ir_sig = self.module.make_signature();
         let mut param_iter = func_sig.params.iter().enumerate();
         loop {
@@ -213,18 +233,18 @@ impl JITCompiler {
     fn define_func_body(&mut self, decl_stmt: &FuncDeclaration, ir_sig: Signature) -> Result<(), CompileError> {
         match &decl_stmt.body {
             Some(body) => {
-                let info = match self.func_table.get(&decl_stmt.identifier) {
+                let func = match self.func_table.get(&decl_stmt.identifier) {
                     Some(info) => info,
                     _ => { return Err(CompileError::new("function not found")); },
                 };
                 self.ctx.func.signature = ir_sig;
-                self.ctx.func.name = ir::UserFuncName::user(0, info.func_id.as_u32());
+                self.ctx.func.name = ir::UserFuncName::user(0, func.func_id.as_u32());
                 let mut translator = Translator::new(&mut self.module, &mut self.ctx.func, &mut self.builder_ctx, &self.func_table);
-                match translator.translate_func_body(body) {
+                match translator.translate_func_body(func, body) {
                     Err(e) => { return Err(e); },
                     _ => {},
                 }
-                if let Err(_) = self.module.define_function(info.func_id, &mut self.ctx) {
+                if let Err(_) = self.module.define_function(func.func_id, &mut self.ctx) {
                     return Err(CompileError::new("failed to define a function."));
                 }
                 //println!("{:?}", self.ctx.func);
@@ -279,16 +299,20 @@ impl<'a> Translator<'a> {
             func_table,
         }
     }
-    pub fn translate_func_body(&mut self, body: &Vec<ast::Statement>) -> Result<(), CompileError> {
+
+    pub fn translate_func_body(&mut self, self_func: &FuncTableItem, body: &Vec<ast::Statement>) -> Result<(), CompileError> {
         let block = self.b.create_block();
         self.b.switch_to_block(block);
+        if self_func.sig.params.len() > 0 {
+            self.b.append_block_params_for_function_params(block);
+        }
         let mut iter = body.iter().enumerate();
         loop {
             let child = match iter.next() {
                 Some((_, child)) => child,
                 None => { break; },
             };
-            match self.translate_statement(child) {
+            match self.translate_statement(self_func, block, child) {
                 Ok(_) => {},
                 Err(e) => { return Err(e); },
             }
@@ -303,13 +327,13 @@ impl<'a> Translator<'a> {
         Ok(())
     }
 
-    fn translate_statement(&mut self, statement: &ast::Statement) -> Result<(), CompileError> {
+    fn translate_statement(&mut self, self_func: &FuncTableItem, block: ir::Block, statement: &ast::Statement) -> Result<(), CompileError> {
         match statement {
             ast::Statement::Return(expr) => {
-                // NOTE: When the return instruction is emitted, the block is finalized.
+                // NOTE: When the return instruction is emitted, the block is filled.
                 match expr {
                     Some(expr) => {
-                        let value = self.translate_expr(&expr);
+                        let value = self.translate_expr(self_func, block, &expr);
                         let value = match value {
                             Ok(TranslatedValue::Value(v)) => v,
                             Ok(TranslatedValue::None) => { return Err(CompileError::new("value not found")); },
@@ -325,7 +349,7 @@ impl<'a> Translator<'a> {
             ast::Statement::VarDeclaration(statement) => {
                 // TODO: use statement.identifier
                 // TODO: use statement.attributes
-                let value = match self.translate_expr(&statement.expr) {
+                let value = match self.translate_expr(self_func, block, &statement.expr) {
                     Ok(TranslatedValue::Value(v)) => v,
                     Ok(TranslatedValue::None) => { return Err(CompileError::new("The expression does not return a value.")); },
                     Err(e) => { return Err(e); },
@@ -334,7 +358,7 @@ impl<'a> Translator<'a> {
             },
             ast::Statement::Assign(statement) => {
                 // TODO: use statement.identifier
-                let value = match self.translate_expr(&statement.expr) {
+                let value = match self.translate_expr(self_func, block, &statement.expr) {
                     Ok(TranslatedValue::Value(v)) => v,
                     Ok(TranslatedValue::None) => { return Err(CompileError::new("The expression does not return a value.")); },
                     Err(e) => { return Err(e); },
@@ -343,7 +367,7 @@ impl<'a> Translator<'a> {
             },
             ast::Statement::FuncDeclaration(_) => { return Err(CompileError::new("FuncDeclaration is unexpected")); },
             ast::Statement::ExprStatement(expr) => {
-                match self.translate_expr(expr) {
+                match self.translate_expr(self_func, block, expr) {
                     Err(e) => { return Err(e); },
                     _ => {},
                 };
@@ -352,19 +376,19 @@ impl<'a> Translator<'a> {
         Ok(())
     }
 
-    fn translate_expr(&mut self, expr: &ast::Expression) -> Result<TranslatedValue, CompileError> {
+    fn translate_expr(&mut self, self_func: &FuncTableItem, block: ir::Block, expr: &ast::Expression) -> Result<TranslatedValue, CompileError> {
         match expr {
             ast::Expression::Number(value) => {
                 Ok(TranslatedValue::Value(self.b.ins().iconst(types::I32, i64::from(*value))))
             },
             ast::Expression::BinaryOp(op) => {
-                let left = self.translate_expr(&op.left);
+                let left = self.translate_expr(self_func, block, &op.left);
                 let left = match left {
                     Ok(TranslatedValue::Value(v)) => v,
                     Ok(TranslatedValue::None) => { return Err(CompileError::new("value not found")); },
                     Err(e) => { return Err(e); },
                 };
-                let right = self.translate_expr(&op.right);
+                let right = self.translate_expr(self_func, block, &op.right);
                 let right = match right {
                     Ok(TranslatedValue::Value(v)) => v,
                     Ok(TranslatedValue::None) => { return Err(CompileError::new("value not found")); },
@@ -379,18 +403,24 @@ impl<'a> Translator<'a> {
                 Ok(TranslatedValue::Value(value))
             },
             ast::Expression::Call(call_expr) => {
-                // TODO: args
-                // call_expr.args
-                let target_info = if let Some(info) = self.func_table.get(&call_expr.target_name) {
+                let target_func = if let Some(info) = self.func_table.get(&call_expr.target_name) {
                     info
                 } else {
                     return Err(CompileError::new(format!("unknown function '{}' is called.", call_expr.target_name).as_str()));
                 };
-                if target_info.sig.params.len() != call_expr.args.len() {
+                if target_func.sig.params.len() != call_expr.args.len() {
                     return Err(CompileError::new("parameter count is incorrect"));
                 }
-                let func_ref = self.module.declare_func_in_func(target_info.func_id, self.b.func);
-                let call = self.b.ins().call(func_ref, &[]);
+                let func_ref = self.module.declare_func_in_func(target_func.func_id, self.b.func);
+                let mut param_values = Vec::new();
+                for arg in call_expr.args.iter() {
+                    match self.translate_expr(self_func, block, arg) {
+                        Ok(TranslatedValue::Value(v)) => { param_values.push(v); },
+                        Ok(TranslatedValue::None) => { return Err(CompileError::new("The expression does not return a value.")); },
+                        Err(e) => { return Err(e); },
+                    }
+                }
+                let call = self.b.ins().call(func_ref, &param_values);
                 let results = self.b.inst_results(call);
                 if results.len() > 0 {
                     Ok(TranslatedValue::Value(results[0]))
@@ -398,10 +428,15 @@ impl<'a> Translator<'a> {
                     Ok(TranslatedValue::None)
                 }
             },
-            ast::Expression::Identifier(_) => {
-                // TODO
-                Err(CompileError::new("Identifier is not supported yet"))
-                //Ok(TranslatedValue::None)
+            ast::Expression::Identifier(identifier) => {
+                match self_func.sig.params.iter().position(|item| item.name == *identifier) {
+                    Some(index) => {
+                        Ok(TranslatedValue::Value(self.b.block_params(block)[index]))
+                    },
+                    None => {
+                        Err(CompileError::new("Identifier of variables is not supported yet")) // TODO
+                    },
+                }
             },
         }
     }
