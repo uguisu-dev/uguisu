@@ -1,67 +1,77 @@
 use super::ast::*;
 
+// NOTE: The ** operator may have bugs. Therefore, the ++ operator is used.
+
 peg::parser! {
     grammar uguisu_parser() for str {
         pub rule root() -> Vec<Statement>
-            = sp()* s:statement() ** (sp()*) sp()* { s }
+            = __* s:statements()? __* { if let Some(v) = s { v } else { vec![] } }
+
+        pub rule statements() -> Vec<Statement>
+            = statement() ++ (__*)
 
         pub rule statement() -> Statement
             = declaration_func()
             / return_statement()
-            / e:expr() sp()* ";" { Statement::Expression(e) }
             // / declaration_var()
+            / e:expr() __* ";" { Statement::ExprStatement(e) }
 
         pub rule expr() -> Expression = precedence! {
-            // left:(@) sp()* "==" sp()* right:@ { Expression::eq(left, right) }
-            // left:(@) sp()* "!=" sp()* right:@ { Expression::ne(left, right) }
+            // left:(@) __* "==" __* right:@ { Expression::eq(left, right) }
+            // left:(@) __* "!=" __* right:@ { Expression::ne(left, right) }
             // --
-            // left:(@) sp()* "<" sp()* right:@ { Expression::lt(left, right) }
-            // left:(@) sp()* "<=" sp()* right:@ { Expression::lte(left, right) }
-            // left:(@) sp()* ">" sp()* right:@ { Expression::gt(left, right) }
-            // left:(@) sp()* ">=" sp()* right:@ { Expression::gte(left, right) }
+            // left:(@) __* "<" __* right:@ { Expression::lt(left, right) }
+            // left:(@) __* "<=" __* right:@ { Expression::lte(left, right) }
+            // left:(@) __* ">" __* right:@ { Expression::gt(left, right) }
+            // left:(@) __* ">=" __* right:@ { Expression::gte(left, right) }
             // --
-            left:(@) sp()* "+" sp()* right:@ { Expression::add(left, right) }
-            left:(@) sp()* "-" sp()* right:@ { Expression::sub(left, right) }
+            left:(@) __* "+" __* right:@ { Expression::add(left, right) }
+            left:(@) __* "-" __* right:@ { Expression::sub(left, right) }
             --
-            left:(@) sp()* "*" sp()* right:@ { Expression::mult(left, right) }
-            left:(@) sp()* "/" sp()* right:@ { Expression::div(left, right) }
-            // left:(@) sp()* "%" sp()* right:@ { Expression::mod(left, right) }
+            left:(@) __* "*" __* right:@ { Expression::mult(left, right) }
+            left:(@) __* "/" __* right:@ { Expression::div(left, right) }
+            // left:(@) __* "%" __* right:@ { Expression::mod(left, right) }
             --
-            // "!" sp()* right:(@) { right }
-            // "+" sp()* right:(@) { right }
-            // "-" sp()* right:(@) { Expression::mult(Expression::number(-1), right) }
+            // "!" __* right:(@) { right }
+            // "+" __* right:(@) { right }
+            // "-" __* right:(@) { Expression::mult(Expression::number(-1), right) }
             // --
-            n:number() { n }
-            name:idenfitier() sp()* "(" sp()* args:(expr() ** (sp()* "," sp()*)) sp()* ")" { Expression::call(name, args) }
-            //id:idenfitier() { Expression::idenfitier(id) }
-            "(" sp()* e:expr() sp()* ")" { e }
+            e:number() { e }
+            e:call() { e }
+            //id:idenfitier() { Expression::identifier(id) }
+            "(" __* e:expr() __* ")" { e }
         }
 
-        // rule declaration_var() -> Node
-        //     = kind:("let" {DeclarationAttr::Let} / "const" {DeclarationAttr::Const}) sp()+ id:idenfitier() sp()* "=" sp()* def:expr() ";"
-        // { Node::declaration(id, vec![kind], def) }
-
-        rule declaration_func() -> Statement
-            = attrs:(a:dec_func_attrs() sp()+ {a})? "fn" sp()+ id:idenfitier() sp()* "(" sp()* ")" sp()* body:dec_func_body()
+        rule declaration_func() -> Statement =
+            attrs:dec_func_attrs()? "fn" __+ name:idenfitier() __* "(" __* params:dec_func_params()? __* ")" __* ret:dec_func_return_type()? __*
+            body:dec_func_body()
         {
+            let params = if let Some(v) = params { v } else { vec![] };
             let attrs = if let Some(v) = attrs { v } else { vec![] };
-            let params: Vec<String> = vec![]; // TODO
-            let ret = None; // TODO
-            Statement::func_declaration(id, params, ret, body, attrs)
+            Statement::func_declaration(name, params, ret, body, attrs)
         }
+
+        rule dec_func_params() -> Vec<FuncParam>
+            = dec_func_param() ++ (__* "," __*)
+
+        rule dec_func_param() -> FuncParam
+            = name:idenfitier() type_name:(__* ":" __* n:idenfitier() { n.to_string() })? { FuncParam { name: name.to_string(), type_name } }
+
+        rule dec_func_return_type() -> String
+            = ":" __* type_name:idenfitier() { type_name.to_string() }
+
+        rule dec_func_body() -> Option<Vec<Statement>>
+            = "{" __* s:statements()? __* "}" { Some(if let Some(v) = s { v } else { vec![] }) }
+            / ";" { None }
 
         rule dec_func_attrs() -> Vec<FuncAttribute>
-            = dec_func_attr() ++ (sp()+)
+            = attrs:(dec_func_attr() ++ (__+)) __+ { attrs }
 
         rule dec_func_attr() -> FuncAttribute
             = "external" { FuncAttribute::External }
 
-        rule dec_func_body() -> Option<Vec<Statement>>
-            = "{" sp()* stmts:statement() ++ (sp()*) sp()* "}" { Some(stmts) }
-            / ";" { None }
-
         rule return_statement() -> Statement
-            = "return" e2:(sp()+ e1:expr() { e1 })? sp()* ";"
+            = "return" e2:(__+ e1:expr() { e1 })? __* ";"
         {
             if let Some(v) = e2 {
                 Statement::return_statement_with_value(v)
@@ -70,9 +80,23 @@ peg::parser! {
             }
         }
 
+        // rule declaration_var() -> Node
+        //     = kind:("let" {DeclarationAttr::Let} / "const" {DeclarationAttr::Const}) __+ id:idenfitier() __* "=" __* def:expr() ";"
+        // { Node::declaration(id, vec![kind], def) }
+
         rule number() -> Expression
             = n:$(['1'..='9'] ['0'..='9']+) {? n.parse().or(Err("u32")).and_then(|n| Ok(Expression::number(n))) }
             / n:$(['0'..='9']) {? n.parse().or(Err("u32")).and_then(|n| Ok(Expression::number(n))) }
+
+        rule call() -> Expression
+            = name:idenfitier() __* "(" __* args:call_params()? __* ")"
+        {
+            let args = if let Some(v) = args { v } else { vec![] };
+            Expression::call(name, args)
+        }
+
+        rule call_params() -> Vec<Expression>
+            = expr() ++ (__* "," __*)
 
         rule idenfitier() -> &'input str
             = !['0'..='9'] s:$(identifier_char()+) { s }
@@ -81,7 +105,7 @@ peg::parser! {
             = &['\u{00}'..='\u{7F}'] c:['A'..='Z'|'a'..='z'|'0'..='9'|'_'] { c }
             / !['\u{00}'..='\u{7F}'] c:[_] { c }
 
-        rule sp() -> char
+        rule __() -> char
             = quiet! { c:[' '|'\t'|'\r'|'\n'] { c } }
     }
 }
@@ -112,7 +136,7 @@ pub fn parse(input: &str) -> Result<Vec<Statement>, ParserError> {
 mod test {
     use super::uguisu_parser;
     use crate::engine::ast::Expression;
-    use crate::engine::ast::Statement;
+    //use crate::engine::ast::Statement;
 
     #[test]
     fn test_digit() {

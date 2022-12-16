@@ -28,7 +28,7 @@ enum ValueType {
 #[derive(Debug)]
 struct ParamSig {
     pub name: String,
-    pub param_type: ValueType,
+    pub value_type: ValueType,
 }
 
 #[derive(Debug)]
@@ -102,11 +102,12 @@ impl JITCompiler {
             name: String::from("hello"),
             fn_ptr: builtin::hello as *const u8,
         });
-        // [builtin] fn print_num(value: number)
-        symbols.push(BuiltinSymbol {
-            name: String::from("print_num"),
-            fn_ptr: builtin::print_num as *const u8,
-        });
+        // // [builtin] fn print_num(value: number)
+        // symbols.push(BuiltinSymbol {
+        //     name: String::from("print_num"),
+        //     fn_ptr: builtin::print_num as *const u8,
+        // });
+
         // NOTE:
         // needs to declare the function signature for builtin functions using declare_func_internal
         // register builtin symbols.
@@ -134,6 +135,12 @@ impl JITCompiler {
             match statement {
                 ast::Statement::FuncDeclaration(decl_stmt) => {
                     let is_external = decl_stmt.attributes.contains(&ast::FuncAttribute::External);
+                    if decl_stmt.params.len() > 0 {
+                        return Err(CompileError::new("Declaring functions with parameters is not supported yet."));
+                    }
+                    if let Some(_) = decl_stmt.ret {
+                        return Err(CompileError::new("Declaring functions with return type is not supported yet."));
+                    }
                     let params = vec![]; // TODO: resolve from decl_stmt.params
                     let ret = ReturnValueType::None;// TODO: resolve from decl_stmt.ret
                     let sig = FuncSignature::new(&decl_stmt.identifier, params, ret, is_external); 
@@ -149,7 +156,7 @@ impl JITCompiler {
                     }
                 },
                 ast::Statement::Return(_) => { return Err(CompileError::new("return statement is unexpected")); },
-                ast::Statement::Expression(_) => { return Err(CompileError::new("expression is unexpected")); },
+                ast::Statement::ExprStatement(_) => { return Err(CompileError::new("expression is unexpected")); },
             }
         }
         if let Err(_) = self.module.finalize_definitions() {
@@ -197,6 +204,9 @@ impl JITCompiler {
     }
 
     fn declare_func(&mut self, sig: FuncSignature) {
+        println!("declare func:");
+        println!("  name={}", sig.name);
+        println!("  params len={}", sig.params.len());
         let ir_sig = self.make_ir_sig(&sig);
         let linkage = if sig.is_external {
             Linkage::Import
@@ -223,25 +233,19 @@ impl JITCompiler {
 
     fn make_ir_sig(&self, decl: &FuncSignature) -> ir::Signature {
         let mut signature = self.module.make_signature();
-        // for param in decl.params {
-        //     match param {
-        //         ValueType::Number => {
-        //             signature.params.push(ir::AbiParam::new(types::I32));
-        //         },
-        //         // ValueType::Float => {
-        //         //     signature.params.push(ir::AbiParam::new(types::F64));
-        //         // },
-        //     }
-        // }
-        // match decl.ret {
-        //     None => {},
-        //     Some(ValueType::Number) => {
-        //         signature.returns.push(ir::AbiParam::new(types::I32));
-        //     },
-        //     // Some(ValueType::Float) => {
-        //     //     signature.returns.push(ir::AbiParam::new(types::F64));
-        //     // },
-        // }
+        for param in decl.params.iter() {
+            match param.value_type {
+                ValueType::Number => {
+                    signature.params.push(ir::AbiParam::new(types::I32));
+                },
+            }
+        }
+        match decl.ret {
+            ReturnValueType::None => {},
+            ReturnValueType::Value(ValueType::Number) => {
+                signature.returns.push(ir::AbiParam::new(types::I32));
+            },
+        }
         signature
     }
 
@@ -264,7 +268,7 @@ impl JITCompiler {
                 }
             },
             ast::Statement::FuncDeclaration(_) => { return Err(CompileError::new("FuncDeclaration is unexpected")); },
-            ast::Statement::Expression(expr) => {
+            ast::Statement::ExprStatement(expr) => {
                 match Self::translate_expr(&expr, b, module, func_table) {
                     Err(e) => { return Err(e); },
                     _ => {},
@@ -308,6 +312,9 @@ impl JITCompiler {
                 } else {
                     return Err(CompileError::new(format!("function '{}' does not exist", call_expr.target_name).as_str()));
                 };
+                if target_info.sig.params.len() != call_expr.args.len() {
+                    return Err(CompileError::new("parameter count is incorrect"));
+                }
                 let func_ref = module.declare_func_in_func(target_info.func_id, &mut b.func);
                 let call = b.ins().call(func_ref, &vec![]);
                 let results = b.inst_results(call);

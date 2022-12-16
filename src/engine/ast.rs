@@ -3,11 +3,11 @@ pub enum Statement {
     FuncDeclaration(FuncDeclaration),
     Return(Option<Box<Expression>>),
     //VarDeclaration(VarDeclaration),
-    Expression(Expression),
+    ExprStatement(Expression),
 }
 
 impl Statement {
-    pub fn func_declaration(identifier: &str, params: Vec<String>, ret: Option<String>, body: Option<Vec<Statement>>, attributes: Vec<FuncAttribute>) -> Statement {
+    pub fn func_declaration(identifier: &str, params: Vec<FuncParam>, ret: Option<String>, body: Option<Vec<Statement>>, attributes: Vec<FuncAttribute>) -> Statement {
         Statement::FuncDeclaration(FuncDeclaration {
             identifier: identifier.to_string(),
             params,
@@ -79,10 +79,6 @@ impl Expression {
     pub fn call(target_name: &str, args: Vec<Expression>) -> Expression {
         Expression::Call(CallNode { target_name: target_name.to_string(), args })
     }
-
-    // pub fn function(children: Vec<Statement>) -> Expression {
-    //     Expression::Function(FunctionNode { children })
-    // }
 }
 
 #[derive(Debug, PartialEq)]
@@ -116,10 +112,16 @@ pub enum BinaryOpKind {
 #[derive(Debug, PartialEq)]
 pub struct FuncDeclaration {
     pub identifier: String,
-    pub params: Vec<String>,
+    pub params: Vec<FuncParam>,
     pub ret: Option<String>,
     pub body: Option<Vec<Statement>>,
     pub attributes: Vec<FuncAttribute>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FuncParam {
+    pub name: String,
+    pub type_name: Option<String>,
 }
 
 #[derive(Debug, PartialEq)]
