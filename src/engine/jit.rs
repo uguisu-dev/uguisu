@@ -143,8 +143,9 @@ impl JITCompiler {
                         _ => {},
                     }
                 },
-                ast::Statement::Return(_) => { return Err(CompileError::new("return statement is unexpected")); },
-                ast::Statement::ExprStatement(_) => { return Err(CompileError::new("expression is unexpected")); },
+                ast::Statement::VarDeclaration(_) => { println!("[Warn] variable declaration is unexpected in the global"); },
+                ast::Statement::Return(_) => { println!("[Warn] return statement is unexpected in the global"); },
+                ast::Statement::ExprStatement(_) => { println!("[Warn] expression is unexpected in the global"); },
             }
         }
         if let Err(_) = self.module.finalize_definitions() {
@@ -320,6 +321,16 @@ impl<'a> Translator<'a> {
                     }
                 }
             },
+            ast::Statement::VarDeclaration(decl) => {
+                // TODO: use decl.identifier
+                // TODO: use decl.attributes
+                let value = match self.translate_expr(&decl.expr) {
+                    Ok(TranslatedValue::Value(v)) => v,
+                    Ok(TranslatedValue::None) => { return Err(CompileError::new("The expression does not return a value.")); },
+                    Err(e) => { return Err(e); },
+                };
+                println!("variable declaration is not supported yet.");
+            },
             ast::Statement::FuncDeclaration(_) => { return Err(CompileError::new("FuncDeclaration is unexpected")); },
             ast::Statement::ExprStatement(expr) => {
                 match self.translate_expr(expr) {
@@ -376,6 +387,11 @@ impl<'a> Translator<'a> {
                 } else {
                     Ok(TranslatedValue::None)
                 }
+            },
+            ast::Expression::Identifier(_) => {
+                // TODO
+                Err(CompileError::new("Identifier is not supported yet"))
+                //Ok(TranslatedValue::None)
             },
         }
     }

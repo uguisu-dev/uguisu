@@ -2,7 +2,7 @@
 pub enum Statement {
     FuncDeclaration(FuncDeclaration),
     Return(Option<Box<Expression>>),
-    //VarDeclaration(VarDeclaration),
+    VarDeclaration(VarDeclaration),
     ExprStatement(Expression),
 }
 
@@ -24,6 +24,14 @@ impl Statement {
     pub fn return_statement_with_value(expr: Expression) -> Statement {
         Statement::Return(Some(Box::new(expr)))
     }
+
+    pub fn var_declaration(identifier: &str, expr: Expression, attributes: Vec<VarAttribute>) -> Statement {
+        Statement::VarDeclaration(VarDeclaration {
+            identifier: identifier.to_string(),
+            expr: Box::new(expr),
+            attributes,
+        })
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -31,7 +39,7 @@ pub enum Expression {
     Number(i32),
     BinaryOp(BinaryOp),
     Call(CallNode),
-    //Identifier(String),
+    Identifier(String),
     //Bool(bool),
 }
 
@@ -72,9 +80,9 @@ impl Expression {
         })
     }
 
-    // pub fn identifier(name: &str) -> Expression {
-    //     Expression::Identifier(name.to_string())
-    // }
+    pub fn identifier(name: &str) -> Expression {
+        Expression::Identifier(name.to_string())
+    }
 
     pub fn call(target_name: &str, args: Vec<Expression>) -> Expression {
         Expression::Call(CallNode { target_name: target_name.to_string(), args })
@@ -96,18 +104,18 @@ pub enum BinaryOpKind {
     Div,
 }
 
-// #[derive(Debug, PartialEq)]
-// pub struct VarDeclaration {
-//     pub identifier: String,
-//     pub attributes: Vec<VarAttribute>,
-//     pub definition: Option<Box<Expression>>,
-// }
+#[derive(Debug, PartialEq)]
+pub struct VarDeclaration {
+    pub identifier: String,
+    pub expr: Box<Expression>,
+    pub attributes: Vec<VarAttribute>,
+}
 
-// #[derive(Debug, PartialEq)]
-// pub enum VarAttribute {
-//     Const,
-//     Let,
-// }
+#[derive(Debug, PartialEq)]
+pub enum VarAttribute {
+    Const,
+    Let,
+}
 
 #[derive(Debug, PartialEq)]
 pub struct FuncDeclaration {

@@ -13,7 +13,7 @@ peg::parser! {
         pub rule statement() -> Statement
             = declaration_func()
             / return_statement()
-            // / declaration_var()
+            / declaration_var()
             / e:expr() __* ";" { Statement::ExprStatement(e) }
 
         pub rule expr() -> Expression = precedence! {
@@ -38,7 +38,7 @@ peg::parser! {
             // --
             e:number() { e }
             e:call() { e }
-            //id:idenfitier() { Expression::identifier(id) }
+            id:idenfitier() { Expression::identifier(id) }
             "(" __* e:expr() __* ")" { e }
         }
 
@@ -80,9 +80,9 @@ peg::parser! {
             }
         }
 
-        // rule declaration_var() -> Node
-        //     = kind:("let" {DeclarationAttr::Let} / "const" {DeclarationAttr::Const}) __+ id:idenfitier() __* "=" __* def:expr() ";"
-        // { Node::declaration(id, vec![kind], def) }
+        rule declaration_var() -> Statement
+            = kind:("let" {VarAttribute::Let} / "const" {VarAttribute::Const}) __+ id:idenfitier() __* "=" __* def:expr() ";"
+        { Statement::var_declaration(id, def, vec![kind]) }
 
         rule number() -> Expression
             = n:$(['1'..='9'] ['0'..='9']+) {? n.parse().or(Err("u32")).and_then(|n| Ok(Expression::number(n))) }

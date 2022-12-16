@@ -5,6 +5,7 @@ fn main() {
     external fn hello();
 
     fn main() {
+        const abc = 1 + 1;
         hello();
         return;
     }
