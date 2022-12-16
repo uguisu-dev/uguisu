@@ -24,10 +24,14 @@ FuncAttr
 
 Statement
 	= VarDeclaration
+	/ Assign
 	/ ReturnStatement
 
 VarDeclaration
 	= ("let" / "const") IDENTIFIER ":" IDENTIFIER "=" Expr ";"
+
+Assign
+	= IDENTIFIER "=" Expr ";"
 
 ReturnStatement
 	= "return" Expr? ";"
