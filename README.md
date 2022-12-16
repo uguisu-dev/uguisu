@@ -1,6 +1,6 @@
 # uguisu-lang
-Uguisu lang
-
+A Execution engine for the Uguisu lang.  
+This is part of my study of Rust and JIT compiling(cranelift).  
 Not ready to use yet.
 
 The syntax is like this:
@@ -27,4 +27,4 @@ cargo test
 ```
 
 ## License
-MIT
+MIT License
