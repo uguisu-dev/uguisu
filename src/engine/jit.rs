@@ -284,6 +284,7 @@ struct Translator<'a> {
     module: &'a mut JITModule,
     func_table: &'a HashMap<String, FuncTableItem>,
     b: FunctionBuilder<'a>,
+    returned: bool,
 }
 
 impl<'a> Translator<'a> {
@@ -297,6 +298,7 @@ impl<'a> Translator<'a> {
             module,
             b: FunctionBuilder::new(func, builder_ctx),
             func_table,
+            returned: false,
         }
     }
 
@@ -317,11 +319,12 @@ impl<'a> Translator<'a> {
                 Err(e) => { return Err(e); },
             }
         }
-        // TODO
         // There must be a return statement at the end of a function.
         // We can omit the following line only if there is a node of return
         // statement at the end of a function definition:
-        //b.ins().return_(&[]);
+        if !self.returned {
+            self.b.ins().return_(&[]);
+        }
         self.b.seal_all_blocks();
         self.b.finalize();
         Ok(())
@@ -345,6 +348,7 @@ impl<'a> Translator<'a> {
                         self.b.ins().return_(&[]);
                     }
                 }
+                self.returned = true;
             },
             ast::Statement::VarDeclaration(statement) => {
                 // TODO: use statement.identifier

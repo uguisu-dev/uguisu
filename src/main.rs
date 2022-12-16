@@ -10,7 +10,6 @@ fn main() {
 
     fn main() {
         print_num(add(1, 2) * 3);
-        return;
     }
     ");
 }
