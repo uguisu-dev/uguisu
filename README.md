@@ -3,7 +3,7 @@ Uguisu lang
 
 Not ready to use yet.
 
-Example:
+The syntax is like this:
 ```
 external fn print_num(value: number);
 
