@@ -144,6 +144,7 @@ impl JITCompiler {
                     }
                 },
                 ast::Statement::VarDeclaration(_) => { println!("[Warn] variable declaration is unexpected in the global"); },
+                ast::Statement::Assign(_) => { println!("[Warn] assign statement is unexpected in the global"); },
                 ast::Statement::Return(_) => { println!("[Warn] return statement is unexpected in the global"); },
                 ast::Statement::ExprStatement(_) => { println!("[Warn] expression is unexpected in the global"); },
             }
@@ -174,7 +175,7 @@ impl JITCompiler {
         let params = vec![]; // TODO: resolve from decl_stmt.params
         let ret = ReturnValueType::None;// TODO: resolve from decl_stmt.ret
         let func_sig = FuncSignature::new(&decl_stmt.identifier, params, ret, is_external); 
-        println!("declare func: {}", func_sig.name);
+        println!("[Info] function '{}' is declared.", func_sig.name);
         let mut ir_sig = self.module.make_signature();
         let mut param_iter = func_sig.params.iter().enumerate();
         loop {
@@ -321,15 +322,24 @@ impl<'a> Translator<'a> {
                     }
                 }
             },
-            ast::Statement::VarDeclaration(decl) => {
-                // TODO: use decl.identifier
-                // TODO: use decl.attributes
-                let value = match self.translate_expr(&decl.expr) {
+            ast::Statement::VarDeclaration(statement) => {
+                // TODO: use statement.identifier
+                // TODO: use statement.attributes
+                let value = match self.translate_expr(&statement.expr) {
                     Ok(TranslatedValue::Value(v)) => v,
                     Ok(TranslatedValue::None) => { return Err(CompileError::new("The expression does not return a value.")); },
                     Err(e) => { return Err(e); },
                 };
-                println!("variable declaration is not supported yet.");
+                return Err(CompileError::new("variable declaration is not supported yet."));
+            },
+            ast::Statement::Assign(statement) => {
+                // TODO: use statement.identifier
+                let value = match self.translate_expr(&statement.expr) {
+                    Ok(TranslatedValue::Value(v)) => v,
+                    Ok(TranslatedValue::None) => { return Err(CompileError::new("The expression does not return a value.")); },
+                    Err(e) => { return Err(e); },
+                };
+                return Err(CompileError::new("assign statement is not supported yet."));
             },
             ast::Statement::FuncDeclaration(_) => { return Err(CompileError::new("FuncDeclaration is unexpected")); },
             ast::Statement::ExprStatement(expr) => {
@@ -374,7 +384,7 @@ impl<'a> Translator<'a> {
                 let target_info = if let Some(info) = self.func_table.get(&call_expr.target_name) {
                     info
                 } else {
-                    return Err(CompileError::new(format!("function '{}' does not exist", call_expr.target_name).as_str()));
+                    return Err(CompileError::new(format!("unknown function '{}' is called.", call_expr.target_name).as_str()));
                 };
                 if target_info.sig.params.len() != call_expr.args.len() {
                     return Err(CompileError::new("parameter count is incorrect"));

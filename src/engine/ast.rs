@@ -3,6 +3,7 @@ pub enum Statement {
     FuncDeclaration(FuncDeclaration),
     Return(Option<Box<Expression>>),
     VarDeclaration(VarDeclaration),
+    Assign(Assign),
     ExprStatement(Expression),
 }
 
@@ -30,6 +31,13 @@ impl Statement {
             identifier: identifier.to_string(),
             expr: Box::new(expr),
             attributes,
+        })
+    }
+
+    pub fn assign(identifier: &str, expr: Expression) -> Statement {
+        Statement::Assign(Assign {
+            identifier: identifier.to_string(),
+            expr: Box::new(expr),
         })
     }
 }
@@ -109,6 +117,12 @@ pub struct VarDeclaration {
     pub identifier: String,
     pub expr: Box<Expression>,
     pub attributes: Vec<VarAttribute>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Assign {
+    pub identifier: String,
+    pub expr: Box<Expression>,
 }
 
 #[derive(Debug, PartialEq)]

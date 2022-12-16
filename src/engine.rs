@@ -7,7 +7,7 @@ mod jit;
 mod builtin;
 
 pub fn run(code: &str) {
-    println!("parsing ...");
+    println!("[Info] parsing ...");
     let nodes = match parser::parse(code) {
         Ok(nodes) => nodes,
         Err(e) => {
@@ -15,7 +15,7 @@ pub fn run(code: &str) {
             return;
         },
     };
-    println!("compiling ...");
+    println!("[Info] compiling ...");
     let mut jit = JITCompiler::new();
     match jit.compile(&nodes) {
         Ok(_) => {},
@@ -24,7 +24,7 @@ pub fn run(code: &str) {
             return;
         },
     }
-    println!("running ...");
+    println!("[Info] running ...");
     match jit.get_func_ptr("main") {
         Ok(func_ptr) => {
             let func = unsafe { mem::transmute::<*const u8, fn()>(func_ptr) };
