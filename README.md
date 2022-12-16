@@ -16,12 +16,12 @@ fn main() {
 }
 ```
 
-## Run the experiment code of the parser and JIT compiler
+## Run the experimental code
 ```
 cargo run
 ```
 
-## Test all
+## Test
 ```
 cargo test
 ```
