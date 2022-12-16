@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use cranelift_codegen::ir::{self, InstBuilder, types};
+use cranelift_codegen::ir::{self, InstBuilder, types, Signature};
 use cranelift_codegen::isa::TargetIsa;
 use cranelift_codegen::settings::Configurable;
 use cranelift_codegen::{Context, settings};
@@ -7,7 +7,7 @@ use cranelift_jit::{JITModule, JITBuilder};
 use cranelift_module::{Linkage, FuncId, Module, default_libcall_names};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use target_lexicon::Architecture;
-use super::ast::{self, BinaryOpKind, Statement, FuncDeclaration};
+use super::ast::{self, BinaryOpKind, FuncDeclaration};
 use super::builtin;
 
 /*
@@ -112,7 +112,7 @@ impl JITCompiler {
         // needs to declare the function signature for builtin functions using declare_func_internal
         // register builtin symbols.
         for symbol in symbols.iter() {
-            Self::add_symbol(&mut module_builder, &symbol.name, symbol.fn_ptr);
+            module_builder.symbol(&symbol.name, symbol.fn_ptr);
         }
         let (module, ctx) = Self::make_module(module_builder);
         let builder_ctx = FunctionBuilderContext::new();
@@ -134,25 +134,13 @@ impl JITCompiler {
             };
             match statement {
                 ast::Statement::FuncDeclaration(decl_stmt) => {
-                    let is_external = decl_stmt.attributes.contains(&ast::FuncAttribute::External);
-                    if decl_stmt.params.len() > 0 {
-                        return Err(CompileError::new("Declaring functions with parameters is not supported yet."));
-                    }
-                    if let Some(_) = decl_stmt.ret {
-                        return Err(CompileError::new("Declaring functions with return type is not supported yet."));
-                    }
-                    let params = vec![]; // TODO: resolve from decl_stmt.params
-                    let ret = ReturnValueType::None;// TODO: resolve from decl_stmt.ret
-                    let sig = FuncSignature::new(&decl_stmt.identifier, params, ret, is_external); 
-                    self.declare_func(sig);
-                    match &decl_stmt.body {
-                        Some(body) => {
-                            match self.define_fn_body(decl_stmt, &body) {
-                                Ok(_) => {},
-                                Err(e) => { return Err(e); },
-                            }
-                        },
-                        None => {},
+                    let ir_sig = match self.declare_func(decl_stmt) {
+                        Ok(v) => v,
+                        Err(e) => { return Err(e); },
+                    };
+                    match self.define_func_body(decl_stmt, ir_sig) {
+                        Err(e) => { return Err(e); },
+                        _ => {},
                     }
                 },
                 ast::Statement::Return(_) => { return Err(CompileError::new("return statement is unexpected")); },
@@ -165,63 +153,6 @@ impl JITCompiler {
         Ok(())
     }
 
-    fn define_fn_body(&mut self, decl_stmt: &FuncDeclaration, body: &Vec<Statement>) -> Result<(), CompileError> {
-        let info = match self.func_table.get(&decl_stmt.identifier) {
-            Some(info) => info,
-            None => { return Err(CompileError::new("unknown function")); },
-        };
-        self.ctx.func.signature = self.make_ir_sig(&info.sig);
-        self.ctx.func.name = ir::UserFuncName::user(0, info.func_id.as_u32());
-
-        let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
-        let block = b.create_block();
-
-        b.switch_to_block(block);
-        let mut iter = body.iter().enumerate();
-        loop {
-            let child = match iter.next() {
-                Some((_, child)) => child,
-                None => { break; },
-            };
-            match Self::translate_statement(child, &mut b, &mut self.module, &self.func_table) {
-                Ok(_) => {},
-                Err(e) => { return Err(e); },
-            }
-        }
-        // TODO
-        // There must be a return statement at the end of a function.
-        // We can omit the following line only if there is a node of return
-        // statement at the end of a function definition:
-        //b.ins().return_(&[]);
-        b.seal_all_blocks();
-        b.finalize();
-        if let Err(_) = self.module.define_function(info.func_id, &mut self.ctx) {
-            return Err(CompileError::new("failed to define a function."));
-        }
-        println!("{:?}", self.ctx.func);
-        self.module.clear_context(&mut self.ctx);
-        Ok(())
-    }
-
-    fn declare_func(&mut self, sig: FuncSignature) {
-        println!("declare func:");
-        println!("  name={}", sig.name);
-        println!("  params len={}", sig.params.len());
-        let ir_sig = self.make_ir_sig(&sig);
-        let linkage = if sig.is_external {
-            Linkage::Import
-        } else {
-            Linkage::Local
-        };
-        let name = sig.name.clone();
-        let func_id = self.module.declare_function(&name, linkage, &ir_sig).unwrap();
-        let info = FuncTableItem {
-            func_id,
-            sig,
-        };
-        self.func_table.insert(name, info);
-    }
-
     pub fn get_func_ptr(&self, func_name: &str) -> Result<*const u8, CompileError> {
         if let Some(info) = self.func_table.get(func_name) {
             let func_ptr = self.module.get_finalized_function(info.func_id);
@@ -231,104 +162,79 @@ impl JITCompiler {
         }
     }
 
-    fn make_ir_sig(&self, decl: &FuncSignature) -> ir::Signature {
-        let mut signature = self.module.make_signature();
-        for param in decl.params.iter() {
-            match param.value_type {
+    fn declare_func(&mut self, decl_stmt: &FuncDeclaration) -> Result<Signature, CompileError> {
+        let is_external = decl_stmt.attributes.contains(&ast::FuncAttribute::External);
+        if decl_stmt.params.len() > 0 {
+            return Err(CompileError::new("Declaring functions with parameters is not supported yet."));
+        }
+        if let Some(_) = decl_stmt.ret {
+            return Err(CompileError::new("Declaring functions with return type is not supported yet."));
+        }
+        let params = vec![]; // TODO: resolve from decl_stmt.params
+        let ret = ReturnValueType::None;// TODO: resolve from decl_stmt.ret
+        let func_sig = FuncSignature::new(&decl_stmt.identifier, params, ret, is_external); 
+        println!("declare func: {}", func_sig.name);
+        let mut ir_sig = self.module.make_signature();
+        let mut param_iter = func_sig.params.iter().enumerate();
+        loop {
+            let param_sig = match param_iter.next() {
+                Some((_, param)) => param,
+                None => { break; },
+            };
+            match param_sig.value_type {
                 ValueType::Number => {
-                    signature.params.push(ir::AbiParam::new(types::I32));
+                    ir_sig.params.push(ir::AbiParam::new(types::I32));
                 },
             }
         }
-        match decl.ret {
-            ReturnValueType::None => {},
+        match func_sig.ret {
             ReturnValueType::Value(ValueType::Number) => {
-                signature.returns.push(ir::AbiParam::new(types::I32));
+                ir_sig.returns.push(ir::AbiParam::new(types::I32));
             },
+            ReturnValueType::None => {},
         }
-        signature
+        let linkage = if func_sig.is_external {
+            Linkage::Import
+        } else {
+            Linkage::Local
+        };
+        let name = func_sig.name.clone();
+        let func_id = self.module.declare_function(&name, linkage, &ir_sig).unwrap();
+        let info = FuncTableItem {
+            func_id,
+            sig: func_sig,
+        };
+        self.func_table.insert(name, info);
+        Ok(ir_sig)
     }
 
-    fn translate_statement(statement: &ast::Statement, b: &mut FunctionBuilder, module: &mut JITModule, func_table: &HashMap<String, FuncTableItem>) -> Result<(), CompileError> {
-        match statement {
-            ast::Statement::Return(expr) => {
-                match expr {
-                    Some(expr) => {
-                        let value = Self::translate_expr(&expr, b, module, func_table);
-                        let value = match value {
-                            Ok(TranslatedValue::Value(v)) => v,
-                            Ok(TranslatedValue::None) => { return Err(CompileError::new("value not found")); },
-                            Err(e) => { return Err(e); },
-                        };
-                        b.ins().return_(&[value]);
-                    },
-                    None => {
-                        b.ins().return_(&[]);
-                    }
-                }
-            },
-            ast::Statement::FuncDeclaration(_) => { return Err(CompileError::new("FuncDeclaration is unexpected")); },
-            ast::Statement::ExprStatement(expr) => {
-                match Self::translate_expr(&expr, b, module, func_table) {
+    fn define_func_body(
+        &mut self,
+        decl_stmt: &FuncDeclaration,
+        ir_sig: Signature,
+    ) -> Result<(), CompileError> {
+        match &decl_stmt.body {
+            Some(body) => {
+                let info = match self.func_table.get(&decl_stmt.identifier) {
+                    Some(info) => info,
+                    _ => { return Err(CompileError::new("function not found")); },
+                };
+                self.ctx.func.signature = ir_sig;
+                self.ctx.func.name = ir::UserFuncName::user(0, info.func_id.as_u32());
+                let mut translator = Translator::new(&mut self.module, &mut self.ctx.func, &mut self.builder_ctx, &self.func_table);
+                match translator.translate_func_body(body) {
                     Err(e) => { return Err(e); },
                     _ => {},
-                };
+                }
+                if let Err(_) = self.module.define_function(info.func_id, &mut self.ctx) {
+                    return Err(CompileError::new("failed to define a function."));
+                }
+                //println!("{:?}", self.ctx.func);
+                self.module.clear_context(&mut self.ctx);
             },
+            None => {},
         }
         Ok(())
-    }
-
-    fn translate_expr(expr: &ast::Expression, b: &mut FunctionBuilder, module: &mut JITModule, func_table: &HashMap<String, FuncTableItem>) -> Result<TranslatedValue, CompileError> {
-        match expr {
-            ast::Expression::Number(value) => {
-                Ok(TranslatedValue::Value(b.ins().iconst(types::I32, i64::from(*value))))
-            },
-            ast::Expression::BinaryOp(op) => {
-                let left = Self::translate_expr(&op.left, b, module, func_table);
-                let left = match left {
-                    Ok(TranslatedValue::Value(v)) => v,
-                    Ok(TranslatedValue::None) => { return Err(CompileError::new("value not found")); },
-                    Err(e) => { return Err(e); },
-                };
-                let right = Self::translate_expr(&op.right, b, module, func_table);
-                let right = match right {
-                    Ok(TranslatedValue::Value(v)) => v,
-                    Ok(TranslatedValue::None) => { return Err(CompileError::new("value not found")); },
-                    Err(e) => { return Err(e); },
-                };
-                let value = match op.kind {
-                    BinaryOpKind::Add => b.ins().iadd(left, right),
-                    BinaryOpKind::Sub => b.ins().isub(left, right),
-                    BinaryOpKind::Mult => b.ins().imul(left, right),
-                    BinaryOpKind::Div => b.ins().udiv(left, right),
-                };
-                Ok(TranslatedValue::Value(value))
-            },
-            ast::Expression::Call(call_expr) => {
-                // TODO: args
-                // call_expr.args
-                let target_info = if let Some(info) = func_table.get(&call_expr.target_name) {
-                    info
-                } else {
-                    return Err(CompileError::new(format!("function '{}' does not exist", call_expr.target_name).as_str()));
-                };
-                if target_info.sig.params.len() != call_expr.args.len() {
-                    return Err(CompileError::new("parameter count is incorrect"));
-                }
-                let func_ref = module.declare_func_in_func(target_info.func_id, &mut b.func);
-                let call = b.ins().call(func_ref, &vec![]);
-                let results = b.inst_results(call);
-                if results.len() > 0 {
-                    Ok(TranslatedValue::Value(results[0]))
-                } else {
-                    Ok(TranslatedValue::None)
-                }
-            },
-        }
-    }
-
-    fn add_symbol(module_builder: &mut JITBuilder, name: &str, fn_ptr: *const u8) {
-        module_builder.symbol(name, fn_ptr);
     }
 
     fn make_isa() -> Box<dyn TargetIsa> {
@@ -353,5 +259,129 @@ impl JITCompiler {
         let module = JITModule::new(module_builder);
         let ctx = module.make_context();
         (module, ctx)
+    }
+}
+
+struct Translator<'a> {
+    module: &'a mut JITModule,
+    func_table: &'a HashMap<String, FuncTableItem>,
+    b: FunctionBuilder<'a>,
+}
+
+impl<'a> Translator<'a> {
+    pub fn new(module: &'a mut JITModule, func: &'a mut ir::Function, builder_ctx: &'a mut FunctionBuilderContext, func_table: &'a HashMap<String, FuncTableItem>) -> Self {
+        Self {
+            module,
+            b: FunctionBuilder::new(func, builder_ctx),
+            func_table,
+        }
+    }
+    pub fn translate_func_body(&mut self, body: &Vec<ast::Statement>) -> Result<(), CompileError> {
+        let block = self.b.create_block();
+        self.b.switch_to_block(block);
+        let mut iter = body.iter().enumerate();
+        loop {
+            let child = match iter.next() {
+                Some((_, child)) => child,
+                None => { break; },
+            };
+            match self.translate_statement(child) {
+                Ok(_) => {},
+                Err(e) => { return Err(e); },
+            }
+        }
+        // TODO
+        // There must be a return statement at the end of a function.
+        // We can omit the following line only if there is a node of return
+        // statement at the end of a function definition:
+        //b.ins().return_(&[]);
+        self.b.seal_all_blocks();
+        self.b.finalize();
+        Ok(())
+    }
+
+    fn translate_statement(
+        &mut self,
+        statement: &ast::Statement,
+    ) -> Result<(), CompileError> {
+        match statement {
+            ast::Statement::Return(expr) => {
+                // NOTE: When the return instruction is emitted, the block is finalized.
+                match expr {
+                    Some(expr) => {
+                        let value = self.translate_expr(&expr);
+                        let value = match value {
+                            Ok(TranslatedValue::Value(v)) => v,
+                            Ok(TranslatedValue::None) => { return Err(CompileError::new("value not found")); },
+                            Err(e) => { return Err(e); },
+                        };
+                        self.b.ins().return_(&[value]);
+                    },
+                    None => {
+                        self.b.ins().return_(&[]);
+                    }
+                }
+            },
+            ast::Statement::FuncDeclaration(_) => { return Err(CompileError::new("FuncDeclaration is unexpected")); },
+            ast::Statement::ExprStatement(expr) => {
+                match self.translate_expr(expr) {
+                    Err(e) => { return Err(e); },
+                    _ => {},
+                };
+            },
+        }
+        Ok(())
+    }
+
+    fn translate_expr(
+        &mut self,
+        expr: &ast::Expression,
+    ) -> Result<TranslatedValue, CompileError> {
+        match expr {
+            ast::Expression::Number(value) => {
+                Ok(TranslatedValue::Value(self.b.ins().iconst(types::I32, i64::from(*value))))
+            },
+            ast::Expression::BinaryOp(op) => {
+                let left = self.translate_expr(&op.left);
+                let left = match left {
+                    Ok(TranslatedValue::Value(v)) => v,
+                    Ok(TranslatedValue::None) => { return Err(CompileError::new("value not found")); },
+                    Err(e) => { return Err(e); },
+                };
+                let right = self.translate_expr(&op.right);
+                let right = match right {
+                    Ok(TranslatedValue::Value(v)) => v,
+                    Ok(TranslatedValue::None) => { return Err(CompileError::new("value not found")); },
+                    Err(e) => { return Err(e); },
+                };
+                let value = match op.kind {
+                    BinaryOpKind::Add => self.b.ins().iadd(left, right),
+                    BinaryOpKind::Sub => self.b.ins().isub(left, right),
+                    BinaryOpKind::Mult => self.b.ins().imul(left, right),
+                    BinaryOpKind::Div => self.b.ins().udiv(left, right),
+                };
+                Ok(TranslatedValue::Value(value))
+            },
+            ast::Expression::Call(call_expr) => {
+                // TODO: args
+                // call_expr.args
+                let target_info = if let Some(info) = self.func_table.get(&call_expr.target_name) {
+                    info
+                } else {
+                    return Err(CompileError::new(format!("function '{}' does not exist", call_expr.target_name).as_str()));
+                };
+                if target_info.sig.params.len() != call_expr.args.len() {
+                    return Err(CompileError::new("parameter count is incorrect"));
+                }
+                let func_ref = self.module.declare_func_in_func(target_info.func_id, self.b.func);
+                let call = self.b.ins().call(func_ref, &[]);
+                let results = self.b.inst_results(call);
+                if results.len() > 0 {
+                    Ok(TranslatedValue::Value(results[0]))
+                } else {
+                    Ok(TranslatedValue::None)
+                }
+            },
+        }
     }
 }
