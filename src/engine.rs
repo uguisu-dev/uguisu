@@ -13,13 +13,12 @@ mod parser;
 mod ast;
 mod builtin;
 
-pub fn run(code: &str) {
+pub fn run(code: &str) -> Result<(), String> {
     println!("[Info] parsing ...");
     let nodes = match parser::parse(code) {
         Ok(nodes) => nodes,
         Err(e) => {
-            println!("Syntax Error: {}", e.message);
-            return;
+            return Err(format!("Syntax Error: {}", e.message));
         },
     };
     println!("[Info] compiling ...");
@@ -27,13 +26,13 @@ pub fn run(code: &str) {
     let compiled_func = match compiler.compile(&nodes) {
         Ok(compiled_func) => compiled_func,
         Err(e) => {
-            println!("Compile Error: {}", e.message);
-            return;
+            return Err(format!("Compile Error: {}", e.message));
         },
     };
     println!("[Info] running ...");
     let func = unsafe { mem::transmute::<*const u8, fn()>(compiled_func.ptr) };
     func();
+    Ok(())
 }
 
 struct Compiler {
@@ -81,7 +80,7 @@ impl Compiler {
     }
 
     pub fn compile(&mut self, ast: &Vec<ast::Statement>) -> Result<CompiledFunction, CompileError> {
-        for statement in ast {
+        for statement in ast.iter() {
             match statement {
                 ast::Statement::FuncDeclaration(func_decl) => {
                     // TODO: To successfully resolve the identifier, the function declaration is made first.
@@ -379,25 +378,23 @@ struct FuncParamInfo {
 mod test {
     #[test]
     fn test_empty_return() {
-        super::run("
+        assert!(super::run("
             fn main() {
                 return;
             }
-        ");
+        ").is_ok());
     }
 
     #[test]
     fn text_basic() {
-        super::run("
+        assert!(super::run("
             external fn print_num(value: number);
-
             fn add(x: number, y: number): number {
                 return x + y;
             }
-        
             fn main() {
                 print_num(add(1, 2) * 3);
             }
-        ");
+        ").is_ok());
     }
 }

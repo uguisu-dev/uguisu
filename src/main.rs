@@ -1,7 +1,7 @@
 mod engine;
 
 fn main() {
-    engine::run("
+    match engine::run("
     external fn print_num(value: number);
 
     fn add(x: number, y: number): number {
@@ -11,5 +11,8 @@ fn main() {
     fn main() {
         print_num(add(1, 2) * 3);
     }
-    ");
+    ") {
+        Ok(_) => {},
+        Err(e) => { println!("{}", e); },
+    };
 }
