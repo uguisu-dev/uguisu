@@ -281,10 +281,7 @@ impl<'a> FunctionEmitter<'a> {
             },
             ast::Statement::FuncDeclaration(_) => { return Err(CompileError::new("FuncDeclaration is unexpected")); },
             ast::Statement::ExprStatement(expr) => {
-                match self.emit_expr(func, block, expr) {
-                    Err(e) => { return Err(e); },
-                    _ => {},
-                };
+                self.emit_expr(func, block, expr)?;
             },
         }
         Ok(())
@@ -296,17 +293,13 @@ impl<'a> FunctionEmitter<'a> {
                 Ok(Some(self.builder.ins().iconst(types::I32, i64::from(*value))))
             },
             ast::Expression::BinaryOp(op) => {
-                let left = self.emit_expr(func, block, &op.left);
-                let left = match left {
-                    Ok(Some(v)) => v,
-                    Ok(None) => { return Err(CompileError::new("value not found")); },
-                    Err(e) => { return Err(e); },
+                let left = match self.emit_expr(func, block, &op.left)? {
+                    Some(v) => v,
+                    None => { return Err(CompileError::new("value not found")); },
                 };
-                let right = self.emit_expr(func, block, &op.right);
-                let right = match right {
-                    Ok(Some(v)) => v,
-                    Ok(None) => { return Err(CompileError::new("value not found")); },
-                    Err(e) => { return Err(e); },
+                let right = match self.emit_expr(func, block, &op.right)? {
+                    Some(v) => v,
+                    None => { return Err(CompileError::new("value not found")); },
                 };
                 let value = match op.kind {
                     BinaryOpKind::Add => self.builder.ins().iadd(left, right),
@@ -327,10 +320,9 @@ impl<'a> FunctionEmitter<'a> {
                 let func_ref = self.module.declare_func_in_func(callee_func.id, self.builder.func);
                 let mut param_values = Vec::new();
                 for arg in call_expr.args.iter() {
-                    match self.emit_expr(func, block, arg) {
-                        Ok(Some(v)) => { param_values.push(v); },
-                        Ok(None) => { return Err(CompileError::new("The expression does not return a value.")); },
-                        Err(e) => { return Err(e); },
+                    match self.emit_expr(func, block, arg)? {
+                        Some(v) => { param_values.push(v); },
+                        None => { return Err(CompileError::new("The expression does not return a value.")); },
                     }
                 }
                 let call = self.builder.ins().call(func_ref, &param_values);
