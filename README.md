@@ -1,7 +1,8 @@
 # uguisu-lang
 A Execution engine for the Uguisu lang.  
-This is part of my study of Rust and JIT compiling(cranelift).  
 Not ready to use yet.
+
+The first objective is to learn about various technologies: compilation techniques using Cranelift, and Rust.
 
 The syntax is like this:
 ```
