@@ -1,5 +1,5 @@
 use core::panic;
-use std::{mem, collections::HashMap};
+use std::collections::HashMap;
 use cranelift_codegen;
 use cranelift_codegen::ir::{self, InstBuilder, types, Signature};
 use cranelift_codegen::settings::{self, Configurable};
@@ -7,42 +7,17 @@ use cranelift_frontend::{FunctionBuilderContext, FunctionBuilder};
 use cranelift_jit::{JITModule, JITBuilder};
 use cranelift_module::{default_libcall_names, Module, FuncId, Linkage};
 use target_lexicon::Architecture;
-use self::ast::BinaryOpKind;
+use crate::ast::{BinaryOpKind, self};
+use crate::builtin;
 
-mod parser;
-mod ast;
-mod builtin;
-
-pub fn run(code: &str) -> Result<(), String> {
-    println!("[Info] parsing ...");
-    let nodes = match parser::parse(code) {
-        Ok(nodes) => nodes,
-        Err(e) => {
-            return Err(format!("Syntax Error: {}", e.message));
-        },
-    };
-    println!("[Info] compiling ...");
-    let mut compiler = Compiler::new();
-    let compiled_func = match compiler.compile(&nodes) {
-        Ok(compiled_func) => compiled_func,
-        Err(e) => {
-            return Err(format!("Compile Error: {}", e.message));
-        },
-    };
-    println!("[Info] running ...");
-    let func = unsafe { mem::transmute::<*const u8, fn()>(compiled_func.ptr) };
-    func();
-    Ok(())
-}
-
-struct Compiler {
+pub struct InstEmitter {
     module: JITModule,
     ctx: cranelift_codegen::Context,
     builder_ctx: FunctionBuilderContext,
     func_table: HashMap<String, FuncInfo>,
 }
 
-impl Compiler {
+impl InstEmitter {
     pub fn new() -> Self {
         let isa_builder = cranelift_native::builder().unwrap();
         let mut flag_builder = settings::builder();
@@ -79,7 +54,7 @@ impl Compiler {
         }
     }
 
-    pub fn compile(&mut self, ast: &Vec<ast::Statement>) -> Result<CompiledFunction, CompileError> {
+    pub fn emit(&mut self, ast: &Vec<ast::Statement>) -> Result<CompiledFunction, CompileError> {
         for statement in ast.iter() {
             match statement {
                 ast::Statement::FuncDeclaration(func_decl) => {
@@ -116,23 +91,6 @@ impl Compiler {
         };
         let func_ptr = self.module.get_finalized_function(main_func.id);
         Ok(CompiledFunction { ptr: func_ptr })
-    }
-}
-
-struct CompiledFunction {
-    ptr: *const u8,
-}
-
-#[derive(Debug)]
-struct CompileError {
-    pub message: String,
-}
-
-impl CompileError {
-    pub fn new(message: &str) -> Self {
-        Self {
-            message: message.to_string(),
-        }
     }
 }
 
@@ -347,6 +305,10 @@ impl<'a> FunctionEmitter<'a> {
     }
 }
 
+pub struct CompiledFunction {
+    pub ptr: *const u8,
+}
+
 #[derive(Debug, Clone)]
 enum ValueType {
     Number,
@@ -366,27 +328,15 @@ struct FuncParamInfo {
     pub value_kind: ValueType,
 }
 
-#[cfg(test)]
-mod test {
-    #[test]
-    fn test_empty_return() {
-        assert!(super::run("
-            fn main() {
-                return;
-            }
-        ").is_ok());
-    }
+#[derive(Debug)]
+pub struct CompileError {
+    pub message: String,
+}
 
-    #[test]
-    fn text_basic() {
-        assert!(super::run("
-            external fn print_num(value: number);
-            fn add(x: number, y: number): number {
-                return x + y;
-            }
-            fn main() {
-                print_num(add(1, 2) * 3);
-            }
-        ").is_ok());
+impl CompileError {
+    pub fn new(message: &str) -> Self {
+        Self {
+            message: message.to_string(),
+        }
     }
 }

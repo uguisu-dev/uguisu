@@ -1,5 +1,3 @@
-mod engine;
-
 fn main() {
     let code = "
     external fn print_num(value: number);
@@ -13,7 +11,7 @@ fn main() {
     }
     ";
 
-    if let Err(e) = engine::run(code) {
+    if let Err(e) = uguisu_engine::run(code) {
         println!("{}", e);
     };
 }
