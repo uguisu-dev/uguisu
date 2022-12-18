@@ -16,9 +16,9 @@ fn main() {
 }
 ```
 
-## Run the experimental code
+## Run the example code
 ```
-cargo run
+cargo run example.ug
 ```
 
 ## Test
