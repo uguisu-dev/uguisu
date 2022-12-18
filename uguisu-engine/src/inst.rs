@@ -23,12 +23,12 @@ impl InstEmitter {
         let mut flag_builder = settings::builder();
         if let Err(e) = flag_builder.set("use_colocated_libcalls", "false") {
             panic!("Configuration error: {}", e.to_string());
-        };
+        }
         // FIXME set back to true once the x64 backend supports it.
-        let is_pic = if isa_builder.triple().architecture != Architecture::X86_64 { "true" } else { "false" };
-        if let Err(e) = flag_builder.set("is_pic", is_pic) {
+        let is_pic = isa_builder.triple().architecture != Architecture::X86_64;
+        if let Err(e) = flag_builder.set("is_pic", if is_pic { "true" } else { "false" }) {
             panic!("Configuration error: {}", e.to_string());
-        };
+        }
         let flags = settings::Flags::new(flag_builder);
         let isa = match isa_builder.finish(flags) {
             Ok(isa) => isa,
@@ -42,7 +42,7 @@ impl InstEmitter {
         // register builtin symbols.
         for symbol in symbols.iter() {
             module_builder.symbol(&symbol.0.to_string(), symbol.1);
-        };
+        }
         let module = JITModule::new(module_builder);
         let ctx = module.make_context();
         let builder_ctx = FunctionBuilderContext::new();
@@ -64,30 +64,28 @@ impl InstEmitter {
                     // register func table
                     self.func_table.insert(func_decl.identifier.clone(), func_info.clone());
                     // emit function body
-                    match &func_decl.body {
-                        Some(body) => {
-                            let mut func_emitter = FunctionEmitter::new(&mut self.module, &mut self.ctx, &mut self.builder_ctx, &mut self.func_table);
-                            func_emitter.emit_function_body(body, &func_info, signature)?;
-                            // define the function
-                            if let Err(_) = self.module.define_function(func_info.id, &mut self.ctx) {
-                                return Err(CompileError::new("failed to define a function."));
-                            };
-                            // clear the context for the function
-                            self.module.clear_context(&mut self.ctx);
-                        },
-                        None => {},
-                    };
+                    if let Some(body) = &func_decl.body {
+                        let mut func_emitter = FunctionEmitter::new(
+                            &mut self.module, &mut self.ctx, &mut self.builder_ctx, &mut self.func_table);
+                        func_emitter.emit_function_body(body, &func_info, signature)?;
+                        // define the function
+                        if let Err(_) = self.module.define_function(func_info.id, &mut self.ctx) {
+                            return Err(CompileError::new("failed to define a function."));
+                        };
+                        // clear the context for the function
+                        self.module.clear_context(&mut self.ctx);
+                    }
                 },
                 _ => { println!("[Warn] variable declaration is unexpected in the global"); },
-            };
-        };
+            }
+        }
         // finalize all functions
         self.module.finalize_definitions()
             .map_err(|_| CompileError::new("compilation failed"))?;
         // get main function
         let main_func = match self.func_table.get("main") {
             Some(info) => info,
-            None => { return Err(CompileError::new("function 'main' is not found.")); },
+            None => return Err(CompileError::new("function 'main' is not found.")),
         };
         let func_ptr = self.module.get_finalized_function(main_func.id);
         Ok(CompiledFunction { ptr: func_ptr })
@@ -117,7 +115,10 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    pub fn declare_function(module: &mut JITModule, func_decl: &ast::FuncDeclaration) -> Result<(FuncInfo, Signature), CompileError> {
+    pub fn declare_function(
+        module: &mut JITModule,
+        func_decl: &ast::FuncDeclaration,
+    ) -> Result<(FuncInfo, Signature), CompileError> {
         let mut params = Vec::new();
         for param in func_decl.params.iter() {
             let param_type = match &param.type_name {
@@ -128,7 +129,7 @@ impl<'a> FunctionEmitter<'a> {
                     }
                     ValueType::Number
                 },
-                None => { return Err(CompileError::new("Parameter type is not specified.")); },
+                None => return Err(CompileError::new("Parameter type is not specified.")),
             };
             params.push(FuncParamInfo {
                 name: param.name.clone(),
@@ -170,7 +171,7 @@ impl<'a> FunctionEmitter<'a> {
         };
         let func_id = match module.declare_function(&name, linkage, &signature) {
             Ok(id) => id,
-            Err(_) => { return Err(CompileError::new("Failed to declare a function.")); },
+            Err(_) => return Err(CompileError::new("Failed to declare a function.")),
         };
         let func_info = FuncInfo {
             id: func_id,
@@ -181,7 +182,12 @@ impl<'a> FunctionEmitter<'a> {
         Ok((func_info, signature))
     }
 
-    pub fn emit_function_body(&mut self, body: &Vec<ast::Statement>, func_info: &FuncInfo, signature: Signature) -> Result<(), CompileError> {
+    pub fn emit_function_body(
+        &mut self,
+        body: &Vec<ast::Statement>,
+        func_info: &FuncInfo,
+        signature: Signature,
+    ) -> Result<(), CompileError> {
         self.builder.func.signature = signature;
         self.builder.func.name = ir::UserFuncName::user(0, func_info.id.as_u32());
         let block = self.builder.create_block();
@@ -202,7 +208,12 @@ impl<'a> FunctionEmitter<'a> {
         Ok(())
     }
 
-    fn emit_statement(&mut self, func: &FuncInfo, block: ir::Block, statement: &ast::Statement) -> Result<(), CompileError> {
+    fn emit_statement(
+        &mut self,
+        func: &FuncInfo,
+        block: ir::Block,
+        statement: &ast::Statement,
+    ) -> Result<(), CompileError> {
         match statement {
             ast::Statement::Return(expr) => {
                 // NOTE: When the return instruction is emitted, the block is filled.
@@ -210,7 +221,7 @@ impl<'a> FunctionEmitter<'a> {
                     Some(expr) => {
                         let value = match self.emit_expr(func, block, &expr)? {
                             Some(v) => v,
-                            None => { return Err(CompileError::new("value not found")); },
+                            None => return Err(CompileError::new("value not found")),
                         };
                         self.builder.ins().return_(&[value]);
                     },
@@ -225,7 +236,7 @@ impl<'a> FunctionEmitter<'a> {
                 // TODO: use statement.attributes
                 let value = match self.emit_expr(func, block, &statement.expr)? {
                     Some(v) => v,
-                    None => { return Err(CompileError::new("The expression does not return a value.")); },
+                    None => return Err(CompileError::new("The expression does not return a value.")),
                 };
                 return Err(CompileError::new("variable declaration is not supported yet."));
             },
@@ -233,11 +244,13 @@ impl<'a> FunctionEmitter<'a> {
                 // TODO: use statement.identifier
                 let value = match self.emit_expr(func, block, &statement.expr)? {
                     Some(v) => v,
-                    None => { return Err(CompileError::new("The expression does not return a value.")); },
+                    None => return Err(CompileError::new("The expression does not return a value.")),
                 };
                 return Err(CompileError::new("assign statement is not supported yet."));
             },
-            ast::Statement::FuncDeclaration(_) => { return Err(CompileError::new("FuncDeclaration is unexpected")); },
+            ast::Statement::FuncDeclaration(_) => {
+                return Err(CompileError::new("FuncDeclaration is unexpected"));
+            },
             ast::Statement::ExprStatement(expr) => {
                 self.emit_expr(func, block, expr)?;
             },
@@ -245,7 +258,12 @@ impl<'a> FunctionEmitter<'a> {
         Ok(())
     }
 
-    fn emit_expr(&mut self, func: &FuncInfo, block: ir::Block, expr: &ast::Expression) -> Result<Option<ir::Value>, CompileError> {
+    fn emit_expr(
+        &mut self,
+        func: &FuncInfo,
+        block: ir::Block,
+        expr: &ast::Expression,
+    ) -> Result<Option<ir::Value>, CompileError> {
         match expr {
             ast::Expression::Number(value) => {
                 Ok(Some(self.builder.ins().iconst(types::I32, i64::from(*value))))
@@ -253,11 +271,11 @@ impl<'a> FunctionEmitter<'a> {
             ast::Expression::BinaryOp(op) => {
                 let left = match self.emit_expr(func, block, &op.left)? {
                     Some(v) => v,
-                    None => { return Err(CompileError::new("value not found")); },
+                    None => return Err(CompileError::new("value not found")),
                 };
                 let right = match self.emit_expr(func, block, &op.right)? {
                     Some(v) => v,
-                    None => { return Err(CompileError::new("value not found")); },
+                    None => return Err(CompileError::new("value not found")),
                 };
                 let value = match op.kind {
                     BinaryOpKind::Add => self.builder.ins().iadd(left, right),
@@ -270,7 +288,10 @@ impl<'a> FunctionEmitter<'a> {
             ast::Expression::Call(call_expr) => {
                 let callee_func = match self.func_table.get(&call_expr.target_name) {
                     Some(info) => info,
-                    None => { return Err(CompileError::new(format!("unknown function '{}' is called.", call_expr.target_name).as_str())); },
+                    None => {
+                        let message = format!("unknown function '{}' is called.", call_expr.target_name);
+                        return Err(CompileError::new(&message));
+                    },
                 };
                 if callee_func.params.len() != call_expr.args.len() {
                     return Err(CompileError::new("parameter count is incorrect"));
@@ -280,7 +301,7 @@ impl<'a> FunctionEmitter<'a> {
                 for arg in call_expr.args.iter() {
                     match self.emit_expr(func, block, arg)? {
                         Some(v) => { param_values.push(v); },
-                        None => { return Err(CompileError::new("The expression does not return a value.")); },
+                        None => return Err(CompileError::new("The expression does not return a value.")),
                     }
                 }
                 let call = self.builder.ins().call(func_ref, &param_values);
