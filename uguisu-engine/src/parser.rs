@@ -139,8 +139,7 @@ pub fn parse(input: &str) -> Result<Vec<Statement>, ParserError> {
 
 #[cfg(test)]
 mod test {
-    use super::uguisu_parser;
-    use crate::ast::*;
+    use super::*;
 
     #[test]
     fn test_digit() {
