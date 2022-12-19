@@ -1,22 +1,27 @@
 use std::mem;
-use crate::inst::InstEmitter;
 
-mod inst;
 mod parser;
 mod ast;
+mod inst;
 mod builtin;
 
 pub fn run(code: &str) -> Result<(), String> {
-    println!("[Info] parsing ...");
-    let nodes = parser::parse(code)
-        .map_err(|e| format!("Syntax Error: {}", e.message))?;
     println!("[Info] compiling ...");
-    let mut emitter = InstEmitter::new();
-    let compiled_func = emitter.emit(&nodes)
+    let ast = parser::parse(code)
         .map_err(|e| format!("Compile Error: {}", e.message))?;
+
+    let module = inst::emit_module(ast)
+        .map_err(|e| format!("Compile Error: {}", e.message))?;
+
+    let func = match module.funcs.iter().find(|x| x.name == "main") {
+        Some(func) => func,
+        None => return Err("Compile Error: function 'main' not found".to_string()),
+    };
+
     println!("[Info] running ...");
-    let func = unsafe { mem::transmute::<*const u8, fn()>(compiled_func.ptr) };
+    let func = unsafe { mem::transmute::<*const u8, fn()>(func.ptr) };
     func();
+
     Ok(())
 }
 
