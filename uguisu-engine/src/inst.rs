@@ -66,7 +66,6 @@ pub struct CompiledFunction {
 }
 
 pub fn emit_module(ast: Vec<ast::Statement>) -> Result<CompiledModule, CompileError> {
-    // new
     let isa_builder = native::builder().unwrap();
     let mut flag_builder = settings::builder();
     if let Err(e) = flag_builder.set("use_colocated_libcalls", "false") {
@@ -244,7 +243,6 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     pub fn emit_body(&mut self, body: &Vec<ast::Statement>, func_info: &FuncInfo, signature: ir::Signature) -> Result<(), CompileError> {
-        // FunctionEmitter.emit_function_body
         self.builder.func.signature = signature;
         self.builder.func.name = ir::UserFuncName::user(0, func_info.id.as_u32());
         let block = self.builder.create_block();
