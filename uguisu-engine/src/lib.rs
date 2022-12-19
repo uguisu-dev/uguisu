@@ -55,8 +55,11 @@ mod test {
             fn add(x: number, y: number): number {
                 return x + y;
             }
+            fn square(x: number): number {
+                return x * x;
+            }
             fn main() {
-                print_num(add(1, 2) * 3);
+                print_num(square(add(1, 2) * 3));
             }
         ");
     }
