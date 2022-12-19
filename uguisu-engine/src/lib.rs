@@ -29,18 +29,28 @@ pub fn run(code: &str) -> Result<(), String> {
 mod test {
     use crate::*;
 
+    fn run_test(code: &str) {
+        match run(code) {
+            Err(e) => {
+                println!("{}", e);
+                panic!();
+            },
+            _ => {},
+        }
+    }
+
     #[test]
     fn test_empty_return() {
-        assert!(run("
+        run_test("
             fn main() {
                 return;
             }
-        ").is_ok());
+        ");
     }
 
     #[test]
     fn text_basic() {
-        assert!(run("
+        run_test("
             external fn print_num(value: number);
             fn add(x: number, y: number): number {
                 return x + y;
@@ -48,6 +58,6 @@ mod test {
             fn main() {
                 print_num(add(1, 2) * 3);
             }
-        ").is_ok());
+        ");
     }
 }

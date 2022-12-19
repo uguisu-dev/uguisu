@@ -51,7 +51,7 @@ impl CompileError {
 struct FuncDeclInfo {
     pub name: String,
     pub id: cranelift_module::FuncId,
-    pub is_defined: bool,
+    pub has_body: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -114,7 +114,7 @@ pub fn emit_module(ast: Vec<ast::Statement>) -> Result<CompiledModule, CompileEr
         funcs: Vec::new(),
     };
     for func_decl_info in func_decl_infos {
-        if func_decl_info.is_defined {
+        if func_decl_info.has_body {
             // get function ptr
             let func_ptr = module.get_finalized_function(func_decl_info.id);
             compiled_module.funcs.push(CompiledFunction {
@@ -164,17 +164,16 @@ fn emit_func_declaration(
     };
     let name = func_decl.identifier.clone();
     let is_external = func_decl.attributes.contains(&ast::FuncAttribute::External);
-    let mut signature = module.make_signature();
     for param in params.iter() {
         match param.value_kind {
             ValueType::Number => {
-                signature.params.push(ir::AbiParam::new(types::I32));
+                ctx.func.signature.params.push(ir::AbiParam::new(types::I32));
             },
         }
     }
     match ret_kind {
         Some(ValueType::Number) => {
-            signature.returns.push(ir::AbiParam::new(types::I32));
+            ctx.func.signature.returns.push(ir::AbiParam::new(types::I32));
         },
         None => {},
     }
@@ -183,7 +182,7 @@ fn emit_func_declaration(
     } else {
         Linkage::Local
     };
-    let func_id = match module.declare_function(&name, linkage, &signature) {
+    let func_id = match module.declare_function(&name, linkage, &ctx.func.signature) {
         Ok(id) => id,
         Err(_) => return Err(CompileError::new("Failed to declare a function.")),
     };
@@ -198,28 +197,30 @@ fn emit_func_declaration(
     // register func table
     func_table.insert(func_decl.identifier.clone(), func_info.clone());
 
-    if let Some(body) = &func_decl.body {
+    let dec_info = if let Some(body) = &func_decl.body {
         let mut emitter = FunctionEmitter::new(module, ctx, builder_ctx, func_table);
         // emit the function
-        emitter.emit_body(body, &func_info, signature)?;
+        emitter.emit_body(body, &func_info)?;
         // define the function
         if let Err(_) = module.define_function(func_info.id, ctx) {
             return Err(CompileError::new("failed to define a function."));
         };
-        // clear the function context
-        module.clear_context(ctx);
-        Ok(FuncDeclInfo {
+        FuncDeclInfo {
             name: name,
             id: func_id,
-            is_defined: true
-        })
+            has_body: true
+        }
     } else {
-        Ok(FuncDeclInfo {
+        FuncDeclInfo {
             name: name,
             id: func_id,
-            is_defined: false
-        })
-    }
+            has_body: false
+        }
+    };
+
+    // clear the function context
+    module.clear_context(ctx);
+    Ok(dec_info)
 }
 
 struct FunctionEmitter<'a> {
@@ -245,8 +246,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    pub fn emit_body(&mut self, body: &Vec<ast::Statement>, func_info: &FuncInfo, signature: ir::Signature) -> Result<(), CompileError> {
-        self.builder.func.signature = signature;
+    pub fn emit_body(&mut self, body: &Vec<ast::Statement>, func_info: &FuncInfo) -> Result<(), CompileError> {
         //self.builder.func.name = ir::UserFuncName::user(0, func_info.id.as_u32());
         let block = self.builder.create_block();
         self.builder.switch_to_block(block);
@@ -276,7 +276,7 @@ impl<'a> FunctionEmitter<'a> {
     ) -> Result<(), CompileError> {
         match statement {
             ast::Statement::Return(Some(expr)) => {
-                // NOTE: When the return instruction is emitted, the block is filled.
+                // When the return instruction is emitted, the block is filled.
                 let value = match self.emit_expr(func, block, &expr)? {
                     Some(v) => v,
                     None => return Err(CompileError::new("value not found")),
