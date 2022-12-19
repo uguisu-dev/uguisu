@@ -66,61 +66,64 @@ pub struct CompiledFunction {
 }
 
 pub fn emit_module(ast: Vec<ast::Statement>) -> Result<CompiledModule, CompileError> {
-    let isa_builder = native::builder().unwrap();
-    let mut flag_builder = settings::builder();
-    if let Err(e) = flag_builder.set("use_colocated_libcalls", "false") {
-        panic!("Configuration error: {}", e.to_string());
-    }
-    // FIXME set back to true once the x64 backend supports it.
-    let is_pic = isa_builder.triple().architecture != Architecture::X86_64;
-    if let Err(e) = flag_builder.set("is_pic", if is_pic { "true" } else { "false" }) {
-        panic!("Configuration error: {}", e.to_string());
-    }
-    let flags = settings::Flags::new(flag_builder);
-    let isa = match isa_builder.finish(flags) {
-        Ok(isa) => isa,
-        Err(e) => { panic!("Configuration error: {}", e.to_string()); },
+    let (mut module, mut ctx) = {
+        let isa_builder = native::builder().unwrap();
+        let mut flag_builder = settings::builder();
+        if let Err(e) = flag_builder.set("use_colocated_libcalls", "false") {
+            panic!("Configuration error: {}", e.to_string());
+        }
+        // FIXME set back to true once the x64 backend supports it.
+        let is_pic = isa_builder.triple().architecture != Architecture::X86_64;
+        if let Err(e) = flag_builder.set("is_pic", if is_pic { "true" } else { "false" }) {
+            panic!("Configuration error: {}", e.to_string());
+        }
+        let flags = settings::Flags::new(flag_builder);
+        let isa = match isa_builder.finish(flags) {
+            Ok(isa) => isa,
+            Err(e) => { panic!("Configuration error: {}", e.to_string()); },
+        };
+        let mut module_builder = jit::JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
+        let mut symbols: Vec<(&str, *const u8)> = Vec::new();
+        symbols.push(("hello", builtin::hello as *const u8));
+        symbols.push(("print_num", builtin::print_num as *const u8));
+        // needs to declare the function signature for builtin functions using declare_func_internal
+        // register builtin symbols.
+        for symbol in symbols.iter() {
+            module_builder.symbol(&symbol.0.to_string(), symbol.1);
+        }
+        let module = jit::JITModule::new(module_builder);
+        let ctx = module.make_context();
+        (module, ctx)
     };
-    let mut module_builder = jit::JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
-    let mut symbols: Vec<(&str, *const u8)> = Vec::new();
-    symbols.push(("hello", builtin::hello as *const u8));
-    symbols.push(("print_num", builtin::print_num as *const u8));
-    // needs to declare the function signature for builtin functions using declare_func_internal
-    // register builtin symbols.
-    for symbol in symbols.iter() {
-        module_builder.symbol(&symbol.0.to_string(), symbol.1);
-    }
-    let mut jit_module = jit::JITModule::new(module_builder);
-    let mut ctx = jit_module.make_context();
     let mut builder_ctx = frontend::FunctionBuilderContext::new();
     let mut func_table = HashMap::new();
     let mut func_decl_infos: Vec<FuncDeclInfo> = Vec::new();
     for statement in ast.iter() {
         match statement {
             ast::Statement::FuncDeclaration(func_decl) => {
-                let func_decl_info = emit_func_declaration(&mut jit_module, &mut ctx, &mut builder_ctx, &func_decl, &mut func_table)?;
+                let func_decl_info = emit_func_declaration(&mut module, &mut ctx, &mut builder_ctx, &func_decl, &mut func_table)?;
                 func_decl_infos.push(func_decl_info);
             }
             _ => { println!("[Warn] variable declaration is unexpected in the global"); },
         }
     }
     // finalize all functions
-    jit_module.finalize_definitions()
+    module.finalize_definitions()
         .map_err(|_| CompileError::new("Failed to generate module."))?;
-    let mut module = CompiledModule {
+    let mut compiled_module = CompiledModule {
         funcs: Vec::new(),
     };
     for func_decl_info in func_decl_infos {
         if func_decl_info.is_defined {
             // get function ptr
-            let func_ptr = jit_module.get_finalized_function(func_decl_info.id);
-            module.funcs.push(CompiledFunction {
+            let func_ptr = module.get_finalized_function(func_decl_info.id);
+            compiled_module.funcs.push(CompiledFunction {
                 name: func_decl_info.name,
                 ptr: func_ptr,
             });
         }
     }
-    Ok(module)
+    Ok(compiled_module)
 }
 
 fn emit_func_declaration(
@@ -223,7 +226,7 @@ struct FunctionEmitter<'a> {
     module: &'a mut JITModule,
     builder: frontend::FunctionBuilder<'a>,
     func_table: &'a HashMap<String, FuncInfo>,
-    returned: bool,
+    is_returned: bool,
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -238,13 +241,13 @@ impl<'a> FunctionEmitter<'a> {
             module: module,
             builder: builder,
             func_table: func_table,
-            returned: false,
+            is_returned: false,
         }
     }
 
     pub fn emit_body(&mut self, body: &Vec<ast::Statement>, func_info: &FuncInfo, signature: ir::Signature) -> Result<(), CompileError> {
         self.builder.func.signature = signature;
-        self.builder.func.name = ir::UserFuncName::user(0, func_info.id.as_u32());
+        //self.builder.func.name = ir::UserFuncName::user(0, func_info.id.as_u32());
         let block = self.builder.create_block();
         self.builder.switch_to_block(block);
         if func_info.params.len() > 0 {
@@ -256,7 +259,7 @@ impl<'a> FunctionEmitter<'a> {
         }
         // If there is no jump/return at the end of the block,
         // the emitter must implicitly emit a return instruction.
-        if !self.returned {
+        if !self.is_returned {
             self.builder.ins().return_(&[]);
         }
         self.builder.seal_all_blocks();
@@ -279,11 +282,11 @@ impl<'a> FunctionEmitter<'a> {
                     None => return Err(CompileError::new("value not found")),
                 };
                 self.builder.ins().return_(&[value]);
-                self.returned = true;
+                self.is_returned = true;
             },
             ast::Statement::Return(None) => {
                 self.builder.ins().return_(&[]);
-                self.returned = true;
+                self.is_returned = true;
             },
             ast::Statement::VarDeclaration(statement) => {
                 // TODO: use statement.identifier
