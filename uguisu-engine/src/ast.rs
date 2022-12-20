@@ -8,7 +8,13 @@ pub enum Statement {
 }
 
 impl Statement {
-    pub fn func_declaration(identifier: &str, params: Vec<FuncParam>, ret: Option<String>, body: Option<Vec<Statement>>, attributes: Vec<FuncAttribute>) -> Statement {
+    pub fn func_declaration(
+        identifier: &str,
+        params: Vec<FuncParam>,
+        ret: Option<String>,
+        body: Option<Vec<Statement>>,
+        attributes: Vec<FuncAttribute>,
+    ) -> Statement {
         Statement::FuncDeclaration(FuncDeclaration {
             identifier: identifier.to_string(),
             params,
@@ -26,7 +32,11 @@ impl Statement {
         Statement::Return(Some(Box::new(expr)))
     }
 
-    pub fn var_declaration(identifier: &str, expr: Expression, attributes: Vec<VarAttribute>) -> Statement {
+    pub fn var_declaration(
+        identifier: &str,
+        expr: Expression,
+        attributes: Vec<VarAttribute>,
+    ) -> Statement {
         Statement::VarDeclaration(VarDeclaration {
             identifier: identifier.to_string(),
             expr: Box::new(expr),
@@ -93,7 +103,10 @@ impl Expression {
     }
 
     pub fn call(target_name: &str, args: Vec<Expression>) -> Expression {
-        Expression::Call(CallNode { target_name: target_name.to_string(), args })
+        Expression::Call(CallNode {
+            target_name: target_name.to_string(),
+            args,
+        })
     }
 }
 

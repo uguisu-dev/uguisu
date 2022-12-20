@@ -1,4 +1,4 @@
-use super::ast::*;
+use crate::ast::*;
 
 // NOTE: The ** operator may have bugs. Therefore, the ++ operator is used.
 
@@ -212,16 +212,33 @@ mod test {
         let expect = Ok(Statement::func_declaration(
             "abc",
             vec![
-                FuncParam { name: "x".to_string(), type_name: Some("number".to_string()) },
-                FuncParam { name: "y".to_string(), type_name: Some("number".to_string()) },
+                FuncParam {
+                    name: "x".to_string(),
+                    type_name: Some("number".to_string()),
+                },
+                FuncParam {
+                    name: "y".to_string(),
+                    type_name: Some("number".to_string()),
+                },
             ],
             Some("number".to_string()),
             Some(vec![]),
             vec![],
         ));
-        assert_eq!(uguisu_parser::statement("fn abc(x: number, y: number): number { }"), expect);
-        assert_eq!(uguisu_parser::statement("fn abc(x:number,y:number):number{}"), expect);
-        assert_eq!(uguisu_parser::statement("fn  abc  (  x  :  number  ,  y  :  number  )  :  number  {  }"), expect);
+        assert_eq!(
+            uguisu_parser::statement("fn abc(x: number, y: number): number { }"),
+            expect
+        );
+        assert_eq!(
+            uguisu_parser::statement("fn abc(x:number,y:number):number{}"),
+            expect
+        );
+        assert_eq!(
+            uguisu_parser::statement(
+                "fn  abc  (  x  :  number  ,  y  :  number  )  :  number  {  }"
+            ),
+            expect
+        );
 
         assert!(uguisu_parser::statement("fnabc(x:number,y:number):number{}").is_err());
     }

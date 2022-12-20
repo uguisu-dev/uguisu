@@ -1,17 +1,16 @@
 use std::mem;
 
-mod parser;
 mod ast;
-mod inst;
 mod builtin;
+mod codegen;
+mod errors;
+mod parser;
 
 pub fn run(code: &str) -> Result<(), String> {
     println!("[Info] compiling ...");
-    let ast = parser::parse(code)
-        .map_err(|e| format!("Compile Error: {}", e.message))?;
+    let ast = parser::parse(code).map_err(|e| format!("Compile Error: {}", e.message))?;
 
-    let module = inst::emit_module(ast)
-        .map_err(|e| format!("Compile Error: {}", e.message))?;
+    let module = codegen::emit_module(ast).map_err(|e| format!("Compile Error: {}", e.message))?;
 
     let func = match module.funcs.iter().find(|x| x.name == "main") {
         Some(func) => func,
@@ -34,23 +33,26 @@ mod test {
             Err(e) => {
                 println!("{}", e);
                 panic!();
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 
     #[test]
     fn test_empty_return() {
-        run_test("
+        run_test(
+            "
             fn main() {
                 return;
             }
-        ");
+        ",
+        );
     }
 
     #[test]
     fn text_basic() {
-        run_test("
+        run_test(
+            "
             external fn print_num(value: number);
             fn add(x: number, y: number): number {
                 return x + y;
@@ -61,6 +63,7 @@ mod test {
             fn main() {
                 print_num(square(add(1, 2) * 3));
             }
-        ");
+        ",
+        );
     }
 }
