@@ -45,7 +45,7 @@ mod test {
             fn main() {
                 return;
             }
-        ",
+            ",
         );
     }
 
@@ -63,7 +63,7 @@ mod test {
             fn main() {
                 print_num(square(add(1, 2) * 3));
             }
-        ",
+            ",
         );
     }
 }

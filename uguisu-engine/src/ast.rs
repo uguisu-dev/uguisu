@@ -42,11 +42,11 @@ pub struct Parameter {
     pub type_identifier: Option<String>,
 }
 
-pub fn parameter(
-    identifier: String,
-    type_identifier: Option<String>,
-) -> Parameter {
-    Parameter { identifier, type_identifier }
+pub fn parameter(identifier: String, type_identifier: Option<String>) -> Parameter {
+    Parameter {
+        identifier,
+        type_identifier,
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -86,10 +86,7 @@ pub struct Assignment {
     pub body: Expression,
 }
 
-pub fn assignment(
-    identifier: String,
-    body: Expression,
-) -> Statement {
+pub fn assignment(identifier: String, body: Expression) -> Statement {
     Statement::Assignment(Assignment { identifier, body })
 }
 
@@ -122,13 +119,33 @@ pub struct BinaryExpr {
     pub right: Box<Expression>,
 }
 
-pub fn binary_expr(
-    operator: Operator,
-    left: Expression,
-    right: Expression,
-) -> Expression {
+pub fn add_operation(left: Expression, right: Expression) -> Expression {
     Expression::BinaryExpr(BinaryExpr {
-        operator,
+        operator: Operator::Add,
+        left: Box::new(left),
+        right: Box::new(right),
+    })
+}
+
+pub fn sub_operation(left: Expression, right: Expression) -> Expression {
+    Expression::BinaryExpr(BinaryExpr {
+        operator: Operator::Sub,
+        left: Box::new(left),
+        right: Box::new(right),
+    })
+}
+
+pub fn mult_operation(left: Expression, right: Expression) -> Expression {
+    Expression::BinaryExpr(BinaryExpr {
+        operator: Operator::Mult,
+        left: Box::new(left),
+        right: Box::new(right),
+    })
+}
+
+pub fn div_operation(left: Expression, right: Expression) -> Expression {
+    Expression::BinaryExpr(BinaryExpr {
+        operator: Operator::Div,
         left: Box::new(left),
         right: Box::new(right),
     })
@@ -149,5 +166,8 @@ pub struct CallExpr {
 }
 
 pub fn call_expr(callee: Expression, args: Vec<Expression>) -> Expression {
-    Expression::CallExpr(CallExpr { callee: Box::new(callee), args })
+    Expression::CallExpr(CallExpr {
+        callee: Box::new(callee),
+        args,
+    })
 }

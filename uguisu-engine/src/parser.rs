@@ -1,6 +1,6 @@
 use crate::ast;
 use crate::ast::{
-    Statement, Expression, Operator, Parameter, FunctionAttribute, VariableAttribute
+    Expression, FunctionAttribute, Operator, Parameter, Statement, VariableAttribute,
 };
 
 // NOTE: The ** operator may have bugs. Therefore, the ++ operator is used.
@@ -179,25 +179,16 @@ mod test {
     #[test]
     fn test_calc() {
         let actual = uguisu_parser::expression("1+2*(3+4)/5");
-        let expect = Ok(
-            ast::binary_expr(
-                Operator::Add,
-                ast::number(1),
-                ast::binary_expr(
-                    Operator::Div,
-                    ast::binary_expr(
-                        Operator::Mult,
-                        ast::number(2),
-                        ast::binary_expr(
-                            Operator::Add,
-                            ast::number(3),
-                            ast::number(4)
-                        ),
-                    ),
-                    ast::number(5),
+        let expect = Ok(ast::add_operation(
+            ast::number(1),
+            ast::div_operation(
+                ast::mult_operation(
+                    ast::number(2),
+                    ast::add_operation(ast::number(3), ast::number(4)),
                 ),
-            )
-        );
+                ast::number(5),
+            ),
+        ));
         assert_eq!(actual, expect);
     }
 

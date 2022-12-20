@@ -1,4 +1,4 @@
-use crate::ast::{self, BinaryExpr, Operator, Literal};
+use crate::ast;
 use crate::builtin;
 use crate::errors::CompileError;
 use core::panic;
@@ -155,7 +155,9 @@ fn emit_func_declaration(
         None => None,
     };
     let name = func_decl.identifier.clone();
-    let is_external = func_decl.attributes.contains(&ast::FunctionAttribute::External);
+    let is_external = func_decl
+        .attributes
+        .contains(&ast::FunctionAttribute::External);
     for param in params.iter() {
         match param.value_kind {
             ValueKind::Number => {
@@ -324,7 +326,7 @@ impl<'a> FunctionEmitter<'a> {
         expr: &ast::Expression,
     ) -> Result<Option<ir::Value>, CompileError> {
         match expr {
-            ast::Expression::Literal(Literal::Number(value)) => self.emit_number(*value),
+            ast::Expression::Literal(ast::Literal::Number(value)) => self.emit_number(*value),
             ast::Expression::BinaryExpr(op) => self.emit_binary_op(func, block, op),
             ast::Expression::CallExpr(call_expr) => self.emit_call(func, block, call_expr),
             ast::Expression::Identifier(identifier) => {
@@ -343,7 +345,7 @@ impl<'a> FunctionEmitter<'a> {
         &mut self,
         func: &FuncInfo,
         block: ir::Block,
-        binary_expr: &BinaryExpr,
+        binary_expr: &ast::BinaryExpr,
     ) -> Result<Option<ir::Value>, CompileError> {
         let left = match self.emit_expr(func, block, &binary_expr.left)? {
             Some(v) => v,
@@ -354,10 +356,10 @@ impl<'a> FunctionEmitter<'a> {
             None => return Err(CompileError::new("value not found")),
         };
         let value = match binary_expr.operator {
-            Operator::Add => self.builder.ins().iadd(left, right),
-            Operator::Sub => self.builder.ins().isub(left, right),
-            Operator::Mult => self.builder.ins().imul(left, right),
-            Operator::Div => self.builder.ins().udiv(left, right),
+            ast::Operator::Add => self.builder.ins().iadd(left, right),
+            ast::Operator::Sub => self.builder.ins().isub(left, right),
+            ast::Operator::Mult => self.builder.ins().imul(left, right),
+            ast::Operator::Div => self.builder.ins().udiv(left, right),
         };
         Ok(Some(value))
     }
