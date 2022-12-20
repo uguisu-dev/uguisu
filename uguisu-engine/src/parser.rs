@@ -1,4 +1,7 @@
-use crate::ast::*;
+use crate::ast;
+use crate::ast::{
+    Statement, Expression, Operator, Parameter, FunctionAttribute, VariableAttribute
+};
 
 // NOTE: The ** operator may have bugs. Therefore, the ++ operator is used.
 
@@ -11,13 +14,13 @@ peg::parser! {
             = statement() ++ (__*)
 
         pub rule statement() -> Statement
-            = declaration_func()
+            = function_declaration()
             / return_statement()
-            / declaration_var()
-            / assign()
-            / e:expr() __* ";" { Statement::ExprStatement(e) }
+            / variable_declaration()
+            / assignment()
+            / e:expression() __* ";" { Statement::ExprStatement(e) }
 
-        pub rule expr() -> Expression = precedence! {
+        pub rule expression() -> Expression = precedence! {
             // left:(@) __* "==" __* right:@ { Expression::eq(left, right) }
             // left:(@) __* "!=" __* right:@ { Expression::ne(left, right) }
             // --
@@ -26,11 +29,11 @@ peg::parser! {
             // left:(@) __* ">" __* right:@ { Expression::gt(left, right) }
             // left:(@) __* ">=" __* right:@ { Expression::gte(left, right) }
             // --
-            left:(@) __* "+" __* right:@ { Expression::add(left, right) }
-            left:(@) __* "-" __* right:@ { Expression::sub(left, right) }
+            left:(@) __* "+" __* right:@ { ast::binary_expr(Operator::Add, left, right) }
+            left:(@) __* "-" __* right:@ { ast::binary_expr(Operator::Sub, left, right) }
             --
-            left:(@) __* "*" __* right:@ { Expression::mult(left, right) }
-            left:(@) __* "/" __* right:@ { Expression::div(left, right) }
+            left:(@) __* "*" __* right:@ { ast::binary_expr(Operator::Mult, left, right) }
+            left:(@) __* "/" __* right:@ { ast::binary_expr(Operator::Div, left, right) }
             // left:(@) __* "%" __* right:@ { Expression::mod(left, right) }
             --
             // "!" __* right:(@) { right }
@@ -38,70 +41,68 @@ peg::parser! {
             // "-" __* right:(@) { Expression::mult(Expression::number(-1), right) }
             // --
             e:number() { e }
-            e:call() { e }
-            id:idenfitier() { Expression::identifier(id) }
-            "(" __* e:expr() __* ")" { e }
+            e:call_expr() { e }
+            id:idenfitier() { Expression::Identifier(id.to_string()) }
+            "(" __* e:expression() __* ")" { e }
         }
 
-        rule declaration_func() -> Statement =
-            attrs:dec_func_attrs()? "fn" __+ name:idenfitier() __* "(" __* params:dec_func_params()? __* ")" __* ret:dec_func_return_type()? __*
-            body:dec_func_body()
+        rule function_declaration() -> Statement =
+            attrs:func_dec_attrs()? "fn" __+ name:idenfitier() __* "(" __* params:func_dec_params()? __* ")" __* ret:func_dec_return_type()? __*
+            body:func_dec_body()
         {
             let params = if let Some(v) = params { v } else { vec![] };
             let attrs = if let Some(v) = attrs { v } else { vec![] };
-            Statement::func_declaration(name, params, ret, body, attrs)
+            ast::function_declaration(name.to_string(), body, params, ret, attrs)
         }
 
-        rule dec_func_params() -> Vec<FuncParam>
-            = dec_func_param() ++ (__* "," __*)
+        rule func_dec_params() -> Vec<Parameter>
+            = func_dec_param() ++ (__* "," __*)
 
-        rule dec_func_param() -> FuncParam
-            = name:idenfitier() type_name:(__* ":" __* n:idenfitier() { n.to_string() })? { FuncParam { name: name.to_string(), type_name } }
+        rule func_dec_param() -> Parameter
+            = name:idenfitier() type_name:(__* ":" __* n:idenfitier() { n.to_string() })?
+        { ast::parameter(name.to_string(), type_name) }
 
-        rule dec_func_return_type() -> String
+        rule func_dec_return_type() -> String
             = ":" __* type_name:idenfitier() { type_name.to_string() }
 
-        rule dec_func_body() -> Option<Vec<Statement>>
+        rule func_dec_body() -> Option<Vec<Statement>>
             = "{" __* s:statements()? __* "}" { Some(if let Some(v) = s { v } else { vec![] }) }
             / ";" { None }
 
-        rule dec_func_attrs() -> Vec<FuncAttribute>
-            = attrs:(dec_func_attr() ++ (__+)) __+ { attrs }
+        rule func_dec_attrs() -> Vec<FunctionAttribute>
+            = attrs:(func_dec_attr() ++ (__+)) __+ { attrs }
 
-        rule dec_func_attr() -> FuncAttribute
-            = "external" { FuncAttribute::External }
+        rule func_dec_attr() -> FunctionAttribute
+            = "external" { FunctionAttribute::External }
 
         rule return_statement() -> Statement
-            = "return" e2:(__+ e1:expr() { e1 })? __* ";"
-        {
-            if let Some(v) = e2 {
-                Statement::return_statement_with_value(v)
-            } else {
-                Statement::return_statement()
-            }
-        }
+            = "return" e2:(__+ e1:expression() { e1 })? __* ";" { Statement::ReturnStatement(e2) }
 
-        rule declaration_var() -> Statement
-            = kind:("let" {VarAttribute::Let} / "const" {VarAttribute::Const}) __+ id:idenfitier() __* "=" __* e:expr() ";"
-        { Statement::var_declaration(id, e, vec![kind]) }
+        rule variable_declaration() -> Statement
+            = kind:(
+                "let" {VariableAttribute::Let} / "const" {VariableAttribute::Const}
+            ) __+ id:idenfitier() __* "=" __* e:expression() ";"
+        { ast::variable_declaration(id.to_string(), e, vec![kind]) }
 
-        rule assign() -> Statement
-            = id:idenfitier() __* "=" __* e:expr() ";"
-        { Statement::assign(id, e) }
+        rule assignment() -> Statement
+            = id:idenfitier() __* "=" __* e:expression() ";"
+        { ast::assignment(id.to_string(), e) }
 
         rule number() -> Expression
-            = n:$(['1'..='9'] ['0'..='9']+) {? n.parse().or(Err("u32")).and_then(|n| Ok(Expression::number(n))) }
-            / n:$(['0'..='9']) {? n.parse().or(Err("u32")).and_then(|n| Ok(Expression::number(n))) }
+            = n:$(['1'..='9'] ['0'..='9']+)
+        {? n.parse().or(Err("u32")).and_then(|n| Ok(ast::number(n))) }
+            / n:$(['0'..='9'])
+        {? n.parse().or(Err("u32")).and_then(|n| Ok(ast::number(n))) }
 
-        rule call() -> Expression
+        rule call_expr() -> Expression
             = name:idenfitier() __* "(" __* args:call_params()? __* ")"
         {
             let args = if let Some(v) = args { v } else { vec![] };
-            Expression::call(name, args)
+            ast::call_expr(Expression::Identifier(name.to_string()), args)
         }
 
         rule call_params() -> Vec<Expression>
-            = expr() ++ (__* "," __*)
+            = expression() ++ (__* "," __*)
 
         rule idenfitier() -> &'input str
             = !['0'..='9'] s:$(identifier_char()+) { s }
@@ -143,61 +144,70 @@ mod test {
 
     #[test]
     fn test_digit() {
-        if !uguisu_parser::expr("0").is_ok() {
+        if !uguisu_parser::expression("0").is_ok() {
             panic!("incorrect result");
         }
 
-        if !uguisu_parser::expr("1").is_ok() {
+        if !uguisu_parser::expression("1").is_ok() {
             panic!("incorrect result");
         }
 
-        if !uguisu_parser::expr("9").is_ok() {
+        if !uguisu_parser::expression("9").is_ok() {
             panic!("incorrect result");
         }
     }
 
     #[test]
     fn test_digits() {
-        if !uguisu_parser::expr("12").is_ok() {
+        if !uguisu_parser::expression("12").is_ok() {
             panic!("incorrect result");
         }
 
-        if !uguisu_parser::expr("89").is_ok() {
+        if !uguisu_parser::expression("89").is_ok() {
             panic!("incorrect result");
         }
 
-        if !uguisu_parser::expr("1234567").is_ok() {
+        if !uguisu_parser::expression("1234567").is_ok() {
             panic!("incorrect result");
         }
 
-        if uguisu_parser::expr("01").is_ok() {
+        if uguisu_parser::expression("01").is_ok() {
             panic!("incorrect result");
         }
     }
 
     #[test]
     fn test_calc() {
-        let actual = uguisu_parser::expr("1+2*(3+4)/5");
-        let expect = Ok(Expression::add(
-            Expression::number(1),
-            Expression::div(
-                Expression::mult(
-                    Expression::number(2),
-                    Expression::add(Expression::number(3), Expression::number(4)),
+        let actual = uguisu_parser::expression("1+2*(3+4)/5");
+        let expect = Ok(
+            ast::binary_expr(
+                Operator::Add,
+                ast::number(1),
+                ast::binary_expr(
+                    Operator::Div,
+                    ast::binary_expr(
+                        Operator::Mult,
+                        ast::number(2),
+                        ast::binary_expr(
+                            Operator::Add,
+                            ast::number(3),
+                            ast::number(4)
+                        ),
+                    ),
+                    ast::number(5),
                 ),
-                Expression::number(5),
-            ),
-        ));
+            )
+        );
         assert_eq!(actual, expect);
     }
 
     #[test]
     fn test_declare_func_no_annotations() {
-        let expect = Ok(Statement::func_declaration(
-            "abc",
+        let expect = Ok(ast::function_declaration(
+            "abc".to_string(),
+            Some(vec![]),
             vec![],
             None,
-            Some(vec![]),
             vec![],
         ));
         assert_eq!(uguisu_parser::statement("fn abc() { }"), expect);
@@ -209,20 +219,14 @@ mod test {
 
     #[test]
     fn test_declare_func_with_types() {
-        let expect = Ok(Statement::func_declaration(
-            "abc",
+        let expect = Ok(ast::function_declaration(
+            "abc".to_string(),
+            Some(vec![]),
             vec![
-                FuncParam {
-                    name: "x".to_string(),
-                    type_name: Some("number".to_string()),
-                },
-                FuncParam {
-                    name: "y".to_string(),
-                    type_name: Some("number".to_string()),
-                },
+                ast::parameter("x".to_string(), Some("number".to_string())),
+                ast::parameter("y".to_string(), Some("number".to_string())),
             ],
             Some("number".to_string()),
-            Some(vec![]),
             vec![],
         ));
         assert_eq!(
@@ -245,51 +249,51 @@ mod test {
 
     #[test]
     fn test_identifier_single_ascii() {
-        if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("a") {
+        if let Ok(Expression::Identifier(name)) = uguisu_parser::expression("a") {
             assert_eq!(name, "a");
         } else {
             panic!("incorrect result 1");
         }
 
-        if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("z") {
+        if let Ok(Expression::Identifier(name)) = uguisu_parser::expression("z") {
             assert_eq!(name, "z");
         } else {
             panic!("incorrect result 2");
         }
 
-        if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("_") {
+        if let Ok(Expression::Identifier(name)) = uguisu_parser::expression("_") {
             assert_eq!(name, "_");
         } else {
             panic!("incorrect result 3");
         }
 
-        if let Ok(_) = uguisu_parser::expr("$") {
+        if let Ok(_) = uguisu_parser::expression("$") {
             panic!("incorrect result 4");
         }
     }
 
     #[test]
     fn test_identifier_multi_ascii() {
-        if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("abc") {
+        if let Ok(Expression::Identifier(name)) = uguisu_parser::expression("abc") {
             assert_eq!(name, "abc");
         } else {
             panic!("incorrect result");
         }
 
-        if let Ok(_) = uguisu_parser::expr("0ab") {
+        if let Ok(_) = uguisu_parser::expression("0ab") {
             panic!("incorrect result");
         }
     }
 
     #[test]
     fn test_identifier_multi_byte() {
-        if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("あ") {
+        if let Ok(Expression::Identifier(name)) = uguisu_parser::expression("あ") {
             assert_eq!(name, "あ");
         } else {
             panic!("incorrect result");
         }
 
-        if let Ok(Expression::Identifier(name)) = uguisu_parser::expr("変数1") {
+        if let Ok(Expression::Identifier(name)) = uguisu_parser::expression("変数1") {
             assert_eq!(name, "変数1");
         } else {
             panic!("incorrect result");

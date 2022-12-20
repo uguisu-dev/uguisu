@@ -1,4 +1,4 @@
-use crate::ast::{self, BinaryOp, BinaryOpKind};
+use crate::ast::{self, BinaryExpr, Operator, Literal};
 use crate::builtin;
 use crate::errors::CompileError;
 use core::panic;
@@ -85,7 +85,7 @@ pub fn emit_module(ast: Vec<ast::Statement>) -> Result<CompiledModule, CompileEr
     let mut func_decl_infos: Vec<FuncDeclInfo> = Vec::new();
     for statement in ast.iter() {
         match statement {
-            ast::Statement::FuncDeclaration(func_decl) => {
+            ast::Statement::FunctionDeclaration(func_decl) => {
                 let func_decl_info = emit_func_declaration(
                     &mut module,
                     &mut ctx,
@@ -122,14 +122,14 @@ fn emit_func_declaration(
     module: &mut JITModule,
     ctx: &mut cranelift_codegen::Context,
     builder_ctx: &mut FunctionBuilderContext,
-    func_decl: &ast::FuncDeclaration,
+    func_decl: &ast::FunctionDeclaration,
     func_table: &mut HashMap<String, FuncInfo>,
 ) -> Result<FuncDeclInfo, CompileError> {
     // TODO: To successfully resolve the identifier, the function declaration is made first.
     // declare function
     let mut params = Vec::new();
     for param in func_decl.params.iter() {
-        let param_type = match &param.type_name {
+        let param_type = match &param.type_identifier {
             Some(type_name) => {
                 // TODO: support other types
                 if type_name != "number" {
@@ -140,7 +140,7 @@ fn emit_func_declaration(
             None => return Err(CompileError::new("Parameter type is not specified.")),
         };
         params.push(FuncParamInfo {
-            name: param.name.clone(),
+            name: param.identifier.clone(),
             value_kind: param_type,
         });
     }
@@ -155,7 +155,7 @@ fn emit_func_declaration(
         None => None,
     };
     let name = func_decl.identifier.clone();
-    let is_external = func_decl.attributes.contains(&ast::FuncAttribute::External);
+    let is_external = func_decl.attributes.contains(&ast::FunctionAttribute::External);
     for param in params.iter() {
         match param.value_kind {
             ValueKind::Number => {
@@ -271,7 +271,7 @@ impl<'a> FunctionEmitter<'a> {
         statement: &ast::Statement,
     ) -> Result<(), CompileError> {
         match statement {
-            ast::Statement::Return(Some(expr)) => {
+            ast::Statement::ReturnStatement(Some(expr)) => {
                 // When the return instruction is emitted, the block is filled.
                 let value = match self.emit_expr(func, block, &expr)? {
                     Some(v) => v,
@@ -280,14 +280,14 @@ impl<'a> FunctionEmitter<'a> {
                 self.builder.ins().return_(&[value]);
                 self.is_returned = true;
             }
-            ast::Statement::Return(None) => {
+            ast::Statement::ReturnStatement(None) => {
                 self.builder.ins().return_(&[]);
                 self.is_returned = true;
             }
-            ast::Statement::VarDeclaration(statement) => {
+            ast::Statement::VariableDeclaration(statement) => {
                 // TODO: use statement.identifier
                 // TODO: use statement.attributes
-                let value = match self.emit_expr(func, block, &statement.expr)? {
+                let value = match self.emit_expr(func, block, &statement.body)? {
                     Some(v) => v,
                     None => {
                         return Err(CompileError::new("The expression does not return a value."))
@@ -297,9 +297,9 @@ impl<'a> FunctionEmitter<'a> {
                     "variable declaration is not supported yet.",
                 ));
             }
-            ast::Statement::Assign(statement) => {
+            ast::Statement::Assignment(statement) => {
                 // TODO: use statement.identifier
-                let value = match self.emit_expr(func, block, &statement.expr)? {
+                let value = match self.emit_expr(func, block, &statement.body)? {
                     Some(v) => v,
                     None => {
                         return Err(CompileError::new("The expression does not return a value."))
@@ -307,7 +307,7 @@ impl<'a> FunctionEmitter<'a> {
                 };
                 return Err(CompileError::new("assign statement is not supported yet."));
             }
-            ast::Statement::FuncDeclaration(_) => {
+            ast::Statement::FunctionDeclaration(_) => {
                 return Err(CompileError::new("FuncDeclaration is unexpected"));
             }
             ast::Statement::ExprStatement(expr) => {
@@ -324,9 +324,9 @@ impl<'a> FunctionEmitter<'a> {
         expr: &ast::Expression,
     ) -> Result<Option<ir::Value>, CompileError> {
         match expr {
-            ast::Expression::Number(value) => self.emit_number(*value),
-            ast::Expression::BinaryOp(op) => self.emit_binary_op(func, block, op),
-            ast::Expression::Call(call_expr) => self.emit_call(func, block, call_expr),
+            ast::Expression::Literal(Literal::Number(value)) => self.emit_number(*value),
+            ast::Expression::BinaryExpr(op) => self.emit_binary_op(func, block, op),
+            ast::Expression::CallExpr(call_expr) => self.emit_call(func, block, call_expr),
             ast::Expression::Identifier(identifier) => {
                 self.emit_identifier(func, block, identifier)
             }
@@ -343,21 +343,21 @@ impl<'a> FunctionEmitter<'a> {
         &mut self,
         func: &FuncInfo,
         block: ir::Block,
-        op: &BinaryOp,
+        binary_expr: &BinaryExpr,
     ) -> Result<Option<ir::Value>, CompileError> {
-        let left = match self.emit_expr(func, block, &op.left)? {
+        let left = match self.emit_expr(func, block, &binary_expr.left)? {
             Some(v) => v,
             None => return Err(CompileError::new("value not found")),
         };
-        let right = match self.emit_expr(func, block, &op.right)? {
+        let right = match self.emit_expr(func, block, &binary_expr.right)? {
             Some(v) => v,
             None => return Err(CompileError::new("value not found")),
         };
-        let value = match op.kind {
-            BinaryOpKind::Add => self.builder.ins().iadd(left, right),
-            BinaryOpKind::Sub => self.builder.ins().isub(left, right),
-            BinaryOpKind::Mult => self.builder.ins().imul(left, right),
-            BinaryOpKind::Div => self.builder.ins().udiv(left, right),
+        let value = match binary_expr.operator {
+            Operator::Add => self.builder.ins().iadd(left, right),
+            Operator::Sub => self.builder.ins().isub(left, right),
+            Operator::Mult => self.builder.ins().imul(left, right),
+            Operator::Div => self.builder.ins().udiv(left, right),
         };
         Ok(Some(value))
     }
@@ -366,12 +366,16 @@ impl<'a> FunctionEmitter<'a> {
         &mut self,
         func: &FuncInfo,
         block: ir::Block,
-        call_expr: &ast::CallNode,
+        call_expr: &ast::CallExpr,
     ) -> Result<Option<ir::Value>, CompileError> {
-        let callee_func = match self.func_table.get(&call_expr.target_name) {
+        let callee_name = match call_expr.callee.as_ref() {
+            ast::Expression::Identifier(name) => name,
+            _ => return Err(CompileError::new("invalid callee kind")),
+        };
+        let callee_func = match self.func_table.get(callee_name) {
             Some(info) => info,
             None => {
-                let message = format!("unknown function '{}' is called.", call_expr.target_name);
+                let message = format!("unknown function '{}' is called.", callee_name);
                 return Err(CompileError::new(&message));
             }
         };
