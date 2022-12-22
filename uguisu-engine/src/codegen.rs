@@ -1,7 +1,8 @@
 use crate::ast;
 use crate::builtin;
 use crate::errors::CompileError;
-use crate::symbols::{FuncSymbol, ValueKind};
+use crate::hir::ValueKind;
+use crate::symbols::FuncSymbol;
 use core::panic;
 use cranelift_codegen::ir::{self, types, AbiParam, InstBuilder};
 use cranelift_codegen::settings::{self, Configurable, Flags};

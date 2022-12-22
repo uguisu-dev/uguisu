@@ -5,6 +5,7 @@ mod ast;
 mod builtin;
 mod codegen;
 mod errors;
+mod hir;
 mod parser;
 mod symbols;
 

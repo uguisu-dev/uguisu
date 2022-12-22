@@ -1,3 +1,5 @@
+use crate::hir::ValueKind;
+
 #[derive(Debug, Clone)]
 pub struct FuncSymbol {
     //pub name: String,
@@ -5,9 +7,4 @@ pub struct FuncSymbol {
     pub param_types: Vec<ValueKind>, // for each params
     pub ret_kind: Option<ValueKind>,
     pub is_external: bool,
-}
-
-#[derive(Debug, Clone)]
-pub enum ValueKind {
-    Number,
 }
