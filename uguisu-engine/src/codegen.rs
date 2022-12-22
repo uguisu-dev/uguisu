@@ -14,15 +14,10 @@ use target_lexicon::Architecture;
 #[derive(Debug, Clone)]
 struct FuncInfo {
     pub id: FuncId,
-    pub params: Vec<FuncParamInfo>,
+    pub param_names: Vec<String>, // for each params
+    pub param_types: Vec<ValueKind>, // for each params
     pub ret_kind: Option<ValueKind>,
     pub is_external: bool,
-}
-
-#[derive(Debug, Clone)]
-struct FuncParamInfo {
-    pub name: String,
-    pub value_kind: ValueKind,
 }
 
 #[derive(Debug, Clone)]
@@ -127,7 +122,8 @@ fn emit_func_declaration(
 ) -> Result<FuncDeclInfo, CompileError> {
     // TODO: To successfully resolve the identifier, the function declaration is made first.
     // declare function
-    let mut params = Vec::new();
+    let mut param_names = Vec::new();
+    let mut param_types = Vec::new();
     for param in func_decl.params.iter() {
         let param_type = match &param.type_identifier {
             Some(type_name) => {
@@ -139,10 +135,8 @@ fn emit_func_declaration(
             }
             None => return Err(CompileError::new("Parameter type is not specified.")),
         };
-        params.push(FuncParamInfo {
-            name: param.identifier.clone(),
-            value_kind: param_type,
-        });
+        param_names.push(param.identifier.clone());
+        param_types.push(param_type);
     }
     let ret_kind = match &func_decl.ret {
         Some(type_name) => {
@@ -158,8 +152,8 @@ fn emit_func_declaration(
     let is_external = func_decl
         .attributes
         .contains(&ast::FunctionAttribute::External);
-    for param in params.iter() {
-        match param.value_kind {
+    for param_type in param_types.iter() {
+        match param_type {
             ValueKind::Number => {
                 ctx.func.signature.params.push(AbiParam::new(types::I32));
             }
@@ -184,7 +178,8 @@ fn emit_func_declaration(
     // make ir signature
     let func_info = FuncInfo {
         id: func_id,
-        params: params,
+        param_names: param_names,
+        param_types: param_types,
         ret_kind: ret_kind,
         is_external: is_external,
     };
@@ -248,7 +243,7 @@ impl<'a> FunctionEmitter<'a> {
         //self.builder.func.name = UserFuncName::user(0, func_info.id.as_u32());
         let block = self.builder.create_block();
         self.builder.switch_to_block(block);
-        if func_info.params.len() > 0 {
+        if func_info.param_names.len() > 0 {
             self.builder.append_block_params_for_function_params(block);
         }
 
@@ -381,7 +376,7 @@ impl<'a> FunctionEmitter<'a> {
                 return Err(CompileError::new(&message));
             }
         };
-        if callee_func.params.len() != call_expr.args.len() {
+        if callee_func.param_names.len() != call_expr.args.len() {
             return Err(CompileError::new("parameter count is incorrect"));
         }
         let func_ref = self
@@ -411,7 +406,7 @@ impl<'a> FunctionEmitter<'a> {
         block: ir::Block,
         identifier: &String,
     ) -> Result<Option<ir::Value>, CompileError> {
-        match func.params.iter().position(|item| item.name == *identifier) {
+        match func.param_names.iter().position(|item| item == identifier) {
             Some(index) => Ok(Some(self.builder.block_params(block)[index])),
             None => {
                 Err(CompileError::new(
