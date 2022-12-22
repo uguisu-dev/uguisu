@@ -1,7 +1,5 @@
 use crate::ast;
-use crate::ast::{
-    Expression, FunctionAttribute, Operator, Parameter, Statement, VariableAttribute,
-};
+use crate::ast::{Expression, FunctionAttribute, Parameter, Statement, VariableAttribute};
 
 // NOTE: The ** operator may have bugs. Therefore, the ++ operator is used.
 
@@ -29,11 +27,11 @@ peg::parser! {
             // left:(@) __* ">" __* right:@ { Expression::gt(left, right) }
             // left:(@) __* ">=" __* right:@ { Expression::gte(left, right) }
             // --
-            left:(@) __* "+" __* right:@ { ast::binary_expr(Operator::Add, left, right) }
-            left:(@) __* "-" __* right:@ { ast::binary_expr(Operator::Sub, left, right) }
+            left:(@) __* "+" __* right:@ { ast::add_operation(left, right) }
+            left:(@) __* "-" __* right:@ { ast::sub_operation(left, right) }
             --
-            left:(@) __* "*" __* right:@ { ast::binary_expr(Operator::Mult, left, right) }
-            left:(@) __* "/" __* right:@ { ast::binary_expr(Operator::Div, left, right) }
+            left:(@) __* "*" __* right:@ { ast::mult_operation(left, right) }
+            left:(@) __* "/" __* right:@ { ast::div_operation(left, right) }
             // left:(@) __* "%" __* right:@ { Expression::mod(left, right) }
             --
             // "!" __* right:(@) { right }

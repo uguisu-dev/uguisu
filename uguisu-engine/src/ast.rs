@@ -20,6 +20,25 @@ pub struct FunctionDeclaration {
     pub attributes: Vec<FunctionAttribute>,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct Parameter {
+    pub identifier: String,
+    pub type_identifier: Option<String>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum FunctionAttribute {
+    External,
+    //Export,
+}
+
+pub fn parameter(identifier: String, type_identifier: Option<String>) -> Parameter {
+    Parameter {
+        identifier,
+        type_identifier,
+    }
+}
+
 pub fn function_declaration(
     identifier: String,
     body: Option<Vec<Statement>>,
@@ -37,29 +56,16 @@ pub fn function_declaration(
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Parameter {
-    pub identifier: String,
-    pub type_identifier: Option<String>,
-}
-
-pub fn parameter(identifier: String, type_identifier: Option<String>) -> Parameter {
-    Parameter {
-        identifier,
-        type_identifier,
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum FunctionAttribute {
-    External,
-    //Export,
-}
-
-#[derive(Debug, PartialEq)]
 pub struct VariableDeclaration {
     pub identifier: String,
     pub body: Expression,
     pub attributes: Vec<VariableAttribute>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum VariableAttribute {
+    Const,
+    Let,
 }
 
 pub fn variable_declaration(
@@ -72,12 +78,6 @@ pub fn variable_declaration(
         body,
         attributes,
     })
-}
-
-#[derive(Debug, PartialEq)]
-pub enum VariableAttribute {
-    Const,
-    Let,
 }
 
 #[derive(Debug, PartialEq)]
@@ -119,6 +119,14 @@ pub struct BinaryExpr {
     pub right: Box<Expression>,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum Operator {
+    Add,
+    Sub,
+    Mult,
+    Div,
+}
+
 pub fn add_operation(left: Expression, right: Expression) -> Expression {
     Expression::BinaryExpr(BinaryExpr {
         operator: Operator::Add,
@@ -149,14 +157,6 @@ pub fn div_operation(left: Expression, right: Expression) -> Expression {
         left: Box::new(left),
         right: Box::new(right),
     })
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Operator {
-    Add,
-    Sub,
-    Mult,
-    Div,
 }
 
 #[derive(Debug, PartialEq)]
