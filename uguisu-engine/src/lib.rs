@@ -1,5 +1,6 @@
 use std::mem;
 
+mod analizer;
 mod ast;
 mod builtin;
 mod codegen;
@@ -9,6 +10,8 @@ mod parser;
 pub fn run(code: &str) -> Result<(), String> {
     println!("[Info] compiling ...");
     let ast = parser::parse(code).map_err(|e| format!("Compile Error: {}", e.message))?;
+
+    analizer::analyze().map_err(|e| format!("Compile Error: {}", e.message))?;
 
     let module = codegen::emit_module(ast).map_err(|e| format!("Compile Error: {}", e.message))?;
 
