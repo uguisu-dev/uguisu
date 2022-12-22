@@ -1,5 +1,5 @@
 #[derive(Debug, Clone)]
-pub struct FuncInfo {
+pub struct FuncSymbol {
     //pub name: String,
     pub param_names: Vec<String>,    // for each params
     pub param_types: Vec<ValueKind>, // for each params

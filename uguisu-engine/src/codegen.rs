@@ -1,7 +1,7 @@
 use crate::ast;
 use crate::builtin;
 use crate::errors::CompileError;
-use crate::symbols::{FuncInfo, ValueKind};
+use crate::symbols::{FuncSymbol, ValueKind};
 use core::panic;
 use cranelift_codegen::ir::{self, types, AbiParam, InstBuilder};
 use cranelift_codegen::settings::{self, Configurable, Flags};
@@ -107,7 +107,7 @@ fn emit_func_declaration(
     ctx: &mut cranelift_codegen::Context,
     builder_ctx: &mut FunctionBuilderContext,
     func_decl: &ast::FunctionDeclaration,
-    func_table: &mut HashMap<String, FuncInfo>,
+    func_table: &mut HashMap<String, FuncSymbol>,
     func_id_table: &mut HashMap<String, FuncId>,
 ) -> Result<FuncDeclResult, CompileError> {
     // TODO: To successfully resolve the identifier, the function declaration is made first.
@@ -165,7 +165,7 @@ fn emit_func_declaration(
         Err(_) => return Err(CompileError::new("Failed to declare a function.")),
     };
     println!("[Info] function '{}' is declared.", func_decl.identifier);
-    let func_info = FuncInfo {
+    let func_info = FuncSymbol {
         param_names: param_names,
         param_types: param_types,
         ret_kind: ret_kind,
@@ -199,7 +199,7 @@ fn emit_func_declaration(
 struct FunctionEmitter<'a> {
     module: &'a mut JITModule,
     builder: FunctionBuilder<'a>,
-    func_table: &'a HashMap<String, FuncInfo>,
+    func_table: &'a HashMap<String, FuncSymbol>,
     func_id_table: &'a HashMap<String, FuncId>,
     is_returned: bool,
 }
@@ -209,7 +209,7 @@ impl<'a> FunctionEmitter<'a> {
         module: &'a mut JITModule,
         ctx: &'a mut cranelift_codegen::Context,
         builder_ctx: &'a mut FunctionBuilderContext,
-        func_table: &'a HashMap<String, FuncInfo>,
+        func_table: &'a HashMap<String, FuncSymbol>,
         func_id_table: &'a HashMap<String, FuncId>,
     ) -> Self {
         let builder = FunctionBuilder::new(&mut ctx.func, builder_ctx);
@@ -225,7 +225,7 @@ impl<'a> FunctionEmitter<'a> {
     pub fn emit_body(
         &mut self,
         body: &Vec<ast::Statement>,
-        func_info: &FuncInfo,
+        func_info: &FuncSymbol,
     ) -> Result<(), CompileError> {
         //self.builder.func.name = UserFuncName::user(0, func_info.id.as_u32());
         let block = self.builder.create_block();
@@ -250,7 +250,7 @@ impl<'a> FunctionEmitter<'a> {
 
     fn emit_statement(
         &mut self,
-        func: &FuncInfo,
+        func: &FuncSymbol,
         block: ir::Block,
         statement: &ast::Statement,
     ) -> Result<(), CompileError> {
@@ -303,7 +303,7 @@ impl<'a> FunctionEmitter<'a> {
 
     fn emit_expr(
         &mut self,
-        func: &FuncInfo,
+        func: &FuncSymbol,
         block: ir::Block,
         expr: &ast::Expression,
     ) -> Result<Option<ir::Value>, CompileError> {
@@ -325,7 +325,7 @@ impl<'a> FunctionEmitter<'a> {
 
     fn emit_binary_op(
         &mut self,
-        func: &FuncInfo,
+        func: &FuncSymbol,
         block: ir::Block,
         binary_expr: &ast::BinaryExpr,
     ) -> Result<Option<ir::Value>, CompileError> {
@@ -348,7 +348,7 @@ impl<'a> FunctionEmitter<'a> {
 
     fn emit_call(
         &mut self,
-        func: &FuncInfo,
+        func: &FuncSymbol,
         block: ir::Block,
         call_expr: &ast::CallExpr,
     ) -> Result<Option<ir::Value>, CompileError> {
@@ -390,7 +390,7 @@ impl<'a> FunctionEmitter<'a> {
 
     fn emit_identifier(
         &mut self,
-        func: &FuncInfo,
+        func: &FuncSymbol,
         block: ir::Block,
         identifier: &String,
     ) -> Result<Option<ir::Value>, CompileError> {
