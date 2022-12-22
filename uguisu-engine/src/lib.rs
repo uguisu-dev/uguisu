@@ -6,6 +6,7 @@ mod builtin;
 mod codegen;
 mod errors;
 mod parser;
+mod symbols;
 
 pub fn run(code: &str) -> Result<(), String> {
     println!("[Info] compiling ...");

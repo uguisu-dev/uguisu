@@ -1,6 +1,7 @@
 use crate::ast;
 use crate::builtin;
 use crate::errors::CompileError;
+use crate::symbols::{FuncInfo, ValueKind};
 use core::panic;
 use cranelift_codegen::ir::{self, types, AbiParam, InstBuilder};
 use cranelift_codegen::settings::{self, Configurable, Flags};
@@ -11,25 +12,11 @@ use cranelift_native;
 use std::collections::HashMap;
 use target_lexicon::Architecture;
 
-#[derive(Debug, Clone)]
-struct FuncInfo {
-    pub id: FuncId,
-    pub param_names: Vec<String>, // for each params
-    pub param_types: Vec<ValueKind>, // for each params
-    pub ret_kind: Option<ValueKind>,
-    pub is_external: bool,
-}
-
-#[derive(Debug, Clone)]
-enum ValueKind {
-    Number,
-}
-
 #[derive(Debug)]
-struct FuncDeclInfo {
+struct FuncDeclResult {
     pub name: String,
     pub id: FuncId,
-    pub has_body: bool,
+    pub is_defined: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -77,18 +64,20 @@ pub fn emit_module(ast: Vec<ast::Statement>) -> Result<CompiledModule, CompileEr
     };
     let mut builder_ctx = FunctionBuilderContext::new();
     let mut func_table = HashMap::new();
-    let mut func_decl_infos: Vec<FuncDeclInfo> = Vec::new();
+    let mut func_id_table = HashMap::new();
+    let mut func_decl_results: Vec<FuncDeclResult> = Vec::new();
     for statement in ast.iter() {
         match statement {
-            ast::Statement::FunctionDeclaration(func_decl) => {
-                let func_decl_info = emit_func_declaration(
+            ast::Statement::FunctionDeclaration(func_decl_statement) => {
+                let result = emit_func_declaration(
                     &mut module,
                     &mut ctx,
                     &mut builder_ctx,
-                    &func_decl,
+                    &func_decl_statement,
                     &mut func_table,
+                    &mut func_id_table,
                 )?;
-                func_decl_infos.push(func_decl_info);
+                func_decl_results.push(result);
             }
             _ => {
                 println!("[Warn] variable declaration is unexpected in the global");
@@ -100,12 +89,12 @@ pub fn emit_module(ast: Vec<ast::Statement>) -> Result<CompiledModule, CompileEr
         .finalize_definitions()
         .map_err(|_| CompileError::new("Failed to generate module."))?;
     let mut compiled_module = CompiledModule { funcs: Vec::new() };
-    for func_decl_info in func_decl_infos {
-        if func_decl_info.has_body {
+    for func in func_decl_results {
+        if func.is_defined {
             // get function ptr
-            let func_ptr = module.get_finalized_function(func_decl_info.id);
+            let func_ptr = module.get_finalized_function(func.id);
             compiled_module.funcs.push(CompiledFunction {
-                name: func_decl_info.name,
+                name: func.name,
                 ptr: func_ptr,
             });
         }
@@ -119,7 +108,8 @@ fn emit_func_declaration(
     builder_ctx: &mut FunctionBuilderContext,
     func_decl: &ast::FunctionDeclaration,
     func_table: &mut HashMap<String, FuncInfo>,
-) -> Result<FuncDeclInfo, CompileError> {
+    func_id_table: &mut HashMap<String, FuncId>,
+) -> Result<FuncDeclResult, CompileError> {
     // TODO: To successfully resolve the identifier, the function declaration is made first.
     // declare function
     let mut param_names = Vec::new();
@@ -175,9 +165,7 @@ fn emit_func_declaration(
         Err(_) => return Err(CompileError::new("Failed to declare a function.")),
     };
     println!("[Info] function '{}' is declared.", func_decl.identifier);
-    // make ir signature
     let func_info = FuncInfo {
-        id: func_id,
         param_names: param_names,
         param_types: param_types,
         ret_kind: ret_kind,
@@ -186,36 +174,32 @@ fn emit_func_declaration(
     // register func table
     func_table.insert(func_decl.identifier.clone(), func_info.clone());
 
-    let dec_info = if let Some(body) = &func_decl.body {
-        let mut emitter = FunctionEmitter::new(module, ctx, builder_ctx, func_table);
+    let mut func_defined = false;
+    if let Some(body) = &func_decl.body {
+        let mut emitter = FunctionEmitter::new(module, ctx, builder_ctx, func_table, func_id_table);
         // emit the function
         emitter.emit_body(body, &func_info)?;
         // define the function
-        if let Err(_) = module.define_function(func_info.id, ctx) {
+        if let Err(_) = module.define_function(func_id, ctx) {
             return Err(CompileError::new("failed to define a function."));
-        };
-        FuncDeclInfo {
-            name: name,
-            id: func_id,
-            has_body: true,
         }
-    } else {
-        FuncDeclInfo {
-            name: name,
-            id: func_id,
-            has_body: false,
-        }
-    };
+        func_defined = true;
+    }
 
     // clear the function context
     module.clear_context(ctx);
-    Ok(dec_info)
+    Ok(FuncDeclResult {
+        name,
+        id: func_id,
+        is_defined: func_defined,
+    })
 }
 
 struct FunctionEmitter<'a> {
     module: &'a mut JITModule,
     builder: FunctionBuilder<'a>,
     func_table: &'a HashMap<String, FuncInfo>,
+    func_id_table: &'a HashMap<String, FuncId>,
     is_returned: bool,
 }
 
@@ -225,12 +209,14 @@ impl<'a> FunctionEmitter<'a> {
         ctx: &'a mut cranelift_codegen::Context,
         builder_ctx: &'a mut FunctionBuilderContext,
         func_table: &'a HashMap<String, FuncInfo>,
+        func_id_table: &'a HashMap<String, FuncId>,
     ) -> Self {
         let builder = FunctionBuilder::new(&mut ctx.func, builder_ctx);
         Self {
             module: module,
             builder: builder,
             func_table: func_table,
+            func_id_table: func_id_table,
             is_returned: false,
         }
     }
@@ -376,12 +362,13 @@ impl<'a> FunctionEmitter<'a> {
                 return Err(CompileError::new(&message));
             }
         };
+        let callee_id = *self.func_id_table.get(callee_name).unwrap();
         if callee_func.param_names.len() != call_expr.args.len() {
             return Err(CompileError::new("parameter count is incorrect"));
         }
         let func_ref = self
             .module
-            .declare_func_in_func(callee_func.id, self.builder.func);
+            .declare_func_in_func(callee_id, self.builder.func);
         let mut param_values = Vec::new();
         for arg in call_expr.args.iter() {
             match self.emit_expr(func, block, arg)? {
