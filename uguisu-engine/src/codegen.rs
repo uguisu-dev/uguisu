@@ -173,6 +173,7 @@ fn emit_func_declaration(
     };
     // register func table
     func_table.insert(func_decl.identifier.clone(), func_info.clone());
+    func_id_table.insert(func_decl.identifier.clone(), func_id);
 
     let mut func_defined = false;
     if let Some(body) = &func_decl.body {
