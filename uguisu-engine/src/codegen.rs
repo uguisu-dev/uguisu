@@ -1,23 +1,23 @@
-use crate::ast;
-use crate::builtin;
-use crate::errors::CompileError;
-use crate::hir::ValueKind;
-use crate::symbols::FuncSymbol;
+use crate::resolve::{self, Type, Function, ScopeLayer, Scope};
+use crate::CompileError;
 use core::panic;
-use cranelift_codegen::ir::{self, types, AbiParam, InstBuilder};
-use cranelift_codegen::settings::{self, Configurable, Flags};
+use cranelift_codegen::ir::{types, AbiParam, Block, InstBuilder, Value};
+use cranelift_codegen::settings::{builder as settingBuilder, Configurable, Flags};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{self, default_libcall_names, FuncId, Linkage, Module};
-use cranelift_native;
+use cranelift_native::builder as nativeBuilder;
 use std::collections::HashMap;
 use target_lexicon::Architecture;
 
-#[derive(Debug)]
-struct FuncDeclResult {
-    pub name: String,
-    pub id: FuncId,
-    pub is_defined: bool,
+mod builtin {
+    pub fn hello() {
+        println!("hello");
+    }
+
+    pub fn print_num(value: i32) {
+        println!("{}", value);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -31,10 +31,10 @@ pub struct CompiledFunction {
     pub ptr: *const u8,
 }
 
-pub fn emit_module(ast: Vec<ast::Statement>) -> Result<CompiledModule, CompileError> {
-    let (mut module, mut ctx) = {
-        let isa_builder = cranelift_native::builder().unwrap();
-        let mut flag_builder = settings::builder();
+pub fn emit_module(scope: Scope) -> Result<CompiledModule, CompileError> {
+    let (mut codegen_module, mut ctx) = {
+        let isa_builder = nativeBuilder().unwrap();
+        let mut flag_builder = settingBuilder();
         if let Err(e) = flag_builder.set("use_colocated_libcalls", "false") {
             panic!("Configuration error: {}", e.to_string());
         }
@@ -59,41 +59,41 @@ pub fn emit_module(ast: Vec<ast::Statement>) -> Result<CompiledModule, CompileEr
         for symbol in symbols.iter() {
             module_builder.symbol(&symbol.0.to_string(), symbol.1);
         }
-        let module = JITModule::new(module_builder);
-        let ctx = module.make_context();
-        (module, ctx)
+        let codegen_module = JITModule::new(module_builder);
+        let ctx = codegen_module.make_context();
+        (codegen_module, ctx)
     };
     let mut builder_ctx = FunctionBuilderContext::new();
-    let mut func_table = HashMap::new();
-    let mut func_id_table = HashMap::new();
-    let mut func_decl_results: Vec<FuncDeclResult> = Vec::new();
-    for statement in ast.iter() {
-        match statement {
-            ast::Statement::FunctionDeclaration(func_decl_statement) => {
-                let result = emit_func_declaration(
-                    &mut module,
-                    &mut ctx,
-                    &mut builder_ctx,
-                    &func_decl_statement,
-                    &mut func_table,
-                    &mut func_id_table,
-                )?;
-                func_decl_results.push(result);
-            }
-            _ => {
-                println!("[Warn] variable declaration is unexpected in the global");
+    //let mut func_table = HashMap::new();
+    //let mut func_id_table = HashMap::new();
+    let mut func_decl_results: Vec<FuncId> = Vec::new();
+    for layer in scope.iter() {
+        for symbol in layer.symbols.iter() {
+            match symbol {
+                resolve::Symbol::Function(func) => {
+                    emit_func_declaration(
+                        &mut codegen_module,
+                        &mut ctx,
+                        &mut builder_ctx,
+                        &mut module,
+                    )?;
+                }
+                resolve::Symbol::Variable(var) => {}
+                // _ => {
+                //     println!("[Warn] variable declaration is unexpected in the global");
+                // }
             }
         }
     }
     // finalize all functions
-    module
+    codegen_module
         .finalize_definitions()
         .map_err(|_| CompileError::new("Failed to generate module."))?;
     let mut compiled_module = CompiledModule { funcs: Vec::new() };
     for func in func_decl_results {
         if func.is_defined {
             // get function ptr
-            let func_ptr = module.get_finalized_function(func.id);
+            let func_ptr = codegen_module.get_finalized_function(func.id);
             compiled_module.funcs.push(CompiledFunction {
                 name: func.name,
                 ptr: func_ptr,
@@ -104,13 +104,11 @@ pub fn emit_module(ast: Vec<ast::Statement>) -> Result<CompiledModule, CompileEr
 }
 
 fn emit_func_declaration(
-    module: &mut JITModule,
+    codegen_module: &mut JITModule,
     ctx: &mut cranelift_codegen::Context,
     builder_ctx: &mut FunctionBuilderContext,
-    func_decl: &ast::FunctionDeclaration,
-    func_table: &mut HashMap<String, FuncSymbol>,
-    func_id_table: &mut HashMap<String, FuncId>,
-) -> Result<FuncDeclResult, CompileError> {
+    module: &mut resolve::Module,
+) -> Result<(), CompileError> {
     // TODO: To successfully resolve the identifier, the function declaration is made first.
     // declare function
     let mut param_names = Vec::new();
@@ -122,7 +120,7 @@ fn emit_func_declaration(
                 if type_name != "number" {
                     return Err(CompileError::new("unknown type"));
                 }
-                ValueKind::Number
+                Type::Number
             }
             None => return Err(CompileError::new("Parameter type is not specified.")),
         };
@@ -135,25 +133,27 @@ fn emit_func_declaration(
             if type_name != "number" {
                 return Err(CompileError::new("unknown type"));
             }
-            Some(ValueKind::Number)
+            Some(Type::Number)
         }
         None => None,
     };
     let name = func_decl.identifier.clone();
     let is_external = func_decl
         .attributes
-        .contains(&ast::FunctionAttribute::External);
+        .contains(&parse::FunctionAttribute::External);
     for param_type in param_types.iter() {
         match param_type {
-            ValueKind::Number => {
+            Type::Number => {
                 ctx.func.signature.params.push(AbiParam::new(types::I32));
             }
+            _ => panic!("unsupported type"),
         }
     }
     match ret_kind {
-        Some(ValueKind::Number) => {
+        Some(Type::Number) => {
             ctx.func.signature.returns.push(AbiParam::new(types::I32));
         }
+        Some(_) => panic!("unsupported type"),
         None => {}
     }
     let linkage = if is_external {
@@ -161,16 +161,17 @@ fn emit_func_declaration(
     } else {
         Linkage::Local
     };
-    let func_id = match module.declare_function(&name, linkage, &ctx.func.signature) {
+    let func_id = match codegen_module.declare_function(&name, linkage, &ctx.func.signature) {
         Ok(id) => id,
         Err(_) => return Err(CompileError::new("Failed to declare a function.")),
     };
     println!("[Info] function '{}' is declared.", func_decl.identifier);
-    let func_info = FuncSymbol {
+    let func_info = Function {
         param_names: param_names,
-        param_types: param_types,
-        ret_kind: ret_kind,
+        params_ty: param_types,
+        ret_ty: ret_kind,
         is_external: is_external,
+        codegen_id: None,
     };
     // register func table
     func_table.insert(func_decl.identifier.clone(), func_info.clone());
@@ -178,44 +179,41 @@ fn emit_func_declaration(
 
     let mut func_defined = false;
     if let Some(body) = &func_decl.body {
-        let mut emitter = FunctionEmitter::new(module, ctx, builder_ctx, func_table, func_id_table);
+        let mut emitter = FunctionEmitter::new(codegen_module, ctx, builder_ctx, func_table, func_id_table);
         // emit the function
         emitter.emit_body(body, &func_info)?;
         // define the function
-        if let Err(_) = module.define_function(func_id, ctx) {
+        if let Err(_) = codegen_module.define_function(func_id, ctx) {
             return Err(CompileError::new("failed to define a function."));
         }
         func_defined = true;
     }
 
     // clear the function context
-    module.clear_context(ctx);
-    Ok(FuncDeclResult {
-        name,
-        id: func_id,
-        is_defined: func_defined,
-    })
+    codegen_module.clear_context(ctx);
+    module.symbol_table.get();
+    Ok(func_id)
 }
 
 struct FunctionEmitter<'a> {
-    module: &'a mut JITModule,
+    codegen_module: &'a mut JITModule,
     builder: FunctionBuilder<'a>,
-    func_table: &'a HashMap<String, FuncSymbol>,
+    func_table: &'a HashMap<String, Function>,
     func_id_table: &'a HashMap<String, FuncId>,
     is_returned: bool,
 }
 
 impl<'a> FunctionEmitter<'a> {
     pub fn new(
-        module: &'a mut JITModule,
+        codegen_module: &'a mut JITModule,
         ctx: &'a mut cranelift_codegen::Context,
         builder_ctx: &'a mut FunctionBuilderContext,
-        func_table: &'a HashMap<String, FuncSymbol>,
+        func_table: &'a HashMap<String, Function>,
         func_id_table: &'a HashMap<String, FuncId>,
     ) -> Self {
         let builder = FunctionBuilder::new(&mut ctx.func, builder_ctx);
         Self {
-            module: module,
+            codegen_module,
             builder: builder,
             func_table: func_table,
             func_id_table: func_id_table,
@@ -225,8 +223,8 @@ impl<'a> FunctionEmitter<'a> {
 
     pub fn emit_body(
         &mut self,
-        body: &Vec<ast::Statement>,
-        func_info: &FuncSymbol,
+        body: &Vec<parse::Node>,
+        func_info: &Function,
     ) -> Result<(), CompileError> {
         //self.builder.func.name = UserFuncName::user(0, func_info.id.as_u32());
         let block = self.builder.create_block();
@@ -251,12 +249,12 @@ impl<'a> FunctionEmitter<'a> {
 
     fn emit_statement(
         &mut self,
-        func: &FuncSymbol,
-        block: ir::Block,
-        statement: &ast::Statement,
+        func: &Function,
+        block: Block,
+        statement: &parse::Node,
     ) -> Result<(), CompileError> {
         match statement {
-            ast::Statement::ReturnStatement(Some(expr)) => {
+            parse::Node::ReturnStatement(Some(expr)) => {
                 // When the return instruction is emitted, the block is filled.
                 let value = match self.emit_expr(func, block, &expr)? {
                     Some(v) => v,
@@ -265,11 +263,11 @@ impl<'a> FunctionEmitter<'a> {
                 self.builder.ins().return_(&[value]);
                 self.is_returned = true;
             }
-            ast::Statement::ReturnStatement(None) => {
+            parse::Node::ReturnStatement(None) => {
                 self.builder.ins().return_(&[]);
                 self.is_returned = true;
             }
-            ast::Statement::VariableDeclaration(statement) => {
+            parse::Node::VariableDeclaration(statement) => {
                 // TODO: use statement.identifier
                 // TODO: use statement.attributes
                 let value = match self.emit_expr(func, block, &statement.body)? {
@@ -282,7 +280,7 @@ impl<'a> FunctionEmitter<'a> {
                     "variable declaration is not supported yet.",
                 ));
             }
-            ast::Statement::Assignment(statement) => {
+            parse::Node::Assignment(statement) => {
                 // TODO: use statement.identifier
                 let value = match self.emit_expr(func, block, &statement.body)? {
                     Some(v) => v,
@@ -292,11 +290,20 @@ impl<'a> FunctionEmitter<'a> {
                 };
                 return Err(CompileError::new("assign statement is not supported yet."));
             }
-            ast::Statement::FunctionDeclaration(_) => {
+            parse::Node::FunctionDeclaration(_) => {
                 return Err(CompileError::new("FuncDeclaration is unexpected"));
             }
-            ast::Statement::ExprStatement(expr) => {
-                self.emit_expr(func, block, expr)?;
+            parse::Node::Literal(parse::Literal::Number(value)) => {
+                self.emit_number(*value)?;
+            }
+            parse::Node::BinaryExpr(op) => {
+                self.emit_binary_op(func, block, op)?;
+            }
+            parse::Node::CallExpr(call_expr) => {
+                self.emit_call(func, block, call_expr)?;
+            }
+            parse::Node::Identifier(identifier) => {
+                self.emit_identifier(func, block, identifier)?;
             }
         }
         Ok(())
@@ -304,21 +311,22 @@ impl<'a> FunctionEmitter<'a> {
 
     fn emit_expr(
         &mut self,
-        func: &FuncSymbol,
-        block: ir::Block,
-        expr: &ast::Expression,
-    ) -> Result<Option<ir::Value>, CompileError> {
+        func: &Function,
+        block: Block,
+        expr: &parse::Node,
+    ) -> Result<Option<Value>, CompileError> {
         match expr {
-            ast::Expression::Literal(ast::Literal::Number(value)) => self.emit_number(*value),
-            ast::Expression::BinaryExpr(op) => self.emit_binary_op(func, block, op),
-            ast::Expression::CallExpr(call_expr) => self.emit_call(func, block, call_expr),
-            ast::Expression::Identifier(identifier) => {
+            parse::Node::Literal(parse::Literal::Number(value)) => self.emit_number(*value),
+            parse::Node::BinaryExpr(op) => self.emit_binary_op(func, block, op),
+            parse::Node::CallExpr(call_expr) => self.emit_call(func, block, call_expr),
+            parse::Node::Identifier(identifier) => {
                 self.emit_identifier(func, block, identifier)
             }
+            _ => { panic!("unexpected node"); }
         }
     }
 
-    fn emit_number(&mut self, value: i32) -> Result<Option<ir::Value>, CompileError> {
+    fn emit_number(&mut self, value: i32) -> Result<Option<Value>, CompileError> {
         Ok(Some(
             self.builder.ins().iconst(types::I32, i64::from(value)),
         ))
@@ -326,10 +334,10 @@ impl<'a> FunctionEmitter<'a> {
 
     fn emit_binary_op(
         &mut self,
-        func: &FuncSymbol,
-        block: ir::Block,
-        binary_expr: &ast::BinaryExpr,
-    ) -> Result<Option<ir::Value>, CompileError> {
+        func: &Function,
+        block: Block,
+        binary_expr: &parse::BinaryExpr,
+    ) -> Result<Option<Value>, CompileError> {
         let left = match self.emit_expr(func, block, &binary_expr.left)? {
             Some(v) => v,
             None => return Err(CompileError::new("value not found")),
@@ -339,37 +347,37 @@ impl<'a> FunctionEmitter<'a> {
             None => return Err(CompileError::new("value not found")),
         };
         let value = match binary_expr.operator {
-            ast::Operator::Add => self.builder.ins().iadd(left, right),
-            ast::Operator::Sub => self.builder.ins().isub(left, right),
-            ast::Operator::Mult => self.builder.ins().imul(left, right),
-            ast::Operator::Div => self.builder.ins().udiv(left, right),
+            parse::Operator::Add => self.builder.ins().iadd(left, right),
+            parse::Operator::Sub => self.builder.ins().isub(left, right),
+            parse::Operator::Mult => self.builder.ins().imul(left, right),
+            parse::Operator::Div => self.builder.ins().udiv(left, right),
         };
         Ok(Some(value))
     }
 
     fn emit_call(
         &mut self,
-        func: &FuncSymbol,
-        block: ir::Block,
-        call_expr: &ast::CallExpr,
-    ) -> Result<Option<ir::Value>, CompileError> {
+        func: &Function,
+        block: Block,
+        call_expr: &parse::CallExpr,
+    ) -> Result<Option<Value>, CompileError> {
         let callee_name = match call_expr.callee.as_ref() {
-            ast::Expression::Identifier(name) => name,
-            _ => return Err(CompileError::new("invalid callee kind")),
+            parse::Node::Identifier(name) => name,
+            _ => panic!("unsupported callee kind"),
         };
-        let callee_func = match self.func_table.get(callee_name) {
-            Some(info) => info,
-            None => {
-                let message = format!("unknown function '{}' is called.", callee_name);
-                return Err(CompileError::new(&message));
-            }
-        };
+        // let callee_func = match self.func_table.get(callee_name) {
+        //     Some(info) => info,
+        //     None => {
+        //         let message = format!("unknown function '{}' is called.", callee_name);
+        //         return Err(CompileError::new(&message));
+        //     }
+        // };
         let callee_id = *self.func_id_table.get(callee_name).unwrap();
-        if callee_func.param_names.len() != call_expr.args.len() {
-            return Err(CompileError::new("parameter count is incorrect"));
-        }
+        // if callee_func.param_names.len() != call_expr.args.len() {
+        //     return Err(CompileError::new("parameter count is incorrect"));
+        // }
         let func_ref = self
-            .module
+            .codegen_module
             .declare_func_in_func(callee_id, self.builder.func);
         let mut param_values = Vec::new();
         for arg in call_expr.args.iter() {
@@ -377,7 +385,7 @@ impl<'a> FunctionEmitter<'a> {
                 Some(v) => {
                     param_values.push(v);
                 }
-                None => return Err(CompileError::new("The expression does not return a value.")),
+                None => panic!("The expression does not return a value."),
             }
         }
         let call = self.builder.ins().call(func_ref, &param_values);
@@ -391,10 +399,10 @@ impl<'a> FunctionEmitter<'a> {
 
     fn emit_identifier(
         &mut self,
-        func: &FuncSymbol,
-        block: ir::Block,
+        func: &Function,
+        block: Block,
         identifier: &String,
-    ) -> Result<Option<ir::Value>, CompileError> {
+    ) -> Result<Option<Value>, CompileError> {
         match func.param_names.iter().position(|item| item == identifier) {
             Some(index) => Ok(Some(self.builder.block_params(block)[index])),
             None => {

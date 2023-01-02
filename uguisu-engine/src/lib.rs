@@ -1,30 +1,43 @@
+use crate::resolve::{Resolver, Scope, Symbol};
 use std::mem;
 
-mod analyzer;
-mod ast;
-mod builtin;
-mod codegen;
-mod errors;
-mod hir;
-mod parser;
-mod symbols;
+//mod codegen;
+mod parse;
+mod resolve;
+
+#[derive(Debug, Clone)]
+pub struct CompileError {
+    pub message: String,
+}
+
+impl CompileError {
+    pub fn new(message: &str) -> Self {
+        Self {
+            message: message.to_string(),
+        }
+    }
+}
 
 pub fn run(code: &str) -> Result<(), String> {
     println!("[Info] compiling ...");
-    let ast = parser::parse(code).map_err(|e| format!("Compile Error: {}", e.message))?;
+    let mut ast = parse::parse(code).map_err(|e| format!("Compile Error: {}", e.message))?;
 
-    analyzer::analyze(&ast).map_err(|e| format!("Compile Error: {}", e.message))?;
+    let mut symbols: Vec<Symbol> = Vec::new();
+    let mut scope = Scope::new();
+    Resolver::new(&mut symbols, &mut scope)
+        .resolve(&mut ast)
+        .map_err(|e| format!("Compile Error: {}", e.message))?;
 
-    let module = codegen::emit_module(ast).map_err(|e| format!("Compile Error: {}", e.message))?;
+    // let backend_module = codegen::emit_module(scope).map_err(|e| format!("Compile Error: {}", e.message))?;
 
-    let func = match module.funcs.iter().find(|x| x.name == "main") {
-        Some(func) => func,
-        None => return Err("Compile Error: function 'main' not found".to_string()),
-    };
+    // let func = match backend_module.funcs.iter().find(|x| x.name == "main") {
+    //     Some(func) => func,
+    //     None => return Err("Compile Error: function 'main' not found".to_string()),
+    // };
 
-    println!("[Info] running ...");
-    let func = unsafe { mem::transmute::<*const u8, fn()>(func.ptr) };
-    func();
+    // println!("[Info] running ...");
+    // let func = unsafe { mem::transmute::<*const u8, fn()>(func.ptr) };
+    // func();
 
     Ok(())
 }
