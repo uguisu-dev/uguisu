@@ -278,14 +278,14 @@ impl<'a> Resolver<'a> {
 
     fn call_expr(&self, call_expr: &mut parse::CallExpr) -> Result<Option<Type>, CompileError> {
         self.expression(&mut call_expr.callee)?;
-        let callee_symbol = match call_expr.callee.as_ref() {
+        let callee_ref = match call_expr.callee.as_ref() {
             parse::Node::NodeRef(node_ref) => node_ref,
             _ => {
                 return Err(CompileError::new("callee is not identifier"));
             }
         };
-        let func_symbol = match callee_symbol.resolved {
-            Some(s) => match &self.symbols[s] {
+        let func = match callee_ref.resolved {
+            Some(id) => match &self.symbols[id] {
                 Symbol::Function(func) => func,
                 Symbol::Variable(_) => {
                     return Err(CompileError::new("variable cannot be called"));
@@ -295,21 +295,21 @@ impl<'a> Resolver<'a> {
                 return Err(CompileError::new("unknown callee"));
             }
         };
-        if call_expr.args.len() != func_symbol.param_ty_vec.len() {
+        if call_expr.args.len() != func.param_ty_vec.len() {
             return Err(CompileError::new("parameter count is incorrect"));
         }
         for (i, arg_expr) in call_expr.args.iter_mut().enumerate() {
             let arg_info = self.expression(arg_expr)?;
             match &arg_info {
                 Some(arg_kind) => {
-                    let param_kind = func_symbol.param_ty_vec.get(i).unwrap();
+                    let param_kind = func.param_ty_vec.get(i).unwrap();
                     if arg_kind != param_kind {}
                 }
                 None => return Err(CompileError::new("parameter count is incorrect")),
             }
         }
-        let expr_kind = func_symbol.ret_ty.clone();
-        Ok(expr_kind)
+        let ret_ty = func.ret_ty.clone();
+        Ok(ret_ty)
     }
 
     fn identifier(&self, node_ref: &mut NodeRef) -> Result<Option<Type>, CompileError> {
