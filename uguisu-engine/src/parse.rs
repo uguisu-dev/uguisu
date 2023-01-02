@@ -14,7 +14,7 @@ pub enum Node {
     ReturnStatement(Option<Box<Node>>),
     Assignment(Assignment),
     // expression
-    SymbolRef(SymbolRef),
+    NodeRef(NodeRef),
     Literal(Literal),
     BinaryExpr(BinaryExpr),
     CallExpr(CallExpr),
@@ -62,8 +62,8 @@ pub struct Assignment {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct SymbolRef {
-    pub name: String,
+pub struct NodeRef {
+    pub identifier: String,
     pub resolved: Option<resolve::SymbolId>,
 }
 
@@ -91,7 +91,6 @@ pub enum Operator {
 pub struct CallExpr {
     pub callee: Box<Node>,
     pub args: Vec<Node>,
-    pub resolved_callee: Option<resolve::SymbolId>,
 }
 
 //
@@ -135,7 +134,10 @@ pub fn variable_declaration(
 }
 
 pub fn assignment(dest: String, body: Node) -> Node {
-    Node::Assignment(Assignment { dest, body: Box::new(body) })
+    Node::Assignment(Assignment {
+        dest,
+        body: Box::new(body),
+    })
 }
 
 pub fn number(value: i32) -> Node {
@@ -178,7 +180,6 @@ pub fn call_expr(callee: Node, args: Vec<Node>) -> Node {
     Node::CallExpr(CallExpr {
         callee: Box::new(callee),
         args,
-        resolved_callee: None,
     })
 }
 
@@ -238,7 +239,7 @@ peg::parser! {
             // --
             e:number() { e }
             e:call_expr() { e }
-            id:idenfitier() { Node::SymbolRef(SymbolRef { name: id.to_string(), resolved: None }) }
+            id:idenfitier() { Node::NodeRef(NodeRef { identifier: id.to_string(), resolved: None }) }
             p:position!() "(" __* e:expression() __* ")" { p; e }
         }
 
@@ -294,7 +295,7 @@ peg::parser! {
             = name:idenfitier() __* "(" __* args:call_params()? __* ")"
         {
             let args = if let Some(v) = args { v } else { vec![] };
-            call_expr(Node::SymbolRef(SymbolRef { name: name.to_string(), resolved: None }), args)
+            call_expr(Node::NodeRef(NodeRef { identifier: name.to_string(), resolved: None }), args)
         }
 
         rule call_params() -> Vec<Node>

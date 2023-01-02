@@ -1,6 +1,6 @@
 use crate::parse;
+use crate::parse::NodeRef;
 use crate::CompileError;
-use crate::parse::SymbolRef;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
@@ -88,7 +88,7 @@ impl<'a> Resolver<'a> {
         Self { symbols, scope }
     }
 
-    fn resolve_symbol(&self, identifier: &str) -> Option<SymbolId> {
+    fn resolve_with_scope(&self, identifier: &str) -> Option<SymbolId> {
         for layer in self.scope.layers.iter() {
             for symbol_id in layer.symbols.iter() {
                 match &self.symbols[*symbol_id] {
@@ -175,15 +175,13 @@ impl<'a> Resolver<'a> {
     fn function_body(&mut self, node: &mut parse::FunctionDeclaration) -> Result<(), CompileError> {
         if let Some(body) = &mut node.body {
             self.scope.enter_scope();
-            let func = match self.resolve_symbol(&node.identifier) {
-                Some(s) => {
-                    match &self.symbols[s] {
-                        Symbol::Function(func) => func,
-                        _ => {
-                            panic!("symbol is not function");
-                        }
+            let func = match self.resolve_with_scope(&node.identifier) {
+                Some(s) => match &self.symbols[s] {
+                    Symbol::Function(func) => func,
+                    _ => {
+                        panic!("symbol is not function");
                     }
-                }
+                },
                 _ => {
                     panic!("function symbol not found");
                 }
@@ -248,7 +246,7 @@ impl<'a> Resolver<'a> {
             parse::Node::Literal(_)
             | parse::Node::BinaryExpr(_)
             | parse::Node::CallExpr(_)
-            | parse::Node::SymbolRef(_) => {
+            | parse::Node::NodeRef(_) => {
                 self.expression(node)?;
             }
         };
@@ -260,7 +258,7 @@ impl<'a> Resolver<'a> {
             parse::Node::Literal(parse::Literal::Number(_)) => Some(Type::Number),
             parse::Node::BinaryExpr(op) => self.binary_op(op)?,
             parse::Node::CallExpr(call_expr) => self.call_expr(call_expr)?,
-            parse::Node::SymbolRef(identifier) => self.identifier(identifier)?,
+            parse::Node::NodeRef(node_ref) => self.identifier(node_ref)?,
             _ => {
                 panic!("unexpected node");
             }
@@ -279,22 +277,22 @@ impl<'a> Resolver<'a> {
     }
 
     fn call_expr(&self, call_expr: &mut parse::CallExpr) -> Result<Option<Type>, CompileError> {
-        let callee_ident = match call_expr.callee.as_ref() {
-            parse::Node::SymbolRef(ident) => ident,
+        self.expression(&mut call_expr.callee)?;
+        let callee_symbol = match call_expr.callee.as_ref() {
+            parse::Node::NodeRef(node_ref) => node_ref,
             _ => {
                 return Err(CompileError::new("callee is not identifier"));
             }
         };
-        let symbol = match self.resolve_symbol(&callee_ident.name) {
-            Some(s) => &self.symbols[s],
+        let func_symbol = match callee_symbol.resolved {
+            Some(s) => match &self.symbols[s] {
+                Symbol::Function(func) => func,
+                Symbol::Variable(_) => {
+                    return Err(CompileError::new("variable cannot be called"));
+                }
+            },
             None => {
                 return Err(CompileError::new("unknown callee"));
-            }
-        };
-        let func_symbol = match symbol {
-            Symbol::Function(func) => func,
-            Symbol::Variable(_) => {
-                return Err(CompileError::new("variable cannot be called"));
             }
         };
         if call_expr.args.len() != func_symbol.param_ty_vec.len() {
@@ -314,10 +312,10 @@ impl<'a> Resolver<'a> {
         Ok(expr_kind)
     }
 
-    fn identifier(&self, identifier: &mut SymbolRef) -> Result<Option<Type>, CompileError> {
-        match self.resolve_symbol(&identifier.name) {
+    fn identifier(&self, node_ref: &mut NodeRef) -> Result<Option<Type>, CompileError> {
+        match self.resolve_with_scope(&node_ref.identifier) {
             Some(sym) => {
-                identifier.resolved = Some(sym);
+                node_ref.resolved = Some(sym);
                 match &self.symbols[sym] {
                     Symbol::Function(func) => Ok(func.ret_ty.clone()),
                     Symbol::Variable(var) => Ok(Some(var.ty.clone())),

@@ -97,19 +97,19 @@ mod test {
 
     #[test]
     fn test_identifier_single_ascii() {
-        if let Ok(Node::SymbolRef(name)) = uguisu_parser::expression("a") {
+        if let Ok(Node::NodeRef(name)) = uguisu_parser::expression("a") {
             assert_eq!(name, "a");
         } else {
             panic!("incorrect result 1");
         }
 
-        if let Ok(Node::SymbolRef(name)) = uguisu_parser::expression("z") {
+        if let Ok(Node::NodeRef(name)) = uguisu_parser::expression("z") {
             assert_eq!(name, "z");
         } else {
             panic!("incorrect result 2");
         }
 
-        if let Ok(Node::SymbolRef(name)) = uguisu_parser::expression("_") {
+        if let Ok(Node::NodeRef(name)) = uguisu_parser::expression("_") {
             assert_eq!(name, "_");
         } else {
             panic!("incorrect result 3");
@@ -122,7 +122,7 @@ mod test {
 
     #[test]
     fn test_identifier_multi_ascii() {
-        if let Ok(Node::SymbolRef(name)) = uguisu_parser::expression("abc") {
+        if let Ok(Node::NodeRef(name)) = uguisu_parser::expression("abc") {
             assert_eq!(name, "abc");
         } else {
             panic!("incorrect result");
@@ -135,13 +135,13 @@ mod test {
 
     #[test]
     fn test_identifier_multi_byte() {
-        if let Ok(Node::SymbolRef(name)) = uguisu_parser::expression("あ") {
+        if let Ok(Node::NodeRef(name)) = uguisu_parser::expression("あ") {
             assert_eq!(name, "あ");
         } else {
             panic!("incorrect result");
         }
 
-        if let Ok(Node::SymbolRef(name)) = uguisu_parser::expression("変数1") {
+        if let Ok(Node::NodeRef(name)) = uguisu_parser::expression("変数1") {
             assert_eq!(name, "変数1");
         } else {
             panic!("incorrect result");
