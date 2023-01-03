@@ -1,4 +1,4 @@
-use crate::parse::{Node, FunctionDeclaration, self};
+use crate::parse::{Node, FunctionDeclaration, self, ResolvedNodeRef};
 use crate::resolve::{self, Type, Function};
 use crate::CompileError;
 use core::panic;
@@ -8,7 +8,6 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{self, default_libcall_names, FuncId, Linkage, Module};
 use cranelift_native::builder as nativeBuilder;
-use std::collections::HashMap;
 use target_lexicon::Architecture;
 
 mod builtin {
@@ -65,8 +64,6 @@ pub fn emit_module(ast: &mut Vec<Node>, symbol_source: &mut Vec<resolve::Symbol>
         (codegen_module, ctx)
     };
     let mut builder_ctx = FunctionBuilderContext::new();
-    //let mut func_table = HashMap::new();
-    //let mut func_id_table = HashMap::new();
     let mut func_decl_results: Vec<FuncId> = Vec::new();
     for node in ast.iter() {
         match node {
@@ -88,7 +85,6 @@ pub fn emit_module(ast: &mut Vec<Node>, symbol_source: &mut Vec<resolve::Symbol>
     codegen_module
         .finalize_definitions()
         .map_err(|_| CompileError::new("Failed to generate module."))?;
-
     let mut compiled_module = CompiledModule { funcs: Vec::new() };
     for node in ast.iter() {
         match node {
@@ -153,7 +149,7 @@ fn emit_func_declaration(
     func_symbol.codegen_id = Some(func_id.as_u32());
     println!("[Info] function '{}' is declared.", func_decl.identifier);
     if let Some(body) = &func_decl.body {
-        let mut emitter = FunctionEmitter::new(codegen_module, ctx, builder_ctx/*, func_table, func_id_table*/);
+        let mut emitter = FunctionEmitter::new(codegen_module, ctx, builder_ctx, &symbol_source/*, func_table, func_id_table*/);
         // emit the function
         emitter.emit_body(body/*, &func_info*/)?;
         // define the function
@@ -169,6 +165,7 @@ fn emit_func_declaration(
 struct FunctionEmitter<'a> {
     codegen_module: &'a mut JITModule,
     builder: FunctionBuilder<'a>,
+    symbol_source: &'a Vec<resolve::Symbol>,
     //func_table: &'a HashMap<String, Function>,
     //func_id_table: &'a HashMap<String, FuncId>,
     is_returned: bool,
@@ -179,6 +176,7 @@ impl<'a> FunctionEmitter<'a> {
         codegen_module: &'a mut JITModule,
         ctx: &'a mut cranelift_codegen::Context,
         builder_ctx: &'a mut FunctionBuilderContext,
+        symbol_source: &'a Vec<resolve::Symbol>,
         //func_table: &'a HashMap<String, Function>,
         //func_id_table: &'a HashMap<String, FuncId>,
     ) -> Self {
@@ -186,6 +184,7 @@ impl<'a> FunctionEmitter<'a> {
         Self {
             codegen_module,
             builder: builder,
+            symbol_source: symbol_source,
             //func_table: func_table,
             //func_id_table: func_id_table,
             is_returned: false,
@@ -332,21 +331,17 @@ impl<'a> FunctionEmitter<'a> {
         block: Block,
         call_expr: &parse::CallExpr,
     ) -> Result<Option<Value>, CompileError> {
-        let callee_name = match call_expr.callee.as_ref() {
-            parse::Node::NodeRef(node_ref) => name,
-            _ => panic!("unsupported callee kind"),
+        let callee_id = match &call_expr.callee.as_ref() {
+            Node::NodeRef(node_ref) => {
+                let resolved = node_ref.resolved.unwrap();
+                match &self.symbol_source[resolved.symbol] {
+                    resolve::Symbol::Function(func) => {
+                        FuncId::from_u32(func.codegen_id.unwrap())
+                    }
+                    _ => panic!("unexpected callee")
+                }
+            }
         };
-        // let callee_func = match self.func_table.get(callee_name) {
-        //     Some(info) => info,
-        //     None => {
-        //         let message = format!("unknown function '{}' is called.", callee_name);
-        //         return Err(CompileError::new(&message));
-        //     }
-        // };
-        let callee_id = *self.func_id_table.get(callee_name).unwrap();
-        // if callee_func.param_names.len() != call_expr.args.len() {
-        //     return Err(CompileError::new("parameter count is incorrect"));
-        // }
         let func_ref = self
             .codegen_module
             .declare_func_in_func(callee_id, self.builder.func);
@@ -372,15 +367,24 @@ impl<'a> FunctionEmitter<'a> {
         &mut self,
         func: &Function,
         block: Block,
-        identifier: &String,
+        node_ref: &parse::NodeRef,
     ) -> Result<Option<Value>, CompileError> {
-        match func.param_names.iter().position(|item| item == identifier) {
-            Some(index) => Ok(Some(self.builder.block_params(block)[index])),
-            None => {
+        let resolved = node_ref.resolved.unwrap();
+        match &self.symbol_source[resolved.symbol] {
+            resolve::Symbol::Function(func) => {
                 Err(CompileError::new(
-                    "Identifier of variables is not supported yet",
+                    "Identifier of function is not supported yet",
                 )) // TODO
-            }
+            },
+            resolve::Symbol::Variable(var) => {
+                if var.is_func_param {
+                    Ok(Some(self.builder.block_params(block)[var.func_param_index]))
+                } else {
+                    Err(CompileError::new(
+                        "Identifier of variables is not supported yet",
+                    )) // TODO
+                }
+            },
         }
     }
 }

@@ -62,9 +62,14 @@ pub struct Assignment {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct ResolvedNodeRef {
+    pub symbol: resolve::SymbolId,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct NodeRef {
     pub identifier: String,
-    pub resolved: Option<resolve::SymbolId>,
+    pub resolved: Option<ResolvedNodeRef>,
 }
 
 #[derive(Debug, PartialEq)]

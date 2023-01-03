@@ -1,4 +1,4 @@
-use crate::parse;
+use crate::parse::{self, ResolvedNodeRef};
 use crate::parse::NodeRef;
 use crate::CompileError;
 
@@ -22,6 +22,8 @@ pub struct Variable {
     pub name: String,
     pub ty: Type,
     pub is_mutable: bool,
+    pub is_func_param: bool,
+    pub func_param_index: usize,
 }
 
 pub type SymbolId = usize;
@@ -202,6 +204,8 @@ impl<'a> Resolver<'a> {
                     name: name.clone(),
                     ty: ty.clone(),
                     is_mutable: true,
+                    is_func_param: true,
+                    func_param_index: i,
                 }));
             }
             for symbol in symbols {
@@ -284,8 +288,8 @@ impl<'a> Resolver<'a> {
                 return Err(CompileError::new("callee is not identifier"));
             }
         };
-        let func = match callee_ref.resolved {
-            Some(id) => match &self.symbols[id] {
+        let func = match &callee_ref.resolved {
+            Some(resolved) => match &self.symbols[resolved.symbol] {
                 Symbol::Function(func) => func,
                 Symbol::Variable(_) => {
                     return Err(CompileError::new("variable cannot be called"));
@@ -317,10 +321,19 @@ impl<'a> Resolver<'a> {
     fn node_ref(&self, node_ref: &mut NodeRef) -> Result<Option<Type>, CompileError> {
         match self.resolve_with_scope(&node_ref.identifier) {
             Some(sym) => {
-                node_ref.resolved = Some(sym);
                 match &self.symbols[sym] {
-                    Symbol::Function(func) => Ok(func.ret_ty.clone()),
-                    Symbol::Variable(var) => Ok(Some(var.ty.clone())),
+                    Symbol::Function(func) => {
+                        node_ref.resolved = Some(ResolvedNodeRef {
+                            symbol: sym,
+                        });
+                        Ok(func.ret_ty.clone())
+                    },
+                    Symbol::Variable(var) => {
+                        node_ref.resolved = Some(ResolvedNodeRef {
+                            symbol: sym,
+                        });
+                        Ok(Some(var.ty.clone()))
+                    },
                 }
             }
             None => Err(CompileError::new("unknown identifier")),
