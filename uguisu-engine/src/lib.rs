@@ -1,7 +1,7 @@
 use crate::resolve::{Resolver, Scope, Symbol};
-use std::mem;
+//use std::mem;
 
-//mod codegen;
+mod codegen;
 mod parse;
 mod resolve;
 

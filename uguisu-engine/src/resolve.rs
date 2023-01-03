@@ -258,7 +258,7 @@ impl<'a> Resolver<'a> {
             parse::Node::Literal(parse::Literal::Number(_)) => Some(Type::Number),
             parse::Node::BinaryExpr(op) => self.binary_op(op)?,
             parse::Node::CallExpr(call_expr) => self.call_expr(call_expr)?,
-            parse::Node::NodeRef(node_ref) => self.identifier(node_ref)?,
+            parse::Node::NodeRef(node_ref) => self.node_ref(node_ref)?,
             _ => {
                 panic!("unexpected node");
             }
@@ -271,7 +271,7 @@ impl<'a> Resolver<'a> {
         let left = self.expression(&mut binary_expr.left)?;
         let right = self.expression(&mut binary_expr.right)?;
         if left != right {
-            return Err(CompileError::new("binary op type error"));
+            return Err(CompileError::new("type error"));
         }
         Ok(left)
     }
@@ -303,7 +303,9 @@ impl<'a> Resolver<'a> {
             match &arg_info {
                 Some(arg_kind) => {
                     let param_kind = func.param_ty_vec.get(i).unwrap();
-                    if arg_kind != param_kind {}
+                    if arg_kind != param_kind {
+                        return Err(CompileError::new("parameter type error"));
+                    }
                 }
                 None => return Err(CompileError::new("parameter count is incorrect")),
             }
@@ -312,7 +314,7 @@ impl<'a> Resolver<'a> {
         Ok(ret_ty)
     }
 
-    fn identifier(&self, node_ref: &mut NodeRef) -> Result<Option<Type>, CompileError> {
+    fn node_ref(&self, node_ref: &mut NodeRef) -> Result<Option<Type>, CompileError> {
         match self.resolve_with_scope(&node_ref.identifier) {
             Some(sym) => {
                 node_ref.resolved = Some(sym);
