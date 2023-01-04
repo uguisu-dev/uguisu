@@ -1,19 +1,36 @@
+use crate::resolve::{Resolver, Scope, Symbol};
 use std::mem;
 
-mod parser;
-mod ast;
-mod inst;
-mod builtin;
+mod codegen;
+mod parse;
+mod resolve;
+
+#[derive(Debug, Clone)]
+pub struct CompileError {
+    pub message: String,
+}
+
+impl CompileError {
+    pub fn new(message: &str) -> Self {
+        Self {
+            message: message.to_string(),
+        }
+    }
+}
 
 pub fn run(code: &str) -> Result<(), String> {
     println!("[Info] compiling ...");
-    let ast = parser::parse(code)
+    let mut ast = parse::parse(code).map_err(|e| format!("Compile Error: {}", e.message))?;
+
+    let mut symbol_source: Vec<Symbol> = Vec::new();
+    let mut scope = Scope::new();
+    Resolver::new(&mut symbol_source, &mut scope)
+        .resolve(&mut ast)
         .map_err(|e| format!("Compile Error: {}", e.message))?;
 
-    let module = inst::emit_module(ast)
-        .map_err(|e| format!("Compile Error: {}", e.message))?;
+    let backend_module = codegen::emit_module(&mut ast, &mut symbol_source).map_err(|e| format!("Compile Error: {}", e.message))?;
 
-    let func = match module.funcs.iter().find(|x| x.name == "main") {
+    let func = match backend_module.funcs.iter().find(|x| x.name == "main") {
         Some(func) => func,
         None => return Err("Compile Error: function 'main' not found".to_string()),
     };
@@ -29,25 +46,42 @@ pub fn run(code: &str) -> Result<(), String> {
 mod test {
     use crate::*;
 
+    fn run_test(code: &str) {
+        match run(code) {
+            Err(e) => {
+                println!("{}", e);
+                panic!();
+            }
+            _ => {}
+        }
+    }
+
     #[test]
     fn test_empty_return() {
-        assert!(run("
+        run_test(
+            "
             fn main() {
                 return;
             }
-        ").is_ok());
+            ",
+        );
     }
 
     #[test]
     fn text_basic() {
-        assert!(run("
+        run_test(
+            "
             external fn print_num(value: number);
             fn add(x: number, y: number): number {
                 return x + y;
             }
-            fn main() {
-                print_num(add(1, 2) * 3);
+            fn square(x: number): number {
+                return x * x;
             }
-        ").is_ok());
+            fn main() {
+                print_num(square(add(1, 2) * 3));
+            }
+            ",
+        );
     }
 }
