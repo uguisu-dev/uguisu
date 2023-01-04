@@ -1,4 +1,4 @@
-use crate::parse::{Node, FunctionDeclaration, self, ResolvedNodeRef};
+use crate::parse::{Node, FunctionDeclaration, self};
 use crate::resolve::{self, Type, Function};
 use crate::CompileError;
 use core::panic;
@@ -64,7 +64,6 @@ pub fn emit_module(ast: &mut Vec<Node>, symbol_source: &mut Vec<resolve::Symbol>
         (codegen_module, ctx)
     };
     let mut builder_ctx = FunctionBuilderContext::new();
-    let mut func_decl_results: Vec<FuncId> = Vec::new();
     for node in ast.iter() {
         match node {
             Node::FunctionDeclaration(func_decl) => {
@@ -127,14 +126,14 @@ fn emit_func_declaration(
             Type::Number => {
                 ctx.func.signature.params.push(AbiParam::new(types::I32));
             }
-            _ => panic!("unsupported type"),
+            //_ => panic!("unsupported type"),
         }
     }
     match func_symbol.ret_ty {
         Some(Type::Number) => {
             ctx.func.signature.returns.push(AbiParam::new(types::I32));
         }
-        Some(_) => panic!("unsupported type"),
+        //Some(_) => panic!("unsupported type"),
         None => {}
     }
     let linkage = if func_symbol.is_external {
@@ -149,9 +148,9 @@ fn emit_func_declaration(
     func_symbol.codegen_id = Some(func_id.as_u32());
     println!("[Info] function '{}' is declared.", func_decl.identifier);
     if let Some(body) = &func_decl.body {
-        let mut emitter = FunctionEmitter::new(codegen_module, ctx, builder_ctx, &symbol_source/*, func_table, func_id_table*/);
+        let mut emitter = FunctionEmitter::new(codegen_module, ctx, builder_ctx, symbol_source);
         // emit the function
-        emitter.emit_body(body/*, &func_info*/)?;
+        emitter.emit_body(func_symbol, body)?;
         // define the function
         if let Err(_) = codegen_module.define_function(func_id, ctx) {
             return Err(CompileError::new("failed to define a function."));
@@ -166,8 +165,6 @@ struct FunctionEmitter<'a> {
     codegen_module: &'a mut JITModule,
     builder: FunctionBuilder<'a>,
     symbol_source: &'a Vec<resolve::Symbol>,
-    //func_table: &'a HashMap<String, Function>,
-    //func_id_table: &'a HashMap<String, FuncId>,
     is_returned: bool,
 }
 
@@ -177,34 +174,30 @@ impl<'a> FunctionEmitter<'a> {
         ctx: &'a mut cranelift_codegen::Context,
         builder_ctx: &'a mut FunctionBuilderContext,
         symbol_source: &'a Vec<resolve::Symbol>,
-        //func_table: &'a HashMap<String, Function>,
-        //func_id_table: &'a HashMap<String, FuncId>,
     ) -> Self {
         let builder = FunctionBuilder::new(&mut ctx.func, builder_ctx);
         Self {
             codegen_module,
             builder: builder,
             symbol_source: symbol_source,
-            //func_table: func_table,
-            //func_id_table: func_id_table,
             is_returned: false,
         }
     }
 
     pub fn emit_body(
         &mut self,
+        func: &Function,
         body: &Vec<parse::Node>,
         //func_info: &Function,
     ) -> Result<(), CompileError> {
         //self.builder.func.name = UserFuncName::user(0, func_info.id.as_u32());
         let block = self.builder.create_block();
         self.builder.switch_to_block(block);
-        if func_info.param_names.len() > 0 {
+        if func.param_name_vec.len() > 0 {
             self.builder.append_block_params_for_function_params(block);
         }
-
         for statement in body.iter() {
-            self.emit_statement(&func_info, block, statement)?;
+            self.emit_statement(func, block, statement)?;
         }
         // If there is no jump/return at the end of the block,
         // the emitter must implicitly emit a return instruction.
@@ -213,7 +206,6 @@ impl<'a> FunctionEmitter<'a> {
         }
         self.builder.seal_all_blocks();
         self.builder.finalize();
-
         Ok(())
     }
 
@@ -264,7 +256,7 @@ impl<'a> FunctionEmitter<'a> {
                 return Err(CompileError::new("FuncDeclaration is unexpected"));
             }
             parse::Node::Literal(parse::Literal::Number(value)) => {
-                self.emit_number(*value)?;
+                self.emit_number(func, block, *value)?;
             }
             parse::Node::BinaryExpr(op) => {
                 self.emit_binary_op(func, block, op)?;
@@ -286,7 +278,7 @@ impl<'a> FunctionEmitter<'a> {
         expr: &parse::Node,
     ) -> Result<Option<Value>, CompileError> {
         match expr {
-            parse::Node::Literal(parse::Literal::Number(value)) => self.emit_number(*value),
+            parse::Node::Literal(parse::Literal::Number(value)) => self.emit_number(func, block, *value),
             parse::Node::BinaryExpr(op) => self.emit_binary_op(func, block, op),
             parse::Node::CallExpr(call_expr) => self.emit_call(func, block, call_expr),
             parse::Node::NodeRef(node_ref) => {
@@ -296,7 +288,12 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    fn emit_number(&mut self, value: i32) -> Result<Option<Value>, CompileError> {
+    fn emit_number(
+        &mut self,
+        _func: &Function,
+        _block: Block,
+        value: i32,
+    ) -> Result<Option<Value>, CompileError> {
         Ok(Some(
             self.builder.ins().iconst(types::I32, i64::from(value)),
         ))
@@ -333,7 +330,7 @@ impl<'a> FunctionEmitter<'a> {
     ) -> Result<Option<Value>, CompileError> {
         let callee_id = match &call_expr.callee.as_ref() {
             Node::NodeRef(node_ref) => {
-                let resolved = node_ref.resolved.unwrap();
+                let resolved = &node_ref.resolved.unwrap();
                 match &self.symbol_source[resolved.symbol] {
                     resolve::Symbol::Function(func) => {
                         FuncId::from_u32(func.codegen_id.unwrap())
@@ -365,13 +362,13 @@ impl<'a> FunctionEmitter<'a> {
 
     fn emit_node_ref(
         &mut self,
-        func: &Function,
+        _func: &Function,
         block: Block,
         node_ref: &parse::NodeRef,
     ) -> Result<Option<Value>, CompileError> {
-        let resolved = node_ref.resolved.unwrap();
+        let resolved = &node_ref.resolved.unwrap();
         match &self.symbol_source[resolved.symbol] {
-            resolve::Symbol::Function(func) => {
+            resolve::Symbol::Function(f) => {
                 Err(CompileError::new(
                     "Identifier of function is not supported yet",
                 )) // TODO
