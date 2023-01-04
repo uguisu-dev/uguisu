@@ -117,6 +117,7 @@ fn emit_func_declaration(
     symbol_source: &mut Vec<resolve::Symbol>,
     func_decl: &FunctionDeclaration,
 ) -> Result<(), CompileError> {
+    // TODO: To successfully resolve the identifier, the function declaration is made first.
     let func_id = {
         let func_symbol = match &mut symbol_source[func_decl.symbol.unwrap()] {
             resolve::Symbol::Function(func) => func,

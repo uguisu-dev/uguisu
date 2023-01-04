@@ -160,12 +160,13 @@ impl<'a> Resolver<'a> {
             }
             None => None,
         };
+        let is_external = node.attributes.iter().any(|x| x == &parse::FunctionAttribute::External);
         let func = Function {
             name: node.identifier.clone(),
             param_name_vec,
             param_ty_vec,
             ret_ty,
-            is_external: false,
+            is_external,
             codegen_id: None,
         };
         let symbol = Symbol::Function(func);
