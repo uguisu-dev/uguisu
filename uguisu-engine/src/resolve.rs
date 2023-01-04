@@ -111,7 +111,7 @@ impl<'a> Resolver<'a> {
     }
 
     pub fn resolve(&mut self, ast: &mut Vec<parse::Node>) -> Result<(), CompileError> {
-        for statement in ast.iter() {
+        for statement in ast.iter_mut() {
             match statement {
                 parse::Node::FunctionDeclaration(func_decl) => {
                     self.function_declaration(func_decl)?;
@@ -132,7 +132,7 @@ impl<'a> Resolver<'a> {
 
     fn function_declaration(
         &mut self,
-        node: &parse::FunctionDeclaration,
+        node: &mut parse::FunctionDeclaration,
     ) -> Result<(), CompileError> {
         let mut param_name_vec = Vec::new();
         let mut param_ty_vec = Vec::new();
@@ -168,8 +168,10 @@ impl<'a> Resolver<'a> {
             is_external: false,
             codegen_id: None,
         };
-        self.symbols.push(Symbol::Function(func));
+        let symbol = Symbol::Function(func);
+        self.symbols.push(symbol);
         let symbol_id = self.symbols.len() - 1;
+        node.symbol = Some(symbol_id);
         self.scope.add_symbol(symbol_id);
         Ok(())
     }
@@ -267,7 +269,7 @@ impl<'a> Resolver<'a> {
                 panic!("unexpected node");
             }
         };
-        println!("expr {:?}", node);
+        //println!("expr {:?}", node);
         Ok(kind)
     }
 
