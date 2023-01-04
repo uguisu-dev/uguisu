@@ -117,37 +117,44 @@ fn emit_func_declaration(
     symbol_source: &mut Vec<resolve::Symbol>,
     func_decl: &FunctionDeclaration,
 ) -> Result<(), CompileError> {
-    let func_symbol = match &mut symbol_source[func_decl.symbol.unwrap()] {
-        resolve::Symbol::Function(func) => func,
-        resolve::Symbol::Variable(_) => panic!(),
-    };
-    for param_type in func_symbol.param_ty_vec.iter() {
-        match param_type {
-            Type::Number => {
-                ctx.func.signature.params.push(AbiParam::new(types::I32));
+    let func_id = {
+        let func_symbol = match &mut symbol_source[func_decl.symbol.unwrap()] {
+            resolve::Symbol::Function(func) => func,
+            resolve::Symbol::Variable(_) => panic!(),
+        };
+        for param_type in func_symbol.param_ty_vec.iter() {
+            match param_type {
+                Type::Number => {
+                    ctx.func.signature.params.push(AbiParam::new(types::I32));
+                }
+                //_ => panic!("unsupported type"),
             }
-            //_ => panic!("unsupported type"),
         }
-    }
-    match func_symbol.ret_ty {
-        Some(Type::Number) => {
-            ctx.func.signature.returns.push(AbiParam::new(types::I32));
+        match func_symbol.ret_ty {
+            Some(Type::Number) => {
+                ctx.func.signature.returns.push(AbiParam::new(types::I32));
+            }
+            //Some(_) => panic!("unsupported type"),
+            None => {}
         }
-        //Some(_) => panic!("unsupported type"),
-        None => {}
-    }
-    let linkage = if func_symbol.is_external {
-        Linkage::Import
-    } else {
-        Linkage::Local
+        let linkage = if func_symbol.is_external {
+            Linkage::Import
+        } else {
+            Linkage::Local
+        };
+        let func_id = match codegen_module.declare_function(&func_decl.identifier, linkage, &ctx.func.signature) {
+            Ok(id) => id,
+            Err(_) => return Err(CompileError::new("Failed to declare a function.")),
+        };
+        func_symbol.codegen_id = Some(func_id.as_u32());
+        println!("[Info] function '{}' is declared.", func_decl.identifier);
+        func_id
     };
-    let func_id = match codegen_module.declare_function(&func_decl.identifier, linkage, &ctx.func.signature) {
-        Ok(id) => id,
-        Err(_) => return Err(CompileError::new("Failed to declare a function.")),
-    };
-    func_symbol.codegen_id = Some(func_id.as_u32());
-    println!("[Info] function '{}' is declared.", func_decl.identifier);
     if let Some(body) = &func_decl.body {
+        let func_symbol = match &symbol_source[func_decl.symbol.unwrap()] {
+            resolve::Symbol::Function(func) => func,
+            resolve::Symbol::Variable(_) => panic!(),
+        };
         let mut emitter = FunctionEmitter::new(codegen_module, ctx, builder_ctx, symbol_source);
         // emit the function
         emitter.emit_body(func_symbol, body)?;
@@ -328,9 +335,12 @@ impl<'a> FunctionEmitter<'a> {
         block: Block,
         call_expr: &parse::CallExpr,
     ) -> Result<Option<Value>, CompileError> {
-        let callee_id = match &call_expr.callee.as_ref() {
+        let callee_id = match call_expr.callee.as_ref() {
             Node::NodeRef(node_ref) => {
-                let resolved = &node_ref.resolved.unwrap();
+                let resolved = match &node_ref.resolved {
+                    Some(x) => x,
+                    None => panic!(),
+                };
                 match &self.symbol_source[resolved.symbol] {
                     resolve::Symbol::Function(func) => {
                         FuncId::from_u32(func.codegen_id.unwrap())
@@ -338,6 +348,7 @@ impl<'a> FunctionEmitter<'a> {
                     _ => panic!("unexpected callee")
                 }
             }
+            _ => panic!("unexpected node type. (callee of emit call)"),
         };
         let func_ref = self
             .codegen_module
@@ -366,7 +377,10 @@ impl<'a> FunctionEmitter<'a> {
         block: Block,
         node_ref: &parse::NodeRef,
     ) -> Result<Option<Value>, CompileError> {
-        let resolved = &node_ref.resolved.unwrap();
+        let resolved = match &node_ref.resolved {
+            Some(x) => x,
+            None => panic!(),
+        };
         match &self.symbol_source[resolved.symbol] {
             resolve::Symbol::Function(f) => {
                 Err(CompileError::new(

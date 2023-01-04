@@ -1,5 +1,5 @@
 use crate::resolve::{Resolver, Scope, Symbol};
-//use std::mem;
+use std::mem;
 
 mod codegen;
 mod parse;
@@ -22,22 +22,22 @@ pub fn run(code: &str) -> Result<(), String> {
     println!("[Info] compiling ...");
     let mut ast = parse::parse(code).map_err(|e| format!("Compile Error: {}", e.message))?;
 
-    let mut symbols: Vec<Symbol> = Vec::new();
+    let mut symbol_source: Vec<Symbol> = Vec::new();
     let mut scope = Scope::new();
-    Resolver::new(&mut symbols, &mut scope)
+    Resolver::new(&mut symbol_source, &mut scope)
         .resolve(&mut ast)
         .map_err(|e| format!("Compile Error: {}", e.message))?;
 
-    // let backend_module = codegen::emit_module(scope).map_err(|e| format!("Compile Error: {}", e.message))?;
+    let backend_module = codegen::emit_module(&mut ast, &mut symbol_source).map_err(|e| format!("Compile Error: {}", e.message))?;
 
-    // let func = match backend_module.funcs.iter().find(|x| x.name == "main") {
-    //     Some(func) => func,
-    //     None => return Err("Compile Error: function 'main' not found".to_string()),
-    // };
+    let func = match backend_module.funcs.iter().find(|x| x.name == "main") {
+        Some(func) => func,
+        None => return Err("Compile Error: function 'main' not found".to_string()),
+    };
 
-    // println!("[Info] running ...");
-    // let func = unsafe { mem::transmute::<*const u8, fn()>(func.ptr) };
-    // func();
+    println!("[Info] running ...");
+    let func = unsafe { mem::transmute::<*const u8, fn()>(func.ptr) };
+    func();
 
     Ok(())
 }
