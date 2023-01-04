@@ -229,10 +229,10 @@ impl<'a> Resolver<'a> {
         match node {
             parse::Node::ReturnStatement(Some(expr)) => {
                 self.expression(expr)?;
-                //self.is_return = true;
+                // TODO: return type check
             }
             parse::Node::ReturnStatement(None) => {
-                //self.is_return = true;
+                // TODO: return type check
             }
             parse::Node::VariableDeclaration(statement) => {
                 return Err(CompileError::new(
