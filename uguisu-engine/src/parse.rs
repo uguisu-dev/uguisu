@@ -291,10 +291,11 @@ peg::parser! {
         { assignment(id.to_string(), e) }
 
         rule number() -> Node
-            = n:$(['1'..='9'] ['0'..='9']+)
-        {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n))) }
-            / n:$(['0'..='9'])
-        {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n))) }
+            = quiet!{ n:$(['1'..='9'] ['0'..='9']+)
+        {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n))) } }
+            / quiet!{ n:$(['0'..='9'])
+        {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n))) } }
+            / expected!("number")
 
         rule call_expr() -> Node
             = name:idenfitier() __* "(" __* args:call_params()? __* ")"
@@ -307,7 +308,8 @@ peg::parser! {
             = expression() ++ (__* "," __*)
 
         rule idenfitier() -> &'input str
-            = !['0'..='9'] s:$(identifier_char()+) { s }
+            = quiet!{ !['0'..='9'] s:$(identifier_char()+) { s } }
+            / expected!("identifier")
 
         rule identifier_char() -> char
             = &['\u{00}'..='\u{7F}'] c:['A'..='Z'|'a'..='z'|'0'..='9'|'_'] { c }
