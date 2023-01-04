@@ -1,6 +1,6 @@
 use crate::resolve;
 
-//mod test;
+mod test;
 
 //
 // node
