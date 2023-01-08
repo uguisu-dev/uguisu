@@ -385,7 +385,7 @@ impl<'a> FunctionEmitter<'a> {
         };
         match &self.symbol_source[resolved.symbol] {
             resolve::Symbol::Function(_) => {
-                panic!("unexpectec error: Identifier of function is not supported");
+                panic!("unexpected error: Identifier of function is not supported");
             }
             resolve::Symbol::Variable(var) => {
                 if var.is_func_param {
