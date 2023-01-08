@@ -57,8 +57,8 @@ pub fn emit_module(
         let mut symbols: Vec<(&str, *const u8)> = Vec::new();
         symbols.push(("hello", builtin::hello as *const u8));
         symbols.push(("print_num", builtin::print_num as *const u8));
-        // needs to declare the function signature for builtin functions using declare_func_internal
-        // register builtin symbols.
+        // We need to declare the function signature for builtin functions using declare_func_internal,
+        // and register builtin symbols.
         for symbol in symbols.iter() {
             module_builder.symbol(&symbol.0.to_string(), symbol.1);
         }
