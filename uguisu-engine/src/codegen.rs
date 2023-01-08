@@ -2,9 +2,10 @@ use crate::parse::{self, FunctionDeclaration, Node};
 use crate::resolve::{self, Function, Type};
 use crate::CompileError;
 use core::panic;
+use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{types, AbiParam, Block, InstBuilder, Value};
 use cranelift_codegen::settings::{builder as settingBuilder, Configurable, Flags};
-use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
+use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{self, default_libcall_names, FuncId, Linkage, Module};
 use cranelift_native::builder as nativeBuilder;
@@ -239,15 +240,18 @@ impl<'a> FunctionEmitter<'a> {
                 self.builder.ins().return_(&[]);
                 self.is_returned = true;
             }
-            parse::Node::VariableDeclaration(_statement) => {
-                return Err(CompileError::new(
-                    "variable declaration is not supported yet.",
-                ));
-                // let value = match self.emit_expr(func, block, &statement.body)? {
-                //     Some(v) => v,
-                //     None => panic!("unexpected error: value not found"),
-                // };
-                // TODO: use statement.identifier
+            parse::Node::VariableDeclaration(statement) => {
+                let variable = match statement.symbol {
+                    Some(symbol_id) => Variable::new(symbol_id),
+                    None => panic!("unexpected error: VariableDeclaration unresolved"),
+                };
+                // TODO: support type
+                self.builder.declare_var(variable, types::I32);
+                let value = match self.emit_expr(func, block, &statement.body)? {
+                    Some(v) => v,
+                    None => panic!("unexpected error: value not found"),
+                };
+                self.builder.def_var(variable, value);
                 // TODO: use statement.attributes
             }
             parse::Node::Assignment(_statement) => {
@@ -391,10 +395,8 @@ impl<'a> FunctionEmitter<'a> {
                 if var.is_func_param {
                     Ok(Some(self.builder.block_params(block)[var.func_param_index]))
                 } else {
-                    // TODO
-                    Err(CompileError::new(
-                        "Identifier of variables is not supported yet",
-                    ))
+                    let variable = Variable::new(resolved.symbol);
+                    Ok(Some(self.builder.use_var(variable)))
                 }
             }
         }
