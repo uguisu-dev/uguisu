@@ -303,12 +303,18 @@ impl<'a> Resolver<'a> {
     }
 
     fn binary_op(&self, binary_expr: &mut parse::BinaryExpr) -> Result<Option<Type>, CompileError> {
-        let left = self.expression(&mut binary_expr.left)?;
-        let right = self.expression(&mut binary_expr.right)?;
+        let left = match self.expression(&mut binary_expr.left)? {
+            Some(ty) => ty,
+            None => return Err(CompileError::new("The expression does not return a value.")),
+        };
+        let right = match self.expression(&mut binary_expr.right)? {
+            Some(ty) => ty,
+            None => return Err(CompileError::new("The expression does not return a value.")),
+        };
         if left != right {
             return Err(CompileError::new("type error"));
         }
-        Ok(left)
+        Ok(Some(left))
     }
 
     fn call_expr(&self, call_expr: &mut parse::CallExpr) -> Result<Option<Type>, CompileError> {

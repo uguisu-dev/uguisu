@@ -318,11 +318,11 @@ impl<'a> FunctionEmitter<'a> {
     ) -> Result<Option<Value>, CompileError> {
         let left = match self.emit_expr(func, block, &binary_expr.left)? {
             Some(v) => v,
-            None => return Err(CompileError::new("value not found")),
+            None => panic!("unexpected error: value not found"),
         };
         let right = match self.emit_expr(func, block, &binary_expr.right)? {
             Some(v) => v,
-            None => return Err(CompileError::new("value not found")),
+            None => panic!("unexpected error: value not found"),
         };
         let value = match binary_expr.operator {
             parse::Operator::Add => self.builder.ins().iadd(left, right),
