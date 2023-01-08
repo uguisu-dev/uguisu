@@ -1,5 +1,5 @@
-use crate::parse::{Node, FunctionDeclaration, self};
-use crate::resolve::{self, Type, Function};
+use crate::parse::{self, FunctionDeclaration, Node};
+use crate::resolve::{self, Function, Type};
 use crate::CompileError;
 use core::panic;
 use cranelift_codegen::ir::{types, AbiParam, Block, InstBuilder, Value};
@@ -31,7 +31,10 @@ pub struct CompiledFunction {
     pub ptr: *const u8,
 }
 
-pub fn emit_module(ast: &mut Vec<Node>, symbol_source: &mut Vec<resolve::Symbol>) -> Result<CompiledModule, CompileError> {
+pub fn emit_module(
+    ast: &mut Vec<Node>,
+    symbol_source: &mut Vec<resolve::Symbol>,
+) -> Result<CompiledModule, CompileError> {
     let (mut codegen_module, mut ctx) = {
         let isa_builder = nativeBuilder().unwrap();
         let mut flag_builder = settingBuilder();
@@ -75,9 +78,7 @@ pub fn emit_module(ast: &mut Vec<Node>, symbol_source: &mut Vec<resolve::Symbol>
                     func_decl,
                 )?;
             }
-            _ => {
-                println!("[Warn] unexpected node");
-            }
+            _ => {}
         }
     }
     // finalize all functions
@@ -91,7 +92,7 @@ pub fn emit_module(ast: &mut Vec<Node>, symbol_source: &mut Vec<resolve::Symbol>
                 if let Some(_) = func_decl.body {
                     let func_symbol = match &mut symbol_source[func_decl.symbol.unwrap()] {
                         resolve::Symbol::Function(func) => func,
-                        resolve::Symbol::Variable(_) => panic!(),
+                        resolve::Symbol::Variable(_) => panic!("function symbol is expected"),
                     };
                     // get function ptr
                     let func_id = FuncId::from_u32(func_symbol.codegen_id.unwrap());
@@ -102,9 +103,7 @@ pub fn emit_module(ast: &mut Vec<Node>, symbol_source: &mut Vec<resolve::Symbol>
                     });
                 }
             }
-            _ => {
-                println!("[Warn] unexpected node");
-            }
+            _ => {}
         }
     }
     Ok(compiled_module)
@@ -121,14 +120,13 @@ fn emit_func_declaration(
     let func_id = {
         let func_symbol = match &mut symbol_source[func_decl.symbol.unwrap()] {
             resolve::Symbol::Function(func) => func,
-            resolve::Symbol::Variable(_) => panic!(),
+            resolve::Symbol::Variable(_) => panic!("function symbol is expected"),
         };
         for param_type in func_symbol.param_ty_vec.iter() {
             match param_type {
                 Type::Number => {
                     ctx.func.signature.params.push(AbiParam::new(types::I32));
-                }
-                //_ => panic!("unsupported type"),
+                } //_ => panic!("unsupported type"),
             }
         }
         match func_symbol.ret_ty {
@@ -143,7 +141,11 @@ fn emit_func_declaration(
         } else {
             Linkage::Local
         };
-        let func_id = match codegen_module.declare_function(&func_decl.identifier, linkage, &ctx.func.signature) {
+        let func_id = match codegen_module.declare_function(
+            &func_decl.identifier,
+            linkage,
+            &ctx.func.signature,
+        ) {
             Ok(id) => id,
             Err(_) => return Err(CompileError::new("Failed to declare a function.")),
         };
@@ -154,7 +156,7 @@ fn emit_func_declaration(
     if let Some(body) = &func_decl.body {
         let func_symbol = match &symbol_source[func_decl.symbol.unwrap()] {
             resolve::Symbol::Function(func) => func,
-            resolve::Symbol::Variable(_) => panic!(),
+            resolve::Symbol::Variable(_) => panic!("function symbol is expected"),
         };
         let mut emitter = FunctionEmitter::new(codegen_module, ctx, builder_ctx, symbol_source);
         // emit the function
@@ -228,7 +230,7 @@ impl<'a> FunctionEmitter<'a> {
                 // When the return instruction is emitted, the block is filled.
                 let value = match self.emit_expr(func, block, &expr)? {
                     Some(v) => v,
-                    None => return Err(CompileError::new("value not found")),
+                    None => panic!("unexpected error: value not found"),
                 };
                 self.builder.ins().return_(&[value]);
                 self.is_returned = true;
@@ -237,31 +239,30 @@ impl<'a> FunctionEmitter<'a> {
                 self.builder.ins().return_(&[]);
                 self.is_returned = true;
             }
-            parse::Node::VariableDeclaration(statement) => {
-                // TODO: use statement.identifier
-                // TODO: use statement.attributes
-                let value = match self.emit_expr(func, block, &statement.body)? {
-                    Some(v) => v,
-                    None => {
-                        return Err(CompileError::new("The expression does not return a value."))
-                    }
-                };
+            parse::Node::VariableDeclaration(_statement) => {
                 return Err(CompileError::new(
                     "variable declaration is not supported yet.",
                 ));
-            }
-            parse::Node::Assignment(statement) => {
+                // let value = match self.emit_expr(func, block, &statement.body)? {
+                //     Some(v) => v,
+                //     None => panic!("unexpected error: value not found"),
+                // };
                 // TODO: use statement.identifier
-                let value = match self.emit_expr(func, block, &statement.body)? {
-                    Some(v) => v,
-                    None => {
-                        return Err(CompileError::new("The expression does not return a value."))
-                    }
-                };
+                // TODO: use statement.attributes
+            }
+            parse::Node::Assignment(_statement) => {
                 return Err(CompileError::new("assign statement is not supported yet."));
+                // let value = match self.emit_expr(func, block, &statement.body)? {
+                //     Some(v) => v,
+                //     None => {
+                //         return Err(CompileError::new("The expression does not return a value."))
+                //     }
+                // };
+                // TODO: support assignment
+                // statement.identifier
             }
             parse::Node::FunctionDeclaration(_) => {
-                return Err(CompileError::new("FuncDeclaration is unexpected"));
+                panic!("unexpected error: FuncDeclaration is not supported");
             }
             parse::Node::Literal(parse::Literal::Number(value)) => {
                 self.emit_number(func, block, *value)?;
@@ -286,13 +287,15 @@ impl<'a> FunctionEmitter<'a> {
         expr: &parse::Node,
     ) -> Result<Option<Value>, CompileError> {
         match expr {
-            parse::Node::Literal(parse::Literal::Number(value)) => self.emit_number(func, block, *value),
+            parse::Node::Literal(parse::Literal::Number(value)) => {
+                self.emit_number(func, block, *value)
+            }
             parse::Node::BinaryExpr(op) => self.emit_binary_op(func, block, op),
             parse::Node::CallExpr(call_expr) => self.emit_call(func, block, call_expr),
-            parse::Node::NodeRef(node_ref) => {
-                self.emit_node_ref(func, block, node_ref)
+            parse::Node::NodeRef(node_ref) => self.emit_node_ref(func, block, node_ref),
+            _ => {
+                panic!("unexpected node");
             }
-            _ => { panic!("unexpected node"); }
         }
     }
 
@@ -340,13 +343,11 @@ impl<'a> FunctionEmitter<'a> {
             Node::NodeRef(node_ref) => {
                 let resolved = match &node_ref.resolved {
                     Some(x) => x,
-                    None => panic!(),
+                    None => panic!("unresolved callee"),
                 };
                 match &self.symbol_source[resolved.symbol] {
-                    resolve::Symbol::Function(func) => {
-                        FuncId::from_u32(func.codegen_id.unwrap())
-                    }
-                    _ => panic!("unexpected callee")
+                    resolve::Symbol::Function(func) => FuncId::from_u32(func.codegen_id.unwrap()),
+                    _ => panic!("unexpected callee"),
                 }
             }
             _ => panic!("unexpected node type. (callee of emit call)"),
@@ -360,7 +361,7 @@ impl<'a> FunctionEmitter<'a> {
                 Some(v) => {
                     param_values.push(v);
                 }
-                None => panic!("The expression does not return a value."),
+                None => panic!("unexpected error: value not found"),
             }
         }
         let call = self.builder.ins().call(func_ref, &param_values);
@@ -380,23 +381,22 @@ impl<'a> FunctionEmitter<'a> {
     ) -> Result<Option<Value>, CompileError> {
         let resolved = match &node_ref.resolved {
             Some(x) => x,
-            None => panic!(),
+            None => panic!("unexpected error: the identifier is not resolved"),
         };
         match &self.symbol_source[resolved.symbol] {
-            resolve::Symbol::Function(f) => {
-                Err(CompileError::new(
-                    "Identifier of function is not supported yet",
-                )) // TODO
-            },
+            resolve::Symbol::Function(_) => {
+                panic!("unexpectec error: Identifier of function is not supported");
+            }
             resolve::Symbol::Variable(var) => {
                 if var.is_func_param {
                     Ok(Some(self.builder.block_params(block)[var.func_param_index]))
                 } else {
+                    // TODO
                     Err(CompileError::new(
                         "Identifier of variables is not supported yet",
-                    )) // TODO
+                    ))
                 }
-            },
+            }
         }
     }
 }

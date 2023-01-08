@@ -47,6 +47,7 @@ pub struct VariableDeclaration {
     pub identifier: String,
     pub body: Box<Node>,
     pub attributes: Vec<VariableAttribute>,
+    pub symbol: Option<resolve::SymbolId>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -135,6 +136,7 @@ pub fn variable_declaration(
         identifier,
         body: Box::new(body),
         attributes,
+        symbol: None,
     })
 }
 

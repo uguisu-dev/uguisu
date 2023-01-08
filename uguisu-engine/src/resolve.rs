@@ -1,5 +1,5 @@
-use crate::parse::{self, ResolvedNodeRef};
 use crate::parse::NodeRef;
+use crate::parse::{self, ResolvedNodeRef, VariableAttribute};
 use crate::CompileError;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -75,7 +75,7 @@ impl Scope {
             Some(layer) => {
                 layer.symbols.push(symbol);
             }
-            None => panic!(),
+            None => panic!("layer not found"),
         }
     }
 }
@@ -116,7 +116,9 @@ impl<'a> Resolver<'a> {
                 parse::Node::FunctionDeclaration(func_decl) => {
                     self.function_declaration(func_decl)?;
                 }
-                _ => {}
+                _ => {
+                    println!("[Warn] unexpected node");
+                }
             }
         }
         for statement in ast.iter_mut() {
@@ -160,7 +162,10 @@ impl<'a> Resolver<'a> {
             }
             None => None,
         };
-        let is_external = node.attributes.iter().any(|x| x == &parse::FunctionAttribute::External);
+        let is_external = node
+            .attributes
+            .iter()
+            .any(|x| x == &parse::FunctionAttribute::External);
         let func = Function {
             name: node.identifier.clone(),
             param_name_vec,
@@ -184,11 +189,11 @@ impl<'a> Resolver<'a> {
                 Some(s) => match &self.symbols[s] {
                     Symbol::Function(func) => func,
                     _ => {
-                        panic!("symbol is not function");
+                        panic!("unexpected error: symbol is not function");
                     }
                 },
                 _ => {
-                    panic!("function symbol not found");
+                    panic!("unexpected error: function symbol not found");
                 }
             };
 
@@ -197,11 +202,11 @@ impl<'a> Resolver<'a> {
             for i in 0..func.param_name_vec.len() {
                 let name = match func.param_name_vec.get(i) {
                     Some(name) => name,
-                    None => panic!(),
+                    None => panic!("unexpected error: argument name not found"),
                 };
                 let ty = match func.param_ty_vec.get(i) {
                     Some(ty) => ty,
-                    None => panic!(),
+                    None => panic!("unexpected error: argument type not found"),
                 };
                 symbols.push(Symbol::Variable(Variable {
                     name: name.clone(),
@@ -228,27 +233,50 @@ impl<'a> Resolver<'a> {
     fn statement(&mut self, node: &mut parse::Node) -> Result<(), CompileError> {
         match node {
             parse::Node::ReturnStatement(Some(expr)) => {
-                self.expression(expr)?;
-                // TODO: return type check
+                match self.expression(expr)? {
+                    Some(_) => {
+                        // TODO: return type check
+                    }
+                    None => {
+                        return Err(CompileError::new("The expression does not return a value."));
+                    }
+                }
             }
             parse::Node::ReturnStatement(None) => {
                 // TODO: return type check
             }
             parse::Node::VariableDeclaration(statement) => {
-                return Err(CompileError::new(
-                    "variable declaration is not supported yet.",
-                ));
-                // TODO: use statement.identifier
-                // TODO: use statement.attributes
-                //self.lower_expression(&statement.body)?
+                // return Err(CompileError::new(
+                //     "variable declaration is not supported yet.",
+                // ));
+                let ty = match self.expression(&mut statement.body)? {
+                    Some(ty) => ty,
+                    None => {
+                        return Err(CompileError::new("The expression does not return a value."));
+                    }
+                };
+                let is_mutable = statement
+                    .attributes
+                    .iter()
+                    .any(|x| *x == VariableAttribute::Let);
+                self.symbols.push(Symbol::Variable(Variable {
+                    name: statement.identifier.clone(),
+                    ty: ty,
+                    is_mutable: is_mutable,
+                    is_func_param: false,
+                    func_param_index: 0,
+                }));
+                let symbol_id = self.symbols.len() - 1;
+                statement.symbol = Some(symbol_id);
+                self.scope.add_symbol(symbol_id);
             }
-            parse::Node::Assignment(statement) => {
+            parse::Node::Assignment(_statement) => {
                 return Err(CompileError::new("assign statement is not supported yet."));
                 // TODO: use statement.identifier
-                //self.lower_expression(&statement.body)?
+                //self.expression(&statement.body)?
             }
             parse::Node::FunctionDeclaration(_) => {
-                return Err(CompileError::new("FuncDeclaration is unexpected"));
+                return Err(CompileError::new("FuncDeclaration is not supported"));
             }
             parse::Node::Literal(_)
             | parse::Node::BinaryExpr(_)
@@ -284,21 +312,22 @@ impl<'a> Resolver<'a> {
     }
 
     fn call_expr(&self, call_expr: &mut parse::CallExpr) -> Result<Option<Type>, CompileError> {
-        self.expression(&mut call_expr.callee)?;
-        let callee_ref = match call_expr.callee.as_ref() {
-            parse::Node::NodeRef(node_ref) => node_ref,
-            _ => {
-                return Err(CompileError::new("callee is not identifier"));
-            }
-        };
-        let func = match &callee_ref.resolved {
-            Some(resolved) => match &self.symbols[resolved.symbol] {
-                Symbol::Function(func) => func,
-                Symbol::Variable(_) => {
-                    return Err(CompileError::new("variable cannot be called"));
+        let func = match call_expr.callee.as_mut() {
+            parse::Node::NodeRef(node_ref) => match self.resolve_with_scope(&node_ref.identifier) {
+                Some(sym) => {
+                    node_ref.resolved = Some(ResolvedNodeRef { symbol: sym });
+                    match &self.symbols[sym] {
+                        Symbol::Function(func) => func,
+                        Symbol::Variable(_) => {
+                            return Err(CompileError::new("the variable is not callable"));
+                        }
+                    }
+                }
+                None => {
+                    return Err(CompileError::new("unknown identifier"));
                 }
             },
-            None => {
+            _ => {
                 return Err(CompileError::new("unknown callee"));
             }
         };
@@ -314,7 +343,7 @@ impl<'a> Resolver<'a> {
                         return Err(CompileError::new("parameter type error"));
                     }
                 }
-                None => return Err(CompileError::new("parameter count is incorrect")),
+                None => return Err(CompileError::new("The expression does not return a value.")),
             }
         }
         let ret_ty = func.ret_ty.clone();
@@ -323,22 +352,15 @@ impl<'a> Resolver<'a> {
 
     fn node_ref(&self, node_ref: &mut NodeRef) -> Result<Option<Type>, CompileError> {
         match self.resolve_with_scope(&node_ref.identifier) {
-            Some(sym) => {
-                match &self.symbols[sym] {
-                    Symbol::Function(func) => {
-                        node_ref.resolved = Some(ResolvedNodeRef {
-                            symbol: sym,
-                        });
-                        Ok(func.ret_ty.clone())
-                    },
-                    Symbol::Variable(var) => {
-                        node_ref.resolved = Some(ResolvedNodeRef {
-                            symbol: sym,
-                        });
-                        Ok(Some(var.ty.clone()))
-                    },
+            Some(sym) => match &self.symbols[sym] {
+                Symbol::Function(_) => {
+                    Err(CompileError::new("Identifier of function is not supported"))
                 }
-            }
+                Symbol::Variable(var) => {
+                    node_ref.resolved = Some(ResolvedNodeRef { symbol: sym });
+                    Ok(Some(var.ty.clone()))
+                }
+            },
             None => Err(CompileError::new("unknown identifier")),
         }
     }
