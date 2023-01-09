@@ -84,4 +84,32 @@ mod test {
             ",
         );
     }
+
+    #[test]
+    fn text_variable() {
+        run_test(
+            "
+            external fn print_num(value: number);
+            fn square(x: number): number {
+                return x * x;
+            }
+            fn main() {
+                const var1 = 2;
+                print_num(square(var1 * 3));
+            }
+            ",
+        );
+        run_test(
+            "
+            external fn print_num(value: number);
+            fn square(x: number): number {
+                return x * x;
+            }
+            fn main() {
+                const var1 = square(2 * 3);
+                print_num(var1);
+            }
+            ",
+        );
+    }
 }
