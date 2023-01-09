@@ -246,9 +246,6 @@ impl<'a> Resolver<'a> {
                 // TODO: return type check
             }
             parse::Node::VariableDeclaration(statement) => {
-                // return Err(CompileError::new(
-                //     "variable declaration is not supported yet.",
-                // ));
                 let ty = match self.expression(&mut statement.body)? {
                     Some(ty) => ty,
                     None => {
