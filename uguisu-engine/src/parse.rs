@@ -1,5 +1,3 @@
-use crate::resolve;
-
 mod test;
 
 //
@@ -27,7 +25,6 @@ pub struct FunctionDeclaration {
     pub params: Vec<Parameter>,
     pub ret: Option<String>,
     pub attributes: Vec<FunctionAttribute>,
-    pub symbol: Option<resolve::SymbolId>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -47,7 +44,6 @@ pub struct VariableDeclaration {
     pub identifier: String,
     pub body: Box<Node>,
     pub attributes: Vec<VariableAttribute>,
-    pub symbol: Option<resolve::SymbolId>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -63,14 +59,8 @@ pub struct Assignment {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ResolvedNodeRef {
-    pub symbol: resolve::SymbolId,
-}
-
-#[derive(Debug, PartialEq)]
 pub struct NodeRef {
     pub identifier: String,
-    pub resolved: Option<ResolvedNodeRef>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -123,7 +113,6 @@ pub fn function_declaration(
         params,
         ret,
         attributes,
-        symbol: None,
     })
 }
 
@@ -136,7 +125,6 @@ pub fn variable_declaration(
         identifier,
         body: Box::new(body),
         attributes,
-        symbol: None,
     })
 }
 
@@ -246,7 +234,7 @@ peg::parser! {
             // --
             e:number() { e }
             e:call_expr() { e }
-            id:idenfitier() { Node::NodeRef(NodeRef { identifier: id.to_string(), resolved: None }) }
+            id:idenfitier() { Node::NodeRef(NodeRef { identifier: id.to_string() }) }
             p:position!() "(" __* e:expression() __* ")" { p; e }
         }
 
@@ -303,7 +291,7 @@ peg::parser! {
             = name:idenfitier() __* "(" __* args:call_params()? __* ")"
         {
             let args = if let Some(v) = args { v } else { vec![] };
-            call_expr(Node::NodeRef(NodeRef { identifier: name.to_string(), resolved: None }), args)
+            call_expr(Node::NodeRef(NodeRef { identifier: name.to_string() }), args)
         }
 
         rule call_params() -> Vec<Node>
