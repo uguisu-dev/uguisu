@@ -22,12 +22,14 @@ pub fn run(code: &str) -> Result<(), String> {
     let ast = parse::parse(code).map_err(|e| format!("Compile Error: {}", e.message))?;
 
     let mut graph_nodes: HashMap<graph::NodeId, graph::Node> = HashMap::new();
-    let mut graph = graph::GraphTranslator::new(&mut graph_nodes);
-    graph
+    let mut translator = graph::GraphTranslator::new(&mut graph_nodes);
+    let graph = translator
         .translate(&ast)
         .map_err(|e| format!("Compile Error: {}", e.message))?;
 
-        println!("[Info] graph generated");
+    translator.show_graph();
+
+    println!("[Info] graph generated");
 
     Ok(())
 }

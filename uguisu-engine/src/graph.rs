@@ -297,7 +297,115 @@ impl<'a> GraphTranslator<'a> {
                 self.nodes.insert(node_id, node);
                 Ok(node_id)
             }
-            _ => panic!(),
+        }
+    }
+
+    pub fn show_graph(&self) {
+        for i in 0..self.nodes.len() {
+            self.show_node(i);
+        }
+    }
+
+    fn show_node(&self, node_id: NodeId) {
+        let name = match &self.nodes[&node_id] {
+            Node::FunctionDeclaration(_) => {
+                "FunctionDeclaration"
+            }
+            Node::VariableDeclaration(_) => {
+                "VariableDeclaration"
+            }
+            Node::ReturnStatement(_) => {
+                "ReturnStatement"
+            }
+            Node::Assignment(_) => {
+                "Assignment"
+            }
+            Node::Literal(_) => {
+                "Literal"
+            }
+            Node::BinaryExpr(_) => {
+                "BinaryExpr"
+            }
+            Node::CallExpr(_) => {
+                "CallExpr"
+            }
+            Node::FuncParamDeclaration(_) => {
+                "FuncParamDeclaration"
+            }
+        };
+        println!("[{}] {}", node_id, name);
+
+        match &self.nodes[&node_id] {
+            Node::FunctionDeclaration(func) => {
+                println!("  params: {{");
+                for param in func.params.iter() {
+                    println!("    [{}]", param);
+                }
+                println!("  }}");
+                match &func.body {
+                    Some(body) => {
+                        println!("  body: {{");
+                        for item in body.iter() {
+                            println!("    [{}]", item);
+                        }
+                        println!("  }}");
+                    }
+                    None => {
+                        println!("  body: (None)");
+                    }
+                }
+                println!("  is_external: {}", func.is_external);
+            }
+            Node::VariableDeclaration(variable) => {
+                println!("  body: {{");
+                println!("    [{}]", variable.body);
+                println!("  }}");
+                println!("  is_mutable: {}", variable.is_mutable);
+            }
+            Node::ReturnStatement(expr) => {
+                match expr {
+                    Some(x) => {
+                        println!("  expr: {{");
+                        println!("    [{}]", x);
+                        println!("  }}");
+                    }
+                    None => {
+                        println!("  expr: (None)");
+                    }
+                }
+            }
+            Node::Assignment(statement) => {
+                println!("  dest: {{");
+                println!("    [{}]", statement.dest);
+                println!("  }}");
+                println!("  body: {{");
+                println!("    [{}]", statement.body);
+                println!("  }}");
+            }
+            Node::Literal(literal) => {
+                println!("  value: {:?}", literal.value);
+            }
+            Node::BinaryExpr(binary_expr) => {
+                println!("  operator: {:?}", binary_expr.operator);
+                println!("  left: {{");
+                println!("    [{}]", binary_expr.left);
+                println!("  }}");
+                println!("  right: {{");
+                println!("    [{}]", binary_expr.right);
+                println!("  }}");
+            }
+            Node::CallExpr(call_expr) => {
+                println!("  callee: {{");
+                println!("    [{}]", call_expr.callee);
+                println!("  }}");
+                println!("  args: {{");
+                for arg in call_expr.args.iter() {
+                    println!("    [{}]", arg);
+                }
+                println!("  }}");
+            }
+            Node::FuncParamDeclaration(_) => {
+            }
         }
     }
 }
