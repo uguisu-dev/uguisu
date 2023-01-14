@@ -3,6 +3,7 @@ use crate::{parse, CompileError};
 
 pub type NodeId = usize;
 
+// NOTE: consider type check
 // NOTE: consider parent node
 
 #[derive(Debug, PartialEq)]
@@ -178,6 +179,7 @@ impl<'a> GraphTranslator<'a> {
                 if self.scope.layers.len() >= 2 {
                     return Err(CompileError::new("local function is not supported"));
                 }
+                self.scope.enter_scope();
                 let mut params = Vec::new();
                 for param in decl.params.iter() {
                     // make param node
@@ -186,12 +188,15 @@ impl<'a> GraphTranslator<'a> {
                     });
                     let node_id = self.nodes.len();
                     self.nodes.insert(node_id, node);
+                    // add to scope
+                    self.scope.add_node(node_id);
                     params.push(node_id);
                 }
                 let body = match &decl.body {
                     Some(body_nodes) => Some(self.translate(body_nodes)?),
                     None => None,
                 };
+                self.scope.leave_scope();
                 let is_external = decl.attributes.iter().any(|x| *x == parse::FunctionAttribute::External);
                 // make function node
                 let node = Node::FunctionDeclaration(FunctionDeclaration {
