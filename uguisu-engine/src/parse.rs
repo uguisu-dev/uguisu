@@ -54,7 +54,7 @@ pub enum VariableAttribute {
 
 #[derive(Debug, PartialEq)]
 pub struct Assignment {
-    pub dest: String,
+    pub dest: Box<Node>,
     pub body: Box<Node>,
 }
 
@@ -75,7 +75,7 @@ pub struct BinaryExpr {
     pub right: Box<Node>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Operator {
     Add,
     Sub,
@@ -128,9 +128,9 @@ pub fn variable_declaration(
     })
 }
 
-pub fn assignment(dest: String, body: Node) -> Node {
+pub fn assignment(dest: Node, body: Node) -> Node {
     Node::Assignment(Assignment {
-        dest,
+        dest: Box::new(dest),
         body: Box::new(body),
     })
 }
@@ -278,7 +278,7 @@ peg::parser! {
 
         rule assignment() -> Node
             = id:idenfitier() __* "=" __* e:expression() ";"
-        { assignment(id.to_string(), e) }
+        { assignment(Node::NodeRef(NodeRef { identifier: id.to_string() }), e) }
 
         rule number() -> Node
             = quiet!{ n:$(['1'..='9'] ['0'..='9']+)

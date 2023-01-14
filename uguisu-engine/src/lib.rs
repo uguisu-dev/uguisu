@@ -1,9 +1,8 @@
-use crate::resolve::{Resolver, Scope, Symbol};
-use std::mem;
+use std::collections::HashMap;
 
-mod codegen;
+mod graph;
+//mod interpreter;
 mod parse;
-mod resolve;
 
 #[derive(Debug, Clone)]
 pub struct CompileError {
@@ -20,24 +19,13 @@ impl CompileError {
 
 pub fn run(code: &str) -> Result<(), String> {
     println!("[Info] compiling ...");
-    let mut ast = parse::parse(code).map_err(|e| format!("Compile Error: {}", e.message))?;
+    let ast = parse::parse(code).map_err(|e| format!("Compile Error: {}", e.message))?;
 
-    let mut symbol_source: Vec<Symbol> = Vec::new();
-    let mut scope = Scope::new();
-    Resolver::new(&mut symbol_source, &mut scope)
-        .resolve(&mut ast)
+    let mut graph_nodes: HashMap<graph::NodeId, graph::Node> = HashMap::new();
+    let mut graph = graph::GraphTranslator::new(&mut graph_nodes);
+    graph
+        .translate(&ast)
         .map_err(|e| format!("Compile Error: {}", e.message))?;
-
-    let backend_module = codegen::emit_module(&mut ast, &mut symbol_source).map_err(|e| format!("Compile Error: {}", e.message))?;
-
-    let func = match backend_module.funcs.iter().find(|x| x.name == "main") {
-        Some(func) => func,
-        None => return Err("Compile Error: function 'main' not found".to_string()),
-    };
-
-    println!("[Info] running ...");
-    let func = unsafe { mem::transmute::<*const u8, fn()>(func.ptr) };
-    func();
 
     Ok(())
 }
