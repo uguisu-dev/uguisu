@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 pub type NodeId = usize;
 
 #[derive(Debug, PartialEq)]
@@ -50,12 +52,19 @@ pub struct Assignment {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Literal {
+pub struct Literal {
+    pub id: NodeId,
+    pub value: LiteralValue,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum LiteralValue {
     Number(i32),
 }
 
 #[derive(Debug, PartialEq)]
 pub struct BinaryExpr {
+    pub id: NodeId,
     pub operator: Operator,
     pub left: NodeId,
     pub right: NodeId,
@@ -71,6 +80,7 @@ pub enum Operator {
 
 #[derive(Debug, PartialEq)]
 pub struct CallExpr {
+    pub id: NodeId,
     pub callee: NodeId,
     pub args: Vec<NodeId>,
 }
@@ -127,12 +137,12 @@ impl Scope {
 }
 
 pub struct Resolver<'a> {
-    nodes: &'a mut Vec<Node>,
+    nodes: &'a mut HashMap<NodeId, Node>,
     scope: &'a mut Scope,
 }
 
 impl<'a> Resolver<'a> {
-    pub fn new(nodes: &'a mut Vec<Node>, scope: &'a mut Scope) -> Self {
+    pub fn new(nodes: &'a mut HashMap<NodeId, Node>, scope: &'a mut Scope) -> Self {
         Self { nodes, scope }
     }
 }
