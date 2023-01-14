@@ -27,6 +27,8 @@ pub fn run(code: &str) -> Result<(), String> {
         .translate(&ast)
         .map_err(|e| format!("Compile Error: {}", e.message))?;
 
+        println!("[Info] graph generated");
+
     Ok(())
 }
 
