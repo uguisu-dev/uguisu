@@ -308,30 +308,14 @@ impl<'a> GraphTranslator<'a> {
 
     fn show_node(&self, node_id: NodeId) {
         let name = match &self.nodes[&node_id] {
-            Node::FunctionDeclaration(_) => {
-                "FunctionDeclaration"
-            }
-            Node::VariableDeclaration(_) => {
-                "VariableDeclaration"
-            }
-            Node::ReturnStatement(_) => {
-                "ReturnStatement"
-            }
-            Node::Assignment(_) => {
-                "Assignment"
-            }
-            Node::Literal(_) => {
-                "Literal"
-            }
-            Node::BinaryExpr(_) => {
-                "BinaryExpr"
-            }
-            Node::CallExpr(_) => {
-                "CallExpr"
-            }
-            Node::FuncParamDeclaration(_) => {
-                "FuncParamDeclaration"
-            }
+            Node::FunctionDeclaration(_) => "FunctionDeclaration",
+            Node::VariableDeclaration(_) => "VariableDeclaration",
+            Node::ReturnStatement(_) => "ReturnStatement",
+            Node::Assignment(_) => "Assignment",
+            Node::Literal(_) => "Literal",
+            Node::BinaryExpr(_) => "BinaryExpr",
+            Node::CallExpr(_) => "CallExpr",
+            Node::FuncParamDeclaration(_) => "FuncParamDeclaration",
         };
         println!("[{}] {}", node_id, name);
 
