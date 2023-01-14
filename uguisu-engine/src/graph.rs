@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use crate::{parse, CompileError};
+use std::collections::HashMap;
 
 pub type NodeId = usize;
 
@@ -86,9 +86,7 @@ pub struct ScopeLayer {
 
 impl ScopeLayer {
     pub fn new() -> Self {
-        Self {
-            nodes: Vec::new(),
-        }
+        Self { nodes: Vec::new() }
     }
 }
 
@@ -197,7 +195,10 @@ impl<'a> GraphTranslator<'a> {
                     None => None,
                 };
                 self.scope.leave_scope();
-                let is_external = decl.attributes.iter().any(|x| *x == parse::FunctionAttribute::External);
+                let is_external = decl
+                    .attributes
+                    .iter()
+                    .any(|x| *x == parse::FunctionAttribute::External);
                 // make function node
                 let node = Node::FunctionDeclaration(FunctionDeclaration {
                     identifier: decl.identifier.clone(),
@@ -217,7 +218,10 @@ impl<'a> GraphTranslator<'a> {
                     return Err(CompileError::new("global variable is not supported"));
                 }
                 let body = self.translate_node(&decl.body)?;
-                let is_mutable = decl.attributes.iter().any(|x| *x == parse::VariableAttribute::Let);
+                let is_mutable = decl
+                    .attributes
+                    .iter()
+                    .any(|x| *x == parse::VariableAttribute::Let);
                 // make node
                 let node = Node::VariableDeclaration(VariableDeclaration {
                     identifier: decl.identifier.clone(),
@@ -251,10 +255,7 @@ impl<'a> GraphTranslator<'a> {
                 }
                 let dest = self.translate_node(&statement.dest)?;
                 let body = self.translate_node(&statement.body)?;
-                let node = Node::Assignment(Assignment {
-                    dest,
-                    body,
-                });
+                let node = Node::Assignment(Assignment { dest, body });
                 let node_id = self.nodes.len();
                 self.nodes.insert(node_id, node);
                 Ok(node_id)
@@ -289,10 +290,7 @@ impl<'a> GraphTranslator<'a> {
             parse::Node::CallExpr(call_expr) => {
                 let callee = self.translate_node(&call_expr.callee)?;
                 let args = self.translate(&call_expr.args)?;
-                let node = Node::CallExpr(CallExpr {
-                    callee,
-                    args,
-                });
+                let node = Node::CallExpr(CallExpr { callee, args });
                 let node_id = self.nodes.len();
                 self.nodes.insert(node_id, node);
                 Ok(node_id)
@@ -388,8 +386,7 @@ impl<'a> GraphTranslator<'a> {
                 }
                 println!("  }}");
             }
-            Node::FuncParamDeclaration(_) => {
-            }
+            Node::FuncParamDeclaration(_) => {}
         }
     }
 }
