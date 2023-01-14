@@ -1,7 +1,8 @@
 use std::collections::HashMap;
+use crate::interpreter::Interpreter;
 
 mod graph;
-//mod interpreter;
+mod interpreter;
 mod parse;
 
 #[derive(Debug, Clone)]
@@ -27,9 +28,10 @@ pub fn run(code: &str) -> Result<(), String> {
         .translate(&ast)
         .map_err(|e| format!("Compile Error: {}", e.message))?;
 
-    translator.show_graph();
+    //translator.show_graph();
 
-    println!("[Info] graph generated");
+    let runner = Interpreter::new(&graph_nodes);
+    runner.run(&graph);
 
     Ok(())
 }
