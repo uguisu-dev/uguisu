@@ -101,11 +101,14 @@ impl<'a> Runner<'a> {
                 Self::set_symbol(symbols, statement.dest, value);
                 StatementInfo::None
             }
-            Node::Literal(_) | Node::BinaryExpr(_) | Node::CallExpr(_) | Node::FuncParamDeclaration(_) => {
+            Node::Literal(_)
+            | Node::BinaryExpr(_)
+            | Node::CallExpr(_)
+            | Node::FuncParamDeclaration(_) => {
                 self.eval_expr(node_id, symbols);
                 StatementInfo::None
             }
-            _ => panic!("unexpected statement node (node_id={})", node_id),
+            //_ => panic!("unexpected statement node (node_id={})", node_id),
         }
     }
 
