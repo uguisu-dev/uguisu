@@ -9,20 +9,20 @@ pub enum Value {
 }
 
 pub struct Interpreter<'a> {
-    graph_nodes: &'a HashMap<NodeId, Node>,
+    graph_source: &'a HashMap<NodeId, Node>,
     variables: HashMap<NodeId, Value>,
 }
 
 impl<'a> Interpreter<'a> {
-    pub fn new(graph_nodes: &'a HashMap<NodeId, Node>) -> Self {
+    pub fn new(graph_source: &'a HashMap<NodeId, Node>) -> Self {
         Self {
-            graph_nodes,
+            graph_source,
             variables: HashMap::new(),
         }
     }
 
     fn lookup_node(&self, node_id: NodeId) -> &Node {
-        &self.graph_nodes[&node_id]
+        &self.graph_source[&node_id]
     }
 
     pub fn run(&self, graph: &Vec<NodeId>) {

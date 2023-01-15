@@ -124,16 +124,26 @@ impl Scope {
 }
 
 pub struct GraphTranslator<'a> {
-    nodes: &'a mut HashMap<NodeId, Node>,
+    source: &'a mut HashMap<NodeId, Node>,
     scope: Scope,
 }
 
 impl<'a> GraphTranslator<'a> {
-    pub fn new(nodes: &'a mut HashMap<NodeId, Node>) -> Self {
+    pub fn new(source: &'a mut HashMap<NodeId, Node>) -> Self {
         Self {
-            nodes,
+            source,
             scope: Scope::new(),
         }
+    }
+
+    fn create_node(&mut self, node: Node) -> NodeId {
+        let node_id = self.source.len();
+        self.source.insert(node_id, node);
+        node_id
+    }
+
+    fn lookup_node(&self, node_id: NodeId) -> &Node {
+        &self.source[&node_id]
     }
 
     pub fn translate(&mut self, ast: &Vec<parse::Node>) -> Result<Vec<NodeId>, CompileError> {
@@ -146,21 +156,21 @@ impl<'a> GraphTranslator<'a> {
 
     fn resolve_identifier(&self, identifier: &str) -> Option<NodeId> {
         for layer in self.scope.layers.iter() {
-            for node_id in layer.nodes.iter() {
-                match &self.nodes[node_id] {
+            for &node_id in layer.nodes.iter() {
+                match self.lookup_node(node_id) {
                     Node::FunctionDeclaration(func) => {
                         if func.identifier == identifier {
-                            return Some(*node_id);
+                            return Some(node_id);
                         }
                     }
                     Node::VariableDeclaration(variable) => {
                         if variable.identifier == identifier {
-                            return Some(*node_id);
+                            return Some(node_id);
                         }
                     }
                     Node::FuncParamDeclaration(param) => {
                         if param.identifier == identifier {
-                            return Some(*node_id);
+                            return Some(node_id);
                         }
                     }
                     _ => {}
@@ -184,8 +194,7 @@ impl<'a> GraphTranslator<'a> {
                     let node = Node::FuncParamDeclaration(FuncParamDeclaration {
                         identifier: param.identifier.clone(),
                     });
-                    let node_id = self.nodes.len();
-                    self.nodes.insert(node_id, node);
+                    let node_id = self.create_node(node);
                     // add to scope
                     self.scope.add_node(node_id);
                     params.push(node_id);
@@ -206,8 +215,7 @@ impl<'a> GraphTranslator<'a> {
                     body,
                     is_external,
                 });
-                let node_id = self.nodes.len();
-                self.nodes.insert(node_id, node);
+                let node_id = self.create_node(node);
                 // add to scope
                 self.scope.add_node(node_id);
                 Ok(node_id)
@@ -228,8 +236,7 @@ impl<'a> GraphTranslator<'a> {
                     body,
                     is_mutable,
                 });
-                let node_id = self.nodes.len();
-                self.nodes.insert(node_id, node);
+                let node_id = self.create_node(node);
                 // add to scope
                 self.scope.add_node(node_id);
                 Ok(node_id)
@@ -244,8 +251,7 @@ impl<'a> GraphTranslator<'a> {
                     None => None,
                 };
                 let node = Node::ReturnStatement(inner);
-                let node_id = self.nodes.len();
-                self.nodes.insert(node_id, node);
+                let node_id = self.create_node(node);
                 Ok(node_id)
             }
             parse::Node::Assignment(statement) => {
@@ -256,8 +262,7 @@ impl<'a> GraphTranslator<'a> {
                 let dest = self.translate_node(&statement.dest)?;
                 let body = self.translate_node(&statement.body)?;
                 let node = Node::Assignment(Assignment { dest, body });
-                let node_id = self.nodes.len();
-                self.nodes.insert(node_id, node);
+                let node_id = self.create_node(node);
                 Ok(node_id)
             }
             parse::Node::NodeRef(node_ref) => {
@@ -270,8 +275,7 @@ impl<'a> GraphTranslator<'a> {
                 let node = Node::Literal(Literal {
                     value: LiteralValue::Number(*n),
                 });
-                let node_id = self.nodes.len();
-                self.nodes.insert(node_id, node);
+                let node_id = self.create_node(node);
                 Ok(node_id)
             }
             parse::Node::BinaryExpr(binary_expr) => {
@@ -283,29 +287,27 @@ impl<'a> GraphTranslator<'a> {
                     left,
                     right,
                 });
-                let node_id = self.nodes.len();
-                self.nodes.insert(node_id, node);
+                let node_id = self.create_node(node);
                 Ok(node_id)
             }
             parse::Node::CallExpr(call_expr) => {
                 let callee = self.translate_node(&call_expr.callee)?;
                 let args = self.translate(&call_expr.args)?;
                 let node = Node::CallExpr(CallExpr { callee, args });
-                let node_id = self.nodes.len();
-                self.nodes.insert(node_id, node);
+                let node_id = self.create_node(node);
                 Ok(node_id)
             }
         }
     }
 
     pub fn show_graph(&self) {
-        for i in 0..self.nodes.len() {
+        for i in 0..self.source.len() {
             self.show_node(i);
         }
     }
 
     fn show_node(&self, node_id: NodeId) {
-        let name = match &self.nodes[&node_id] {
+        let name = match self.lookup_node(node_id) {
             Node::FunctionDeclaration(_) => "FunctionDeclaration",
             Node::VariableDeclaration(_) => "VariableDeclaration",
             Node::ReturnStatement(_) => "ReturnStatement",
@@ -317,7 +319,7 @@ impl<'a> GraphTranslator<'a> {
         };
         println!("[{}] {}", node_id, name);
 
-        match &self.nodes[&node_id] {
+        match self.lookup_node(node_id) {
             Node::FunctionDeclaration(func) => {
                 println!("  params: {{");
                 for param in func.params.iter() {
