@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use crate::analyze::{NodeId, Node, LiteralValue};
+use crate::analyze::{LiteralValue, Node, NodeId};
 use crate::parse::Operator;
+use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
@@ -21,7 +21,7 @@ impl<'a> Runner<'a> {
         }
     }
 
-    pub fn add_symbol(&mut self, node: NodeId, value: Value) {
+    fn add_symbol(&mut self, node: NodeId, value: Value) {
         self.symbols.insert(node, value);
     }
 
