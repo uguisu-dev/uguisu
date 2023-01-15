@@ -25,6 +25,7 @@ impl<'a> Interpreter<'a> {
         &self.graph_source[&node_id]
     }
 
+    // 文を実行し、main関数の実行をする。
     pub fn run(&self, graph: &Vec<NodeId>) {
         // let mut func = None;
         // for node in graph.iter() {
@@ -49,6 +50,7 @@ impl<'a> Interpreter<'a> {
         todo!();
     }
 
+    // 宣言の解釈やvariableへの登録をする。
     pub fn exec_statement(&self, node_id: NodeId) {
         // match self.lookup_node(node_id) {
         //     Node::FunctionDeclaration(_) => {
