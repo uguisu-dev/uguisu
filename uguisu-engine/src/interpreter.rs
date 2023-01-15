@@ -8,17 +8,21 @@ pub enum Value {
     Function(NodeId),
 }
 
-pub struct Interpreter<'a> {
+pub struct Runner<'a> {
     graph_source: &'a HashMap<NodeId, Node>,
-    variables: HashMap<NodeId, Value>,
+    symbols: HashMap<NodeId, Value>,
 }
 
-impl<'a> Interpreter<'a> {
+impl<'a> Runner<'a> {
     pub fn new(graph_source: &'a HashMap<NodeId, Node>) -> Self {
         Self {
             graph_source,
-            variables: HashMap::new(),
+            symbols: HashMap::new(),
         }
+    }
+
+    pub fn add_symbol(&mut self, node: NodeId, value: Value) {
+        self.symbols.insert(node, value);
     }
 
     fn lookup_node(&self, node_id: NodeId) -> &Node {

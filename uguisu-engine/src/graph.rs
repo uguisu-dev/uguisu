@@ -79,19 +79,7 @@ pub struct CallExpr {
 //     Number,
 // }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct ScopeLayer {
-    nodes: Vec<NodeId>,
-}
-
-impl ScopeLayer {
-    pub fn new() -> Self {
-        Self { nodes: Vec::new() }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Scope {
+struct Scope {
     layers: Vec<ScopeLayer>,
 }
 
@@ -123,12 +111,23 @@ impl Scope {
     }
 }
 
-pub struct GraphTranslator<'a> {
+struct ScopeLayer {
+    nodes: Vec<NodeId>,
+}
+
+impl ScopeLayer {
+    pub fn new() -> Self {
+        Self { nodes: Vec::new() }
+    }
+}
+
+// ノードグラフの生成や各種チェック処理など
+pub struct Analyzer<'a> {
     source: &'a mut HashMap<NodeId, Node>,
     scope: Scope,
 }
 
-impl<'a> GraphTranslator<'a> {
+impl<'a> Analyzer<'a> {
     pub fn new(source: &'a mut HashMap<NodeId, Node>) -> Self {
         Self {
             source,
@@ -146,15 +145,7 @@ impl<'a> GraphTranslator<'a> {
         &self.source[&node_id]
     }
 
-    pub fn translate(&mut self, ast: &Vec<parse::Node>) -> Result<Vec<NodeId>, CompileError> {
-        let mut ids = Vec::new();
-        for parser_node in ast.iter() {
-            ids.push(self.translate_node(parser_node)?);
-        }
-        Ok(ids)
-    }
-
-    fn resolve_identifier(&self, identifier: &str) -> Option<NodeId> {
+    fn lookup_identifier(&self, identifier: &str) -> Option<NodeId> {
         for layer in self.scope.layers.iter() {
             for &node_id in layer.nodes.iter() {
                 match self.lookup_node(node_id) {
@@ -178,6 +169,14 @@ impl<'a> GraphTranslator<'a> {
             }
         }
         None
+    }
+
+    pub fn translate(&mut self, ast: &Vec<parse::Node>) -> Result<Vec<NodeId>, CompileError> {
+        let mut ids = Vec::new();
+        for parser_node in ast.iter() {
+            ids.push(self.translate_node(parser_node)?);
+        }
+        Ok(ids)
     }
 
     fn translate_node(&mut self, parser_node: &parse::Node) -> Result<NodeId, CompileError> {
@@ -266,7 +265,7 @@ impl<'a> GraphTranslator<'a> {
                 Ok(node_id)
             }
             parse::Node::NodeRef(node_ref) => {
-                match self.resolve_identifier(&node_ref.identifier) {
+                match self.lookup_identifier(&node_ref.identifier) {
                     Some(node_id) => Ok(node_id),
                     None => Err(CompileError::new("unknown identifier")),
                 }

@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::interpreter::Interpreter;
+use crate::interpreter::Runner;
 
 mod graph;
 mod interpreter;
@@ -23,14 +23,12 @@ pub fn run(code: &str) -> Result<(), String> {
     let ast = parse::parse(code).map_err(|e| format!("Compile Error: {}", e.message))?;
 
     let mut graph_source: HashMap<graph::NodeId, graph::Node> = HashMap::new();
-    let mut translator = graph::GraphTranslator::new(&mut graph_source);
-    let graph = translator
+    let mut analyzer = graph::Analyzer::new(&mut graph_source);
+    let graph = analyzer
         .translate(&ast)
         .map_err(|e| format!("Compile Error: {}", e.message))?;
 
-    //translator.show_graph();
-
-    let runner = Interpreter::new(&graph_source);
+    let runner = Runner::new(&graph_source);
     runner.run(&graph);
 
     Ok(())
