@@ -77,7 +77,6 @@ impl<'a> Runner<'a> {
         }
     }
 
-    // 宣言の解釈やvariableへの登録をする。
     fn exec_statement(&self, node_id: NodeId, symbols: &mut HashMap<NodeId, Value>) -> StatementInfo {
         match self.lookup_node(node_id) {
             Node::FunctionDeclaration(_) => {
@@ -108,7 +107,6 @@ impl<'a> Runner<'a> {
                 self.eval_expr(node_id, symbols);
                 StatementInfo::None
             }
-            //_ => panic!("unexpected statement node (node_id={})", node_id),
         }
     }
 
