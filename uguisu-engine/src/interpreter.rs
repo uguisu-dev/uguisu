@@ -21,10 +21,14 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    fn lookup_node(&self, node_id: NodeId) -> &Node {
+        &self.graph_nodes[&node_id]
+    }
+
     pub fn run(&self, graph: &Vec<NodeId>) {
         // let mut func = None;
         // for node in graph.iter() {
-        //     match &self.graph_nodes[node] {
+        //     match self.lookup_node(node) {
         //         Node::FunctionDeclaration(f) => {
         //             if &f.identifier == "main" {
         //                 func = Some(node);
@@ -46,7 +50,7 @@ impl<'a> Interpreter<'a> {
     }
 
     pub fn exec_statement(&self, node_id: NodeId) {
-        // match &self.graph_nodes[&node_id] {
+        // match self.lookup_node(node_id) {
         //     Node::FunctionDeclaration(_) => {
         //         Value::Function(node_id);
         //     }
@@ -56,7 +60,7 @@ impl<'a> Interpreter<'a> {
     }
 
     fn eval_expr(&self, node_id: NodeId) -> Value {
-        match &self.graph_nodes[&node_id] {
+        match self.lookup_node(node_id) {
             Node::Literal(literal) => {
                 match literal.value {
                     LiteralValue::Number(n) => {
@@ -81,7 +85,7 @@ impl<'a> Interpreter<'a> {
                 }
             }
             Node::CallExpr(call_expr) => {
-                let callee = match &self.graph_nodes[&call_expr.callee] {
+                let callee = match self.lookup_node(call_expr.callee) {
                     Node::FunctionDeclaration(func) => func,
                     _ => panic!("function expected"),
                 };
