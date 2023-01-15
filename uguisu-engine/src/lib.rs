@@ -1,8 +1,8 @@
 use std::collections::HashMap;
-use crate::interpreter::Runner;
+use crate::run::Runner;
 
-mod graph;
-mod interpreter;
+mod analyze;
+mod run;
 mod parse;
 
 #[derive(Debug, Clone)]
@@ -22,8 +22,8 @@ pub fn run(code: &str) -> Result<(), String> {
     println!("[Info] compiling ...");
     let ast = parse::parse(code).map_err(|e| format!("Compile Error: {}", e.message))?;
 
-    let mut graph_source: HashMap<graph::NodeId, graph::Node> = HashMap::new();
-    let mut analyzer = graph::Analyzer::new(&mut graph_source);
+    let mut graph_source: HashMap<analyze::NodeId, analyze::Node> = HashMap::new();
+    let mut analyzer = analyze::Analyzer::new(&mut graph_source);
     let graph = analyzer
         .translate(&ast)
         .map_err(|e| format!("Compile Error: {}", e.message))?;

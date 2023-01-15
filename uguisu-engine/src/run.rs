@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::graph::{NodeId, Node, LiteralValue};
+use crate::analyze::{NodeId, Node, LiteralValue};
 use crate::parse::Operator;
 
 #[derive(Debug, PartialEq, Clone)]
