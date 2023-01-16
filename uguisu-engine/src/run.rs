@@ -2,6 +2,7 @@ use crate::analyze::{LiteralValue, Node, NodeId};
 use crate::parse::Operator;
 use std::collections::HashMap;
 
+#[derive(Debug, Clone)]
 pub enum Value {
     None,
     Number(i32),
@@ -25,20 +26,16 @@ impl<'a> Runner<'a> {
         }
     }
 
-    fn set_symbol(symbols: &mut HashMap<NodeId, Value>, node: NodeId, value: Value) {
-        symbols.insert(node, value);
-    }
-
     fn lookup_node(&self, node_id: NodeId) -> &Node {
         &self.graph_source[&node_id]
     }
 
-    // 文を実行し、main関数の実行をする。
     pub fn run(&self, graph: &Vec<NodeId>, symbols: &mut HashMap<NodeId, Value>) {
+        // execute global statements
         for &node_id in graph.iter() {
             self.exec_statement(node_id, symbols);
         }
-        // find main function
+        // call main function
         let mut func = None;
         for &node in graph.iter() {
             match self.lookup_node(node) {
@@ -80,12 +77,12 @@ impl<'a> Runner<'a> {
     fn exec_statement(&self, node_id: NodeId, symbols: &mut HashMap<NodeId, Value>) -> StatementInfo {
         match self.lookup_node(node_id) {
             Node::FunctionDeclaration(_) => {
-                Self::set_symbol(symbols, node_id, Value::Function(node_id));
+                symbols.insert(node_id, Value::Function(node_id));
                 StatementInfo::None
             }
             Node::VariableDeclaration(variable) => {
-                let a = self.eval_expr(variable.body, symbols);
-                Self::set_symbol(symbols, node_id, a);
+                let value = self.eval_expr(variable.body, symbols);
+                symbols.insert(node_id, value);
                 StatementInfo::None
             }
             Node::ReturnStatement(Some(expr)) => {
@@ -97,7 +94,7 @@ impl<'a> Runner<'a> {
             }
             Node::Assignment(statement) => {
                 let value = self.eval_expr(statement.body, symbols);
-                Self::set_symbol(symbols, statement.dest, value);
+                symbols.insert(statement.dest, value);
                 StatementInfo::None
             }
             Node::Literal(_)
@@ -136,15 +133,14 @@ impl<'a> Runner<'a> {
                 }
             }
             Node::CallExpr(call_expr) => {
-                let callee = match self.lookup_node(call_expr.callee) {
-                    Node::FunctionDeclaration(func) => func,
-                    _ => panic!("function expected (node_id={})", node_id),
-                };
                 self.call_func(call_expr.callee, symbols);
                 todo!();
             }
             Node::FuncParamDeclaration(_) => {
-                todo!();
+                match symbols.get(&node_id) {
+                    Some(x) => x.clone(),
+                    None => panic!("symbol not found (node_id={})", node_id),
+                }
             }
             _ => panic!("unexpected expr node (node_id={})", node_id),
         }

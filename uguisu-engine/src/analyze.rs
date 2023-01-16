@@ -1,4 +1,4 @@
-use crate::{parse, CompileError};
+use crate::{parse, SyntaxError};
 use std::collections::HashMap;
 
 pub type NodeId = usize;
@@ -171,7 +171,7 @@ impl<'a> Analyzer<'a> {
         None
     }
 
-    pub fn translate(&mut self, ast: &Vec<parse::Node>) -> Result<Vec<NodeId>, CompileError> {
+    pub fn translate(&mut self, ast: &Vec<parse::Node>) -> Result<Vec<NodeId>, SyntaxError> {
         let mut ids = Vec::new();
         for parser_node in ast.iter() {
             ids.push(self.translate_node(parser_node)?);
@@ -179,12 +179,12 @@ impl<'a> Analyzer<'a> {
         Ok(ids)
     }
 
-    fn translate_node(&mut self, parser_node: &parse::Node) -> Result<NodeId, CompileError> {
+    fn translate_node(&mut self, parser_node: &parse::Node) -> Result<NodeId, SyntaxError> {
         match parser_node {
             parse::Node::FunctionDeclaration(decl) => {
                 // when local scope
                 if self.scope.layers.len() >= 2 {
-                    return Err(CompileError::new("local function is not supported"));
+                    return Err(SyntaxError::new("local function is not supported"));
                 }
                 self.scope.enter_scope();
                 let mut params = Vec::new();
@@ -222,7 +222,7 @@ impl<'a> Analyzer<'a> {
             parse::Node::VariableDeclaration(decl) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(CompileError::new("global variable is not supported"));
+                    return Err(SyntaxError::new("global variable is not supported"));
                 }
                 let body = self.translate_node(&decl.body)?;
                 let is_mutable = decl
@@ -243,7 +243,7 @@ impl<'a> Analyzer<'a> {
             parse::Node::ReturnStatement(expr) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(CompileError::new("return is not supported in global"));
+                    return Err(SyntaxError::new("return is not supported in global"));
                 }
                 let inner = match expr {
                     Some(x) => Some(self.translate_node(x)?),
@@ -256,7 +256,7 @@ impl<'a> Analyzer<'a> {
             parse::Node::Assignment(statement) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(CompileError::new("assignment is not supported in global"));
+                    return Err(SyntaxError::new("assignment is not supported in global"));
                 }
                 let dest = self.translate_node(&statement.dest)?;
                 let body = self.translate_node(&statement.body)?;
@@ -267,7 +267,7 @@ impl<'a> Analyzer<'a> {
             parse::Node::NodeRef(node_ref) => {
                 match self.lookup_identifier(&node_ref.identifier) {
                     Some(node_id) => Ok(node_id),
-                    None => Err(CompileError::new("unknown identifier")),
+                    None => Err(SyntaxError::new("unknown identifier")),
                 }
             }
             parse::Node::Literal(parse::Literal::Number(n)) => {
