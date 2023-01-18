@@ -6,7 +6,7 @@ pub type NodeId = usize;
 // NOTE: consider type check
 // NOTE: consider parent node
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum Node {
     // statement
     FunctionDeclaration(FunctionDeclaration),
@@ -20,7 +20,7 @@ pub enum Node {
     FuncParamDeclaration(FuncParamDeclaration),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct FunctionDeclaration {
     pub identifier: String,
     pub body: Option<Vec<NodeId>>,
@@ -29,13 +29,13 @@ pub struct FunctionDeclaration {
     pub is_external: bool,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct FuncParamDeclaration {
     pub identifier: String,
     //pub ty: Type,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct VariableDeclaration {
     pub identifier: String,
     pub body: NodeId,
@@ -45,30 +45,30 @@ pub struct VariableDeclaration {
     //pub func_param_index: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct Assignment {
     pub dest: NodeId,
     pub body: NodeId,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct Literal {
     pub value: LiteralValue,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum LiteralValue {
     Number(i32),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct BinaryExpr {
     pub operator: parse::Operator,
     pub left: NodeId,
     pub right: NodeId,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct CallExpr {
     pub callee: NodeId,
     pub args: Vec<NodeId>,
@@ -79,7 +79,8 @@ pub struct CallExpr {
 //     Number,
 // }
 
-struct Scope {
+#[derive(Debug, Clone)]
+pub struct Scope {
     layers: Vec<ScopeLayer>,
 }
 
@@ -111,6 +112,7 @@ impl Scope {
     }
 }
 
+#[derive(Debug, Clone)]
 struct ScopeLayer {
     nodes: Vec<NodeId>,
 }
