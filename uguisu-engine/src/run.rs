@@ -1,4 +1,4 @@
-use crate::analyze::{LiteralValue, Node, NodeId};
+use crate::analyze::{LiteralValue, Node, NodeLink, NodeId};
 use crate::parse::Operator;
 use std::collections::HashMap;
 
@@ -6,7 +6,7 @@ use std::collections::HashMap;
 pub enum Value {
     None,
     Number(i32),
-    Function(NodeId),
+    Function(NodeLink),
 }
 
 enum StatementInfo {
@@ -38,13 +38,23 @@ impl SymbolTable {
         self.layers.remove(0);
     }
 
-    pub fn set_symbol(&mut self, node_id: NodeId, value: Value) {
+    pub fn set_symbol(&mut self, node_link: NodeLink, value: Value) {
         match self.layers.get_mut(0) {
             Some(layer) => {
-                layer.symbols.insert(node_id, value);
+                layer.symbols.insert(node_link.id, value);
             }
             None => panic!("layer not found"),
         }
+    }
+
+    pub fn lookup(&self, node_link: NodeLink) -> Option<Value> {
+        for layer in self.layers.iter() {
+            match layer.symbols.get(&node_link.id) {
+                Some(x) => return Some(x.clone()),
+                None => {},
+            }
+        }
+        None
     }
 }
 
@@ -70,26 +80,18 @@ impl<'a> Runner<'a> {
         }
     }
 
-    fn lookup_symbol(&self, node_id: NodeId, symbols: &SymbolTable) -> Option<&Value> {
-        todo!();
-    }
-
-    fn lookup_node(&self, node_id: NodeId) -> &Node {
-        &self.graph_source[&node_id]
-    }
-
-    pub fn run(&self, graph: &Vec<NodeId>, symbols: &mut SymbolTable) {
+    pub fn run(&self, graph: &Vec<NodeLink>, symbols: &mut SymbolTable) {
         // execute global statements
-        for &node_id in graph.iter() {
-            self.exec_statement(node_id, symbols);
+        for &node_link in graph.iter() {
+            self.exec_statement(node_link, symbols);
         }
         // call main function
         let mut func = None;
-        for &node in graph.iter() {
-            match self.lookup_node(node) {
+        for &node_link in graph.iter() {
+            match node_link.as_node(self.graph_source) {
                 Node::FunctionDeclaration(f) => {
                     if &f.identifier == "main" {
-                        func = Some(node);
+                        func = Some(node_link);
                         break;
                     }
                 }
@@ -97,8 +99,8 @@ impl<'a> Runner<'a> {
             }
         }
         match func {
-            Some(node_id) => {
-                self.call_func(node_id, symbols);
+            Some(node_link) => {
+                self.call_func(node_link, symbols);
             }
             None => {
                 println!("[Info] main function not found");
@@ -106,31 +108,31 @@ impl<'a> Runner<'a> {
         }
     }
 
-    fn call_func(&self, node_id: NodeId, symbols: &mut SymbolTable) {
-        match self.lookup_node(node_id) {
+    fn call_func(&self, node_link: NodeLink, symbols: &mut SymbolTable) {
+        match node_link.as_node(self.graph_source) {
             Node::FunctionDeclaration(func) => {
                 match &func.body {
                     Some(body) => {
-                        for &node_id in body.iter() {
-                            self.exec_statement(node_id, symbols);
+                        for &node_link in body.iter() {
+                            self.exec_statement(node_link, symbols);
                         }
                     }
-                    None => panic!("function body not found (node_id={})", node_id),
+                    None => panic!("function body not found (node_id={})", node_link.id),
                 }
             }
-            _ => panic!("function expected (node_id={})", node_id),
+            _ => panic!("function expected (node_id={})", node_link.id),
         }
     }
 
-    fn exec_statement(&self, node_id: NodeId, symbols: &mut SymbolTable) -> StatementInfo {
-        match self.lookup_node(node_id) {
+    fn exec_statement(&self, node_link: NodeLink, symbols: &mut SymbolTable) -> StatementInfo {
+        match node_link.as_node(self.graph_source) {
             Node::FunctionDeclaration(_) => {
-                symbols.set_symbol(node_id, Value::Function(node_id));
+                symbols.set_symbol(node_link, Value::Function(node_link));
                 StatementInfo::None
             }
             Node::VariableDeclaration(variable) => {
                 let value = self.eval_expr(variable.body, symbols);
-                symbols.set_symbol(node_id, value);
+                symbols.set_symbol(node_link, value);
                 StatementInfo::None
             }
             Node::ReturnStatement(Some(expr)) => {
@@ -149,14 +151,14 @@ impl<'a> Runner<'a> {
             | Node::BinaryExpr(_)
             | Node::CallExpr(_)
             | Node::FuncParamDeclaration(_) => {
-                self.eval_expr(node_id, symbols);
+                self.eval_expr(node_link, symbols);
                 StatementInfo::None
             }
         }
     }
 
-    fn eval_expr(&self, node_id: NodeId, symbols: &mut SymbolTable) -> Value {
-        match self.lookup_node(node_id) {
+    fn eval_expr(&self, node_link: NodeLink, symbols: &mut SymbolTable) -> Value {
+        match node_link.as_node(self.graph_source) {
             Node::Literal(literal) => {
                 match literal.value {
                     LiteralValue::Number(n) => {
@@ -167,11 +169,11 @@ impl<'a> Runner<'a> {
             Node::BinaryExpr(binary_expr) => {
                 let left = match self.eval_expr(binary_expr.left, symbols) {
                     Value::Number(n) => n,
-                    _ => panic!("number expected (node_id={})", node_id),
+                    _ => panic!("number expected (node_id={})", node_link.id),
                 };
                 let right = match self.eval_expr(binary_expr.right, symbols) {
                     Value::Number(n) => n,
-                    _ => panic!("number expected (node_id={})", node_id),
+                    _ => panic!("number expected (node_id={})", node_link.id),
                 };
                 match binary_expr.operator {
                     Operator::Add => Value::Number(left + right),
@@ -185,12 +187,12 @@ impl<'a> Runner<'a> {
                 todo!();
             }
             Node::FuncParamDeclaration(_) => {
-                match self.lookup_symbol(node_id, symbols) {
-                    Some(x) => x.clone(),
-                    None => panic!("symbol not found (node_id={})", node_id),
+                match symbols.lookup(node_link) {
+                    Some(x) => x,
+                    None => panic!("symbol not found (node_id={})", node_link.id),
                 }
             }
-            _ => panic!("unexpected expr node (node_id={})", node_id),
+            _ => panic!("unexpected expr node (node_id={})", node_link.id),
         }
     }
 }
