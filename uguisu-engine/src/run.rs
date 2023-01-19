@@ -15,6 +15,50 @@ enum StatementInfo {
     ReturnWith(Value),
 }
 
+#[derive(Debug, Clone)]
+pub struct SymbolTable {
+    layers: Vec<SymbolTableLayer>,
+}
+
+impl SymbolTable {
+    pub fn new() -> Self {
+        Self {
+            layers: vec![SymbolTableLayer::new()],
+        }
+    }
+
+    pub fn push_layer(&mut self) {
+        self.layers.insert(0, SymbolTableLayer::new());
+    }
+
+    pub fn pop_layer(&mut self) {
+        if self.layers.len() == 1 {
+            panic!("Left the root scope.");
+        }
+        self.layers.remove(0);
+    }
+
+    pub fn set_symbol(&mut self, node_id: NodeId, value: Value) {
+        match self.layers.get_mut(0) {
+            Some(layer) => {
+                layer.symbols.insert(node_id, value);
+            }
+            None => panic!("layer not found"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct SymbolTableLayer {
+    symbols: HashMap<NodeId, Value>,
+}
+
+impl SymbolTableLayer {
+    pub fn new() -> Self {
+        Self { symbols: HashMap::new() }
+    }
+}
+
 pub struct Runner<'a> {
     graph_source: &'a HashMap<NodeId, Node>,
 }
@@ -26,11 +70,15 @@ impl<'a> Runner<'a> {
         }
     }
 
+    fn lookup_symbol(&self, node_id: NodeId, symbols: &SymbolTable) -> Option<&Value> {
+        todo!();
+    }
+
     fn lookup_node(&self, node_id: NodeId) -> &Node {
         &self.graph_source[&node_id]
     }
 
-    pub fn run(&self, graph: &Vec<NodeId>, symbols: &mut HashMap<NodeId, Value>) {
+    pub fn run(&self, graph: &Vec<NodeId>, symbols: &mut SymbolTable) {
         // execute global statements
         for &node_id in graph.iter() {
             self.exec_statement(node_id, symbols);
@@ -58,7 +106,7 @@ impl<'a> Runner<'a> {
         }
     }
 
-    fn call_func(&self, node_id: NodeId, symbols: &mut HashMap<NodeId, Value>) {
+    fn call_func(&self, node_id: NodeId, symbols: &mut SymbolTable) {
         match self.lookup_node(node_id) {
             Node::FunctionDeclaration(func) => {
                 match &func.body {
@@ -74,15 +122,15 @@ impl<'a> Runner<'a> {
         }
     }
 
-    fn exec_statement(&self, node_id: NodeId, symbols: &mut HashMap<NodeId, Value>) -> StatementInfo {
+    fn exec_statement(&self, node_id: NodeId, symbols: &mut SymbolTable) -> StatementInfo {
         match self.lookup_node(node_id) {
             Node::FunctionDeclaration(_) => {
-                symbols.insert(node_id, Value::Function(node_id));
+                symbols.set_symbol(node_id, Value::Function(node_id));
                 StatementInfo::None
             }
             Node::VariableDeclaration(variable) => {
                 let value = self.eval_expr(variable.body, symbols);
-                symbols.insert(node_id, value);
+                symbols.set_symbol(node_id, value);
                 StatementInfo::None
             }
             Node::ReturnStatement(Some(expr)) => {
@@ -94,7 +142,7 @@ impl<'a> Runner<'a> {
             }
             Node::Assignment(statement) => {
                 let value = self.eval_expr(statement.body, symbols);
-                symbols.insert(statement.dest, value);
+                symbols.set_symbol(statement.dest, value);
                 StatementInfo::None
             }
             Node::Literal(_)
@@ -107,7 +155,7 @@ impl<'a> Runner<'a> {
         }
     }
 
-    fn eval_expr(&self, node_id: NodeId, symbols: &mut HashMap<NodeId, Value>) -> Value {
+    fn eval_expr(&self, node_id: NodeId, symbols: &mut SymbolTable) -> Value {
         match self.lookup_node(node_id) {
             Node::Literal(literal) => {
                 match literal.value {
@@ -137,7 +185,7 @@ impl<'a> Runner<'a> {
                 todo!();
             }
             Node::FuncParamDeclaration(_) => {
-                match symbols.get(&node_id) {
+                match self.lookup_symbol(node_id, symbols) {
                     Some(x) => x.clone(),
                     None => panic!("symbol not found (node_id={})", node_id),
                 }
