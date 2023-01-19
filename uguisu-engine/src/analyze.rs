@@ -111,6 +111,32 @@ impl Scope {
             None => panic!("layer not found"),
         }
     }
+
+    fn lookup(&self, identifier: &str, scope_source: &HashMap<NodeId, Node>) -> Option<NodeId> {
+        for layer in self.layers.iter() {
+            for &node_id in layer.nodes.iter() {
+                match &scope_source[&node_id] {
+                    Node::FunctionDeclaration(func) => {
+                        if func.identifier == identifier {
+                            return Some(node_id);
+                        }
+                    }
+                    Node::VariableDeclaration(variable) => {
+                        if variable.identifier == identifier {
+                            return Some(node_id);
+                        }
+                    }
+                    Node::FuncParamDeclaration(param) => {
+                        if param.identifier == identifier {
+                            return Some(node_id);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        None
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -146,32 +172,6 @@ impl<'a> Analyzer<'a> {
 
     fn lookup_node(&self, node_id: NodeId) -> &Node {
         &self.source[&node_id]
-    }
-
-    fn lookup_identifier(&self, identifier: &str) -> Option<NodeId> {
-        for layer in self.scope.layers.iter() {
-            for &node_id in layer.nodes.iter() {
-                match self.lookup_node(node_id) {
-                    Node::FunctionDeclaration(func) => {
-                        if func.identifier == identifier {
-                            return Some(node_id);
-                        }
-                    }
-                    Node::VariableDeclaration(variable) => {
-                        if variable.identifier == identifier {
-                            return Some(node_id);
-                        }
-                    }
-                    Node::FuncParamDeclaration(param) => {
-                        if param.identifier == identifier {
-                            return Some(node_id);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-        None
     }
 
     pub fn translate(&mut self, ast: &Vec<parse::Node>) -> Result<Vec<NodeId>, SyntaxError> {
@@ -269,7 +269,7 @@ impl<'a> Analyzer<'a> {
                 Ok(node_id)
             }
             parse::Node::NodeRef(node_ref) => {
-                match self.lookup_identifier(&node_ref.identifier) {
+                match self.scope.lookup(&node_ref.identifier, &self.source) {
                     Some(node_id) => Ok(node_id),
                     None => Err(SyntaxError::new("unknown identifier")),
                 }

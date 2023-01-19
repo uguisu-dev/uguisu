@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::run::SymbolTable;
+
 mod analyze;
 mod parse;
 mod run;
@@ -42,7 +44,7 @@ pub fn run(code: &str) -> Result<(), String> {
         .map_err(|e| format!("Syntax Error: {}", e.message))?;
 
     println!("[Info] running ...");
-    let mut symbols = HashMap::new();
+    let mut symbols = SymbolTable::new();
     let runner = run::Runner::new(&graph_source);
     runner.run(&graph, &mut symbols);
 
