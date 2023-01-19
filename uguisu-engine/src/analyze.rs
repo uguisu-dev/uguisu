@@ -32,6 +32,7 @@ pub struct FunctionDeclaration {
 #[derive(Debug)]
 pub struct FuncParamDeclaration {
     pub identifier: String,
+    pub param_index: usize,
     //pub ty: Type,
 }
 
@@ -190,10 +191,11 @@ impl<'a> Analyzer<'a> {
                 }
                 self.scope.enter_scope();
                 let mut params = Vec::new();
-                for param in decl.params.iter() {
+                for (i, param) in decl.params.iter().enumerate() {
                     // make param node
                     let node = Node::FuncParamDeclaration(FuncParamDeclaration {
                         identifier: param.identifier.clone(),
+                        param_index: i,
                     });
                     let node_id = self.create_node(node);
                     // add to scope
