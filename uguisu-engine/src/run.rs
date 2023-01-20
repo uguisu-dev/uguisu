@@ -96,11 +96,13 @@ impl<'a> Runner<'a> {
         match node_ref.as_node(self.graph_source) {
             Node::FunctionDeclaration(_) => {
                 //println!("FunctionDeclaration");
+                // TODO: check duplicate
                 symbols.set_symbol(node_ref, Symbol::Function(node_ref));
                 StatementResult::None
             }
             Node::VariableDeclaration(variable) => {
                 //println!("VariableDeclaration");
+                // TODO: check duplicate
                 let symbol = self.eval_expr(variable.body, symbols);
                 symbols.set_symbol(node_ref, symbol);
                 StatementResult::None
@@ -133,6 +135,12 @@ impl<'a> Runner<'a> {
 
     fn eval_expr(&self, node_ref: NodeRef, symbols: &mut SymbolTable) -> Symbol {
         match node_ref.as_node(self.graph_source) {
+            Node::VariableDeclaration(_) => {
+                match symbols.lookup_symbol(node_ref) {
+                    Some(x) => x,
+                    None => panic!("symbol not found (node_id={})", node_ref.id),
+                }
+            }
             Node::Literal(literal) => {
                 //println!("Literal");
                 match literal.value {
@@ -163,7 +171,6 @@ impl<'a> Runner<'a> {
                 let symbol = match call_expr.callee.as_node(self.graph_source) {
                     Node::FunctionDeclaration(func) => {
                         if func.is_external {
-                            // TODO: static binding
                             symbols.push_layer();
                             let mut args = Vec::new();
                             for i in 0..func.params.len() {
@@ -189,7 +196,6 @@ impl<'a> Runner<'a> {
                             symbols.pop_layer();
                             Symbol::NoneValue
                         } else {
-                            // TODO: static binding
                             symbols.push_layer();
                             for i in 0..func.params.len() {
                                 let param_node = &func.params[i];
