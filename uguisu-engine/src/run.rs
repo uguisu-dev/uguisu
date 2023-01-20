@@ -6,6 +6,11 @@ mod builtin {
     pub fn print_num(value: i32) {
         println!("{}", value);
     }
+    pub fn assert_eq(actual: i32, expected: i32) {
+        if actual != expected {
+            panic!("assertion error");
+        }
+    }
 }
 
 enum StatementResult {
@@ -190,6 +195,19 @@ impl<'a> Runner<'a> {
                                     _ => panic!("number expected {:?}", args[0]),
                                 };
                                 builtin::print_num(value);
+                            } else if &func.identifier == "assert_eq" {
+                                if args.len() != 2 {
+                                    panic!("parameters count error");
+                                }
+                                let a = match &args[0] {
+                                    Symbol::Number(n) => *n,
+                                    _ => panic!("number expected {:?}", args[0]),
+                                };
+                                let b = match &args[1] {
+                                    Symbol::Number(n) => *n,
+                                    _ => panic!("number expected {:?}", args[1]),
+                                };
+                                builtin::assert_eq(a, b);
                             } else {
                                 panic!("unknown builtin");
                             }

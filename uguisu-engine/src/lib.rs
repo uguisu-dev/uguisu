@@ -81,11 +81,12 @@ mod test {
     fn test_function_basic() {
         run_test(
             "
+            external fn assert_eq(actual: number, expected: number);
             fn add(x: number, y: number): number {
                 return x + y;
             }
             fn main() {
-                add(1, 2);
+                assert_eq(add(1, 2), 3);
             }
             ",
         );
@@ -95,6 +96,7 @@ mod test {
     fn test_calc_with_function_1() {
         run_test(
             "
+            external fn assert_eq(actual: number, expected: number);
             fn add(x: number, y: number): number {
                 return x + y;
             }
@@ -102,7 +104,7 @@ mod test {
                 return x * x;
             }
             fn main() {
-                add(square(2), 3);
+                assert_eq(add(square(2), 3), 7);
             }
             ",
         );
@@ -112,6 +114,7 @@ mod test {
     fn test_calc_with_function_2() {
         run_test(
             "
+            external fn assert_eq(actual: number, expected: number);
             fn square(x: number): number {
                 return x * x;
             }
@@ -119,7 +122,7 @@ mod test {
                 return square(x) + y;
             }
             fn main() {
-                calc(2, 3);
+                assert_eq(calc(2, 3), 7);
             }
             ",
         );
@@ -129,8 +132,10 @@ mod test {
     fn test_variable_basic() {
         run_test(
             "
+            external fn assert_eq(actual: number, expected: number);
             fn main() {
                 const x = 1 + 2;
+                assert_eq(x, 3);
             }
             ",
         );
@@ -140,13 +145,14 @@ mod test {
     fn test_calc_with_variable() {
         run_test(
             "
+            external fn assert_eq(actual: number, expected: number);
             fn calc(x: number, y: number): number {
                 const temp = x + y;
                 return temp * temp;
             }
             fn main() {
                 const a = 2;
-                calc(a, 3);
+                assert_eq(calc(a, 3), 25);
             }
             ",
         );
