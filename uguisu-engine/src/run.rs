@@ -1,6 +1,12 @@
-use crate::analyze::{LiteralValue, Node, NodeLink, NodeId};
+use crate::analyze::{LiteralValue, Node, NodeLink, NodeId, FunctionDeclaration, FuncParamDeclaration};
 use crate::parse::Operator;
 use std::collections::HashMap;
+
+mod builtin {
+    pub fn print_num(value: i32) {
+        println!("{}", value);
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum Value {
@@ -100,27 +106,11 @@ impl<'a> Runner<'a> {
         }
         match func {
             Some(node_link) => {
-                self.call_func(node_link, symbols);
+                //self.call_func(node_link, &Vec::new(), symbols);
             }
             None => {
                 println!("[Info] main function not found");
             }
-        }
-    }
-
-    fn call_func(&self, node_link: NodeLink, symbols: &mut SymbolTable) {
-        match node_link.as_node(self.graph_source) {
-            Node::FunctionDeclaration(func) => {
-                match &func.body {
-                    Some(body) => {
-                        for &node_link in body.iter() {
-                            self.exec_statement(node_link, symbols);
-                        }
-                    }
-                    None => panic!("function body not found (node_id={})", node_link.id),
-                }
-            }
-            _ => panic!("function expected (node_id={})", node_link.id),
         }
     }
 
@@ -183,8 +173,40 @@ impl<'a> Runner<'a> {
                 }
             }
             Node::CallExpr(call_expr) => {
-                self.call_func(call_expr.callee, symbols);
-                todo!();
+                println!("call args {:?}", call_expr.args);
+                match call_expr.callee.as_node(self.graph_source) {
+                    Node::FunctionDeclaration(func) => {
+                        if func.is_external {
+                            // if &func.identifier == "print_num" {
+                            //     let params: Vec<NodeLink> = Vec::new();
+                            //     if params.len() != func.params.len() {
+                            //         panic!("parameters count error");
+                            //     }
+                            //     for param in func.params.iter() {
+                            //         match param.as_node(self.graph_source) {
+                            //             Node::FuncParamDeclaration(decl) => {
+                            //                 // TODO
+                            //             }
+                            //             _ => panic!("func param expected"),
+                            //         }
+                            //     }
+                            // }
+                            println!("[Info] external function called");
+                        } else {
+                            // TODO: arguments
+                            match &func.body {
+                                Some(body) => {
+                                    for &node_link in body.iter() {
+                                        self.exec_statement(node_link, symbols);
+                                    }
+                                }
+                                None => panic!("function body not found (callee={})", call_expr.callee.id),
+                            }
+                        }
+                        Value::None
+                    }
+                    _ => panic!("function expected (callee={})", call_expr.callee.id),
+                }
             }
             Node::FuncParamDeclaration(_) => {
                 match symbols.lookup(node_link) {

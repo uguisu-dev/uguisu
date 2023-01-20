@@ -335,6 +335,7 @@ impl<'a> Analyzer<'a> {
 
         match node_link.as_node(self.source) {
             Node::FunctionDeclaration(func) => {
+                println!("  name: {}", func.identifier);
                 println!("  params: {{");
                 for param in func.params.iter() {
                     println!("    [{}]", param.id);
@@ -355,6 +356,7 @@ impl<'a> Analyzer<'a> {
                 println!("  is_external: {}", func.is_external);
             }
             Node::VariableDeclaration(variable) => {
+                println!("  name: {}", variable.identifier);
                 println!("  body: {{");
                 println!("    [{}]", variable.body.id);
                 println!("  }}");
@@ -402,7 +404,9 @@ impl<'a> Analyzer<'a> {
                 }
                 println!("  }}");
             }
-            Node::FuncParamDeclaration(_) => {}
+            Node::FuncParamDeclaration(func_param) => {
+                println!("  name: {}", func_param.identifier);
+            }
         }
     }
 }
