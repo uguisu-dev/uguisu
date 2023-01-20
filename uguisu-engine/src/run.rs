@@ -1,4 +1,4 @@
-use crate::analyze::{LiteralValue, Node, NodeLink, NodeId};
+use crate::analyze::{LiteralValue, Node, NodeRef, NodeId};
 use crate::parse::Operator;
 use std::collections::HashMap;
 
@@ -18,7 +18,7 @@ enum StatementResult {
 pub enum Symbol {
     NoneValue,
     Number(i32),
-    Function(NodeLink),
+    Function(NodeRef),
 }
 
 #[derive(Debug, Clone)]
@@ -44,18 +44,18 @@ impl SymbolTable {
         self.layers.remove(0);
     }
 
-    pub fn set_symbol(&mut self, node_link: NodeLink, symbol: Symbol) {
+    pub fn set_symbol(&mut self, node_ref: NodeRef, symbol: Symbol) {
         match self.layers.get_mut(0) {
             Some(layer) => {
-                layer.symbols.insert(node_link.id, symbol);
+                layer.symbols.insert(node_ref.id, symbol);
             }
             None => panic!("layer not found"),
         }
     }
 
-    pub fn lookup(&self, node_link: NodeLink) -> Option<Symbol> {
+    pub fn lookup_symbol(&self, node_ref: NodeRef) -> Option<Symbol> {
         for layer in self.layers.iter() {
-            match layer.symbols.get(&node_link.id) {
+            match layer.symbols.get(&node_ref.id) {
                 Some(x) => return Some(x.clone()),
                 None => {},
             }
@@ -86,23 +86,23 @@ impl<'a> Runner<'a> {
         }
     }
 
-    pub fn run(&self, graph: &Vec<NodeLink>, symbols: &mut SymbolTable) {
-        for &node_link in graph.iter() {
-            self.exec_statement(node_link, symbols);
+    pub fn run(&self, graph: &Vec<NodeRef>, symbols: &mut SymbolTable) {
+        for &node_ref in graph.iter() {
+            self.exec_statement(node_ref, symbols);
         }
     }
 
-    fn exec_statement(&self, node_link: NodeLink, symbols: &mut SymbolTable) -> StatementResult {
-        match node_link.as_node(self.graph_source) {
+    fn exec_statement(&self, node_ref: NodeRef, symbols: &mut SymbolTable) -> StatementResult {
+        match node_ref.as_node(self.graph_source) {
             Node::FunctionDeclaration(_) => {
                 //println!("FunctionDeclaration");
-                symbols.set_symbol(node_link, Symbol::Function(node_link));
+                symbols.set_symbol(node_ref, Symbol::Function(node_ref));
                 StatementResult::None
             }
             Node::VariableDeclaration(variable) => {
                 //println!("VariableDeclaration");
                 let symbol = self.eval_expr(variable.body, symbols);
-                symbols.set_symbol(node_link, symbol);
+                symbols.set_symbol(node_ref, symbol);
                 StatementResult::None
             }
             Node::ReturnStatement(Some(expr)) => {
@@ -125,14 +125,14 @@ impl<'a> Runner<'a> {
             | Node::CallExpr(_)
             | Node::FuncParam(_) => {
                 //println!("ExprStatement");
-                self.eval_expr(node_link, symbols);
+                self.eval_expr(node_ref, symbols);
                 StatementResult::None
             }
         }
     }
 
-    fn eval_expr(&self, node_link: NodeLink, symbols: &mut SymbolTable) -> Symbol {
-        match node_link.as_node(self.graph_source) {
+    fn eval_expr(&self, node_ref: NodeRef, symbols: &mut SymbolTable) -> Symbol {
+        match node_ref.as_node(self.graph_source) {
             Node::Literal(literal) => {
                 //println!("Literal");
                 match literal.value {
@@ -145,11 +145,11 @@ impl<'a> Runner<'a> {
                 //println!("BinaryExpr");
                 let left = match self.eval_expr(binary_expr.left, symbols) {
                     Symbol::Number(n) => n,
-                    _ => panic!("number expected (node_id={})", node_link.id),
+                    _ => panic!("number expected (node_id={})", node_ref.id),
                 };
                 let right = match self.eval_expr(binary_expr.right, symbols) {
                     Symbol::Number(n) => n,
-                    _ => panic!("number expected (node_id={})", node_link.id),
+                    _ => panic!("number expected (node_id={})", node_ref.id),
                 };
                 match binary_expr.operator {
                     Operator::Add => Symbol::Number(left + right),
@@ -200,8 +200,8 @@ impl<'a> Runner<'a> {
                             let mut result = None;
                             match &func.body {
                                 Some(body) => {
-                                    for &node_link in body.iter() {
-                                        match self.exec_statement(node_link, symbols) {
+                                    for &node_ref in body.iter() {
+                                        match self.exec_statement(node_ref, symbols) {
                                             StatementResult::None => {}
                                             StatementResult::Return => {
                                                 break;
@@ -228,12 +228,12 @@ impl<'a> Runner<'a> {
             }
             Node::FuncParam(_) => {
                 //println!("FuncParam");
-                match symbols.lookup(node_link) {
+                match symbols.lookup_symbol(node_ref) {
                     Some(x) => x,
-                    None => panic!("symbol not found (node_id={})", node_link.id),
+                    None => panic!("symbol not found (node_id={})", node_ref.id),
                 }
             }
-            _ => panic!("unexpected expr node (node_id={})", node_link.id),
+            _ => panic!("unexpected expr node (node_id={})", node_ref.id),
         }
     }
 }

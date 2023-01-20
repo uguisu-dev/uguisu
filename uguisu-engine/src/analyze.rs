@@ -4,11 +4,11 @@ use std::collections::HashMap;
 pub type NodeId = usize;
 
 #[derive(Debug, Clone, Copy)]
-pub struct NodeLink {
+pub struct NodeRef {
     pub id: NodeId,
 }
 
-impl NodeLink {
+impl NodeRef {
     pub fn new(node_id: NodeId) -> Self {
         Self { id: node_id }
     }
@@ -26,7 +26,7 @@ pub enum Node {
     // statement
     FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
-    ReturnStatement(Option<NodeLink>),
+    ReturnStatement(Option<NodeRef>),
     Assignment(Assignment),
     // expression
     Literal(Literal),
@@ -38,8 +38,8 @@ pub enum Node {
 #[derive(Debug)]
 pub struct FunctionDeclaration {
     pub identifier: String,
-    pub body: Option<Vec<NodeLink>>,
-    pub params: Vec<NodeLink>,
+    pub body: Option<Vec<NodeRef>>,
+    pub params: Vec<NodeRef>,
     //pub ret_ty: Option<Type>,
     pub is_external: bool,
 }
@@ -54,15 +54,15 @@ pub struct FuncParam {
 #[derive(Debug)]
 pub struct VariableDeclaration {
     pub identifier: String,
-    pub body: NodeLink,
+    pub body: NodeRef,
     pub is_mutable: bool,
     //pub ty: Type,
 }
 
 #[derive(Debug)]
 pub struct Assignment {
-    pub dest: NodeLink,
-    pub body: NodeLink,
+    pub dest: NodeRef,
+    pub body: NodeRef,
 }
 
 #[derive(Debug)]
@@ -78,14 +78,14 @@ pub enum LiteralValue {
 #[derive(Debug)]
 pub struct BinaryExpr {
     pub operator: parse::Operator,
-    pub left: NodeLink,
-    pub right: NodeLink,
+    pub left: NodeRef,
+    pub right: NodeRef,
 }
 
 #[derive(Debug)]
 pub struct CallExpr {
-    pub callee: NodeLink,
-    pub args: Vec<NodeLink>,
+    pub callee: NodeRef,
+    pub args: Vec<NodeRef>,
 }
 
 // #[derive(Debug, PartialEq, Clone)]
@@ -116,7 +116,7 @@ impl Scope {
         self.layers.remove(0);
     }
 
-    pub fn add_node(&mut self, identifier: &str, node: NodeLink) {
+    pub fn add_node(&mut self, identifier: &str, node: NodeRef) {
         match self.layers.get_mut(0) {
             Some(layer) => {
                 layer.nodes.insert(identifier.to_string(), node);
@@ -125,7 +125,7 @@ impl Scope {
         }
     }
 
-    fn lookup(&self, identifier: &str) -> Option<NodeLink> {
+    fn lookup(&self, identifier: &str) -> Option<NodeRef> {
         for layer in self.layers.iter() {
             match layer.nodes.get(identifier) {
                 Some(&x) => return Some(x),
@@ -138,7 +138,7 @@ impl Scope {
 
 #[derive(Debug, Clone)]
 struct ScopeLayer {
-    nodes: HashMap<String, NodeLink>,
+    nodes: HashMap<String, NodeRef>,
 }
 
 impl ScopeLayer {
@@ -160,24 +160,24 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn create_node(&mut self, node: Node) -> NodeLink {
+    fn create_node(&mut self, node: Node) -> NodeRef {
         let node_id = self.source.len();
         self.source.insert(node_id, node);
-        NodeLink::new(node_id)
+        NodeRef::new(node_id)
     }
 
     /// Generate a resolved graph from a AST.
-    pub fn translate(&mut self, ast: &Vec<parse::Node>) -> Result<Vec<NodeLink>, SyntaxError> {
+    pub fn translate(&mut self, ast: &Vec<parse::Node>) -> Result<Vec<NodeRef>, SyntaxError> {
         let mut ids = self.translate_statements(ast)?;
 
         // make call main function
-        let call_main = parse::call_expr(parse::node_ref("main"), Vec::new());
+        let call_main = parse::call_expr(parse::reference("main"), Vec::new());
         ids.push(self.translate_expr(&call_main)?);
 
         Ok(ids)
     }
 
-    fn translate_statements(&mut self, parser_nodes: &Vec<parse::Node>) -> Result<Vec<NodeLink>, SyntaxError> {
+    fn translate_statements(&mut self, parser_nodes: &Vec<parse::Node>) -> Result<Vec<NodeRef>, SyntaxError> {
         let mut ids = Vec::new();
         for parser_node in parser_nodes.iter() {
             ids.push(self.translate_statement(parser_node)?);
@@ -188,7 +188,7 @@ impl<'a> Analyzer<'a> {
     /// Generate a graph node from a statement AST node.
     /// - check if the statement is available in the global or local
     /// - check type compatibility for inner expression
-    fn translate_statement(&mut self, parser_node: &parse::Node) -> Result<NodeLink, SyntaxError> {
+    fn translate_statement(&mut self, parser_node: &parse::Node) -> Result<NodeRef, SyntaxError> {
         match parser_node {
             parse::Node::FunctionDeclaration(decl) => {
                 // when local scope
@@ -203,10 +203,10 @@ impl<'a> Analyzer<'a> {
                         identifier: param.identifier.clone(),
                         param_index: i,
                     });
-                    let node_link = self.create_node(node);
+                    let node_ref = self.create_node(node);
                     // add to scope
-                    self.scope.add_node(&param.identifier, node_link);
-                    params.push(node_link);
+                    self.scope.add_node(&param.identifier, node_ref);
+                    params.push(node_ref);
                 }
                 let body = match &decl.body {
                     Some(body_nodes) => Some(self.translate_statements(body_nodes)?),
@@ -224,10 +224,10 @@ impl<'a> Analyzer<'a> {
                     body,
                     is_external,
                 });
-                let node_link = self.create_node(node);
+                let node_ref = self.create_node(node);
                 // add to scope
-                self.scope.add_node(&decl.identifier, node_link);
-                Ok(node_link)
+                self.scope.add_node(&decl.identifier, node_ref);
+                Ok(node_ref)
             }
             parse::Node::VariableDeclaration(decl) => {
                 // when global scope
@@ -245,10 +245,10 @@ impl<'a> Analyzer<'a> {
                     body,
                     is_mutable,
                 });
-                let node_link = self.create_node(node);
+                let node_ref = self.create_node(node);
                 // add to scope
-                self.scope.add_node(&decl.identifier, node_link);
-                Ok(node_link)
+                self.scope.add_node(&decl.identifier, node_ref);
+                Ok(node_ref)
             }
             parse::Node::ReturnStatement(expr) => {
                 // when global scope
@@ -260,8 +260,8 @@ impl<'a> Analyzer<'a> {
                     None => None,
                 };
                 let node = Node::ReturnStatement(inner);
-                let node_link = self.create_node(node);
-                Ok(node_link)
+                let node_ref = self.create_node(node);
+                Ok(node_ref)
             }
             parse::Node::Assignment(statement) => {
                 // when global scope
@@ -271,10 +271,10 @@ impl<'a> Analyzer<'a> {
                 let dest = self.translate_expr(&statement.dest)?;
                 let body = self.translate_expr(&statement.body)?;
                 let node = Node::Assignment(Assignment { dest, body });
-                let node_link = self.create_node(node);
-                Ok(node_link)
+                let node_ref = self.create_node(node);
+                Ok(node_ref)
             }
-            parse::Node::NodeRef(_)
+            parse::Node::Reference(_)
             | parse::Node::Literal(_)
             | parse::Node::BinaryExpr(_)
             | parse::Node::CallExpr(_) => {
@@ -289,11 +289,11 @@ impl<'a> Analyzer<'a> {
 
     /// Generate a graph node from a expression AST node.
     /// - check type compatibility for inner expression
-    fn translate_expr(&mut self, parser_node: &parse::Node) -> Result<NodeLink, SyntaxError> {
+    fn translate_expr(&mut self, parser_node: &parse::Node) -> Result<NodeRef, SyntaxError> {
         match parser_node {
-            parse::Node::NodeRef(node_ref) => {
-                match self.scope.lookup(&node_ref.identifier) {
-                    Some(node_link) => Ok(node_link),
+            parse::Node::Reference(reference) => {
+                match self.scope.lookup(&reference.identifier) {
+                    Some(node_ref) => Ok(node_ref),
                     None => Err(SyntaxError::new("unknown identifier")),
                 }
             }
@@ -301,8 +301,8 @@ impl<'a> Analyzer<'a> {
                 let node = Node::Literal(Literal {
                     value: LiteralValue::Number(*n),
                 });
-                let node_link = self.create_node(node);
-                Ok(node_link)
+                let node_ref = self.create_node(node);
+                Ok(node_ref)
             }
             parse::Node::BinaryExpr(binary_expr) => {
                 let left = self.translate_expr(&binary_expr.left)?;
@@ -313,8 +313,8 @@ impl<'a> Analyzer<'a> {
                     left,
                     right,
                 });
-                let node_link = self.create_node(node);
-                Ok(node_link)
+                let node_ref = self.create_node(node);
+                Ok(node_ref)
             }
             parse::Node::CallExpr(call_expr) => {
                 let callee = self.translate_expr(&call_expr.callee)?;
@@ -323,8 +323,8 @@ impl<'a> Analyzer<'a> {
                     args.push(self.translate_expr(arg)?);
                 }
                 let node = Node::CallExpr(CallExpr { callee, args });
-                let node_link = self.create_node(node);
-                Ok(node_link)
+                let node_ref = self.create_node(node);
+                Ok(node_ref)
             }
             _ => panic!("unexpected expr node"),
         }
@@ -333,12 +333,12 @@ impl<'a> Analyzer<'a> {
     /// Show the resolved graph
     pub fn show_graph(&self) {
         for i in 0..self.source.len() {
-            self.show_node(NodeLink::new(i));
+            self.show_node(NodeRef::new(i));
         }
     }
 
-    fn show_node(&self, node_link: NodeLink) {
-        let name = match node_link.as_node(self.source) {
+    fn show_node(&self, node_ref: NodeRef) {
+        let name = match node_ref.as_node(self.source) {
             Node::FunctionDeclaration(_) => "FunctionDeclaration",
             Node::VariableDeclaration(_) => "VariableDeclaration",
             Node::ReturnStatement(_) => "ReturnStatement",
@@ -348,9 +348,9 @@ impl<'a> Analyzer<'a> {
             Node::CallExpr(_) => "CallExpr",
             Node::FuncParam(_) => "FuncParam",
         };
-        println!("[{}] {}", node_link.id, name);
+        println!("[{}] {}", node_ref.id, name);
 
-        match node_link.as_node(self.source) {
+        match node_ref.as_node(self.source) {
             Node::FunctionDeclaration(func) => {
                 println!("  name: {}", func.identifier);
                 println!("  params: {{");

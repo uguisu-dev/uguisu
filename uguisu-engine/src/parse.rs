@@ -12,7 +12,7 @@ pub enum Node {
     ReturnStatement(Option<Box<Node>>),
     Assignment(Assignment),
     // expression
-    NodeRef(NodeRef),
+    Reference(Reference),
     Literal(Literal),
     BinaryExpr(BinaryExpr),
     CallExpr(CallExpr),
@@ -59,7 +59,7 @@ pub struct Assignment {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct NodeRef {
+pub struct Reference {
     pub identifier: String,
 }
 
@@ -144,8 +144,8 @@ pub fn assignment(dest: Node, body: Node) -> Node {
     })
 }
 
-pub fn node_ref(id: &str) -> Node {
-    Node::NodeRef(NodeRef {
+pub fn reference(id: &str) -> Node {
+    Node::Reference(Reference {
         identifier: id.to_string(),
     })
 }
@@ -249,7 +249,7 @@ peg::parser! {
             // --
             e:number() { e }
             e:call_expr() { e }
-            id:idenfitier() { node_ref(id) }
+            id:idenfitier() { reference(id) }
             p:position!() "(" __* e:expression() __* ")" { p; e }
         }
 
@@ -293,7 +293,7 @@ peg::parser! {
 
         rule assignment() -> Node
             = id:idenfitier() __* "=" __* e:expression() ";"
-        { assignment(node_ref(id), e) }
+        { assignment(reference(id), e) }
 
         rule number() -> Node
             = quiet!{ n:$(['1'..='9'] ['0'..='9']+)
@@ -306,7 +306,7 @@ peg::parser! {
             = name:idenfitier() __* "(" __* args:call_params()? __* ")"
         {
             let args = if let Some(v) = args { v } else { vec![] };
-            call_expr(node_ref(name), args)
+            call_expr(reference(name), args)
         }
 
         rule call_params() -> Vec<Node>
