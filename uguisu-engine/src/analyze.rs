@@ -191,10 +191,6 @@ impl<'a> Analyzer<'a> {
     fn translate_statement(&mut self, parser_node: &parse::Node) -> Result<NodeRef, SyntaxError> {
         match parser_node {
             parse::Node::FunctionDeclaration(decl) => {
-                // when local scope
-                if self.scope.layers.len() >= 2 {
-                    return Err(SyntaxError::new("local function is not supported"));
-                }
                 self.scope.enter_scope();
                 let mut params = Vec::new();
                 for (i, param) in decl.params.iter().enumerate() {
@@ -230,10 +226,6 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             parse::Node::VariableDeclaration(decl) => {
-                // when global scope
-                if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("global variable is not supported"));
-                }
                 let body = self.translate_expr(&decl.body)?;
                 let is_mutable = decl
                     .attributes
