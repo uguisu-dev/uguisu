@@ -165,7 +165,6 @@ impl ScopeLayer {
     }
 }
 
-// ノードグラフの生成や各種チェック処理など
 pub struct Analyzer<'a> {
     source: &'a mut HashMap<NodeId, Node>,
     scope: Scope,
@@ -187,32 +186,31 @@ impl<'a> Analyzer<'a> {
         NodeLink::new(node_id)
     }
 
+    /// Generate a resolved graph from a AST.
     pub fn translate(&mut self, ast: &Vec<parse::Node>) -> Result<Vec<NodeLink>, SyntaxError> {
-        let mut ids = self.translate_nodes(ast)?;
+        let mut ids = self.translate_statements(ast)?;
 
         // make call main function
-        let call_main = parse::Node::CallExpr(parse::CallExpr {
-            callee: Box::new(parse::Node::NodeRef(parse::NodeRef {
-                identifier: "main".to_string(),
-            })),
-            args: Vec::new(),
-        });
-        self.force_allow_global_expr = true;
-        ids.push(self.translate_node(&call_main)?);
-        self.force_allow_global_expr = false;
+        let call_main = parse::call_expr(parse::node_ref("main"), Vec::new());
+        //self.force_allow_global_expr = true;
+        ids.push(self.translate_expr(&call_main)?);
+        //self.force_allow_global_expr = false;
 
         Ok(ids)
     }
 
-    pub fn translate_nodes(&mut self, parser_nodes: &Vec<parse::Node>) -> Result<Vec<NodeLink>, SyntaxError> {
+    fn translate_statements(&mut self, parser_nodes: &Vec<parse::Node>) -> Result<Vec<NodeLink>, SyntaxError> {
         let mut ids = Vec::new();
         for parser_node in parser_nodes.iter() {
-            ids.push(self.translate_node(parser_node)?);
+            ids.push(self.translate_statement(parser_node)?);
         }
         Ok(ids)
     }
 
-    fn translate_node(&mut self, parser_node: &parse::Node) -> Result<NodeLink, SyntaxError> {
+    /// Generate a graph node from a statement AST node.
+    /// - check if the statement is available in the global or local
+    /// - check type compatibility for inner expression
+    fn translate_statement(&mut self, parser_node: &parse::Node) -> Result<NodeLink, SyntaxError> {
         match parser_node {
             parse::Node::FunctionDeclaration(decl) => {
                 // when local scope
@@ -233,7 +231,7 @@ impl<'a> Analyzer<'a> {
                     params.push(node_link);
                 }
                 let body = match &decl.body {
-                    Some(body_nodes) => Some(self.translate_nodes(body_nodes)?),
+                    Some(body_nodes) => Some(self.translate_statements(body_nodes)?),
                     None => None,
                 };
                 self.scope.leave_scope();
@@ -258,7 +256,7 @@ impl<'a> Analyzer<'a> {
                 if self.scope.layers.len() == 1 {
                     return Err(SyntaxError::new("global variable is not supported"));
                 }
-                let body = self.translate_node(&decl.body)?;
+                let body = self.translate_expr(&decl.body)?;
                 let is_mutable = decl
                     .attributes
                     .iter()
@@ -280,7 +278,7 @@ impl<'a> Analyzer<'a> {
                     return Err(SyntaxError::new("return is not supported in global"));
                 }
                 let inner = match expr {
-                    Some(x) => Some(self.translate_node(x)?),
+                    Some(x) => Some(self.translate_expr(x)?),
                     None => None,
                 };
                 let node = Node::ReturnStatement(inner);
@@ -292,27 +290,36 @@ impl<'a> Analyzer<'a> {
                 if self.scope.layers.len() == 1 {
                     return Err(SyntaxError::new("assignment is not supported in global"));
                 }
-                let dest = self.translate_node(&statement.dest)?;
-                let body = self.translate_node(&statement.body)?;
+                let dest = self.translate_expr(&statement.dest)?;
+                let body = self.translate_expr(&statement.body)?;
                 let node = Node::Assignment(Assignment { dest, body });
                 let node_link = self.create_node(node);
                 Ok(node_link)
             }
-            parse::Node::NodeRef(node_ref) => {
+            parse::Node::NodeRef(_)
+            | parse::Node::Literal(_)
+            | parse::Node::BinaryExpr(_)
+            | parse::Node::CallExpr(_) => {
                 // when global scope
                 if !self.force_allow_global_expr && self.scope.layers.len() == 1 {
                     return Err(SyntaxError::new("expression is not supported in global"));
                 }
+                self.translate_expr(parser_node)
+            }
+        }
+    }
+
+    /// Generate a graph node from a expression AST node.
+    /// - check type compatibility for inner expression
+    fn translate_expr(&mut self, parser_node: &parse::Node) -> Result<NodeLink, SyntaxError> {
+        match parser_node {
+            parse::Node::NodeRef(node_ref) => {
                 match self.scope.lookup(&node_ref.identifier, &self.source) {
                     Some(node_link) => Ok(node_link),
                     None => Err(SyntaxError::new("unknown identifier")),
                 }
             }
             parse::Node::Literal(parse::Literal::Number(n)) => {
-                // when global scope
-                if !self.force_allow_global_expr && self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("expression is not supported in global"));
-                }
                 let node = Node::Literal(Literal {
                     value: LiteralValue::Number(*n),
                 });
@@ -320,12 +327,8 @@ impl<'a> Analyzer<'a> {
                 Ok(node_link)
             }
             parse::Node::BinaryExpr(binary_expr) => {
-                // when global scope
-                if !self.force_allow_global_expr && self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("expression is not supported in global"));
-                }
-                let left = self.translate_node(&binary_expr.left)?;
-                let right = self.translate_node(&binary_expr.right)?;
+                let left = self.translate_expr(&binary_expr.left)?;
+                let right = self.translate_expr(&binary_expr.right)?;
                 // TODO: check type compatibility
                 let node = Node::BinaryExpr(BinaryExpr {
                     operator: binary_expr.operator.clone(),
@@ -336,19 +339,20 @@ impl<'a> Analyzer<'a> {
                 Ok(node_link)
             }
             parse::Node::CallExpr(call_expr) => {
-                // when global scope
-                if !self.force_allow_global_expr && self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("expression is not supported in global"));
+                let callee = self.translate_expr(&call_expr.callee)?;
+                let mut args = Vec::new();
+                for arg in call_expr.args.iter() {
+                    args.push(self.translate_expr(arg)?);
                 }
-                let callee = self.translate_node(&call_expr.callee)?;
-                let args = self.translate_nodes(&call_expr.args)?;
                 let node = Node::CallExpr(CallExpr { callee, args });
                 let node_link = self.create_node(node);
                 Ok(node_link)
             }
+            _ => panic!("unexpected expr node"),
         }
     }
 
+    /// Show the resolved graph
     pub fn show_graph(&self) {
         for i in 0..self.source.len() {
             self.show_node(NodeLink::new(i));

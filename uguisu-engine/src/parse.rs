@@ -128,10 +128,25 @@ pub fn variable_declaration(
     })
 }
 
+pub fn return_statement(
+    expr: Option<Node>,
+) -> Node {
+    match expr {
+        Some(x) => Node::ReturnStatement(Some(Box::new(x))),
+        None => Node::ReturnStatement(None),
+    }
+}
+
 pub fn assignment(dest: Node, body: Node) -> Node {
     Node::Assignment(Assignment {
         dest: Box::new(dest),
         body: Box::new(body),
+    })
+}
+
+pub fn node_ref(id: &str) -> Node {
+    Node::NodeRef(NodeRef {
+        identifier: id.to_string(),
     })
 }
 
@@ -234,7 +249,7 @@ peg::parser! {
             // --
             e:number() { e }
             e:call_expr() { e }
-            id:idenfitier() { Node::NodeRef(NodeRef { identifier: id.to_string() }) }
+            id:idenfitier() { node_ref(id) }
             p:position!() "(" __* e:expression() __* ")" { p; e }
         }
 
@@ -268,7 +283,7 @@ peg::parser! {
             = "external" { FunctionAttribute::External }
 
         rule return_statement() -> Node
-            = "return" e2:(__+ e1:expression() { Box::new(e1) })? __* ";" { Node::ReturnStatement(e2) }
+            = "return" e2:(__+ e1:expression() { e1 })? __* ";" { return_statement(e2) }
 
         rule variable_declaration() -> Node
             = kind:(
@@ -278,7 +293,7 @@ peg::parser! {
 
         rule assignment() -> Node
             = id:idenfitier() __* "=" __* e:expression() ";"
-        { assignment(Node::NodeRef(NodeRef { identifier: id.to_string() }), e) }
+        { assignment(node_ref(id), e) }
 
         rule number() -> Node
             = quiet!{ n:$(['1'..='9'] ['0'..='9']+)
@@ -291,7 +306,7 @@ peg::parser! {
             = name:idenfitier() __* "(" __* args:call_params()? __* ")"
         {
             let args = if let Some(v) = args { v } else { vec![] };
-            call_expr(Node::NodeRef(NodeRef { identifier: name.to_string() }), args)
+            call_expr(node_ref(name), args)
         }
 
         rule call_params() -> Vec<Node>
