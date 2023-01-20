@@ -43,8 +43,8 @@ pub fn run(code: &str) -> Result<(), String> {
         .translate(&ast)
         .map_err(|e| format!("Syntax Error: {}", e.message))?;
 
-    println!("[Info] show graph");
-    analyzer.show_graph();
+    //println!("[Info] show graph");
+    //analyzer.show_graph();
 
     println!("[Info] running ...");
     let mut symbols = SymbolTable::new();

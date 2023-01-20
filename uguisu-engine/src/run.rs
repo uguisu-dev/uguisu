@@ -8,17 +8,17 @@ mod builtin {
     }
 }
 
+enum StatementResult {
+    None,
+    Return,
+    ReturnWith(Symbol),
+}
+
 #[derive(Debug, Clone)]
 pub enum Symbol {
     NoneValue,
     Number(i32),
     Function(NodeLink),
-}
-
-enum StatementResult {
-    None,
-    Return,
-    ReturnWith(Symbol),
 }
 
 #[derive(Debug, Clone)]
@@ -87,52 +87,35 @@ impl<'a> Runner<'a> {
     }
 
     pub fn run(&self, graph: &Vec<NodeLink>, symbols: &mut SymbolTable) {
-        // execute global statements
         for &node_link in graph.iter() {
             self.exec_statement(node_link, symbols);
-        }
-        // call main function
-        let mut func = None;
-        for &node_link in graph.iter() {
-            match node_link.as_node(self.graph_source) {
-                Node::FunctionDeclaration(f) => {
-                    if &f.identifier == "main" {
-                        func = Some(node_link);
-                        break;
-                    }
-                }
-                _ => {}
-            }
-        }
-        match func {
-            Some(node_link) => {
-                //self.call_func(node_link, &Vec::new(), symbols);
-            }
-            None => {
-                println!("[Info] main function not found");
-            }
         }
     }
 
     fn exec_statement(&self, node_link: NodeLink, symbols: &mut SymbolTable) -> StatementResult {
         match node_link.as_node(self.graph_source) {
             Node::FunctionDeclaration(_) => {
+                //println!("FunctionDeclaration");
                 symbols.set_symbol(node_link, Symbol::Function(node_link));
                 StatementResult::None
             }
             Node::VariableDeclaration(variable) => {
+                //println!("VariableDeclaration");
                 let symbol = self.eval_expr(variable.body, symbols);
                 symbols.set_symbol(node_link, symbol);
                 StatementResult::None
             }
             Node::ReturnStatement(Some(expr)) => {
+                //println!("ReturnStatement");
                 let symbol = self.eval_expr(*expr, symbols);
                 StatementResult::ReturnWith(symbol)
             }
             Node::ReturnStatement(None) => {
+                //println!("ReturnStatement");
                 StatementResult::Return
             }
             Node::Assignment(statement) => {
+                //println!("Assignment");
                 let symbol = self.eval_expr(statement.body, symbols);
                 symbols.set_symbol(statement.dest, symbol);
                 StatementResult::None
@@ -141,6 +124,7 @@ impl<'a> Runner<'a> {
             | Node::BinaryExpr(_)
             | Node::CallExpr(_)
             | Node::FuncParamDeclaration(_) => {
+                //println!("ExprStatement");
                 self.eval_expr(node_link, symbols);
                 StatementResult::None
             }
@@ -150,6 +134,7 @@ impl<'a> Runner<'a> {
     fn eval_expr(&self, node_link: NodeLink, symbols: &mut SymbolTable) -> Symbol {
         match node_link.as_node(self.graph_source) {
             Node::Literal(literal) => {
+                //println!("Literal");
                 match literal.value {
                     LiteralValue::Number(n) => {
                         Symbol::Number(n)
@@ -157,6 +142,7 @@ impl<'a> Runner<'a> {
                 }
             }
             Node::BinaryExpr(binary_expr) => {
+                //println!("BinaryExpr");
                 let left = match self.eval_expr(binary_expr.left, symbols) {
                     Symbol::Number(n) => n,
                     _ => panic!("number expected (node_id={})", node_link.id),
@@ -173,42 +159,75 @@ impl<'a> Runner<'a> {
                 }
             }
             Node::CallExpr(call_expr) => {
-                println!("call args {:?}", call_expr.args);
-                match call_expr.callee.as_node(self.graph_source) {
+                //println!("CallExpr");
+                let symbol = match call_expr.callee.as_node(self.graph_source) {
                     Node::FunctionDeclaration(func) => {
                         if func.is_external {
-                            // if &func.identifier == "print_num" {
-                            //     let params: Vec<NodeLink> = Vec::new();
-                            //     if params.len() != func.params.len() {
-                            //         panic!("parameters count error");
-                            //     }
-                            //     for param in func.params.iter() {
-                            //         match param.as_node(self.graph_source) {
-                            //             Node::FuncParamDeclaration(decl) => {
-                            //                 // TODO
-                            //             }
-                            //             _ => panic!("func param expected"),
-                            //         }
-                            //     }
-                            // }
-                            println!("[Info] external function called");
+                            // TODO: static binding
+                            symbols.push_layer();
+                            let mut args = Vec::new();
+                            for i in 0..func.params.len() {
+                                //let param_node = &func.params[i];
+                                let arg_node = &call_expr.args[i];
+                                let arg_symbol = self.eval_expr(*arg_node, symbols);
+                                args.push(arg_symbol);
+                                //symbols.set_symbol(*param_node, arg_symbol);
+                            }
+                            // TODO: improve builtin
+                            if &func.identifier == "print_num" {
+                                if args.len() != 1 {
+                                    panic!("parameters count error");
+                                }
+                                let value = match &args[0] {
+                                    Symbol::Number(n) => *n,
+                                    _ => panic!("number expected {:?}", args[0]),
+                                };
+                                builtin::print_num(value);
+                            } else {
+                                panic!("unknown builtin");
+                            }
+                            symbols.pop_layer();
+                            Symbol::NoneValue
                         } else {
-                            // TODO: arguments
+                            // TODO: static binding
+                            symbols.push_layer();
+                            for i in 0..func.params.len() {
+                                let param_node = &func.params[i];
+                                let arg_node = &call_expr.args[i];
+                                let arg_symbol = self.eval_expr(*arg_node, symbols);
+                                symbols.set_symbol(*param_node, arg_symbol);
+                            }
+                            let mut result = None;
                             match &func.body {
                                 Some(body) => {
                                     for &node_link in body.iter() {
-                                        self.exec_statement(node_link, symbols);
+                                        match self.exec_statement(node_link, symbols) {
+                                            StatementResult::None => {}
+                                            StatementResult::Return => {
+                                                break;
+                                            }
+                                            StatementResult::ReturnWith(symbol) => {
+                                                result = Some(symbol);
+                                                break;
+                                            }
+                                        }
                                     }
                                 }
                                 None => panic!("function body not found (callee={})", call_expr.callee.id),
                             }
+                            symbols.pop_layer();
+                            match result {
+                                Some(x) => x,
+                                None => Symbol::NoneValue,
+                            }
                         }
-                        Symbol::NoneValue
                     }
                     _ => panic!("function expected (callee={})", call_expr.callee.id),
-                }
+                };
+                symbol
             }
             Node::FuncParamDeclaration(_) => {
+                //println!("FuncParamDeclaration");
                 match symbols.lookup(node_link) {
                     Some(x) => x,
                     None => panic!("symbol not found (node_id={})", node_link.id),
