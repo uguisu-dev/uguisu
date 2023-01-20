@@ -32,7 +32,7 @@ pub enum Node {
     Literal(Literal),
     BinaryExpr(BinaryExpr),
     CallExpr(CallExpr),
-    FuncParamDeclaration(FuncParamDeclaration),
+    FuncParam(FuncParam),
 }
 
 #[derive(Debug)]
@@ -45,7 +45,7 @@ pub struct FunctionDeclaration {
 }
 
 #[derive(Debug)]
-pub struct FuncParamDeclaration {
+pub struct FuncParam {
     pub identifier: String,
     pub param_index: usize,
     //pub ty: Type,
@@ -57,8 +57,6 @@ pub struct VariableDeclaration {
     pub body: NodeLink,
     pub is_mutable: bool,
     //pub ty: Type,
-    //pub is_func_param: bool,
-    //pub func_param_index: usize,
 }
 
 #[derive(Debug)]
@@ -118,36 +116,20 @@ impl Scope {
         self.layers.remove(0);
     }
 
-    pub fn add_node(&mut self, node: NodeLink) {
+    pub fn add_node(&mut self, identifier: &str, node: NodeLink) {
         match self.layers.get_mut(0) {
             Some(layer) => {
-                layer.nodes.push(node);
+                layer.nodes.insert(identifier.to_string(), node);
             }
             None => panic!("layer not found"),
         }
     }
 
-    fn lookup(&self, identifier: &str, scope_source: &HashMap<NodeId, Node>) -> Option<NodeLink> {
+    fn lookup(&self, identifier: &str) -> Option<NodeLink> {
         for layer in self.layers.iter() {
-            for &node_link in layer.nodes.iter() {
-                match node_link.as_node(scope_source) {
-                    Node::FunctionDeclaration(func) => {
-                        if func.identifier == identifier {
-                            return Some(node_link);
-                        }
-                    }
-                    Node::VariableDeclaration(variable) => {
-                        if variable.identifier == identifier {
-                            return Some(node_link);
-                        }
-                    }
-                    Node::FuncParamDeclaration(param) => {
-                        if param.identifier == identifier {
-                            return Some(node_link);
-                        }
-                    }
-                    _ => {}
-                }
+            match layer.nodes.get(identifier) {
+                Some(&x) => return Some(x),
+                None => {}
             }
         }
         None
@@ -156,19 +138,18 @@ impl Scope {
 
 #[derive(Debug, Clone)]
 struct ScopeLayer {
-    nodes: Vec<NodeLink>,
+    nodes: HashMap<String, NodeLink>,
 }
 
 impl ScopeLayer {
     pub fn new() -> Self {
-        Self { nodes: Vec::new() }
+        Self { nodes: HashMap::new() }
     }
 }
 
 pub struct Analyzer<'a> {
     source: &'a mut HashMap<NodeId, Node>,
     scope: Scope,
-    force_allow_global_expr: bool,
 }
 
 impl<'a> Analyzer<'a> {
@@ -176,7 +157,6 @@ impl<'a> Analyzer<'a> {
         Self {
             source,
             scope: Scope::new(),
-            force_allow_global_expr: false,
         }
     }
 
@@ -192,9 +172,7 @@ impl<'a> Analyzer<'a> {
 
         // make call main function
         let call_main = parse::call_expr(parse::node_ref("main"), Vec::new());
-        //self.force_allow_global_expr = true;
         ids.push(self.translate_expr(&call_main)?);
-        //self.force_allow_global_expr = false;
 
         Ok(ids)
     }
@@ -221,13 +199,13 @@ impl<'a> Analyzer<'a> {
                 let mut params = Vec::new();
                 for (i, param) in decl.params.iter().enumerate() {
                     // make param node
-                    let node = Node::FuncParamDeclaration(FuncParamDeclaration {
+                    let node = Node::FuncParam(FuncParam {
                         identifier: param.identifier.clone(),
                         param_index: i,
                     });
                     let node_link = self.create_node(node);
                     // add to scope
-                    self.scope.add_node(node_link);
+                    self.scope.add_node(&param.identifier, node_link);
                     params.push(node_link);
                 }
                 let body = match &decl.body {
@@ -248,7 +226,7 @@ impl<'a> Analyzer<'a> {
                 });
                 let node_link = self.create_node(node);
                 // add to scope
-                self.scope.add_node(node_link);
+                self.scope.add_node(&decl.identifier, node_link);
                 Ok(node_link)
             }
             parse::Node::VariableDeclaration(decl) => {
@@ -269,7 +247,7 @@ impl<'a> Analyzer<'a> {
                 });
                 let node_link = self.create_node(node);
                 // add to scope
-                self.scope.add_node(node_link);
+                self.scope.add_node(&decl.identifier, node_link);
                 Ok(node_link)
             }
             parse::Node::ReturnStatement(expr) => {
@@ -301,7 +279,7 @@ impl<'a> Analyzer<'a> {
             | parse::Node::BinaryExpr(_)
             | parse::Node::CallExpr(_) => {
                 // when global scope
-                if !self.force_allow_global_expr && self.scope.layers.len() == 1 {
+                if self.scope.layers.len() == 1 {
                     return Err(SyntaxError::new("expression is not supported in global"));
                 }
                 self.translate_expr(parser_node)
@@ -314,7 +292,7 @@ impl<'a> Analyzer<'a> {
     fn translate_expr(&mut self, parser_node: &parse::Node) -> Result<NodeLink, SyntaxError> {
         match parser_node {
             parse::Node::NodeRef(node_ref) => {
-                match self.scope.lookup(&node_ref.identifier, &self.source) {
+                match self.scope.lookup(&node_ref.identifier) {
                     Some(node_link) => Ok(node_link),
                     None => Err(SyntaxError::new("unknown identifier")),
                 }
@@ -368,7 +346,7 @@ impl<'a> Analyzer<'a> {
             Node::Literal(_) => "Literal",
             Node::BinaryExpr(_) => "BinaryExpr",
             Node::CallExpr(_) => "CallExpr",
-            Node::FuncParamDeclaration(_) => "FuncParamDeclaration",
+            Node::FuncParam(_) => "FuncParam",
         };
         println!("[{}] {}", node_link.id, name);
 
@@ -443,7 +421,7 @@ impl<'a> Analyzer<'a> {
                 }
                 println!("  }}");
             }
-            Node::FuncParamDeclaration(func_param) => {
+            Node::FuncParam(func_param) => {
                 println!("  name: {}", func_param.identifier);
             }
         }

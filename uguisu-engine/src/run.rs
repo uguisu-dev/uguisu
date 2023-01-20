@@ -1,4 +1,4 @@
-use crate::analyze::{LiteralValue, Node, NodeLink, NodeId, FunctionDeclaration, FuncParamDeclaration};
+use crate::analyze::{LiteralValue, Node, NodeLink, NodeId};
 use crate::parse::Operator;
 use std::collections::HashMap;
 
@@ -123,7 +123,7 @@ impl<'a> Runner<'a> {
             Node::Literal(_)
             | Node::BinaryExpr(_)
             | Node::CallExpr(_)
-            | Node::FuncParamDeclaration(_) => {
+            | Node::FuncParam(_) => {
                 //println!("ExprStatement");
                 self.eval_expr(node_link, symbols);
                 StatementResult::None
@@ -226,8 +226,8 @@ impl<'a> Runner<'a> {
                 };
                 symbol
             }
-            Node::FuncParamDeclaration(_) => {
-                //println!("FuncParamDeclaration");
+            Node::FuncParam(_) => {
+                //println!("FuncParam");
                 match symbols.lookup(node_link) {
                     Some(x) => x,
                     None => panic!("symbol not found (node_id={})", node_link.id),
