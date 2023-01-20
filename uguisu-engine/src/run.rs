@@ -44,10 +44,10 @@ impl SymbolTable {
         self.layers.remove(0);
     }
 
-    pub fn set_symbol(&mut self, node_link: NodeLink, value: Symbol) {
+    pub fn set_symbol(&mut self, node_link: NodeLink, symbol: Symbol) {
         match self.layers.get_mut(0) {
             Some(layer) => {
-                layer.symbols.insert(node_link.id, value);
+                layer.symbols.insert(node_link.id, symbol);
             }
             None => panic!("layer not found"),
         }
@@ -121,20 +121,20 @@ impl<'a> Runner<'a> {
                 StatementResult::None
             }
             Node::VariableDeclaration(variable) => {
-                let value = self.eval_expr(variable.body, symbols);
-                symbols.set_symbol(node_link, value);
+                let symbol = self.eval_expr(variable.body, symbols);
+                symbols.set_symbol(node_link, symbol);
                 StatementResult::None
             }
             Node::ReturnStatement(Some(expr)) => {
-                let value = self.eval_expr(*expr, symbols);
-                StatementResult::ReturnWith(value)
+                let symbol = self.eval_expr(*expr, symbols);
+                StatementResult::ReturnWith(symbol)
             }
             Node::ReturnStatement(None) => {
                 StatementResult::Return
             }
             Node::Assignment(statement) => {
-                let value = self.eval_expr(statement.body, symbols);
-                symbols.set_symbol(statement.dest, value);
+                let symbol = self.eval_expr(statement.body, symbols);
+                symbols.set_symbol(statement.dest, symbol);
                 StatementResult::None
             }
             Node::Literal(_)
