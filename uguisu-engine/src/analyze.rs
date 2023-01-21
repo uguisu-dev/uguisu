@@ -35,12 +35,17 @@ pub enum Node {
     FuncParam(FuncParam),
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum Type {
+    Number,
+}
+
 #[derive(Debug)]
 pub struct FunctionDeclaration {
     pub identifier: String,
     pub body: Option<Vec<NodeRef>>,
     pub params: Vec<NodeRef>,
-    //pub ret_ty: Option<Type>,
+    pub ret_ty: Option<Type>,
     pub is_external: bool,
 }
 
@@ -48,7 +53,7 @@ pub struct FunctionDeclaration {
 pub struct FuncParam {
     pub identifier: String,
     pub param_index: usize,
-    //pub ty: Type,
+    pub ty: Type,
 }
 
 #[derive(Debug)]
@@ -56,7 +61,7 @@ pub struct VariableDeclaration {
     pub identifier: String,
     pub body: NodeRef,
     pub is_mutable: bool,
-    //pub ty: Type,
+    pub ty: Type,
 }
 
 #[derive(Debug)]
@@ -68,6 +73,7 @@ pub struct Assignment {
 #[derive(Debug)]
 pub struct Literal {
     pub value: LiteralValue,
+    pub ty: Type,
 }
 
 #[derive(Debug)]
@@ -80,18 +86,15 @@ pub struct BinaryExpr {
     pub operator: parse::Operator,
     pub left: NodeRef,
     pub right: NodeRef,
+    pub ty: Type,
 }
 
 #[derive(Debug)]
 pub struct CallExpr {
     pub callee: NodeRef,
     pub args: Vec<NodeRef>,
+    pub ty: Option<Type>,
 }
-
-// #[derive(Debug, PartialEq, Clone)]
-// pub enum Type {
-//     Number,
-// }
 
 #[derive(Debug, Clone)]
 pub struct Scope {
@@ -166,6 +169,42 @@ impl<'a> Analyzer<'a> {
         NodeRef::new(node_id)
     }
 
+    fn lookup_ty(ty_identifier: &str) -> Result<Type, SyntaxError> {
+        match ty_identifier {
+            "number" => Ok(Type::Number),
+            _ => Err(SyntaxError::new("unknown type")),
+        }
+    }
+
+    fn get_ty(&self, node_ref: NodeRef) -> Option<Type> {
+        match node_ref.as_node(self.source) {
+            Node::Literal(literal) => {
+                Some(literal.ty.clone())
+            }
+            Node::BinaryExpr(binary_expr) => {
+                Some(binary_expr.ty.clone())
+            }
+            Node::CallExpr(call_expr) => {
+                call_expr.ty.clone()
+            }
+            Node::FuncParam(func_param) => {
+                Some(func_param.ty.clone())
+            }
+            Node::VariableDeclaration(variable) => {
+                Some(variable.ty.clone())
+            }
+            _ => panic!("unexpected node (node_id={}, node={:?})", node_ref.id, node_ref.as_node(self.source)),
+        }
+    }
+
+    fn compare_ty_option(x: Option<Type>, y: Option<Type>) -> Result<Option<Type>, SyntaxError> {
+        if x == y {
+            Ok(x)
+        } else {
+            Err(SyntaxError::new("type error"))
+        }
+    }
+
     /// Generate a resolved graph from a AST.
     pub fn translate(&mut self, ast: &Vec<parse::Node>) -> Result<Vec<NodeRef>, SyntaxError> {
         let mut ids = self.translate_statements(ast)?;
@@ -198,6 +237,7 @@ impl<'a> Analyzer<'a> {
                     let node = Node::FuncParam(FuncParam {
                         identifier: param.identifier.clone(),
                         param_index: i,
+                        ty: Type::Number,
                     });
                     let node_ref = self.create_node(node);
                     // add to scope
@@ -213,11 +253,16 @@ impl<'a> Analyzer<'a> {
                     .attributes
                     .iter()
                     .any(|x| *x == parse::FunctionAttribute::External);
+                let ret_ty = match &decl.ret {
+                    Some(x) => Some(Self::lookup_ty(x)?),
+                    None => None,
+                };
                 // make function node
                 let node = Node::FunctionDeclaration(FunctionDeclaration {
                     identifier: decl.identifier.clone(),
                     params,
                     body,
+                    ret_ty,
                     is_external,
                 });
                 let node_ref = self.create_node(node);
@@ -231,11 +276,16 @@ impl<'a> Analyzer<'a> {
                     .attributes
                     .iter()
                     .any(|x| *x == parse::VariableAttribute::Let);
+                let ty = match self.get_ty(body) {
+                    Some(x) => x,
+                    None => return Err(SyntaxError::new("value expected")),
+                };
                 // make node
                 let node = Node::VariableDeclaration(VariableDeclaration {
                     identifier: decl.identifier.clone(),
                     body,
                     is_mutable,
+                    ty,
                 });
                 let node_ref = self.create_node(node);
                 // add to scope
@@ -243,9 +293,10 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             parse::Node::ReturnStatement(expr) => {
+                // TODO: consider type check
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("return is not supported in global"));
+                    return Err(SyntaxError::new("A return statement cannot be used in global space"));
                 }
                 let inner = match expr {
                     Some(x) => Some(self.translate_expr(x)?),
@@ -258,7 +309,7 @@ impl<'a> Analyzer<'a> {
             parse::Node::Assignment(statement) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("assignment is not supported in global"));
+                    return Err(SyntaxError::new("An assignment statement cannot be used in global space"));
                 }
                 let dest = self.translate_expr(&statement.dest)?;
                 let body = self.translate_expr(&statement.body)?;
@@ -272,7 +323,7 @@ impl<'a> Analyzer<'a> {
             | parse::Node::CallExpr(_) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("expression is not supported in global"));
+                    return Err(SyntaxError::new("An expression cannot be used in global space"));
                 }
                 self.translate_expr(parser_node)
             }
@@ -292,6 +343,7 @@ impl<'a> Analyzer<'a> {
             parse::Node::Literal(parse::Literal::Number(n)) => {
                 let node = Node::Literal(Literal {
                     value: LiteralValue::Number(*n),
+                    ty: Type::Number,
                 });
                 let node_ref = self.create_node(node);
                 Ok(node_ref)
@@ -299,22 +351,41 @@ impl<'a> Analyzer<'a> {
             parse::Node::BinaryExpr(binary_expr) => {
                 let left = self.translate_expr(&binary_expr.left)?;
                 let right = self.translate_expr(&binary_expr.right)?;
-                // TODO: check type compatibility
+                let left_ty = self.get_ty(left);
+                let right_ty = self.get_ty(right);
+                let ty = Self::compare_ty_option(left_ty, right_ty)?;
+                if ty != Some(Type::Number) {
+                    return Err(SyntaxError::new("type error: number expected"));
+                }
                 let node = Node::BinaryExpr(BinaryExpr {
                     operator: binary_expr.operator.clone(),
                     left,
                     right,
+                    ty: Type::Number,
                 });
                 let node_ref = self.create_node(node);
                 Ok(node_ref)
             }
             parse::Node::CallExpr(call_expr) => {
-                let callee = self.translate_expr(&call_expr.callee)?;
-                let mut args = Vec::new();
-                for arg in call_expr.args.iter() {
-                    args.push(self.translate_expr(arg)?);
+                let callee_node = self.translate_expr(&call_expr.callee)?;
+                let callee = match callee_node.as_node(self.source) {
+                    Node::FunctionDeclaration(decl) => decl,
+                    _ => return Err(SyntaxError::new("function expected")),
+                };
+                let ret_ty = callee.ret_ty.clone();
+                let params = callee.params.clone();
+                if params.len() != call_expr.args.len() {
+                    return Err(SyntaxError::new("argument count incorrect"));
                 }
-                let node = Node::CallExpr(CallExpr { callee, args });
+                let mut args = Vec::new();
+                for (i, &param) in params.iter().enumerate() {
+                    let arg = self.translate_expr(&call_expr.args[i])?;
+                    let param_ty = self.get_ty(param);
+                    let arg_ty = self.get_ty(arg);
+                    Self::compare_ty_option(param_ty, arg_ty)?;
+                    args.push(arg);
+                }
+                let node = Node::CallExpr(CallExpr { callee: callee_node, args, ty: ret_ty, });
                 let node_ref = self.create_node(node);
                 Ok(node_ref)
             }
