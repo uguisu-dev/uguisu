@@ -21,8 +21,6 @@ impl NodeRef {
 // NOTE: consider type check
 // NOTE: consider parent node
 
-// TODO: type check for bool
-
 #[derive(Debug)]
 pub enum Node {
     // statement
