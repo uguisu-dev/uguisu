@@ -11,6 +11,7 @@ pub enum Node {
     VariableDeclaration(VariableDeclaration),
     ReturnStatement(Option<Box<Node>>),
     Assignment(Assignment),
+    IfStatement(IfStatement),
     // expression
     Reference(Reference),
     Literal(Literal),
@@ -66,6 +67,7 @@ pub struct Reference {
 #[derive(Debug, PartialEq)]
 pub enum Literal {
     Number(i32),
+    Bool(bool),
 }
 
 #[derive(Debug, PartialEq)]
@@ -87,6 +89,19 @@ pub enum Operator {
 pub struct CallExpr {
     pub callee: Box<Node>,
     pub args: Vec<Node>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct IfStatement {
+    pub condition: Box<Node>, // expression
+    pub then_block: Vec<Node>, // statements
+    pub elif_blocks: Vec<(Box<Node>, Vec<Node>)>, // Vec(expression & statements)
+    pub else_block: Option<Vec<Node>>, // statements
+}
+
+#[derive(Debug, PartialEq)]
+pub struct BlockExpr {
+    body: Vec<Node>, // statements
 }
 
 //
@@ -154,6 +169,10 @@ pub fn number(value: i32) -> Node {
     Node::Literal(Literal::Number(value))
 }
 
+pub fn bool(value: bool) -> Node {
+    Node::Literal(Literal::Bool(value))
+}
+
 pub fn add_operation(left: Node, right: Node) -> Node {
     Node::BinaryExpr(BinaryExpr {
         operator: Operator::Add,
@@ -193,6 +212,24 @@ pub fn call_expr(callee: Node, args: Vec<Node>) -> Node {
     })
 }
 
+pub fn if_statement(
+    condition: Node,
+    then_block: Vec<Node>,
+    elif_blocks: Vec<(Node, Vec<Node>)>,
+    else_block: Option<Vec<Node>>,
+) -> Node {
+    let elif = Vec::new();
+    for (cond, block) in elif_blocks {
+        elif.push((Box::new(cond), block))
+    }
+    Node::IfStatement(IfStatement {
+        condition: Box::new(condition),
+        then_block,
+        elif_blocks: elif,
+        else_block,
+    })
+}
+
 //
 // parser
 //
@@ -224,6 +261,7 @@ peg::parser! {
             = function_declaration()
             / return_statement()
             / variable_declaration()
+            / if_statement()
             / assignment()
             / e:expression() __* ";" { e }
 
@@ -248,6 +286,7 @@ peg::parser! {
             // "-" __* right:(@) { Node::mult(Node::number(-1), right) }
             // --
             e:number() { e }
+            e:bool() { e }
             e:call_expr() { e }
             id:idenfitier() { reference(id) }
             p:position!() "(" __* e:expression() __* ")" { p; e }
@@ -302,6 +341,10 @@ peg::parser! {
         {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n))) } }
             / expected!("number")
 
+        rule bool() -> Node
+            = "true" { bool(true) }
+            / "false" { bool(false) }
+
         rule call_expr() -> Node
             = name:idenfitier() __* "(" __* args:call_params()? __* ")"
         {
@@ -311,6 +354,43 @@ peg::parser! {
 
         rule call_params() -> Vec<Node>
             = expression() ++ (__* "," __*)
+
+        rule if_statement() -> Node
+            = a:if_part() elif:(__* x:elseif_parts() {x})? c:(__* x:else_part() {x})? {
+                let elif = if let Some(x) = elif {
+                    x
+                } else {
+                    vec![]
+                };
+                if_statement(a.0, a.1, elif, c)
+            }
+
+        rule if_part() -> (Node, Vec<Node>)
+            = "if" __+ cond:expression() __* body:block() {
+                (cond, body)
+            }
+
+        rule elseif_parts() -> Vec<(Node, Vec<Node>)>
+            = elseif_part() ++ (__*)
+
+        rule elseif_part() -> (Node, Vec<Node>)
+            = "else" __+ part_if:if_part() {
+                part_if
+            }
+
+        rule else_part() -> Vec<Node>
+            = "else" __* body:block() {
+                body
+            }
+
+        rule block() -> Vec<Node>
+            = "{" __* s:statements()? __* "}" {
+                if let Some(nodes) = s {
+                    nodes
+                } else {
+                    vec![]
+                }
+            }
 
         rule idenfitier() -> &'input str
             = quiet!{ !['0'..='9'] s:$(identifier_char()+) { s } }
