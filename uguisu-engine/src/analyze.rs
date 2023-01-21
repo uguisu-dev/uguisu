@@ -361,10 +361,6 @@ impl<'a> Analyzer<'a> {
                 let right = self.translate_expr(&binary_expr.right)?;
                 let left_ty = self.get_ty(left);
                 let right_ty = self.get_ty(right);
-                let ty = self.compare_ty_option(left_ty, right_ty)?;
-                if ty != Some(Type::Number) {
-                    return Err(SyntaxError::new("type error: number expected"));
-                }
                 let op = match binary_expr.operator.as_str() {
                     "+" => Operator::Add,
                     "-" => Operator::Sub,
@@ -372,11 +368,23 @@ impl<'a> Analyzer<'a> {
                     "/" => Operator::Div,
                     _ => panic!("unexpected operator"),
                 };
+                let ty = match op {
+                    Operator::Add
+                    | Operator::Sub
+                    | Operator::Mult
+                    | Operator::Div => {
+                        let ty = self.compare_ty_option(left_ty, right_ty)?;
+                        if ty != Some(Type::Number) {
+                            return Err(SyntaxError::new("type error: number expected"));
+                        }
+                        Type::Number
+                    }
+                };
                 let node = Node::BinaryExpr(BinaryExpr {
                     operator: op,
                     left,
                     right,
-                    ty: Type::Number,
+                    ty,
                 });
                 let node_ref = self.create_node(node);
                 Ok(node_ref)
