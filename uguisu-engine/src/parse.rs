@@ -93,9 +93,7 @@ pub struct CallExpr {
 
 #[derive(Debug, PartialEq)]
 pub struct IfStatement {
-    pub condition: Box<Node>, // expression
-    pub then_block: Vec<Node>, // statements
-    pub elif_blocks: Vec<(Box<Node>, Vec<Node>)>, // Vec(expression & statements)
+    pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // Vec(expression & statements)
     pub else_block: Option<Vec<Node>>, // statements
 }
 
@@ -213,19 +211,15 @@ pub fn call_expr(callee: Node, args: Vec<Node>) -> Node {
 }
 
 pub fn if_statement(
-    condition: Node,
-    then_block: Vec<Node>,
-    elif_blocks: Vec<(Node, Vec<Node>)>,
+    cond_blocks: Vec<(Node, Vec<Node>)>,
     else_block: Option<Vec<Node>>,
 ) -> Node {
-    let elif = Vec::new();
-    for (cond, block) in elif_blocks {
-        elif.push((Box::new(cond), block))
+    let mut items = Vec::new();
+    for (cond, block) in cond_blocks {
+        items.push((Box::new(cond), block))
     }
     Node::IfStatement(IfStatement {
-        condition: Box::new(condition),
-        then_block,
-        elif_blocks: elif,
+        cond_blocks: items,
         else_block,
     })
 }
@@ -356,16 +350,18 @@ peg::parser! {
             = expression() ++ (__* "," __*)
 
         rule if_statement() -> Node
-            = a:if_part() elif:(__* x:elseif_parts() {x})? c:(__* x:else_part() {x})? {
-                let elif = if let Some(x) = elif {
-                    x
+            = head:if_cond_block() tails:(__* x:elseif_parts() {x})? else_block:(__* x:else_part() {x})? {
+                let cond_blocks = if let Some(x) = tails {
+                    let mut items = vec![head];
+                    items.extend(x);
+                    items
                 } else {
-                    vec![]
+                    vec![head]
                 };
-                if_statement(a.0, a.1, elif, c)
+                if_statement(cond_blocks, else_block)
             }
 
-        rule if_part() -> (Node, Vec<Node>)
+        rule if_cond_block() -> (Node, Vec<Node>)
             = "if" __+ cond:expression() __* body:block() {
                 (cond, body)
             }
@@ -374,8 +370,8 @@ peg::parser! {
             = elseif_part() ++ (__*)
 
         rule elseif_part() -> (Node, Vec<Node>)
-            = "else" __+ part_if:if_part() {
-                part_if
+            = "else" __+ cond_block:if_cond_block() {
+                cond_block
             }
 
         rule else_part() -> Vec<Node>
