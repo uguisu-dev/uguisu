@@ -21,6 +21,8 @@ impl NodeRef {
 // NOTE: consider type check
 // NOTE: consider parent node
 
+// TODO: type check for bool
+
 #[derive(Debug)]
 pub enum Node {
     // statement
@@ -28,6 +30,7 @@ pub enum Node {
     VariableDeclaration(VariableDeclaration),
     ReturnStatement(Option<NodeRef>),
     Assignment(Assignment),
+    IfStatement(IfStatement),
     // expression
     Literal(Literal),
     BinaryExpr(BinaryExpr),
@@ -38,6 +41,7 @@ pub enum Node {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     Number,
+    Bool,
 }
 
 #[derive(Debug)]
@@ -71,6 +75,13 @@ pub struct Assignment {
 }
 
 #[derive(Debug)]
+pub struct IfStatement {
+    pub condition: NodeRef,
+    pub then_block: Vec<NodeRef>,
+    pub else_block: Vec<NodeRef>,
+}
+
+#[derive(Debug)]
 pub struct Literal {
     pub value: LiteralValue,
     pub ty: Type,
@@ -79,6 +90,7 @@ pub struct Literal {
 #[derive(Debug)]
 pub enum LiteralValue {
     Number(i32),
+    Bool(bool),
 }
 
 #[derive(Debug)]
@@ -172,6 +184,7 @@ impl<'a> Analyzer<'a> {
     fn lookup_ty(ty_identifier: &str) -> Result<Type, SyntaxError> {
         match ty_identifier {
             "number" => Ok(Type::Number),
+            "bool" => Ok(Type::Bool),
             _ => Err(SyntaxError::new("unknown type")),
         }
     }
@@ -317,6 +330,57 @@ impl<'a> Analyzer<'a> {
                 let node_ref = self.create_node(node);
                 Ok(node_ref)
             }
+            parse::Node::IfStatement(if_statement) => {
+                fn transform(
+                    index: usize,
+                    analyzer: &mut Analyzer,
+                    items: &Vec<(Box<parse::Node>,Vec<parse::Node>)>,
+                    else_block: &Option<Vec<parse::Node>>,
+                ) -> Result<Option<NodeRef>, SyntaxError> {
+                    match items.get(index) {
+                        Some((cond, then_block)) => {
+                            let cond_node = analyzer.translate_expr(cond)?;
+                            if analyzer.get_ty(cond_node) != Some(Type::Bool) {
+                                return Err(SyntaxError::new("type error: bool expected"));
+                            }
+                            let then_nodes = analyzer.translate_statements(then_block)?;
+                            // next else if part
+                            let elif = transform(index + 1, analyzer, items, else_block)?;
+                            match elif {
+                                Some(x) => {
+                                    let node = Node::IfStatement(IfStatement {
+                                        condition: cond_node,
+                                        then_block: then_nodes,
+                                        else_block: vec![x],
+                                    });
+                                    let node_ref = analyzer.create_node(node);
+                                    Ok(Some(node_ref))
+                                },
+                                None => {
+                                    let else_nodes = match &else_block {
+                                        Some(x) => analyzer.translate_statements(x)?,
+                                        None => vec![],
+                                    };
+                                    let node = Node::IfStatement(IfStatement {
+                                        condition: cond_node,
+                                        then_block: then_nodes,
+                                        else_block: else_nodes,
+                                    });
+                                    let node_ref = analyzer.create_node(node);
+                                    Ok(Some(node_ref))
+                                }
+                            }
+                        }
+                        None => Ok(None),
+                    }
+                }
+                // desugar and make node
+                let node_ref = match transform(0, self, &if_statement.cond_blocks, &if_statement.else_block)? {
+                    Some(x) => x,
+                    None => panic!("unexpected error: cond blocks is empty"),
+                };
+                Ok(node_ref)
+            }
             parse::Node::Reference(_)
             | parse::Node::Literal(_)
             | parse::Node::BinaryExpr(_)
@@ -344,6 +408,14 @@ impl<'a> Analyzer<'a> {
                 let node = Node::Literal(Literal {
                     value: LiteralValue::Number(*n),
                     ty: Type::Number,
+                });
+                let node_ref = self.create_node(node);
+                Ok(node_ref)
+            }
+            parse::Node::Literal(parse::Literal::Bool(value)) => {
+                let node = Node::Literal(Literal {
+                    value: LiteralValue::Bool(*value),
+                    ty: Type::Bool,
                 });
                 let node_ref = self.create_node(node);
                 Ok(node_ref)
@@ -409,6 +481,7 @@ impl<'a> Analyzer<'a> {
             Node::Literal(_) => "Literal",
             Node::BinaryExpr(_) => "BinaryExpr",
             Node::CallExpr(_) => "CallExpr",
+            Node::IfStatement(_) => "IfStatement",
             Node::FuncParam(_) => "FuncParam",
         };
         println!("[{}] {}", node_ref.id, name);
@@ -462,6 +535,21 @@ impl<'a> Analyzer<'a> {
                 println!("    [{}]", statement.body.id);
                 println!("  }}");
             }
+            Node::IfStatement(if_statement) => {
+                println!("  condition: {{");
+                println!("    [{}]", if_statement.condition.id);
+                println!("  }}");
+                println!("  then_block: {{");
+                for item in if_statement.then_block.iter() {
+                    println!("    [{}]", item.id);
+                }
+                println!("  }}");
+                println!("  else_block: {{");
+                for item in if_statement.else_block.iter() {
+                    println!("    [{}]", item.id);
+                }
+                println!("  }}");
+            }
             Node::Literal(literal) => {
                 println!("  value: {:?}", literal.value);
             }
@@ -488,5 +576,50 @@ impl<'a> Analyzer<'a> {
                 println!("  name: {}", func_param.identifier);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::HashMap;
+    use crate::parse;
+    use crate::analyze;
+
+    fn run_analyze(code: &str) -> Result<(), String> {
+        let ast = parse::parse(code).map_err(|e| format!("Syntax Error: {}", e.message))?;
+
+        let mut graph_source: HashMap<analyze::NodeId, analyze::Node> = HashMap::new();
+        let mut analyzer = analyze::Analyzer::new(&mut graph_source);
+        let _graph = analyzer
+            .translate(&ast)
+            .map_err(|e| format!("Syntax Error: {}", e.message))?;
+
+        //analyzer.show_graph();
+
+        Ok(())
+    }
+
+    fn run_test(code: &str) {
+        match run_analyze(code) {
+            Err(e) => {
+                println!("{}", e);
+                panic!();
+            }
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn test_if_empty() {
+        run_test(
+            "
+            fn main() {
+                if true { }
+                else if true { }
+                else if true { }
+                else { }
+            }
+            ",
+        );
     }
 }
