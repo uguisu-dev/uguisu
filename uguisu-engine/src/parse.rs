@@ -72,17 +72,9 @@ pub enum Literal {
 
 #[derive(Debug, PartialEq)]
 pub struct BinaryExpr {
-    pub operator: Operator,
+    pub operator: String,
     pub left: Box<Node>,
     pub right: Box<Node>,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Operator {
-    Add,
-    Sub,
-    Mult,
-    Div,
 }
 
 #[derive(Debug, PartialEq)]
@@ -173,7 +165,7 @@ pub fn bool(value: bool) -> Node {
 
 pub fn add_operation(left: Node, right: Node) -> Node {
     Node::BinaryExpr(BinaryExpr {
-        operator: Operator::Add,
+        operator: "+".to_string(),
         left: Box::new(left),
         right: Box::new(right),
     })
@@ -181,7 +173,7 @@ pub fn add_operation(left: Node, right: Node) -> Node {
 
 pub fn sub_operation(left: Node, right: Node) -> Node {
     Node::BinaryExpr(BinaryExpr {
-        operator: Operator::Sub,
+        operator: "-".to_string(),
         left: Box::new(left),
         right: Box::new(right),
     })
@@ -189,7 +181,7 @@ pub fn sub_operation(left: Node, right: Node) -> Node {
 
 pub fn mult_operation(left: Node, right: Node) -> Node {
     Node::BinaryExpr(BinaryExpr {
-        operator: Operator::Mult,
+        operator: "*".to_string(),
         left: Box::new(left),
         right: Box::new(right),
     })
@@ -197,7 +189,7 @@ pub fn mult_operation(left: Node, right: Node) -> Node {
 
 pub fn div_operation(left: Node, right: Node) -> Node {
     Node::BinaryExpr(BinaryExpr {
-        operator: Operator::Div,
+        operator: "/".to_string(),
         left: Box::new(left),
         right: Box::new(right),
     })

@@ -1,5 +1,4 @@
-use crate::analyze::{LiteralValue, Node, NodeRef, NodeId};
-use crate::parse::Operator;
+use crate::analyze::{LiteralValue, Node, NodeRef, NodeId, Operator};
 use std::collections::HashMap;
 
 mod builtin {
