@@ -83,10 +83,18 @@ pub enum LiteralValue {
 
 #[derive(Debug)]
 pub struct BinaryExpr {
-    pub operator: parse::Operator,
+    pub operator: Operator,
     pub left: NodeRef,
     pub right: NodeRef,
     pub ty: Type,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Operator {
+    Add,
+    Sub,
+    Mult,
+    Div,
 }
 
 #[derive(Debug)]
@@ -197,7 +205,7 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn compare_ty_option(x: Option<Type>, y: Option<Type>) -> Result<Option<Type>, SyntaxError> {
+    fn compare_ty_option(&self, x: Option<Type>, y: Option<Type>) -> Result<Option<Type>, SyntaxError> {
         if x == y {
             Ok(x)
         } else {
@@ -353,12 +361,19 @@ impl<'a> Analyzer<'a> {
                 let right = self.translate_expr(&binary_expr.right)?;
                 let left_ty = self.get_ty(left);
                 let right_ty = self.get_ty(right);
-                let ty = Self::compare_ty_option(left_ty, right_ty)?;
+                let ty = self.compare_ty_option(left_ty, right_ty)?;
                 if ty != Some(Type::Number) {
                     return Err(SyntaxError::new("type error: number expected"));
                 }
+                let op = match binary_expr.operator.as_str() {
+                    "+" => Operator::Add,
+                    "-" => Operator::Sub,
+                    "*" => Operator::Mult,
+                    "/" => Operator::Div,
+                    _ => panic!("unexpected operator"),
+                };
                 let node = Node::BinaryExpr(BinaryExpr {
-                    operator: binary_expr.operator.clone(),
+                    operator: op,
                     left,
                     right,
                     ty: Type::Number,
@@ -382,7 +397,7 @@ impl<'a> Analyzer<'a> {
                     let arg = self.translate_expr(&call_expr.args[i])?;
                     let param_ty = self.get_ty(param);
                     let arg_ty = self.get_ty(arg);
-                    Self::compare_ty_option(param_ty, arg_ty)?;
+                    self.compare_ty_option(param_ty, arg_ty)?;
                     args.push(arg);
                 }
                 let node = Node::CallExpr(CallExpr { callee: callee_node, args, ty: ret_ty, });
