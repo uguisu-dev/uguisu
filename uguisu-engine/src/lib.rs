@@ -157,4 +157,19 @@ mod test {
             ",
         );
     }
+
+
+    #[test]
+    fn test_if_empty() {
+        run_test(
+            "
+            fn main() {
+                if true { }
+                else if true { }
+                else if true { }
+                else { }
+            }
+            ",
+        );
+    }
 }
