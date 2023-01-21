@@ -23,6 +23,7 @@ enum StatementResult {
 pub enum Symbol {
     NoneValue,
     Number(i32),
+    Bool(bool),
     Function(NodeRef),
 }
 
@@ -127,6 +128,29 @@ impl<'a> Runner<'a> {
                 symbols.set_symbol(statement.dest, symbol);
                 StatementResult::None
             }
+            Node::IfStatement(statement) => {
+                let condition = match self.eval_expr(statement.condition, symbols) {
+                    Symbol::Bool(value) => value,
+                    _ => panic!("bool expected (node_id={})", statement.condition.id),
+                };
+                let block = if condition {
+                    &statement.then_block
+                } else {
+                    &statement.else_block
+                };
+                let mut result = StatementResult::None;
+                for &node_ref in block.iter() {
+                    result = self.exec_statement(node_ref, symbols);
+                    match result {
+                        StatementResult::None => {}
+                        StatementResult::Return
+                        | StatementResult::ReturnWith(_) => {
+                            break;
+                        }
+                    }
+                }
+                result
+            }
             Node::Literal(_)
             | Node::BinaryExpr(_)
             | Node::CallExpr(_)
@@ -151,6 +175,9 @@ impl<'a> Runner<'a> {
                 match literal.value {
                     LiteralValue::Number(n) => {
                         Symbol::Number(n)
+                    }
+                    LiteralValue::Bool(value) => {
+                        Symbol::Bool(value)
                     }
                 }
             }
