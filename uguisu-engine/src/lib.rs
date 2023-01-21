@@ -157,4 +157,34 @@ mod test {
             ",
         );
     }
+
+    #[test]
+    fn test_bool() {
+        run_test(
+            "
+            fn f(value: bool): bool {
+                return value;
+            }
+            fn main() {
+                const a = true;
+                const b = false;
+                const c = f(true);
+            }
+            ",
+        );
+    }
+
+    #[test]
+    fn test_if_empty() {
+        run_test(
+            "
+            fn main() {
+                if true { }
+                else if true { }
+                else if true { }
+                else { }
+            }
+            ",
+        );
+    }
 }
