@@ -246,11 +246,15 @@ impl<'a> Analyzer<'a> {
                 self.scope.enter_scope();
                 let mut params = Vec::new();
                 for (i, param) in decl.params.iter().enumerate() {
+                    let param_type = match &param.type_identifier {
+                        Some(x) => Self::lookup_ty(x)?,
+                        None => return Err(SyntaxError::new("parameter type missing")),
+                    };
                     // make param node
                     let node = Node::FuncParam(FuncParam {
                         identifier: param.identifier.clone(),
                         param_index: i,
-                        ty: Type::Number,
+                        ty: param_type,
                     });
                     let node_ref = self.create_node(node);
                     // add to scope
