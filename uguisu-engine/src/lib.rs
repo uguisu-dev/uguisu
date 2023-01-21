@@ -1,16 +1,30 @@
-use crate::resolve::{Resolver, Scope, Symbol};
-use std::mem;
+use std::collections::HashMap;
 
-mod codegen;
+use crate::run::SymbolTable;
+
+mod analyze;
 mod parse;
-mod resolve;
+mod run;
 
 #[derive(Debug, Clone)]
-pub struct CompileError {
+pub struct SyntaxError {
     pub message: String,
 }
 
-impl CompileError {
+impl SyntaxError {
+    pub fn new(message: &str) -> Self {
+        Self {
+            message: message.to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RuntimeError {
+    pub message: String,
+}
+
+impl RuntimeError {
     pub fn new(message: &str) -> Self {
         Self {
             message: message.to_string(),
@@ -19,25 +33,23 @@ impl CompileError {
 }
 
 pub fn run(code: &str) -> Result<(), String> {
-    println!("[Info] compiling ...");
-    let mut ast = parse::parse(code).map_err(|e| format!("Compile Error: {}", e.message))?;
+    println!("[Info] parsing ...");
+    let ast = parse::parse(code).map_err(|e| format!("Syntax Error: {}", e.message))?;
 
-    let mut symbol_source: Vec<Symbol> = Vec::new();
-    let mut scope = Scope::new();
-    Resolver::new(&mut symbol_source, &mut scope)
-        .resolve(&mut ast)
-        .map_err(|e| format!("Compile Error: {}", e.message))?;
+    println!("[Info] code analyzing ...");
+    let mut graph_source: HashMap<analyze::NodeId, analyze::Node> = HashMap::new();
+    let mut analyzer = analyze::Analyzer::new(&mut graph_source);
+    let graph = analyzer
+        .translate(&ast)
+        .map_err(|e| format!("Syntax Error: {}", e.message))?;
 
-    let backend_module = codegen::emit_module(&mut ast, &mut symbol_source).map_err(|e| format!("Compile Error: {}", e.message))?;
-
-    let func = match backend_module.funcs.iter().find(|x| x.name == "main") {
-        Some(func) => func,
-        None => return Err("Compile Error: function 'main' not found".to_string()),
-    };
+    //println!("[Info] show graph");
+    //analyzer.show_graph();
 
     println!("[Info] running ...");
-    let func = unsafe { mem::transmute::<*const u8, fn()>(func.ptr) };
-    func();
+    let mut symbols = SymbolTable::new();
+    let runner = run::Runner::new(&graph_source);
+    runner.run(&graph, &mut symbols);
 
     Ok(())
 }
@@ -57,21 +69,34 @@ mod test {
     }
 
     #[test]
-    fn test_empty_return() {
+    fn test_empty_function() {
         run_test(
             "
+            fn main() { }
+            ",
+        );
+    }
+
+    #[test]
+    fn test_function_basic() {
+        run_test(
+            "
+            external fn assert_eq(actual: number, expected: number);
+            fn add(x: number, y: number): number {
+                return x + y;
+            }
             fn main() {
-                return;
+                assert_eq(add(1, 2), 3);
             }
             ",
         );
     }
 
     #[test]
-    fn text_basic() {
+    fn test_calc_with_function_1() {
         run_test(
             "
-            external fn print_num(value: number);
+            external fn assert_eq(actual: number, expected: number);
             fn add(x: number, y: number): number {
                 return x + y;
             }
@@ -79,35 +104,55 @@ mod test {
                 return x * x;
             }
             fn main() {
-                print_num(square(add(1, 2) * 3));
+                assert_eq(add(square(2), 3), 7);
             }
             ",
         );
     }
 
     #[test]
-    fn text_variable() {
+    fn test_calc_with_function_2() {
         run_test(
             "
-            external fn print_num(value: number);
+            external fn assert_eq(actual: number, expected: number);
             fn square(x: number): number {
                 return x * x;
             }
+            fn calc(x: number, y: number): number {
+                return square(x) + y;
+            }
             fn main() {
-                const var1 = 2;
-                print_num(square(var1 * 3));
+                assert_eq(calc(2, 3), 7);
             }
             ",
         );
+    }
+
+    #[test]
+    fn test_variable_basic() {
         run_test(
             "
-            external fn print_num(value: number);
-            fn square(x: number): number {
-                return x * x;
+            external fn assert_eq(actual: number, expected: number);
+            fn main() {
+                const x = 1 + 2;
+                assert_eq(x, 3);
+            }
+            ",
+        );
+    }
+
+    #[test]
+    fn test_calc_with_variable() {
+        run_test(
+            "
+            external fn assert_eq(actual: number, expected: number);
+            fn calc(x: number, y: number): number {
+                const temp = x + y;
+                return temp * temp;
             }
             fn main() {
-                const var1 = square(2 * 3);
-                print_num(var1);
+                const a = 2;
+                assert_eq(calc(a, 3), 25);
             }
             ",
         );

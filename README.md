@@ -2,8 +2,6 @@
 A Execution engine for the Uguisu lang.  
 Not ready to use yet.
 
-The first objective is to learn about various technologies: compilation techniques using Cranelift, and Rust.
-
 The syntax is like this:
 ```
 external fn print_num(value: number);

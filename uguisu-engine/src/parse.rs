@@ -1,5 +1,3 @@
-use crate::resolve;
-
 mod test;
 
 //
@@ -14,7 +12,7 @@ pub enum Node {
     ReturnStatement(Option<Box<Node>>),
     Assignment(Assignment),
     // expression
-    NodeRef(NodeRef),
+    Reference(Reference),
     Literal(Literal),
     BinaryExpr(BinaryExpr),
     CallExpr(CallExpr),
@@ -27,7 +25,6 @@ pub struct FunctionDeclaration {
     pub params: Vec<Parameter>,
     pub ret: Option<String>,
     pub attributes: Vec<FunctionAttribute>,
-    pub symbol: Option<resolve::SymbolId>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -47,7 +44,6 @@ pub struct VariableDeclaration {
     pub identifier: String,
     pub body: Box<Node>,
     pub attributes: Vec<VariableAttribute>,
-    pub symbol: Option<resolve::SymbolId>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -58,19 +54,13 @@ pub enum VariableAttribute {
 
 #[derive(Debug, PartialEq)]
 pub struct Assignment {
-    pub dest: String,
+    pub dest: Box<Node>,
     pub body: Box<Node>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ResolvedNodeRef {
-    pub symbol: resolve::SymbolId,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct NodeRef {
+pub struct Reference {
     pub identifier: String,
-    pub resolved: Option<ResolvedNodeRef>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -85,7 +75,7 @@ pub struct BinaryExpr {
     pub right: Box<Node>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Operator {
     Add,
     Sub,
@@ -123,7 +113,6 @@ pub fn function_declaration(
         params,
         ret,
         attributes,
-        symbol: None,
     })
 }
 
@@ -136,14 +125,28 @@ pub fn variable_declaration(
         identifier,
         body: Box::new(body),
         attributes,
-        symbol: None,
     })
 }
 
-pub fn assignment(dest: String, body: Node) -> Node {
+pub fn return_statement(
+    expr: Option<Node>,
+) -> Node {
+    match expr {
+        Some(x) => Node::ReturnStatement(Some(Box::new(x))),
+        None => Node::ReturnStatement(None),
+    }
+}
+
+pub fn assignment(dest: Node, body: Node) -> Node {
     Node::Assignment(Assignment {
-        dest,
+        dest: Box::new(dest),
         body: Box::new(body),
+    })
+}
+
+pub fn reference(id: &str) -> Node {
+    Node::Reference(Reference {
+        identifier: id.to_string(),
     })
 }
 
@@ -246,7 +249,7 @@ peg::parser! {
             // --
             e:number() { e }
             e:call_expr() { e }
-            id:idenfitier() { Node::NodeRef(NodeRef { identifier: id.to_string(), resolved: None }) }
+            id:idenfitier() { reference(id) }
             p:position!() "(" __* e:expression() __* ")" { p; e }
         }
 
@@ -280,7 +283,7 @@ peg::parser! {
             = "external" { FunctionAttribute::External }
 
         rule return_statement() -> Node
-            = "return" e2:(__+ e1:expression() { Box::new(e1) })? __* ";" { Node::ReturnStatement(e2) }
+            = "return" e2:(__+ e1:expression() { e1 })? __* ";" { return_statement(e2) }
 
         rule variable_declaration() -> Node
             = kind:(
@@ -290,7 +293,7 @@ peg::parser! {
 
         rule assignment() -> Node
             = id:idenfitier() __* "=" __* e:expression() ";"
-        { assignment(id.to_string(), e) }
+        { assignment(reference(id), e) }
 
         rule number() -> Node
             = quiet!{ n:$(['1'..='9'] ['0'..='9']+)
@@ -303,7 +306,7 @@ peg::parser! {
             = name:idenfitier() __* "(" __* args:call_params()? __* ")"
         {
             let args = if let Some(v) = args { v } else { vec![] };
-            call_expr(Node::NodeRef(NodeRef { identifier: name.to_string(), resolved: None }), args)
+            call_expr(reference(name), args)
         }
 
         rule call_params() -> Vec<Node>
