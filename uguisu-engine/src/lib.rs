@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use crate::run::SymbolTable;
+//use crate::run::SymbolTable;
 
 mod analyze;
 mod parse;
-mod run;
+//mod run;
 
 #[derive(Debug, Clone)]
 pub struct SyntaxError {
@@ -47,9 +47,9 @@ pub fn run(code: &str) -> Result<(), String> {
     //analyzer.show_graph();
 
     println!("[Info] running ...");
-    let mut symbols = SymbolTable::new();
-    let runner = run::Runner::new(&graph_source);
-    runner.run(&graph, &mut symbols);
+    //let mut symbols = SymbolTable::new();
+    //let runner = run::Runner::new(&graph_source);
+    //runner.run(&graph, &mut symbols);
 
     Ok(())
 }
