@@ -478,10 +478,10 @@ impl<'a> Analyzer<'a> {
             Node::VariableDeclaration(_) => "VariableDeclaration",
             Node::ReturnStatement(_) => "ReturnStatement",
             Node::Assignment(_) => "Assignment",
+            Node::IfStatement(_) => "IfStatement",
             Node::Literal(_) => "Literal",
             Node::BinaryExpr(_) => "BinaryExpr",
             Node::CallExpr(_) => "CallExpr",
-            Node::IfStatement(_) => "IfStatement",
             Node::FuncParam(_) => "FuncParam",
         };
         println!("[{}] {}", node_ref.id, name);
