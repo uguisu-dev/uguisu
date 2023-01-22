@@ -1,5 +1,18 @@
-use crate::{analyze::{LiteralValue, Node, NodeRef, NodeId, Operator, Type}, RuntimeError};
+use crate::analyze::{LiteralValue, Node, NodeRef, NodeId, Operator, Type};
 use std::collections::HashMap;
+
+#[derive(Debug, Clone)]
+pub struct RuntimeError {
+    pub message: String,
+}
+
+impl RuntimeError {
+    pub fn new(message: &str) -> Self {
+        Self {
+            message: message.to_string(),
+        }
+    }
+}
 
 mod builtin {
     pub fn print_num(value: i64) {

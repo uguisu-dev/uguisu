@@ -1,8 +1,21 @@
-use crate::{parse, SyntaxError};
+use crate::parse;
 use std::collections::HashMap;
 
 #[cfg(test)]
 mod test;
+
+#[derive(Debug, Clone)]
+pub struct SyntaxError {
+    pub message: String,
+}
+
+impl SyntaxError {
+    pub fn new(message: &str) -> Self {
+        Self {
+            message: message.to_string(),
+        }
+    }
+}
 
 pub type NodeId = usize;
 

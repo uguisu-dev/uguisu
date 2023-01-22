@@ -9,32 +9,6 @@ mod run;
 #[cfg(test)]
 mod test;
 
-#[derive(Debug, Clone)]
-pub struct SyntaxError {
-    pub message: String,
-}
-
-impl SyntaxError {
-    pub fn new(message: &str) -> Self {
-        Self {
-            message: message.to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RuntimeError {
-    pub message: String,
-}
-
-impl RuntimeError {
-    pub fn new(message: &str) -> Self {
-        Self {
-            message: message.to_string(),
-        }
-    }
-}
-
 pub fn run(code: &str) -> Result<(), String> {
     println!("[Info] parsing ...");
     let ast = parse::parse(code).map_err(|e| format!("Syntax Error: {}", e.message))?;
