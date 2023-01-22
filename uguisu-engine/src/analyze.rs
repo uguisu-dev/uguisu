@@ -108,6 +108,12 @@ pub enum Operator {
     Sub,
     Mult,
     Div,
+    Equal,
+    NotEqual,
+    GreaterThan,
+    GreaterThanEqual,
+    LessThan,
+    LessThanEqual,
 }
 
 #[derive(Debug)]
@@ -443,9 +449,15 @@ impl<'a> Analyzer<'a> {
                     "-" => Operator::Sub,
                     "*" => Operator::Mult,
                     "/" => Operator::Div,
+                    "==" => Operator::Equal,
+                    "!=" => Operator::NotEqual,
+                    "<" => Operator::LessThan,
+                    "<=" => Operator::LessThanEqual,
+                    ">" => Operator::GreaterThan,
+                    ">=" => Operator::GreaterThanEqual,
                     _ => panic!("unexpected operator"),
                 };
-                let ty = match op {
+                let node = match op {
                     Operator::Add
                     | Operator::Sub
                     | Operator::Mult
@@ -454,15 +466,28 @@ impl<'a> Analyzer<'a> {
                         if ty != Some(Type::Number) {
                             return Err(SyntaxError::new("type error: number expected"));
                         }
-                        Type::Number
+                        Node::BinaryExpr(BinaryExpr {
+                            operator: op,
+                            left,
+                            right,
+                            ty: Type::Number,
+                        })
+                    }
+                    Operator::Equal
+                    | Operator::NotEqual
+                    | Operator::LessThan
+                    | Operator::LessThanEqual
+                    | Operator::GreaterThan
+                    | Operator::GreaterThanEqual => {
+                        let ty = self.compare_ty_option(left_ty, right_ty)?;
+                        Node::BinaryExpr(BinaryExpr {
+                            operator: op,
+                            left,
+                            right,
+                            ty: Type::Bool,
+                        })
                     }
                 };
-                let node = Node::BinaryExpr(BinaryExpr {
-                    operator: op,
-                    left,
-                    right,
-                    ty,
-                });
                 let node_ref = self.create_node(node);
                 Ok(node_ref)
             }
