@@ -19,6 +19,34 @@ fn main() {
 }
 ```
 
+## Supported features
+- 変数(`const`, `let`)
+  - 定義
+  - 代入
+  - 参照
+- 関数(`fn`)
+  - 定義
+  - 呼び出し
+- `if`文
+- `return`文
+- 二項演算子
+  - `+`
+  - `-`
+  - `*`
+  - `/`
+  - `==`
+  - `!=`
+  - `<`
+  - `<=`
+  - `>`
+  - `>=`
+- ビルトイン関数
+  - `external fn print_num(value: number);`
+  - `external fn assert_eq(actual: number, expected: number);`
+- 値
+  - `number`型
+  - `bool`型
+
 ## Run the example code
 ```
 cargo run example.ug
