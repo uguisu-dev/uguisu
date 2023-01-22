@@ -81,7 +81,6 @@ mod test {
     fn test_function_basic() {
         run_test(
             "
-            external fn assert_eq(actual: number, expected: number);
             fn add(x: number, y: number): number {
                 return x + y;
             }
@@ -96,7 +95,6 @@ mod test {
     fn test_calc_with_function_1() {
         run_test(
             "
-            external fn assert_eq(actual: number, expected: number);
             fn add(x: number, y: number): number {
                 return x + y;
             }
@@ -114,7 +112,6 @@ mod test {
     fn test_calc_with_function_2() {
         run_test(
             "
-            external fn assert_eq(actual: number, expected: number);
             fn square(x: number): number {
                 return x * x;
             }
@@ -132,7 +129,6 @@ mod test {
     fn test_function_recursion() {
         run_test(
             "
-            external fn assert_eq(actual: number, expected: number);
             fn calc(x: number): number {
                 if x == 0 {
                     return 1;
@@ -151,7 +147,6 @@ mod test {
     fn test_variable_basic() {
         run_test(
             "
-            external fn assert_eq(actual: number, expected: number);
             fn main() {
                 const x = 1 + 2;
                 assert_eq(x, 3);
@@ -164,7 +159,6 @@ mod test {
     fn test_calc_with_variable() {
         run_test(
             "
-            external fn assert_eq(actual: number, expected: number);
             fn calc(x: number, y: number): number {
                 const temp = x + y;
                 return temp * temp;
@@ -211,7 +205,6 @@ mod test {
     fn test_relational_op() {
         run_test(
             "
-            external fn assert_eq(actual: number, expected: number);
             fn main() {
                 let x = 0;
                 if 1 + 2 == 3 {
