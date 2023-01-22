@@ -129,6 +129,25 @@ mod test {
     }
 
     #[test]
+    fn test_function_recursion() {
+        run_test(
+            "
+            external fn assert_eq(actual: number, expected: number);
+            fn calc(x: number): number {
+                if x == 0 {
+                    return 1;
+                } else {
+                    return calc(x - 1) * 2;
+                }
+            }
+            fn main() {
+                assert_eq(calc(8), 256);
+            }
+            ",
+        );
+    }
+
+    #[test]
     fn test_variable_basic() {
         run_test(
             "
