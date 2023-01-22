@@ -13,7 +13,8 @@ fn calc(x: number): number {
 }
 
 fn main() {
-    print_num(calc(10));
+    const value = 10;
+    print_num(calc(value));
 }
 ```
 
