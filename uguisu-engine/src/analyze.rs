@@ -90,7 +90,7 @@ pub struct Literal {
 
 #[derive(Debug)]
 pub enum LiteralValue {
-    Number(i32),
+    Number(i64),
     Bool(bool),
 }
 

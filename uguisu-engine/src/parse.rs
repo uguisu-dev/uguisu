@@ -67,7 +67,7 @@ pub struct Reference {
 
 #[derive(Debug, PartialEq)]
 pub enum Literal {
-    Number(i32),
+    Number(i64),
     Bool(bool),
 }
 
@@ -156,7 +156,7 @@ pub fn reference(id: &str) -> Node {
     })
 }
 
-pub fn number(value: i32) -> Node {
+pub fn number(value: i64) -> Node {
     Node::Literal(Literal::Number(value))
 }
 

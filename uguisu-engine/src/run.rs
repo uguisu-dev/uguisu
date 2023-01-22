@@ -2,10 +2,10 @@ use crate::analyze::{LiteralValue, Node, NodeRef, NodeId, Operator, Type};
 use std::collections::HashMap;
 
 mod builtin {
-    pub fn print_num(value: i32) {
+    pub fn print_num(value: i64) {
         println!("{}", value);
     }
-    pub fn assert_eq(actual: i32, expected: i32) {
+    pub fn assert_eq(actual: i64, expected: i64) {
         if actual != expected {
             panic!("assertion error");
         }
@@ -21,7 +21,7 @@ enum StatementResult {
 #[derive(Debug, Clone)]
 pub enum Symbol {
     NoneValue,
-    Number(i32),
+    Number(i64),
     Bool(bool),
     Function(NodeRef),
 }
