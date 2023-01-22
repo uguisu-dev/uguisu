@@ -238,9 +238,49 @@ impl<'a> Analyzer<'a> {
         }
     }
 
+    fn register_builtin(&mut self, name: &str, params: Vec<(&str, Type)>, ret_ty: Option<Type>) -> NodeRef {
+        let mut param_nodes = Vec::new();
+        for (i, (param_name, param_ty)) in params.iter().enumerate() {
+            // make param node
+            let node = Node::FuncParam(FuncParam {
+                identifier: String::from(*param_name),
+                param_index: i,
+                ty: param_ty.clone(),
+            });
+            let node_ref = self.create_node(node);
+            param_nodes.push(node_ref);
+        }
+        // make function node
+        let decl_node = Node::FunctionDeclaration(FunctionDeclaration {
+            identifier: String::from(name),
+            params: param_nodes,
+            ret_ty,
+            is_external: true,
+            body: None,
+        });
+        let node_ref = self.create_node(decl_node);
+        // add to scope
+        self.scope.add_node(name, node_ref);
+        node_ref
+    }
+
     /// Generate a resolved graph from a AST.
     pub fn translate(&mut self, ast: &Vec<parse::Node>) -> Result<Vec<NodeRef>, SyntaxError> {
-        let mut ids = self.translate_statements(ast)?;
+        let mut ids = Vec::new();
+
+        // register builtin declarations
+        ids.push(self.register_builtin(
+            "print_num",
+            vec![("value", Type::Number)],
+            None,
+        ));
+        ids.push(self.register_builtin(
+            "assert_eq",
+            vec![("actual", Type::Number), ("expected", Type::Number)],
+            None,
+        ));
+
+        ids.extend(self.translate_statements(ast)?);
 
         // make call main function
         let call_main = parse::call_expr(parse::reference("main"), Vec::new());
@@ -286,6 +326,9 @@ impl<'a> Analyzer<'a> {
                     .attributes
                     .iter()
                     .any(|x| *x == parse::FunctionAttribute::External);
+                if is_external {
+                    return Err(SyntaxError::new("External function declarations are obsoleted"));
+                }
                 // make function node
                 let decl_node = Node::FunctionDeclaration(FunctionDeclaration {
                     identifier: parser_decl.identifier.clone(),
