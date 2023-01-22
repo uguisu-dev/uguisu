@@ -1,5 +1,4 @@
-use crate::resolve;
-
+#[cfg(test)]
 mod test;
 
 //
@@ -13,8 +12,9 @@ pub enum Node {
     VariableDeclaration(VariableDeclaration),
     ReturnStatement(Option<Box<Node>>),
     Assignment(Assignment),
+    IfStatement(IfStatement),
     // expression
-    NodeRef(NodeRef),
+    Reference(Reference),
     Literal(Literal),
     BinaryExpr(BinaryExpr),
     CallExpr(CallExpr),
@@ -27,7 +27,6 @@ pub struct FunctionDeclaration {
     pub params: Vec<Parameter>,
     pub ret: Option<String>,
     pub attributes: Vec<FunctionAttribute>,
-    pub symbol: Option<resolve::SymbolId>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -46,6 +45,7 @@ pub enum FunctionAttribute {
 pub struct VariableDeclaration {
     pub identifier: String,
     pub body: Box<Node>,
+    pub type_identifier: Option<String>,
     pub attributes: Vec<VariableAttribute>,
 }
 
@@ -57,45 +57,43 @@ pub enum VariableAttribute {
 
 #[derive(Debug, PartialEq)]
 pub struct Assignment {
-    pub dest: String,
+    pub dest: Box<Node>,
     pub body: Box<Node>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ResolvedNodeRef {
-    pub symbol: resolve::SymbolId,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct NodeRef {
+pub struct Reference {
     pub identifier: String,
-    pub resolved: Option<ResolvedNodeRef>,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Literal {
-    Number(i32),
+    Number(i64),
+    Bool(bool),
 }
 
 #[derive(Debug, PartialEq)]
 pub struct BinaryExpr {
-    pub operator: Operator,
+    pub operator: String,
     pub left: Box<Node>,
     pub right: Box<Node>,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Operator {
-    Add,
-    Sub,
-    Mult,
-    Div,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct CallExpr {
     pub callee: Box<Node>,
     pub args: Vec<Node>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct IfStatement {
+    pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // Vec(expression & statements)
+    pub else_block: Option<Vec<Node>>, // statements
+}
+
+#[derive(Debug, PartialEq)]
+pub struct BlockExpr {
+    body: Vec<Node>, // statements
 }
 
 //
@@ -122,60 +120,56 @@ pub fn function_declaration(
         params,
         ret,
         attributes,
-        symbol: None,
     })
 }
 
 pub fn variable_declaration(
     identifier: String,
     body: Node,
+    type_identifier: Option<String>,
     attributes: Vec<VariableAttribute>,
 ) -> Node {
     Node::VariableDeclaration(VariableDeclaration {
         identifier,
         body: Box::new(body),
+        type_identifier,
         attributes,
     })
 }
 
-pub fn assignment(dest: String, body: Node) -> Node {
+pub fn return_statement(
+    expr: Option<Node>,
+) -> Node {
+    match expr {
+        Some(x) => Node::ReturnStatement(Some(Box::new(x))),
+        None => Node::ReturnStatement(None),
+    }
+}
+
+pub fn assignment(dest: Node, body: Node) -> Node {
     Node::Assignment(Assignment {
-        dest,
+        dest: Box::new(dest),
         body: Box::new(body),
     })
 }
 
-pub fn number(value: i32) -> Node {
+pub fn reference(id: &str) -> Node {
+    Node::Reference(Reference {
+        identifier: id.to_string(),
+    })
+}
+
+pub fn number(value: i64) -> Node {
     Node::Literal(Literal::Number(value))
 }
 
-pub fn add_operation(left: Node, right: Node) -> Node {
-    Node::BinaryExpr(BinaryExpr {
-        operator: Operator::Add,
-        left: Box::new(left),
-        right: Box::new(right),
-    })
+pub fn bool(value: bool) -> Node {
+    Node::Literal(Literal::Bool(value))
 }
 
-pub fn sub_operation(left: Node, right: Node) -> Node {
+pub fn binary_expr(op: &str, left: Node, right: Node) -> Node {
     Node::BinaryExpr(BinaryExpr {
-        operator: Operator::Sub,
-        left: Box::new(left),
-        right: Box::new(right),
-    })
-}
-
-pub fn mult_operation(left: Node, right: Node) -> Node {
-    Node::BinaryExpr(BinaryExpr {
-        operator: Operator::Mult,
-        left: Box::new(left),
-        right: Box::new(right),
-    })
-}
-
-pub fn div_operation(left: Node, right: Node) -> Node {
-    Node::BinaryExpr(BinaryExpr {
-        operator: Operator::Div,
+        operator: op.to_string(),
         left: Box::new(left),
         right: Box::new(right),
     })
@@ -185,6 +179,20 @@ pub fn call_expr(callee: Node, args: Vec<Node>) -> Node {
     Node::CallExpr(CallExpr {
         callee: Box::new(callee),
         args,
+    })
+}
+
+pub fn if_statement(
+    cond_blocks: Vec<(Node, Vec<Node>)>,
+    else_block: Option<Vec<Node>>,
+) -> Node {
+    let mut items = Vec::new();
+    for (cond, block) in cond_blocks {
+        items.push((Box::new(cond), block))
+    }
+    Node::IfStatement(IfStatement {
+        cond_blocks: items,
+        else_block,
     })
 }
 
@@ -219,23 +227,24 @@ peg::parser! {
             = function_declaration()
             / return_statement()
             / variable_declaration()
+            / if_statement()
             / assignment()
             / e:expression() __* ";" { e }
 
         pub rule expression() -> Node = precedence! {
-            // left:(@) __* "==" __* right:@ { Node::eq(left, right) }
-            // left:(@) __* "!=" __* right:@ { Node::ne(left, right) }
-            // --
-            // left:(@) __* "<" __* right:@ { Node::lt(left, right) }
-            // left:(@) __* "<=" __* right:@ { Node::lte(left, right) }
-            // left:(@) __* ">" __* right:@ { Node::gt(left, right) }
-            // left:(@) __* ">=" __* right:@ { Node::gte(left, right) }
-            // --
-            left:(@) __* "+" __* right:@ { add_operation(left, right) }
-            left:(@) __* "-" __* right:@ { sub_operation(left, right) }
+            left:(@) __* "==" __* right:@ { binary_expr("==", left, right) }
+            left:(@) __* "!=" __* right:@ { binary_expr("!=", left, right) }
             --
-            left:(@) __* "*" __* right:@ { mult_operation(left, right) }
-            left:(@) __* "/" __* right:@ { div_operation(left, right) }
+            left:(@) __* "<" __* right:@ { binary_expr("<", left, right) }
+            left:(@) __* "<=" __* right:@ { binary_expr("<=", left, right) }
+            left:(@) __* ">" __* right:@ { binary_expr(">", left, right) }
+            left:(@) __* ">=" __* right:@ { binary_expr(">=", left, right) }
+            --
+            left:(@) __* "+" __* right:@ { binary_expr("+", left, right) }
+            left:(@) __* "-" __* right:@ { binary_expr("-", left, right) }
+            --
+            left:(@) __* "*" __* right:@ { binary_expr("*", left, right) }
+            left:(@) __* "/" __* right:@ { binary_expr("/", left, right) }
             // left:(@) __* "%" __* right:@ { Node::mod(left, right) }
             --
             // "!" __* right:(@) { right }
@@ -243,8 +252,9 @@ peg::parser! {
             // "-" __* right:(@) { Node::mult(Node::number(-1), right) }
             // --
             e:number() { e }
+            e:bool() { e }
             e:call_expr() { e }
-            id:idenfitier() { Node::NodeRef(NodeRef { identifier: id.to_string(), resolved: None }) }
+            id:idenfitier() { reference(id) }
             p:position!() "(" __* e:expression() __* ")" { p; e }
         }
 
@@ -278,36 +288,81 @@ peg::parser! {
             = "external" { FunctionAttribute::External }
 
         rule return_statement() -> Node
-            = "return" e2:(__+ e1:expression() { Box::new(e1) })? __* ";" { Node::ReturnStatement(e2) }
+            = "return" e2:(__+ e1:expression() { e1 })? __* ";" { return_statement(e2) }
 
         rule variable_declaration() -> Node
             = kind:(
                 "let" {VariableAttribute::Let} / "const" {VariableAttribute::Const}
-            ) __+ id:idenfitier() __* "=" __* e:expression() ";"
-        { variable_declaration(id.to_string(), e, vec![kind]) }
+            ) __+ id:idenfitier() ty:(__* ":" __* x:idenfitier() {x.to_string()})? __* "=" __* e:expression() ";"
+        { variable_declaration(id.to_string(), e, ty, vec![kind]) }
 
         rule assignment() -> Node
             = id:idenfitier() __* "=" __* e:expression() ";"
-        { assignment(id.to_string(), e) }
+        { assignment(reference(id), e) }
 
         rule number() -> Node
-            = n:$(['1'..='9'] ['0'..='9']+)
-        {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n))) }
-            / n:$(['0'..='9'])
-        {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n))) }
+            = quiet!{ n:$(['1'..='9'] ['0'..='9']+)
+        {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n))) } }
+            / quiet!{ n:$(['0'..='9'])
+        {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n))) } }
+            / expected!("number")
+
+        rule bool() -> Node
+            = "true" { bool(true) }
+            / "false" { bool(false) }
 
         rule call_expr() -> Node
             = name:idenfitier() __* "(" __* args:call_params()? __* ")"
         {
             let args = if let Some(v) = args { v } else { vec![] };
-            call_expr(Node::NodeRef(NodeRef { identifier: name.to_string(), resolved: None }), args)
+            call_expr(reference(name), args)
         }
 
         rule call_params() -> Vec<Node>
             = expression() ++ (__* "," __*)
 
+        rule if_statement() -> Node
+            = head:if_cond_block() tails:(__* x:elseif_parts() {x})? else_block:(__* x:else_part() {x})? {
+                let cond_blocks = if let Some(x) = tails {
+                    let mut items = vec![head];
+                    items.extend(x);
+                    items
+                } else {
+                    vec![head]
+                };
+                if_statement(cond_blocks, else_block)
+            }
+
+        rule if_cond_block() -> (Node, Vec<Node>)
+            = "if" __+ cond:expression() __* body:block() {
+                (cond, body)
+            }
+
+        rule elseif_parts() -> Vec<(Node, Vec<Node>)>
+            = elseif_part() ++ (__*)
+
+        rule elseif_part() -> (Node, Vec<Node>)
+            = "else" __+ cond_block:if_cond_block() {
+                cond_block
+            }
+
+        rule else_part() -> Vec<Node>
+            = "else" __* body:block() {
+                body
+            }
+
+        rule block() -> Vec<Node>
+            = "{" __* s:statements()? __* "}" {
+                if let Some(nodes) = s {
+                    nodes
+                } else {
+                    vec![]
+                }
+            }
+
         rule idenfitier() -> &'input str
-            = !['0'..='9'] s:$(identifier_char()+) { s }
+            = quiet!{ !['0'..='9'] s:$(identifier_char()+) { s } }
+            / expected!("identifier")
 
         rule identifier_char() -> char
             = &['\u{00}'..='\u{7F}'] c:['A'..='Z'|'a'..='z'|'0'..='9'|'_'] { c }
