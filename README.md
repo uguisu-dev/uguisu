@@ -29,17 +29,7 @@ fn main() {
   - 呼び出し
 - `if`文
 - `return`文
-- 二項演算子
-  - `+`
-  - `-`
-  - `*`
-  - `/`
-  - `==`
-  - `!=`
-  - `<`
-  - `<=`
-  - `>`
-  - `>=`
+- 二項演算子: `+` `-` `*` `/` `==` `!=` `<` `<=` `>` `>=`
 - ビルトイン関数
   - `external fn print_num(value: number);`
   - `external fn assert_eq(actual: number, expected: number);`
