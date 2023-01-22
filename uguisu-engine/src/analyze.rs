@@ -196,6 +196,14 @@ impl<'a> Analyzer<'a> {
         NodeRef::new(node_id)
     }
 
+    fn get_node(&self, node_ref: NodeRef) -> Option<&Node> {
+        self.source.get(&node_ref.id)
+    }
+
+    fn get_node_mut(&mut self, node_ref: NodeRef) -> Option<&mut Node> {
+        self.source.get_mut(&node_ref.id)
+    }
+
     fn lookup_ty(ty_identifier: &str) -> Result<Type, SyntaxError> {
         match ty_identifier {
             "number" => Ok(Type::Number),
@@ -257,10 +265,9 @@ impl<'a> Analyzer<'a> {
     /// - check type compatibility for inner expression
     fn translate_statement(&mut self, parser_node: &parse::Node) -> Result<NodeRef, SyntaxError> {
         match parser_node {
-            parse::Node::FunctionDeclaration(decl) => {
-                self.scope.enter_scope();
+            parse::Node::FunctionDeclaration(parser_decl) => {
                 let mut params = Vec::new();
-                for (i, param) in decl.params.iter().enumerate() {
+                for (i, param) in parser_decl.params.iter().enumerate() {
                     let param_type = match &param.type_identifier {
                         Some(x) => Self::lookup_ty(x)?,
                         None => return Err(SyntaxError::new("parameter type missing")),
@@ -272,34 +279,59 @@ impl<'a> Analyzer<'a> {
                         ty: param_type,
                     });
                     let node_ref = self.create_node(node);
-                    // add to scope
-                    self.scope.add_node(&param.identifier, node_ref);
                     params.push(node_ref);
                 }
-                let body = match &decl.body {
-                    Some(body_nodes) => Some(self.translate_statements(body_nodes)?),
-                    None => None,
-                };
-                self.scope.leave_scope();
-                let is_external = decl
-                    .attributes
-                    .iter()
-                    .any(|x| *x == parse::FunctionAttribute::External);
-                let ret_ty = match &decl.ret {
+                let ret_ty = match &parser_decl.ret {
                     Some(x) => Some(Self::lookup_ty(x)?),
                     None => None,
                 };
+                let is_external = parser_decl
+                    .attributes
+                    .iter()
+                    .any(|x| *x == parse::FunctionAttribute::External);
                 // make function node
-                let node = Node::FunctionDeclaration(FunctionDeclaration {
-                    identifier: decl.identifier.clone(),
+                let decl_node = Node::FunctionDeclaration(FunctionDeclaration {
+                    identifier: parser_decl.identifier.clone(),
                     params,
-                    body,
                     ret_ty,
                     is_external,
+                    body: None,
                 });
-                let node_ref = self.create_node(node);
+                let node_ref = self.create_node(decl_node);
                 // add to scope
-                self.scope.add_node(&decl.identifier, node_ref);
+                self.scope.add_node(&parser_decl.identifier, node_ref);
+
+                // define body
+                self.scope.enter_scope();
+                let mut i = 0;
+                loop {
+                    let decl = match self.get_node(node_ref) {
+                        Some(Node::FunctionDeclaration(x)) => x,
+                        _ => panic!("failed get_node"),
+                    };
+                    let param = match decl.params.get(i) {
+                        Some(&x) => x,
+                        None => break,
+                    };
+                    let param_node = match param.as_node(self.source) {
+                        Node::FuncParam(x) => x,
+                        _ => panic!("unexpected"),
+                    };
+                    // add to scope
+                    self.scope.add_node(&param_node.identifier, param);
+                    i += 1;
+                }
+                let body = match &parser_decl.body {
+                    Some(body_nodes) => Some(self.translate_statements(body_nodes)?),
+                    None => None,
+                };
+                let decl = match self.get_node_mut(node_ref) {
+                    Some(Node::FunctionDeclaration(x)) => x,
+                    _ => panic!("failed get_node"),
+                };
+                decl.body = body;
+                self.scope.leave_scope();
+
                 Ok(node_ref)
             }
             parse::Node::VariableDeclaration(decl) => {
