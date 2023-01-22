@@ -1,4 +1,4 @@
-use crate::analyze::{LiteralValue, Node, NodeRef, NodeId, Operator, Type};
+use crate::{analyze::{LiteralValue, Node, NodeRef, NodeId, Operator, Type}, RuntimeError};
 use std::collections::HashMap;
 
 mod builtin {
@@ -91,44 +91,45 @@ impl<'a> Runner<'a> {
         }
     }
 
-    pub fn run(&self, graph: &Vec<NodeRef>, symbols: &mut SymbolTable) {
+    pub fn run(&self, graph: &Vec<NodeRef>, symbols: &mut SymbolTable) -> Result<(), RuntimeError> {
         for &node_ref in graph.iter() {
-            self.exec_statement(node_ref, symbols);
+            self.exec_statement(node_ref, symbols)?;
         }
+        Ok(())
     }
 
-    fn exec_statement(&self, node_ref: NodeRef, symbols: &mut SymbolTable) -> StatementResult {
+    fn exec_statement(&self, node_ref: NodeRef, symbols: &mut SymbolTable) -> Result<StatementResult, RuntimeError> {
         match node_ref.as_node(self.graph_source) {
             Node::FunctionDeclaration(_) => {
                 //println!("FunctionDeclaration");
                 // TODO: check duplicate
                 symbols.set_symbol(node_ref, Symbol::Function(node_ref));
-                StatementResult::None
+                Ok(StatementResult::None)
             }
             Node::VariableDeclaration(variable) => {
                 //println!("VariableDeclaration");
                 // TODO: check duplicate
-                let symbol = self.eval_expr(variable.body, symbols);
+                let symbol = self.eval_expr(variable.body, symbols)?;
                 symbols.set_symbol(node_ref, symbol);
-                StatementResult::None
+                Ok(StatementResult::None)
             }
             Node::ReturnStatement(Some(expr)) => {
                 //println!("ReturnStatement");
-                let symbol = self.eval_expr(*expr, symbols);
-                StatementResult::ReturnWith(symbol)
+                let symbol = self.eval_expr(*expr, symbols)?;
+                Ok(StatementResult::ReturnWith(symbol))
             }
             Node::ReturnStatement(None) => {
                 //println!("ReturnStatement");
-                StatementResult::Return
+                Ok(StatementResult::Return)
             }
             Node::Assignment(statement) => {
                 //println!("Assignment");
-                let symbol = self.eval_expr(statement.body, symbols);
+                let symbol = self.eval_expr(statement.body, symbols)?;
                 symbols.set_symbol(statement.dest, symbol);
-                StatementResult::None
+                Ok(StatementResult::None)
             }
             Node::IfStatement(statement) => {
-                let condition = match self.eval_expr(statement.condition, symbols) {
+                let condition = match self.eval_expr(statement.condition, symbols)? {
                     Symbol::Bool(value) => value,
                     _ => panic!("bool expected (node_id={})", statement.condition.id),
                 };
@@ -139,7 +140,7 @@ impl<'a> Runner<'a> {
                 };
                 let mut result = StatementResult::None;
                 for &node_ref in block.iter() {
-                    result = self.exec_statement(node_ref, symbols);
+                    result = self.exec_statement(node_ref, symbols)?;
                     match result {
                         StatementResult::None => {}
                         StatementResult::Return
@@ -148,24 +149,24 @@ impl<'a> Runner<'a> {
                         }
                     }
                 }
-                result
+                Ok(result)
             }
             Node::Literal(_)
             | Node::BinaryExpr(_)
             | Node::CallExpr(_)
             | Node::FuncParam(_) => {
                 //println!("ExprStatement");
-                self.eval_expr(node_ref, symbols);
-                StatementResult::None
+                self.eval_expr(node_ref, symbols)?;
+                Ok(StatementResult::None)
             }
         }
     }
 
-    fn eval_expr(&self, node_ref: NodeRef, symbols: &mut SymbolTable) -> Symbol {
+    fn eval_expr(&self, node_ref: NodeRef, symbols: &mut SymbolTable) -> Result<Symbol, RuntimeError> {
         match node_ref.as_node(self.graph_source) {
             Node::VariableDeclaration(_) => {
                 match symbols.lookup_symbol(node_ref) {
-                    Some(x) => x,
+                    Some(x) => Ok(x),
                     None => panic!("symbol not found (node_id={})", node_ref.id),
                 }
             }
@@ -173,10 +174,10 @@ impl<'a> Runner<'a> {
                 //println!("Literal");
                 match literal.value {
                     LiteralValue::Number(n) => {
-                        Symbol::Number(n)
+                        Ok(Symbol::Number(n))
                     }
                     LiteralValue::Bool(value) => {
-                        Symbol::Bool(value)
+                        Ok(Symbol::Bool(value))
                     }
                 }
             }
@@ -184,19 +185,19 @@ impl<'a> Runner<'a> {
                 //println!("BinaryExpr");
                 match binary_expr.ty {
                     Type::Bool => {
-                        let left = self.eval_expr(binary_expr.left, symbols);
-                        let right = self.eval_expr(binary_expr.right, symbols);
+                        let left = self.eval_expr(binary_expr.left, symbols)?;
+                        let right = self.eval_expr(binary_expr.right, symbols)?;
                         match left {
                             Symbol::Number(l) => {
                                 match right {
                                     Symbol::Number(r) => {
                                         match binary_expr.operator {
-                                            Operator::Equal => Symbol::Bool(l == r),
-                                            Operator::NotEqual => Symbol::Bool(l != r),
-                                            Operator::LessThan => Symbol::Bool(l < r),
-                                            Operator::LessThanEqual => Symbol::Bool(l <= r),
-                                            Operator::GreaterThan => Symbol::Bool(l > r),
-                                            Operator::GreaterThanEqual => Symbol::Bool(l >= r),
+                                            Operator::Equal => Ok(Symbol::Bool(l == r)),
+                                            Operator::NotEqual => Ok(Symbol::Bool(l != r)),
+                                            Operator::LessThan => Ok(Symbol::Bool(l < r)),
+                                            Operator::LessThanEqual => Ok(Symbol::Bool(l <= r)),
+                                            Operator::GreaterThan => Ok(Symbol::Bool(l > r)),
+                                            Operator::GreaterThanEqual => Ok(Symbol::Bool(l >= r)),
                                             _ => panic!("unexpected operator (node_id={})", node_ref.id),
                                         }
                                     }
@@ -207,12 +208,12 @@ impl<'a> Runner<'a> {
                                 match right {
                                     Symbol::Bool(r) => {
                                         match binary_expr.operator {
-                                            Operator::Equal => Symbol::Bool(l == r),
-                                            Operator::NotEqual => Symbol::Bool(l != r),
-                                            Operator::LessThan => Symbol::Bool(l < r),
-                                            Operator::LessThanEqual => Symbol::Bool(l <= r),
-                                            Operator::GreaterThan => Symbol::Bool(l > r),
-                                            Operator::GreaterThanEqual => Symbol::Bool(l >= r),
+                                            Operator::Equal => Ok(Symbol::Bool(l == r)),
+                                            Operator::NotEqual => Ok(Symbol::Bool(l != r)),
+                                            Operator::LessThan => Ok(Symbol::Bool(l < r)),
+                                            Operator::LessThanEqual => Ok(Symbol::Bool(l <= r)),
+                                            Operator::GreaterThan => Ok(Symbol::Bool(l > r)),
+                                            Operator::GreaterThanEqual => Ok(Symbol::Bool(l >= r)),
                                             _ => panic!("unexpected operator (node_id={})", node_ref.id),
                                         }
                                     }
@@ -220,23 +221,25 @@ impl<'a> Runner<'a> {
                                 }
                             }
                             Symbol::NoneValue => panic!("unexpected operation (node_id={})", node_ref.id),
-                            Symbol::Function(_) => panic!("function comparison is not supported (node_id={})", node_ref.id),
+                            Symbol::Function(_) => {
+                                Err(RuntimeError::new(format!("function comparison is not supported (node_id={})", node_ref.id).as_str()))
+                            }
                         }
                     }
                     Type::Number => {
-                        let left = match self.eval_expr(binary_expr.left, symbols) {
+                        let left = match self.eval_expr(binary_expr.left, symbols)? {
                             Symbol::Number(n) => n,
                             _ => panic!("number expected (node_id={})", node_ref.id),
                         };
-                        let right = match self.eval_expr(binary_expr.right, symbols) {
+                        let right = match self.eval_expr(binary_expr.right, symbols)? {
                             Symbol::Number(n) => n,
                             _ => panic!("number expected (node_id={})", node_ref.id),
                         };
                         match binary_expr.operator {
-                            Operator::Add => Symbol::Number(left + right),
-                            Operator::Sub => Symbol::Number(left - right),
-                            Operator::Mult => Symbol::Number(left * right),
-                            Operator::Div => Symbol::Number(left / right),
+                            Operator::Add => Ok(Symbol::Number(left + right)),
+                            Operator::Sub => Ok(Symbol::Number(left - right)),
+                            Operator::Mult => Ok(Symbol::Number(left * right)),
+                            Operator::Div => Ok(Symbol::Number(left / right)),
                             _ => panic!("unexpected operator"),
                         }
                     }
@@ -252,7 +255,7 @@ impl<'a> Runner<'a> {
                             for i in 0..func.params.len() {
                                 //let param_node = &func.params[i];
                                 let arg_node = &call_expr.args[i];
-                                let arg_symbol = self.eval_expr(*arg_node, symbols);
+                                let arg_symbol = self.eval_expr(*arg_node, symbols)?;
                                 args.push(arg_symbol);
                                 //symbols.set_symbol(*param_node, arg_symbol);
                             }
@@ -280,7 +283,7 @@ impl<'a> Runner<'a> {
                                 };
                                 builtin::assert_eq(a, b);
                             } else {
-                                panic!("unknown builtin");
+                                return Err(RuntimeError::new("unknown builtin"));
                             }
                             symbols.pop_layer();
                             Symbol::NoneValue
@@ -289,14 +292,14 @@ impl<'a> Runner<'a> {
                             for i in 0..func.params.len() {
                                 let param_node = &func.params[i];
                                 let arg_node = &call_expr.args[i];
-                                let arg_symbol = self.eval_expr(*arg_node, symbols);
+                                let arg_symbol = self.eval_expr(*arg_node, symbols)?;
                                 symbols.set_symbol(*param_node, arg_symbol);
                             }
                             let mut result = None;
                             match &func.body {
                                 Some(body) => {
                                     for &node_ref in body.iter() {
-                                        match self.exec_statement(node_ref, symbols) {
+                                        match self.exec_statement(node_ref, symbols)? {
                                             StatementResult::None => {}
                                             StatementResult::Return => {
                                                 break;
@@ -319,12 +322,12 @@ impl<'a> Runner<'a> {
                     }
                     _ => panic!("function expected (callee={})", call_expr.callee.id),
                 };
-                symbol
+                Ok(symbol)
             }
             Node::FuncParam(_) => {
                 //println!("FuncParam");
                 match symbols.lookup_symbol(node_ref) {
-                    Some(x) => x,
+                    Some(x) => Ok(x),
                     None => panic!("symbol not found (node_id={})", node_ref.id),
                 }
             }

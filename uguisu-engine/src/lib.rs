@@ -49,7 +49,7 @@ pub fn run(code: &str) -> Result<(), String> {
     println!("[Info] running ...");
     let mut symbols = SymbolTable::new();
     let runner = run::Runner::new(&graph_source);
-    runner.run(&graph, &mut symbols);
+    runner.run(&graph, &mut symbols).map_err(|e| format!("Runtime Error: {}", e.message))?;
 
     Ok(())
 }
