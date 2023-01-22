@@ -187,4 +187,20 @@ mod test {
             ",
         );
     }
+
+    #[test]
+    fn test_relational_op() {
+        run_test(
+            "
+            external fn assert_eq(actual: number, expected: number);
+            fn main() {
+                let x = 0;
+                if 1 + 2 == 3 {
+                    x = 1;
+                }
+                assert_eq(x, 1);
+            }
+            ",
+        );
+    }
 }

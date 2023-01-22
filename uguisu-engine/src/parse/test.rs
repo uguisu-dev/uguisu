@@ -37,13 +37,21 @@ fn test_digits() {
 #[test]
 fn test_calc() {
     let actual = uguisu_parser::expression("1+2*(3+4)/5");
-    let expect = Ok(add_operation(
-        number(1),
-        div_operation(
-            mult_operation(number(2), add_operation(number(3), number(4))),
-            number(5),
-        ),
-    ));
+    let expect = Ok(
+        binary_expr("+",
+            number(1),
+            binary_expr("/",
+                binary_expr("*",
+                    number(2),
+                    binary_expr("+",
+                        number(3),
+                        number(4)
+                    )
+                ),
+                number(5),
+            ),
+        )
+    );
     assert_eq!(actual, expect);
 }
 

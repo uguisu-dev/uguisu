@@ -1,4 +1,4 @@
-use crate::analyze::{LiteralValue, Node, NodeRef, NodeId, Operator};
+use crate::analyze::{LiteralValue, Node, NodeRef, NodeId, Operator, Type};
 use std::collections::HashMap;
 
 mod builtin {
@@ -182,19 +182,64 @@ impl<'a> Runner<'a> {
             }
             Node::BinaryExpr(binary_expr) => {
                 //println!("BinaryExpr");
-                let left = match self.eval_expr(binary_expr.left, symbols) {
-                    Symbol::Number(n) => n,
-                    _ => panic!("number expected (node_id={})", node_ref.id),
-                };
-                let right = match self.eval_expr(binary_expr.right, symbols) {
-                    Symbol::Number(n) => n,
-                    _ => panic!("number expected (node_id={})", node_ref.id),
-                };
-                match binary_expr.operator {
-                    Operator::Add => Symbol::Number(left + right),
-                    Operator::Sub => Symbol::Number(left - right),
-                    Operator::Mult => Symbol::Number(left * right),
-                    Operator::Div => Symbol::Number(left / right),
+                match binary_expr.ty {
+                    Type::Bool => {
+                        let left = self.eval_expr(binary_expr.left, symbols);
+                        let right = self.eval_expr(binary_expr.right, symbols);
+                        match left {
+                            Symbol::Number(l) => {
+                                match right {
+                                    Symbol::Number(r) => {
+                                        match binary_expr.operator {
+                                            Operator::Equal => Symbol::Bool(l == r),
+                                            Operator::NotEqual => Symbol::Bool(l != r),
+                                            Operator::LessThan => Symbol::Bool(l < r),
+                                            Operator::LessThanEqual => Symbol::Bool(l <= r),
+                                            Operator::GreaterThan => Symbol::Bool(l > r),
+                                            Operator::GreaterThanEqual => Symbol::Bool(l >= r),
+                                            _ => panic!("unexpected operator (node_id={})", node_ref.id),
+                                        }
+                                    }
+                                    _ => panic!("number expected (node_id={})", node_ref.id),
+                                }
+                            }
+                            Symbol::Bool(l) => {
+                                match right {
+                                    Symbol::Bool(r) => {
+                                        match binary_expr.operator {
+                                            Operator::Equal => Symbol::Bool(l == r),
+                                            Operator::NotEqual => Symbol::Bool(l != r),
+                                            Operator::LessThan => Symbol::Bool(l < r),
+                                            Operator::LessThanEqual => Symbol::Bool(l <= r),
+                                            Operator::GreaterThan => Symbol::Bool(l > r),
+                                            Operator::GreaterThanEqual => Symbol::Bool(l >= r),
+                                            _ => panic!("unexpected operator (node_id={})", node_ref.id),
+                                        }
+                                    }
+                                    _ => panic!("bool expected (node_id={})", node_ref.id),
+                                }
+                            }
+                            Symbol::NoneValue => panic!("unexpected operation (node_id={})", node_ref.id),
+                            Symbol::Function(_) => panic!("function comparison is not supported (node_id={})", node_ref.id),
+                        }
+                    }
+                    Type::Number => {
+                        let left = match self.eval_expr(binary_expr.left, symbols) {
+                            Symbol::Number(n) => n,
+                            _ => panic!("number expected (node_id={})", node_ref.id),
+                        };
+                        let right = match self.eval_expr(binary_expr.right, symbols) {
+                            Symbol::Number(n) => n,
+                            _ => panic!("number expected (node_id={})", node_ref.id),
+                        };
+                        match binary_expr.operator {
+                            Operator::Add => Symbol::Number(left + right),
+                            Operator::Sub => Symbol::Number(left - right),
+                            Operator::Mult => Symbol::Number(left * right),
+                            Operator::Div => Symbol::Number(left / right),
+                            _ => panic!("unexpected operator"),
+                        }
+                    }
                 }
             }
             Node::CallExpr(call_expr) => {
