@@ -1,5 +1,3 @@
-external fn print_num(value: number);
-
 fn calc(x: number): number {
     if x == 0 {
         return 1;

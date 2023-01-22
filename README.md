@@ -4,8 +4,6 @@ Not ready to use yet.
 
 The syntax is like this:
 ```
-external fn print_num(value: number);
-
 fn calc(x: number): number {
     if x == 0 {
         return 1;
@@ -30,12 +28,12 @@ fn main() {
 - `if`文
 - `return`文
 - 二項演算子: `+` `-` `*` `/` `==` `!=` `<` `<=` `>` `>=`
-- ビルトイン関数
-  - `external fn print_num(value: number);`
-  - `external fn assert_eq(actual: number, expected: number);`
 - 値
   - `number`型
   - `bool`型
+- ビルトイン関数
+  - `fn print_num(value: number);`
+  - `fn assert_eq(actual: number, expected: number);`
 
 ## Run the example code
 ```
