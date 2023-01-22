@@ -230,6 +230,14 @@ impl<'a> Analyzer<'a> {
         }
     }
 
+    fn compare_ty(&self, x: Type, y: Type) -> Result<Type, SyntaxError> {
+        if x == y {
+            Ok(x)
+        } else {
+            Err(SyntaxError::new("type error"))
+        }
+    }
+
     fn compare_ty_option(&self, x: Option<Type>, y: Option<Type>) -> Result<Option<Type>, SyntaxError> {
         if x == y {
             Ok(x)
@@ -380,9 +388,16 @@ impl<'a> Analyzer<'a> {
                     .attributes
                     .iter()
                     .any(|x| *x == parse::VariableAttribute::Let);
-                let ty = match self.get_ty(body) {
+                let infer_ty = match self.get_ty(body) {
                     Some(x) => x,
                     None => return Err(SyntaxError::new("value expected")),
+                };
+                let ty = match &decl.type_identifier {
+                    Some(ident) => {
+                        let ty = Self::lookup_ty(ident)?;
+                        self.compare_ty(ty, infer_ty)?
+                    }
+                    None => infer_ty,
                 };
                 // make node
                 let node = Node::VariableDeclaration(VariableDeclaration {

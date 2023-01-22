@@ -45,6 +45,7 @@ pub enum FunctionAttribute {
 pub struct VariableDeclaration {
     pub identifier: String,
     pub body: Box<Node>,
+    pub type_identifier: Option<String>,
     pub attributes: Vec<VariableAttribute>,
 }
 
@@ -125,11 +126,13 @@ pub fn function_declaration(
 pub fn variable_declaration(
     identifier: String,
     body: Node,
+    type_identifier: Option<String>,
     attributes: Vec<VariableAttribute>,
 ) -> Node {
     Node::VariableDeclaration(VariableDeclaration {
         identifier,
         body: Box::new(body),
+        type_identifier,
         attributes,
     })
 }
@@ -290,8 +293,8 @@ peg::parser! {
         rule variable_declaration() -> Node
             = kind:(
                 "let" {VariableAttribute::Let} / "const" {VariableAttribute::Const}
-            ) __+ id:idenfitier() __* "=" __* e:expression() ";"
-        { variable_declaration(id.to_string(), e, vec![kind]) }
+            ) __+ id:idenfitier() ty:(__* ":" __* x:idenfitier() {x.to_string()})? __* "=" __* e:expression() ";"
+        { variable_declaration(id.to_string(), e, ty, vec![kind]) }
 
         rule assignment() -> Node
             = id:idenfitier() __* "=" __* e:expression() ";"
