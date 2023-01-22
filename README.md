@@ -17,7 +17,6 @@ fn calc(x: number): number {
 fn main() {
     print_num(calc(10));
 }
-
 ```
 
 ## Run the example code
