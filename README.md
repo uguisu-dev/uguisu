@@ -6,13 +6,18 @@ The syntax is like this:
 ```
 external fn print_num(value: number);
 
-fn add(x: number, y: number): number {
-    return x + y;
+fn calc(x: number): number {
+    if x == 0 {
+        return 1;
+    } else {
+        return calc(x - 1) * 2;
+    }
 }
 
 fn main() {
-    print_num(add(1, 2) * 3);
+    print_num(calc(10));
 }
+
 ```
 
 ## Run the example code
