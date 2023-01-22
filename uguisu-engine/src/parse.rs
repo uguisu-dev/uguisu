@@ -164,33 +164,9 @@ pub fn bool(value: bool) -> Node {
     Node::Literal(Literal::Bool(value))
 }
 
-pub fn add_operation(left: Node, right: Node) -> Node {
+pub fn binary_expr(op: &str, left: Node, right: Node) -> Node {
     Node::BinaryExpr(BinaryExpr {
-        operator: "+".to_string(),
-        left: Box::new(left),
-        right: Box::new(right),
-    })
-}
-
-pub fn sub_operation(left: Node, right: Node) -> Node {
-    Node::BinaryExpr(BinaryExpr {
-        operator: "-".to_string(),
-        left: Box::new(left),
-        right: Box::new(right),
-    })
-}
-
-pub fn mult_operation(left: Node, right: Node) -> Node {
-    Node::BinaryExpr(BinaryExpr {
-        operator: "*".to_string(),
-        left: Box::new(left),
-        right: Box::new(right),
-    })
-}
-
-pub fn div_operation(left: Node, right: Node) -> Node {
-    Node::BinaryExpr(BinaryExpr {
-        operator: "/".to_string(),
+        operator: op.to_string(),
         left: Box::new(left),
         right: Box::new(right),
     })
@@ -253,19 +229,19 @@ peg::parser! {
             / e:expression() __* ";" { e }
 
         pub rule expression() -> Node = precedence! {
-            // left:(@) __* "==" __* right:@ { Node::eq(left, right) }
-            // left:(@) __* "!=" __* right:@ { Node::ne(left, right) }
-            // --
-            // left:(@) __* "<" __* right:@ { Node::lt(left, right) }
-            // left:(@) __* "<=" __* right:@ { Node::lte(left, right) }
-            // left:(@) __* ">" __* right:@ { Node::gt(left, right) }
-            // left:(@) __* ">=" __* right:@ { Node::gte(left, right) }
-            // --
-            left:(@) __* "+" __* right:@ { add_operation(left, right) }
-            left:(@) __* "-" __* right:@ { sub_operation(left, right) }
+            left:(@) __* "==" __* right:@ { binary_expr("==", left, right) }
+            left:(@) __* "!=" __* right:@ { binary_expr("!=", left, right) }
             --
-            left:(@) __* "*" __* right:@ { mult_operation(left, right) }
-            left:(@) __* "/" __* right:@ { div_operation(left, right) }
+            left:(@) __* "<" __* right:@ { binary_expr("<", left, right) }
+            left:(@) __* "<=" __* right:@ { binary_expr("<=", left, right) }
+            left:(@) __* ">" __* right:@ { binary_expr(">", left, right) }
+            left:(@) __* ">=" __* right:@ { binary_expr(">=", left, right) }
+            --
+            left:(@) __* "+" __* right:@ { binary_expr("+", left, right) }
+            left:(@) __* "-" __* right:@ { binary_expr("-", left, right) }
+            --
+            left:(@) __* "*" __* right:@ { binary_expr("*", left, right) }
+            left:(@) __* "/" __* right:@ { binary_expr("/", left, right) }
             // left:(@) __* "%" __* right:@ { Node::mod(left, right) }
             --
             // "!" __* right:(@) { right }
