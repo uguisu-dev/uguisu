@@ -501,6 +501,7 @@ impl<'a> Analyzer<'a> {
     }
 
     /// Generate a graph node from a expression AST node.
+    /// - infer type for the expression
     /// - check type compatibility for inner expression
     fn translate_expr(&mut self, parser_node: &parse::Node) -> Result<NodeRef, SyntaxError> {
         match parser_node {
