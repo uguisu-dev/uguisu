@@ -10,9 +10,11 @@ pub enum Node {
     // statement
     FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
+    BreakStatement,
     ReturnStatement(Option<Box<Node>>),
     Assignment(Assignment),
     IfStatement(IfStatement),
+    LoopStatement(LoopStatement),
     // expression
     Reference(Reference),
     Literal(Literal),
@@ -89,6 +91,11 @@ pub struct CallExpr {
 pub struct IfStatement {
     pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // Vec(expression & statements)
     pub else_block: Option<Vec<Node>>, // statements
+}
+
+#[derive(Debug, PartialEq)]
+pub struct LoopStatement {
+    pub body: Vec<Node>, // statements
 }
 
 #[derive(Debug, PartialEq)]
@@ -196,6 +203,12 @@ pub fn if_statement(
     })
 }
 
+pub fn loop_statement(body: Vec<Node>) -> Node {
+    Node::LoopStatement(LoopStatement {
+        body,
+    })
+}
+
 //
 // parser
 //
@@ -225,9 +238,11 @@ peg::parser! {
 
         pub rule statement() -> Node
             = function_declaration()
+            / break_statement()
             / return_statement()
             / variable_declaration()
             / if_statement()
+            / loop_statement()
             / assignment()
             / e:expression() __* ";" { e }
 
@@ -286,6 +301,9 @@ peg::parser! {
 
         rule func_dec_attr() -> FunctionAttribute
             = "external" { FunctionAttribute::External }
+
+        rule break_statement() -> Node
+            = "break" __* ";" { Node::BreakStatement }
 
         rule return_statement() -> Node
             = "return" e2:(__+ e1:expression() { e1 })? __* ";" { return_statement(e2) }
@@ -349,6 +367,11 @@ peg::parser! {
         rule else_part() -> Vec<Node>
             = "else" __* body:block() {
                 body
+            }
+
+        rule loop_statement() -> Node
+            = "loop" __* body:block() {
+                loop_statement(body)
             }
 
         rule block() -> Vec<Node>

@@ -114,6 +114,24 @@ fn test_calc_with_variable() {
 }
 
 #[test]
+fn test_loop_statement() {
+    run_test(
+        "
+        fn main() {
+            let i = 0;
+            let x = 1;
+            loop {
+                if i == 10 { break; }
+                x = x * 2;
+                i = i + 1;
+            }
+            assert_eq(x, 1024);
+        }
+        ",
+    );
+}
+
+#[test]
 fn test_bool() {
     run_test(
         "

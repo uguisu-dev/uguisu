@@ -39,9 +39,11 @@ pub enum Node {
     // statement
     FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
+    BreakStatement,
     ReturnStatement(Option<NodeRef>),
     Assignment(Assignment),
     IfStatement(IfStatement),
+    LoopStatement(Vec<NodeRef>),
     // expression
     Literal(Literal),
     BinaryExpr(BinaryExpr),
@@ -424,6 +426,15 @@ impl<'a> Analyzer<'a> {
                 self.scope.add_node(&decl.identifier, node_ref);
                 Ok(node_ref)
             }
+            parse::Node::BreakStatement => {
+                if self.scope.layers.len() == 1 {
+                    return Err(SyntaxError::new("A break statement cannot be used in global space"));
+                }
+                // TODO: check target
+                let node = Node::BreakStatement;
+                let node_ref = self.create_node(node);
+                Ok(node_ref)
+            }
             parse::Node::ReturnStatement(expr) => {
                 // TODO: consider type check
                 // when global scope
@@ -498,6 +509,15 @@ impl<'a> Analyzer<'a> {
                     Some(x) => x,
                     None => panic!("unexpected error: cond blocks is empty"),
                 };
+                Ok(node_ref)
+            }
+            parse::Node::LoopStatement(statement) => {
+                if self.scope.layers.len() == 1 {
+                    return Err(SyntaxError::new("A loop statement cannot be used in global space"));
+                }
+                let body = self.translate_statements(&statement.body)?;
+                let node = Node::LoopStatement(body);
+                let node_ref = self.create_node(node);
                 Ok(node_ref)
             }
             parse::Node::Reference(_)
@@ -630,9 +650,11 @@ impl<'a> Analyzer<'a> {
         let name = match node_ref.as_node(self.source) {
             Node::FunctionDeclaration(_) => "FunctionDeclaration",
             Node::VariableDeclaration(_) => "VariableDeclaration",
+            Node::BreakStatement => "BreakStatement",
             Node::ReturnStatement(_) => "ReturnStatement",
             Node::Assignment(_) => "Assignment",
             Node::IfStatement(_) => "IfStatement",
+            Node::LoopStatement(_) => "LoopStatement",
             Node::Literal(_) => "Literal",
             Node::BinaryExpr(_) => "BinaryExpr",
             Node::CallExpr(_) => "CallExpr",
@@ -669,6 +691,7 @@ impl<'a> Analyzer<'a> {
                 println!("  }}");
                 println!("  is_mutable: {}", variable.is_mutable);
             }
+            Node::BreakStatement => {}
             Node::ReturnStatement(expr) => {
                 match expr {
                     Some(x) => {
@@ -700,6 +723,13 @@ impl<'a> Analyzer<'a> {
                 println!("  }}");
                 println!("  else_block: {{");
                 for item in if_statement.else_block.iter() {
+                    println!("    [{}]", item.id);
+                }
+                println!("  }}");
+            }
+            Node::LoopStatement(statement) => {
+                println!("  body: {{");
+                for item in statement.iter() {
                     println!("    [{}]", item.id);
                 }
                 println!("  }}");
