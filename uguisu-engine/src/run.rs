@@ -1,4 +1,5 @@
-use crate::{analyze::{LiteralValue, Node, NodeRef, NodeId, Operator, Type}, RuntimeError};
+use crate::analyze::{LiteralValue, Node, NodeId, NodeRef, Operator, Type};
+use crate::RuntimeError;
 use std::collections::HashMap;
 
 mod builtin {
@@ -14,6 +15,7 @@ mod builtin {
 
 enum StatementResult {
     None,
+    Break,
     Return,
     ReturnWith(Symbol),
 }
@@ -44,7 +46,7 @@ impl SymbolTable {
 
     pub fn pop_layer(&mut self) {
         if self.layers.len() == 1 {
-            panic!("Left the root scope.");
+            panic!("Left the root layer.");
         }
         self.layers.remove(0);
     }
@@ -62,7 +64,7 @@ impl SymbolTable {
         for layer in self.layers.iter() {
             match layer.symbols.get(&node_ref.id) {
                 Some(x) => return Some(x.clone()),
-                None => {},
+                None => {}
             }
         }
         None
@@ -76,7 +78,9 @@ struct SymbolTableLayer {
 
 impl SymbolTableLayer {
     pub fn new() -> Self {
-        Self { symbols: HashMap::new() }
+        Self {
+            symbols: HashMap::new(),
+        }
     }
 }
 
@@ -86,9 +90,7 @@ pub struct Runner<'a> {
 
 impl<'a> Runner<'a> {
     pub fn new(graph_source: &'a HashMap<NodeId, Node>) -> Self {
-        Self {
-            graph_source,
-        }
+        Self { graph_source }
     }
 
     pub fn run(&self, graph: &Vec<NodeRef>, symbols: &mut SymbolTable) -> Result<(), RuntimeError> {
@@ -98,8 +100,12 @@ impl<'a> Runner<'a> {
         Ok(())
     }
 
-    fn exec_statement(&self, node_ref: NodeRef, symbols: &mut SymbolTable) -> Result<StatementResult, RuntimeError> {
-        match node_ref.as_node(self.graph_source) {
+    fn exec_statement(
+        &self,
+        node_ref: NodeRef,
+        symbols: &mut SymbolTable,
+    ) -> Result<StatementResult, RuntimeError> {
+        match node_ref.get(self.graph_source) {
             Node::FunctionDeclaration(_) => {
                 //println!("FunctionDeclaration");
                 // TODO: check duplicate
@@ -118,6 +124,7 @@ impl<'a> Runner<'a> {
                 let symbol = self.eval_expr(*expr, symbols)?;
                 Ok(StatementResult::ReturnWith(symbol))
             }
+            Node::BreakStatement => Ok(StatementResult::Break),
             Node::ReturnStatement(None) => {
                 //println!("ReturnStatement");
                 Ok(StatementResult::Return)
@@ -143,9 +150,30 @@ impl<'a> Runner<'a> {
                     result = self.exec_statement(node_ref, symbols)?;
                     match result {
                         StatementResult::None => {}
-                        StatementResult::Return
+                        StatementResult::Break
+                        | StatementResult::Return
                         | StatementResult::ReturnWith(_) => {
                             break;
+                        }
+                    }
+                }
+                Ok(result)
+            }
+            Node::LoopStatement(body) => {
+                let mut result;
+                'A: loop {
+                    for &node_ref in body.iter() {
+                        result = self.exec_statement(node_ref, symbols)?;
+                        match result {
+                            StatementResult::None => {}
+                            StatementResult::Break => {
+                                result = StatementResult::None;
+                                break 'A;
+                            }
+                            StatementResult::Return
+                            | StatementResult::ReturnWith(_) => {
+                                break 'A;
+                            }
                         }
                     }
                 }
@@ -162,8 +190,12 @@ impl<'a> Runner<'a> {
         }
     }
 
-    fn eval_expr(&self, node_ref: NodeRef, symbols: &mut SymbolTable) -> Result<Symbol, RuntimeError> {
-        match node_ref.as_node(self.graph_source) {
+    fn eval_expr(
+        &self,
+        node_ref: NodeRef,
+        symbols: &mut SymbolTable,
+    ) -> Result<Symbol, RuntimeError> {
+        match node_ref.get(self.graph_source) {
             Node::VariableDeclaration(_) => {
                 match symbols.lookup_symbol(node_ref) {
                     Some(x) => Ok(x),
@@ -173,12 +205,8 @@ impl<'a> Runner<'a> {
             Node::Literal(literal) => {
                 //println!("Literal");
                 match literal.value {
-                    LiteralValue::Number(n) => {
-                        Ok(Symbol::Number(n))
-                    }
-                    LiteralValue::Bool(value) => {
-                        Ok(Symbol::Bool(value))
-                    }
+                    LiteralValue::Number(n) => Ok(Symbol::Number(n)),
+                    LiteralValue::Bool(value) => Ok(Symbol::Bool(value)),
                 }
             }
             Node::BinaryExpr(binary_expr) => {
@@ -220,10 +248,13 @@ impl<'a> Runner<'a> {
                                     _ => panic!("bool expected (node_id={})", node_ref.id),
                                 }
                             }
-                            Symbol::NoneValue => panic!("unexpected operation (node_id={})", node_ref.id),
-                            Symbol::Function(_) => {
-                                Err(RuntimeError::new(format!("function comparison is not supported (node_id={})", node_ref.id).as_str()))
+                            Symbol::NoneValue => {
+                                panic!("unexpected operation (node_id={})", node_ref.id)
                             }
+                            Symbol::Function(_) =>
+                                Err(RuntimeError::new(
+                                    format!("function comparison is not supported (node_id={})", node_ref.id).as_str()
+                                )),
                         }
                     }
                     Type::Number => {
@@ -247,7 +278,7 @@ impl<'a> Runner<'a> {
             }
             Node::CallExpr(call_expr) => {
                 //println!("CallExpr");
-                let symbol = match call_expr.callee.as_node(self.graph_source) {
+                let symbol = match call_expr.callee.get(self.graph_source) {
                     Node::FunctionDeclaration(func) => {
                         if func.is_external {
                             symbols.push_layer();
@@ -301,6 +332,11 @@ impl<'a> Runner<'a> {
                                     for &node_ref in body.iter() {
                                         match self.exec_statement(node_ref, symbols)? {
                                             StatementResult::None => {}
+                                            StatementResult::Break => {
+                                                return Err(RuntimeError::new(
+                                                    "break target is missing",
+                                                ));
+                                            }
                                             StatementResult::Return => {
                                                 break;
                                             }

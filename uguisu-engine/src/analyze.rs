@@ -16,8 +16,71 @@ impl NodeRef {
         Self { id: node_id }
     }
 
-    pub fn as_node<'a>(&self, source: &'a HashMap<NodeId, Node>) -> &'a Node {
+    pub fn get<'a>(&self, source: &'a HashMap<NodeId, Node>) -> &'a Node {
         &source[&self.id]
+    }
+
+    pub fn get_mut<'a>(&self, source: &'a mut HashMap<NodeId, Node>) -> &'a mut Node {
+        match source.get_mut(&self.id) {
+            Some(x) => x,
+            None => panic!(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Scope {
+    layers: Vec<ScopeLayer>,
+}
+
+impl Scope {
+    pub fn new() -> Self {
+        Self {
+            layers: vec![ScopeLayer::new()],
+        }
+    }
+
+    pub fn enter_scope(&mut self) {
+        self.layers.insert(0, ScopeLayer::new());
+    }
+
+    pub fn leave_scope(&mut self) {
+        if self.layers.len() == 1 {
+            panic!("Left the root layer.");
+        }
+        self.layers.remove(0);
+    }
+
+    pub fn add_node(&mut self, identifier: &str, node: NodeRef) {
+        match self.layers.get_mut(0) {
+            Some(layer) => {
+                layer.nodes.insert(identifier.to_string(), node);
+            }
+            None => panic!("layer not found"),
+        }
+    }
+
+    fn lookup(&self, identifier: &str) -> Option<NodeRef> {
+        for layer in self.layers.iter() {
+            match layer.nodes.get(identifier) {
+                Some(&x) => return Some(x),
+                None => {}
+            }
+        }
+        None
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ScopeLayer {
+    nodes: HashMap<String, NodeRef>,
+}
+
+impl ScopeLayer {
+    pub fn new() -> Self {
+        Self {
+            nodes: HashMap::new(),
+        }
     }
 }
 
@@ -26,9 +89,11 @@ pub enum Node {
     // statement
     FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
+    BreakStatement,
     ReturnStatement(Option<NodeRef>),
     Assignment(Assignment),
     IfStatement(IfStatement),
+    LoopStatement(Vec<NodeRef>),
     // expression
     Literal(Literal),
     BinaryExpr(BinaryExpr),
@@ -36,10 +101,59 @@ pub enum Node {
     FuncParam(FuncParam),
 }
 
+impl Node {
+    fn get_ty(&self) -> Option<Type> {
+        match self {
+            Node::Literal(literal) => {
+                Some(literal.ty.clone())
+            }
+            Node::BinaryExpr(binary_expr) => {
+                Some(binary_expr.ty.clone())
+            }
+            Node::CallExpr(call_expr) => {
+                call_expr.ty.clone()
+            }
+            Node::FuncParam(func_param) => {
+                Some(func_param.ty.clone())
+            }
+            Node::VariableDeclaration(variable) => {
+                Some(variable.ty.clone())
+            }
+            _ => panic!("unexpected node"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     Number,
     Bool,
+}
+
+impl Type {
+    fn lookup(ty_identifier: &str) -> Result<Type, SyntaxError> {
+        match ty_identifier {
+            "number" => Ok(Type::Number),
+            "bool" => Ok(Type::Bool),
+            _ => Err(SyntaxError::new("unknown type name")),
+        }
+    }
+
+    fn compare(x: Type, y: Type) -> Result<Type, SyntaxError> {
+        if x == y {
+            Ok(x)
+        } else {
+            Err(SyntaxError::new("type not compatible"))
+        }
+    }
+
+    fn compare_option(x: Option<Type>, y: Option<Type>) -> Result<Option<Type>, SyntaxError> {
+        if x == y {
+            Ok(x)
+        } else {
+            Err(SyntaxError::new("type not compatible"))
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -120,60 +234,6 @@ pub struct CallExpr {
     pub ty: Option<Type>,
 }
 
-#[derive(Debug, Clone)]
-pub struct Scope {
-    layers: Vec<ScopeLayer>,
-}
-
-impl Scope {
-    pub fn new() -> Self {
-        Self {
-            layers: vec![ScopeLayer::new()],
-        }
-    }
-
-    pub fn enter_scope(&mut self) {
-        self.layers.insert(0, ScopeLayer::new());
-    }
-
-    pub fn leave_scope(&mut self) {
-        if self.layers.len() == 1 {
-            panic!("Left the root scope.");
-        }
-        self.layers.remove(0);
-    }
-
-    pub fn add_node(&mut self, identifier: &str, node: NodeRef) {
-        match self.layers.get_mut(0) {
-            Some(layer) => {
-                layer.nodes.insert(identifier.to_string(), node);
-            }
-            None => panic!("layer not found"),
-        }
-    }
-
-    fn lookup(&self, identifier: &str) -> Option<NodeRef> {
-        for layer in self.layers.iter() {
-            match layer.nodes.get(identifier) {
-                Some(&x) => return Some(x),
-                None => {}
-            }
-        }
-        None
-    }
-}
-
-#[derive(Debug, Clone)]
-struct ScopeLayer {
-    nodes: HashMap<String, NodeRef>,
-}
-
-impl ScopeLayer {
-    pub fn new() -> Self {
-        Self { nodes: HashMap::new() }
-    }
-}
-
 pub struct Analyzer<'a> {
     source: &'a mut HashMap<NodeId, Node>,
     scope: Scope,
@@ -187,66 +247,18 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn create_node(&mut self, node: Node) -> NodeRef {
+    fn register_node(&mut self, node: Node) -> NodeRef {
         let node_id = self.source.len();
         self.source.insert(node_id, node);
         NodeRef::new(node_id)
     }
 
-    fn get_node(&self, node_ref: NodeRef) -> Option<&Node> {
-        self.source.get(&node_ref.id)
-    }
-
-    fn get_node_mut(&mut self, node_ref: NodeRef) -> Option<&mut Node> {
-        self.source.get_mut(&node_ref.id)
-    }
-
-    fn lookup_ty(ty_identifier: &str) -> Result<Type, SyntaxError> {
-        match ty_identifier {
-            "number" => Ok(Type::Number),
-            "bool" => Ok(Type::Bool),
-            _ => Err(SyntaxError::new("unknown type")),
-        }
-    }
-
-    fn get_ty(&self, node_ref: NodeRef) -> Option<Type> {
-        match node_ref.as_node(self.source) {
-            Node::Literal(literal) => {
-                Some(literal.ty.clone())
-            }
-            Node::BinaryExpr(binary_expr) => {
-                Some(binary_expr.ty.clone())
-            }
-            Node::CallExpr(call_expr) => {
-                call_expr.ty.clone()
-            }
-            Node::FuncParam(func_param) => {
-                Some(func_param.ty.clone())
-            }
-            Node::VariableDeclaration(variable) => {
-                Some(variable.ty.clone())
-            }
-            _ => panic!("unexpected node (node_id={}, node={:?})", node_ref.id, node_ref.as_node(self.source)),
-        }
-    }
-
-    fn compare_ty(&self, x: Type, y: Type) -> Result<Type, SyntaxError> {
-        if x == y {
-            Ok(x)
-        } else {
-            Err(SyntaxError::new("type error"))
-        }
-    }
-
-    fn compare_ty_option(&self, x: Option<Type>, y: Option<Type>) -> Result<Option<Type>, SyntaxError> {
-        if x == y {
-            Ok(x)
-        } else {
-            Err(SyntaxError::new("type error"))
-        }
-    }
-
-    fn register_builtin(&mut self, name: &str, params: Vec<(&str, Type)>, ret_ty: Option<Type>) -> NodeRef {
+    fn register_builtin(
+        &mut self,
+        name: &str,
+        params: Vec<(&str, Type)>,
+        ret_ty: Option<Type>,
+    ) -> NodeRef {
         let mut param_nodes = Vec::new();
         for (i, (param_name, param_ty)) in params.iter().enumerate() {
             // make param node
@@ -255,7 +267,7 @@ impl<'a> Analyzer<'a> {
                 param_index: i,
                 ty: param_ty.clone(),
             });
-            let node_ref = self.create_node(node);
+            let node_ref = self.register_node(node);
             param_nodes.push(node_ref);
         }
         // make function node
@@ -266,7 +278,7 @@ impl<'a> Analyzer<'a> {
             is_external: true,
             body: None,
         });
-        let node_ref = self.create_node(decl_node);
+        let node_ref = self.register_node(decl_node);
         // add to scope
         self.scope.add_node(name, node_ref);
         node_ref
@@ -277,11 +289,7 @@ impl<'a> Analyzer<'a> {
         let mut ids = Vec::new();
 
         // register builtin declarations
-        ids.push(self.register_builtin(
-            "print_num",
-            vec![("value", Type::Number)],
-            None,
-        ));
+        ids.push(self.register_builtin("print_num", vec![("value", Type::Number)], None));
         ids.push(self.register_builtin(
             "assert_eq",
             vec![("actual", Type::Number), ("expected", Type::Number)],
@@ -297,7 +305,10 @@ impl<'a> Analyzer<'a> {
         Ok(ids)
     }
 
-    fn translate_statements(&mut self, parser_nodes: &Vec<parse::Node>) -> Result<Vec<NodeRef>, SyntaxError> {
+    fn translate_statements(
+        &mut self,
+        parser_nodes: &Vec<parse::Node>,
+    ) -> Result<Vec<NodeRef>, SyntaxError> {
         let mut ids = Vec::new();
         for parser_node in parser_nodes.iter() {
             ids.push(self.translate_statement(parser_node)?);
@@ -314,7 +325,7 @@ impl<'a> Analyzer<'a> {
                 let mut params = Vec::new();
                 for (i, param) in parser_decl.params.iter().enumerate() {
                     let param_type = match &param.type_identifier {
-                        Some(x) => Self::lookup_ty(x)?,
+                        Some(x) => Type::lookup(x)?,
                         None => return Err(SyntaxError::new("parameter type missing")),
                     };
                     // make param node
@@ -323,11 +334,11 @@ impl<'a> Analyzer<'a> {
                         param_index: i,
                         ty: param_type,
                     });
-                    let node_ref = self.create_node(node);
+                    let node_ref = self.register_node(node);
                     params.push(node_ref);
                 }
                 let ret_ty = match &parser_decl.ret {
-                    Some(x) => Some(Self::lookup_ty(x)?),
+                    Some(x) => Some(Type::lookup(x)?),
                     None => None,
                 };
                 let is_external = parser_decl
@@ -335,7 +346,9 @@ impl<'a> Analyzer<'a> {
                     .iter()
                     .any(|x| *x == parse::FunctionAttribute::External);
                 if is_external {
-                    return Err(SyntaxError::new("External function declarations are obsoleted"));
+                    return Err(SyntaxError::new(
+                        "External function declarations are obsoleted",
+                    ));
                 }
                 // make function node
                 let decl_node = Node::FunctionDeclaration(FunctionDeclaration {
@@ -345,7 +358,7 @@ impl<'a> Analyzer<'a> {
                     is_external,
                     body: None,
                 });
-                let node_ref = self.create_node(decl_node);
+                let node_ref = self.register_node(decl_node);
                 // add to scope
                 self.scope.add_node(&parser_decl.identifier, node_ref);
 
@@ -353,17 +366,17 @@ impl<'a> Analyzer<'a> {
                 self.scope.enter_scope();
                 let mut i = 0;
                 loop {
-                    let decl = match self.get_node(node_ref) {
-                        Some(Node::FunctionDeclaration(x)) => x,
-                        _ => panic!("failed get_node"),
+                    let decl = match node_ref.get(self.source) {
+                        Node::FunctionDeclaration(x) => x,
+                        _ => panic!("function expected"),
                     };
                     let param = match decl.params.get(i) {
                         Some(&x) => x,
                         None => break,
                     };
-                    let param_node = match param.as_node(self.source) {
+                    let param_node = match param.get(self.source) {
                         Node::FuncParam(x) => x,
-                        _ => panic!("unexpected"),
+                        _ => panic!("function parameter expected"),
                     };
                     // add to scope
                     self.scope.add_node(&param_node.identifier, param);
@@ -373,9 +386,9 @@ impl<'a> Analyzer<'a> {
                     Some(body_nodes) => Some(self.translate_statements(body_nodes)?),
                     None => None,
                 };
-                let decl = match self.get_node_mut(node_ref) {
-                    Some(Node::FunctionDeclaration(x)) => x,
-                    _ => panic!("failed get_node"),
+                let decl = match node_ref.get_mut(self.source) {
+                    Node::FunctionDeclaration(x) => x,
+                    _ => panic!("function expected"),
                 };
                 decl.body = body;
                 self.scope.leave_scope();
@@ -388,15 +401,12 @@ impl<'a> Analyzer<'a> {
                     .attributes
                     .iter()
                     .any(|x| *x == parse::VariableAttribute::Let);
-                let infer_ty = match self.get_ty(body) {
+                let infer_ty = match body.get(self.source).get_ty() {
                     Some(x) => x,
                     None => return Err(SyntaxError::new("value expected")),
                 };
                 let ty = match &decl.type_identifier {
-                    Some(ident) => {
-                        let ty = Self::lookup_ty(ident)?;
-                        self.compare_ty(ty, infer_ty)?
-                    }
+                    Some(ident) => Type::compare(Type::lookup(ident)?, infer_ty)?,
                     None => infer_ty,
                 };
                 // make node
@@ -406,47 +416,62 @@ impl<'a> Analyzer<'a> {
                     is_mutable,
                     ty,
                 });
-                let node_ref = self.create_node(node);
+                let node_ref = self.register_node(node);
                 // add to scope
                 self.scope.add_node(&decl.identifier, node_ref);
+                Ok(node_ref)
+            }
+            parse::Node::BreakStatement => {
+                if self.scope.layers.len() == 1 {
+                    return Err(SyntaxError::new(
+                        "A break statement cannot be used in global space",
+                    ));
+                }
+                // TODO: check target
+                let node = Node::BreakStatement;
+                let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
             parse::Node::ReturnStatement(expr) => {
                 // TODO: consider type check
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("A return statement cannot be used in global space"));
+                    return Err(SyntaxError::new(
+                        "A return statement cannot be used in global space",
+                    ));
                 }
                 let inner = match expr {
                     Some(x) => Some(self.translate_expr(x)?),
                     None => None,
                 };
                 let node = Node::ReturnStatement(inner);
-                let node_ref = self.create_node(node);
+                let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
             parse::Node::Assignment(statement) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("An assignment statement cannot be used in global space"));
+                    return Err(SyntaxError::new(
+                        "An assignment statement cannot be used in global space",
+                    ));
                 }
                 let dest = self.translate_expr(&statement.dest)?;
                 let body = self.translate_expr(&statement.body)?;
                 let node = Node::Assignment(Assignment { dest, body });
-                let node_ref = self.create_node(node);
+                let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
             parse::Node::IfStatement(if_statement) => {
                 fn transform(
                     index: usize,
                     analyzer: &mut Analyzer,
-                    items: &Vec<(Box<parse::Node>,Vec<parse::Node>)>,
+                    items: &Vec<(Box<parse::Node>, Vec<parse::Node>)>,
                     else_block: &Option<Vec<parse::Node>>,
                 ) -> Result<Option<NodeRef>, SyntaxError> {
                     match items.get(index) {
                         Some((cond, then_block)) => {
                             let cond_node = analyzer.translate_expr(cond)?;
-                            if analyzer.get_ty(cond_node) != Some(Type::Bool) {
+                            if cond_node.get(analyzer.source).get_ty() != Some(Type::Bool) {
                                 return Err(SyntaxError::new("type error: bool expected"));
                             }
                             let then_nodes = analyzer.translate_statements(then_block)?;
@@ -459,9 +484,9 @@ impl<'a> Analyzer<'a> {
                                         then_block: then_nodes,
                                         else_block: vec![x],
                                     });
-                                    let node_ref = analyzer.create_node(node);
+                                    let node_ref = analyzer.register_node(node);
                                     Ok(Some(node_ref))
-                                },
+                                }
                                 None => {
                                     let else_nodes = match &else_block {
                                         Some(x) => analyzer.translate_statements(x)?,
@@ -472,7 +497,7 @@ impl<'a> Analyzer<'a> {
                                         then_block: then_nodes,
                                         else_block: else_nodes,
                                     });
-                                    let node_ref = analyzer.create_node(node);
+                                    let node_ref = analyzer.register_node(node);
                                     Ok(Some(node_ref))
                                 }
                             }
@@ -481,10 +506,26 @@ impl<'a> Analyzer<'a> {
                     }
                 }
                 // desugar and make node
-                let node_ref = match transform(0, self, &if_statement.cond_blocks, &if_statement.else_block)? {
+                let node_ref = match transform(
+                    0,
+                    self,
+                    &if_statement.cond_blocks,
+                    &if_statement.else_block,
+                )? {
                     Some(x) => x,
                     None => panic!("unexpected error: cond blocks is empty"),
                 };
+                Ok(node_ref)
+            }
+            parse::Node::LoopStatement(statement) => {
+                if self.scope.layers.len() == 1 {
+                    return Err(SyntaxError::new(
+                        "A loop statement cannot be used in global space",
+                    ));
+                }
+                let body = self.translate_statements(&statement.body)?;
+                let node = Node::LoopStatement(body);
+                let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
             parse::Node::Reference(_)
@@ -493,7 +534,9 @@ impl<'a> Analyzer<'a> {
             | parse::Node::CallExpr(_) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("An expression cannot be used in global space"));
+                    return Err(SyntaxError::new(
+                        "An expression cannot be used in global space",
+                    ));
                 }
                 self.translate_expr(parser_node)
             }
@@ -516,7 +559,7 @@ impl<'a> Analyzer<'a> {
                     value: LiteralValue::Number(*n),
                     ty: Type::Number,
                 });
-                let node_ref = self.create_node(node);
+                let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
             parse::Node::Literal(parse::Literal::Bool(value)) => {
@@ -524,14 +567,14 @@ impl<'a> Analyzer<'a> {
                     value: LiteralValue::Bool(*value),
                     ty: Type::Bool,
                 });
-                let node_ref = self.create_node(node);
+                let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
             parse::Node::BinaryExpr(binary_expr) => {
                 let left = self.translate_expr(&binary_expr.left)?;
                 let right = self.translate_expr(&binary_expr.right)?;
-                let left_ty = self.get_ty(left);
-                let right_ty = self.get_ty(right);
+                let left_ty = left.get(self.source).get_ty();
+                let right_ty = right.get(self.source).get_ty();
                 let op = match binary_expr.operator.as_str() {
                     "+" => Operator::Add,
                     "-" => Operator::Sub,
@@ -550,7 +593,7 @@ impl<'a> Analyzer<'a> {
                     | Operator::Sub
                     | Operator::Mult
                     | Operator::Div => {
-                        let ty = self.compare_ty_option(left_ty, right_ty)?;
+                        let ty = Type::compare_option(left_ty, right_ty)?;
                         if ty != Some(Type::Number) {
                             return Err(SyntaxError::new("type error: number expected"));
                         }
@@ -567,7 +610,7 @@ impl<'a> Analyzer<'a> {
                     | Operator::LessThanEqual
                     | Operator::GreaterThan
                     | Operator::GreaterThanEqual => {
-                        let ty = self.compare_ty_option(left_ty, right_ty)?;
+                        let ty = Type::compare_option(left_ty, right_ty)?;
                         Node::BinaryExpr(BinaryExpr {
                             operator: op,
                             left,
@@ -576,12 +619,12 @@ impl<'a> Analyzer<'a> {
                         })
                     }
                 };
-                let node_ref = self.create_node(node);
+                let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
             parse::Node::CallExpr(call_expr) => {
                 let callee_node = self.translate_expr(&call_expr.callee)?;
-                let callee = match callee_node.as_node(self.source) {
+                let callee = match callee_node.get(self.source) {
                     Node::FunctionDeclaration(decl) => decl,
                     _ => return Err(SyntaxError::new("function expected")),
                 };
@@ -593,13 +636,17 @@ impl<'a> Analyzer<'a> {
                 let mut args = Vec::new();
                 for (i, &param) in params.iter().enumerate() {
                     let arg = self.translate_expr(&call_expr.args[i])?;
-                    let param_ty = self.get_ty(param);
-                    let arg_ty = self.get_ty(arg);
-                    self.compare_ty_option(param_ty, arg_ty)?;
+                    let param_ty = param.get(self.source).get_ty();
+                    let arg_ty = arg.get(self.source).get_ty();
+                    Type::compare_option(param_ty, arg_ty)?;
                     args.push(arg);
                 }
-                let node = Node::CallExpr(CallExpr { callee: callee_node, args, ty: ret_ty, });
-                let node_ref = self.create_node(node);
+                let node = Node::CallExpr(CallExpr {
+                    callee: callee_node,
+                    args,
+                    ty: ret_ty,
+                });
+                let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
             _ => panic!("unexpected expr node"),
@@ -614,12 +661,14 @@ impl<'a> Analyzer<'a> {
     }
 
     fn show_node(&self, node_ref: NodeRef) {
-        let name = match node_ref.as_node(self.source) {
+        let name = match node_ref.get(self.source) {
             Node::FunctionDeclaration(_) => "FunctionDeclaration",
             Node::VariableDeclaration(_) => "VariableDeclaration",
+            Node::BreakStatement => "BreakStatement",
             Node::ReturnStatement(_) => "ReturnStatement",
             Node::Assignment(_) => "Assignment",
             Node::IfStatement(_) => "IfStatement",
+            Node::LoopStatement(_) => "LoopStatement",
             Node::Literal(_) => "Literal",
             Node::BinaryExpr(_) => "BinaryExpr",
             Node::CallExpr(_) => "CallExpr",
@@ -627,7 +676,7 @@ impl<'a> Analyzer<'a> {
         };
         println!("[{}] {}", node_ref.id, name);
 
-        match node_ref.as_node(self.source) {
+        match node_ref.get(self.source) {
             Node::FunctionDeclaration(func) => {
                 println!("  name: {}", func.identifier);
                 println!("  params: {{");
@@ -656,6 +705,7 @@ impl<'a> Analyzer<'a> {
                 println!("  }}");
                 println!("  is_mutable: {}", variable.is_mutable);
             }
+            Node::BreakStatement => {}
             Node::ReturnStatement(expr) => {
                 match expr {
                     Some(x) => {
@@ -687,6 +737,13 @@ impl<'a> Analyzer<'a> {
                 println!("  }}");
                 println!("  else_block: {{");
                 for item in if_statement.else_block.iter() {
+                    println!("    [{}]", item.id);
+                }
+                println!("  }}");
+            }
+            Node::LoopStatement(statement) => {
+                println!("  body: {{");
+                for item in statement.iter() {
                     println!("    [{}]", item.id);
                 }
                 println!("  }}");

@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use crate::run::SymbolTable;
+use std::collections::HashMap;
 
 mod analyze;
 mod parse;
@@ -35,24 +34,34 @@ impl RuntimeError {
     }
 }
 
-pub fn run(code: &str) -> Result<(), String> {
-    println!("[Info] parsing ...");
-    let ast = parse::parse(code).map_err(|e| format!("Syntax Error: {}", e.message))?;
+pub struct Engine {
+    graph_source: HashMap<analyze::NodeId, analyze::Node>,
+}
 
-    println!("[Info] code analyzing ...");
-    let mut graph_source: HashMap<analyze::NodeId, analyze::Node> = HashMap::new();
-    let mut analyzer = analyze::Analyzer::new(&mut graph_source);
-    let graph = analyzer
-        .translate(&ast)
-        .map_err(|e| format!("Syntax Error: {}", e.message))?;
+impl Engine {
+    pub fn new() -> Self {
+        Self {
+            graph_source: HashMap::new(),
+        }
+    }
 
-    //println!("[Info] show graph");
-    //analyzer.show_graph();
+    pub fn parse(&self, code: &str) -> Result<Vec<parse::Node>, SyntaxError> {
+        parse::parse(code)
+    }
 
-    println!("[Info] running ...");
-    let mut symbols = SymbolTable::new();
-    let runner = run::Runner::new(&graph_source);
-    runner.run(&graph, &mut symbols).map_err(|e| format!("Runtime Error: {}", e.message))?;
+    pub fn analyze(&mut self, ast: Vec<parse::Node>) -> Result<Vec<analyze::NodeRef>, SyntaxError> {
+        let mut analyzer = analyze::Analyzer::new(&mut self.graph_source);
+        analyzer.translate(&ast)
+    }
 
-    Ok(())
+    pub fn show_graph_map(&mut self) {
+        let analyzer = analyze::Analyzer::new(&mut self.graph_source);
+        analyzer.show_graph();
+    }
+
+    pub fn run(&mut self, graph: Vec<analyze::NodeRef>) -> Result<(), RuntimeError> {
+        let mut symbols = SymbolTable::new();
+        let runner = run::Runner::new(&self.graph_source);
+        runner.run(&graph, &mut symbols)
+    }
 }

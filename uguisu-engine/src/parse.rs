@@ -1,3 +1,5 @@
+use crate::SyntaxError;
+
 #[cfg(test)]
 mod test;
 
@@ -10,9 +12,11 @@ pub enum Node {
     // statement
     FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
+    BreakStatement,
     ReturnStatement(Option<Box<Node>>),
     Assignment(Assignment),
     IfStatement(IfStatement),
+    LoopStatement(LoopStatement),
     // expression
     Reference(Reference),
     Literal(Literal),
@@ -38,7 +42,6 @@ pub struct Parameter {
 #[derive(Debug, PartialEq)]
 pub enum FunctionAttribute {
     External,
-    //Export,
 }
 
 #[derive(Debug, PartialEq)]
@@ -87,13 +90,13 @@ pub struct CallExpr {
 
 #[derive(Debug, PartialEq)]
 pub struct IfStatement {
-    pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // Vec(expression & statements)
-    pub else_block: Option<Vec<Node>>, // statements
+    pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // if, else if
+    pub else_block: Option<Vec<Node>>,            // else
 }
 
 #[derive(Debug, PartialEq)]
-pub struct BlockExpr {
-    body: Vec<Node>, // statements
+pub struct LoopStatement {
+    pub body: Vec<Node>, // statements
 }
 
 //
@@ -137,9 +140,7 @@ pub fn variable_declaration(
     })
 }
 
-pub fn return_statement(
-    expr: Option<Node>,
-) -> Node {
+pub fn return_statement(expr: Option<Node>) -> Node {
     match expr {
         Some(x) => Node::ReturnStatement(Some(Box::new(x))),
         None => Node::ReturnStatement(None),
@@ -182,10 +183,7 @@ pub fn call_expr(callee: Node, args: Vec<Node>) -> Node {
     })
 }
 
-pub fn if_statement(
-    cond_blocks: Vec<(Node, Vec<Node>)>,
-    else_block: Option<Vec<Node>>,
-) -> Node {
+pub fn if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<Node>>) -> Node {
     let mut items = Vec::new();
     for (cond, block) in cond_blocks {
         items.push((Box::new(cond), block))
@@ -196,22 +194,13 @@ pub fn if_statement(
     })
 }
 
+pub fn loop_statement(body: Vec<Node>) -> Node {
+    Node::LoopStatement(LoopStatement { body })
+}
+
 //
 // parser
 //
-
-#[derive(Debug)]
-pub struct ParserError {
-    pub message: String,
-}
-
-impl ParserError {
-    pub fn new(message: &str) -> Self {
-        Self {
-            message: message.to_string(),
-        }
-    }
-}
 
 // NOTE: The ** operator may have bugs. Therefore, the ++ operator is used.
 
@@ -225,9 +214,11 @@ peg::parser! {
 
         pub rule statement() -> Node
             = function_declaration()
+            / break_statement()
             / return_statement()
             / variable_declaration()
             / if_statement()
+            / loop_statement()
             / assignment()
             / e:expression() __* ";" { e }
 
@@ -286,6 +277,9 @@ peg::parser! {
 
         rule func_dec_attr() -> FunctionAttribute
             = "external" { FunctionAttribute::External }
+
+        rule break_statement() -> Node
+            = "break" __* ";" { Node::BreakStatement }
 
         rule return_statement() -> Node
             = "return" e2:(__+ e1:expression() { e1 })? __* ";" { return_statement(e2) }
@@ -351,6 +345,11 @@ peg::parser! {
                 body
             }
 
+        rule loop_statement() -> Node
+            = "loop" __* body:block() {
+                loop_statement(body)
+            }
+
         rule block() -> Vec<Node>
             = "{" __* s:statements()? __* "}" {
                 if let Some(nodes) = s {
@@ -373,10 +372,10 @@ peg::parser! {
     }
 }
 
-pub fn parse(input: &str) -> Result<Vec<Node>, ParserError> {
+pub fn parse(input: &str) -> Result<Vec<Node>, SyntaxError> {
     match uguisu_parser::root(input) {
         Ok(n) => Ok(n),
-        Err(e) => Err(ParserError::new(
+        Err(e) => Err(SyntaxError::new(
             format!("expects {}. ({})", e.expected, e.location).as_str(),
         )),
     }

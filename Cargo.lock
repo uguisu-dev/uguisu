@@ -49,14 +49,14 @@ dependencies = [
 
 [[package]]
 name = "uguisu-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "uguisu-engine",
 ]
 
 [[package]]
 name = "uguisu-engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "peg",
 ]
