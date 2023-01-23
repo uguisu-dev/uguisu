@@ -1,4 +1,5 @@
-use std::{fs::File, io::Read, env};
+use std::{env, fs::File, io::Read};
+use uguisu_engine::Engine;
 
 pub fn command() {
     let args: Vec<String> = env::args().collect();
@@ -9,17 +10,30 @@ pub fn command() {
 
     let filename = &args[1];
     let mut file = match File::open(filename) {
-        Ok(file) => file,
-        Err(_) => { return println!("Error: Failed to open the file."); },
+        Ok(x) => x,
+        Err(_) => return println!("Error: Failed to open the file."),
     };
 
     let mut code = String::new();
     match file.read_to_string(&mut code) {
-        Ok(_) => {},
-        Err(_) => { return println!("Error: Failed to read the file."); },
-    }
+        Ok(_) => {}
+        Err(_) => return println!("Error: Failed to read the file."),
+    };
 
-    if let Err(e) = uguisu_engine::run(&code) {
-        println!("{}", e);
+    let mut engine = Engine::new();
+
+    let ast = match engine.parse(&code) {
+        Ok(x) => x,
+        Err(e) => return println!("SyntaxError: {}", e.message),
+    };
+
+    let graph = match engine.analyze(ast) {
+        Ok(x) => x,
+        Err(e) => return println!("SyntaxError: {}", e.message),
+    };
+
+    match engine.run(graph) {
+        Ok(_) => {}
+        Err(e) => return println!("RuntimeError: {}", e.message),
     };
 }

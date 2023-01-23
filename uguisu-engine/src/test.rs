@@ -1,13 +1,28 @@
-use crate::*;
+use crate::Engine;
 
 fn run_test(code: &str) {
-    match run(code) {
-        Err(e) => {
-            println!("{}", e);
-            panic!();
-        }
-        _ => {}
-    }
+    let mut engine = Engine::new();
+
+    // println!("[Info] parsing ...");
+    let ast = match engine.parse(code) {
+        Ok(x) => x,
+        Err(e) => return println!("SyntaxError: {}", e.message),
+    };
+
+    // println!("[Info] code analyzing ...");
+    let graph = match engine.analyze(ast) {
+        Ok(x) => x,
+        Err(e) => return println!("SyntaxError: {}", e.message),
+    };
+
+    // println!("[Info] show graph map");
+    // engine.show_graph_map();
+
+    // println!("[Info] running ...");
+    match engine.run(graph) {
+        Ok(_) => {}
+        Err(e) => return println!("RuntimeError: {}", e.message),
+    };
 }
 
 #[test]

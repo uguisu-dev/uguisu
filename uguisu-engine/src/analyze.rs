@@ -1,21 +1,8 @@
-use crate::parse;
+use crate::{parse, SyntaxError};
 use std::collections::HashMap;
 
 #[cfg(test)]
 mod test;
-
-#[derive(Debug, Clone)]
-pub struct SyntaxError {
-    pub message: String,
-}
-
-impl SyntaxError {
-    pub fn new(message: &str) -> Self {
-        Self {
-            message: message.to_string(),
-        }
-    }
-}
 
 pub type NodeId = usize;
 
@@ -91,7 +78,9 @@ struct ScopeLayer {
 
 impl ScopeLayer {
     pub fn new() -> Self {
-        Self { nodes: HashMap::new() }
+        Self {
+            nodes: HashMap::new(),
+        }
     }
 }
 
@@ -264,7 +253,12 @@ impl<'a> Analyzer<'a> {
         NodeRef::new(node_id)
     }
 
-    fn register_builtin(&mut self, name: &str, params: Vec<(&str, Type)>, ret_ty: Option<Type>) -> NodeRef {
+    fn register_builtin(
+        &mut self,
+        name: &str,
+        params: Vec<(&str, Type)>,
+        ret_ty: Option<Type>,
+    ) -> NodeRef {
         let mut param_nodes = Vec::new();
         for (i, (param_name, param_ty)) in params.iter().enumerate() {
             // make param node
@@ -295,11 +289,7 @@ impl<'a> Analyzer<'a> {
         let mut ids = Vec::new();
 
         // register builtin declarations
-        ids.push(self.register_builtin(
-            "print_num",
-            vec![("value", Type::Number)],
-            None,
-        ));
+        ids.push(self.register_builtin("print_num", vec![("value", Type::Number)], None));
         ids.push(self.register_builtin(
             "assert_eq",
             vec![("actual", Type::Number), ("expected", Type::Number)],
@@ -315,7 +305,10 @@ impl<'a> Analyzer<'a> {
         Ok(ids)
     }
 
-    fn translate_statements(&mut self, parser_nodes: &Vec<parse::Node>) -> Result<Vec<NodeRef>, SyntaxError> {
+    fn translate_statements(
+        &mut self,
+        parser_nodes: &Vec<parse::Node>,
+    ) -> Result<Vec<NodeRef>, SyntaxError> {
         let mut ids = Vec::new();
         for parser_node in parser_nodes.iter() {
             ids.push(self.translate_statement(parser_node)?);
@@ -353,7 +346,9 @@ impl<'a> Analyzer<'a> {
                     .iter()
                     .any(|x| *x == parse::FunctionAttribute::External);
                 if is_external {
-                    return Err(SyntaxError::new("External function declarations are obsoleted"));
+                    return Err(SyntaxError::new(
+                        "External function declarations are obsoleted",
+                    ));
                 }
                 // make function node
                 let decl_node = Node::FunctionDeclaration(FunctionDeclaration {
@@ -411,9 +406,7 @@ impl<'a> Analyzer<'a> {
                     None => return Err(SyntaxError::new("value expected")),
                 };
                 let ty = match &decl.type_identifier {
-                    Some(ident) => {
-                        Type::compare(Type::lookup(ident)?, infer_ty)?
-                    }
+                    Some(ident) => Type::compare(Type::lookup(ident)?, infer_ty)?,
                     None => infer_ty,
                 };
                 // make node
@@ -430,7 +423,9 @@ impl<'a> Analyzer<'a> {
             }
             parse::Node::BreakStatement => {
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("A break statement cannot be used in global space"));
+                    return Err(SyntaxError::new(
+                        "A break statement cannot be used in global space",
+                    ));
                 }
                 // TODO: check target
                 let node = Node::BreakStatement;
@@ -441,7 +436,9 @@ impl<'a> Analyzer<'a> {
                 // TODO: consider type check
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("A return statement cannot be used in global space"));
+                    return Err(SyntaxError::new(
+                        "A return statement cannot be used in global space",
+                    ));
                 }
                 let inner = match expr {
                     Some(x) => Some(self.translate_expr(x)?),
@@ -454,7 +451,9 @@ impl<'a> Analyzer<'a> {
             parse::Node::Assignment(statement) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("An assignment statement cannot be used in global space"));
+                    return Err(SyntaxError::new(
+                        "An assignment statement cannot be used in global space",
+                    ));
                 }
                 let dest = self.translate_expr(&statement.dest)?;
                 let body = self.translate_expr(&statement.body)?;
@@ -466,7 +465,7 @@ impl<'a> Analyzer<'a> {
                 fn transform(
                     index: usize,
                     analyzer: &mut Analyzer,
-                    items: &Vec<(Box<parse::Node>,Vec<parse::Node>)>,
+                    items: &Vec<(Box<parse::Node>, Vec<parse::Node>)>,
                     else_block: &Option<Vec<parse::Node>>,
                 ) -> Result<Option<NodeRef>, SyntaxError> {
                     match items.get(index) {
@@ -487,7 +486,7 @@ impl<'a> Analyzer<'a> {
                                     });
                                     let node_ref = analyzer.register_node(node);
                                     Ok(Some(node_ref))
-                                },
+                                }
                                 None => {
                                     let else_nodes = match &else_block {
                                         Some(x) => analyzer.translate_statements(x)?,
@@ -507,7 +506,12 @@ impl<'a> Analyzer<'a> {
                     }
                 }
                 // desugar and make node
-                let node_ref = match transform(0, self, &if_statement.cond_blocks, &if_statement.else_block)? {
+                let node_ref = match transform(
+                    0,
+                    self,
+                    &if_statement.cond_blocks,
+                    &if_statement.else_block,
+                )? {
                     Some(x) => x,
                     None => panic!("unexpected error: cond blocks is empty"),
                 };
@@ -515,7 +519,9 @@ impl<'a> Analyzer<'a> {
             }
             parse::Node::LoopStatement(statement) => {
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("A loop statement cannot be used in global space"));
+                    return Err(SyntaxError::new(
+                        "A loop statement cannot be used in global space",
+                    ));
                 }
                 let body = self.translate_statements(&statement.body)?;
                 let node = Node::LoopStatement(body);
@@ -528,7 +534,9 @@ impl<'a> Analyzer<'a> {
             | parse::Node::CallExpr(_) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new("An expression cannot be used in global space"));
+                    return Err(SyntaxError::new(
+                        "An expression cannot be used in global space",
+                    ));
                 }
                 self.translate_expr(parser_node)
             }
@@ -633,7 +641,11 @@ impl<'a> Analyzer<'a> {
                     Type::compare_option(param_ty, arg_ty)?;
                     args.push(arg);
                 }
-                let node = Node::CallExpr(CallExpr { callee: callee_node, args, ty: ret_ty, });
+                let node = Node::CallExpr(CallExpr {
+                    callee: callee_node,
+                    args,
+                    ty: ret_ty,
+                });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }

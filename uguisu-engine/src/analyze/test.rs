@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use crate::parse;
 use crate::analyze;
+use crate::parse;
+use std::collections::HashMap;
 
 fn run_analyze(code: &str) -> Result<(), String> {
     let ast = parse::parse(code).map_err(|e| format!("Syntax Error: {}", e.message))?;
