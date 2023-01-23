@@ -40,7 +40,6 @@ pub struct Parameter {
 #[derive(Debug, PartialEq)]
 pub enum FunctionAttribute {
     External,
-    //Export,
 }
 
 #[derive(Debug, PartialEq)]
@@ -89,18 +88,13 @@ pub struct CallExpr {
 
 #[derive(Debug, PartialEq)]
 pub struct IfStatement {
-    pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // Vec(expression & statements)
-    pub else_block: Option<Vec<Node>>, // statements
+    pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // if, else if
+    pub else_block: Option<Vec<Node>>, // else
 }
 
 #[derive(Debug, PartialEq)]
 pub struct LoopStatement {
     pub body: Vec<Node>, // statements
-}
-
-#[derive(Debug, PartialEq)]
-pub struct BlockExpr {
-    body: Vec<Node>, // statements
 }
 
 //
