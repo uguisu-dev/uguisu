@@ -11,5 +11,5 @@ fn main() {
 }
 
 fn run_thread() {
-    uguisu_cli::command();
+    uguisu_cli::parse_command();
 }
