@@ -10,6 +10,7 @@ pub enum Node {
     // statement
     FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
+    BreakStatement,
     ReturnStatement(Option<Box<Node>>),
     Assignment(Assignment),
     IfStatement(IfStatement),
@@ -237,6 +238,7 @@ peg::parser! {
 
         pub rule statement() -> Node
             = function_declaration()
+            / break_statement()
             / return_statement()
             / variable_declaration()
             / if_statement()
@@ -299,6 +301,9 @@ peg::parser! {
 
         rule func_dec_attr() -> FunctionAttribute
             = "external" { FunctionAttribute::External }
+
+        rule break_statement() -> Node
+            = "break" __* ";" { Node::BreakStatement }
 
         rule return_statement() -> Node
             = "return" e2:(__+ e1:expression() { e1 })? __* ";" { return_statement(e2) }

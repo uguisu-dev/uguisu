@@ -27,6 +27,7 @@ mod builtin {
 
 enum StatementResult {
     None,
+    Break,
     Return,
     ReturnWith(Symbol),
 }
@@ -131,6 +132,9 @@ impl<'a> Runner<'a> {
                 let symbol = self.eval_expr(*expr, symbols)?;
                 Ok(StatementResult::ReturnWith(symbol))
             }
+            Node::BreakStatement => {
+                Ok(StatementResult::Break)
+            }
             Node::ReturnStatement(None) => {
                 //println!("ReturnStatement");
                 Ok(StatementResult::Return)
@@ -156,7 +160,8 @@ impl<'a> Runner<'a> {
                     result = self.exec_statement(node_ref, symbols)?;
                     match result {
                         StatementResult::None => {}
-                        StatementResult::Return
+                        StatementResult::Break
+                        | StatementResult::Return
                         | StatementResult::ReturnWith(_) => {
                             break;
                         }
@@ -171,6 +176,10 @@ impl<'a> Runner<'a> {
                         result = self.exec_statement(node_ref, symbols)?;
                         match result {
                             StatementResult::None => {}
+                            StatementResult::Break => {
+                                result = StatementResult::None;
+                                break 'A;
+                            }
                             StatementResult::Return
                             | StatementResult::ReturnWith(_) => {
                                 break 'A;
@@ -330,6 +339,9 @@ impl<'a> Runner<'a> {
                                     for &node_ref in body.iter() {
                                         match self.exec_statement(node_ref, symbols)? {
                                             StatementResult::None => {}
+                                            StatementResult::Break => {
+                                                return Err(RuntimeError::new("break target is missing"));
+                                            }
                                             StatementResult::Return => {
                                                 break;
                                             }
