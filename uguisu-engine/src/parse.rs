@@ -13,6 +13,7 @@ pub enum Node {
     ReturnStatement(Option<Box<Node>>),
     Assignment(Assignment),
     IfStatement(IfStatement),
+    LoopStatement(LoopStatement),
     // expression
     Reference(Reference),
     Literal(Literal),
@@ -89,6 +90,11 @@ pub struct CallExpr {
 pub struct IfStatement {
     pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // Vec(expression & statements)
     pub else_block: Option<Vec<Node>>, // statements
+}
+
+#[derive(Debug, PartialEq)]
+pub struct LoopStatement {
+    pub body: Vec<Node>, // statements
 }
 
 #[derive(Debug, PartialEq)]
@@ -196,6 +202,12 @@ pub fn if_statement(
     })
 }
 
+pub fn loop_statement(body: Vec<Node>) -> Node {
+    Node::LoopStatement(LoopStatement {
+        body,
+    })
+}
+
 //
 // parser
 //
@@ -228,6 +240,7 @@ peg::parser! {
             / return_statement()
             / variable_declaration()
             / if_statement()
+            / loop_statement()
             / assignment()
             / e:expression() __* ";" { e }
 
@@ -349,6 +362,11 @@ peg::parser! {
         rule else_part() -> Vec<Node>
             = "else" __* body:block() {
                 body
+            }
+
+        rule loop_statement() -> Node
+            = "loop" __* body:block() {
+                loop_statement(body)
             }
 
         rule block() -> Vec<Node>

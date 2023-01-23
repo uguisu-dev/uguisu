@@ -42,6 +42,7 @@ pub enum Node {
     ReturnStatement(Option<NodeRef>),
     Assignment(Assignment),
     IfStatement(IfStatement),
+    LoopStatement(Vec<NodeRef>),
     // expression
     Literal(Literal),
     BinaryExpr(BinaryExpr),
@@ -500,6 +501,12 @@ impl<'a> Analyzer<'a> {
                 };
                 Ok(node_ref)
             }
+            parse::Node::LoopStatement(statement) => {
+                let body = self.translate_statements(&statement.body)?;
+                let node = Node::LoopStatement(body);
+                let node_ref = self.create_node(node);
+                Ok(node_ref)
+            }
             parse::Node::Reference(_)
             | parse::Node::Literal(_)
             | parse::Node::BinaryExpr(_)
@@ -633,6 +640,7 @@ impl<'a> Analyzer<'a> {
             Node::ReturnStatement(_) => "ReturnStatement",
             Node::Assignment(_) => "Assignment",
             Node::IfStatement(_) => "IfStatement",
+            Node::LoopStatement(_) => "LoopStatement",
             Node::Literal(_) => "Literal",
             Node::BinaryExpr(_) => "BinaryExpr",
             Node::CallExpr(_) => "CallExpr",
@@ -700,6 +708,13 @@ impl<'a> Analyzer<'a> {
                 println!("  }}");
                 println!("  else_block: {{");
                 for item in if_statement.else_block.iter() {
+                    println!("    [{}]", item.id);
+                }
+                println!("  }}");
+            }
+            Node::LoopStatement(statement) => {
+                println!("  body: {{");
+                for item in statement.iter() {
                     println!("    [{}]", item.id);
                 }
                 println!("  }}");

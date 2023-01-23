@@ -164,6 +164,22 @@ impl<'a> Runner<'a> {
                 }
                 Ok(result)
             }
+            Node::LoopStatement(body) => {
+                let mut result;
+                'A: loop {
+                    for &node_ref in body.iter() {
+                        result = self.exec_statement(node_ref, symbols)?;
+                        match result {
+                            StatementResult::None => {}
+                            StatementResult::Return
+                            | StatementResult::ReturnWith(_) => {
+                                break 'A;
+                            }
+                        }
+                    }
+                }
+                Ok(result)
+            }
             Node::Literal(_)
             | Node::BinaryExpr(_)
             | Node::CallExpr(_)
