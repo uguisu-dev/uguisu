@@ -1,16 +1,6 @@
 use std::{fs::File, io::Read, env};
 
-fn main() {
-    const STACK_SIZE: usize = 512 * 1024 * 1024;
-    std::thread::Builder::new()
-        .stack_size(STACK_SIZE)
-        .spawn(app_entry)
-        .unwrap()
-        .join()
-        .unwrap();
-}
-
-fn app_entry() {
+pub fn command() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         println!("Error: Please specify a filename.");
