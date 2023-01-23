@@ -1,5 +1,5 @@
-# uguisu-lang
-A Execution engine for the Uguisu lang.  
+# Uguisu
+A Execution engine for the Uguisu language.  
 Not ready to use yet.
 
 The syntax is like this:
@@ -37,16 +37,6 @@ fn main() {
 - ビルトイン関数
   - `fn print_num(value: number);`
   - `fn assert_eq(actual: number, expected: number);`
-
-## Run the example code
-```
-cargo run example.ug
-```
-
-## Test
-```
-cargo test
-```
 
 ## License
 MIT License
