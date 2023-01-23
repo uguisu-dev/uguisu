@@ -38,5 +38,14 @@ fn main() {
   - `fn print_num(value: number);`
   - `fn assert_eq(actual: number, expected: number);`
 
+## Usage
+```
+Usage: uguisu [OPTIONS] INPUT
+
+Options:
+    -h      Display help message
+    -V      Print version info
+```
+
 ## License
 MIT License
