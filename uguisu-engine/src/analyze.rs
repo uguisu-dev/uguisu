@@ -512,6 +512,9 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             parse::Node::LoopStatement(statement) => {
+                if self.scope.layers.len() == 1 {
+                    return Err(SyntaxError::new("A loop statement cannot be used in global space"));
+                }
                 let body = self.translate_statements(&statement.body)?;
                 let node = Node::LoopStatement(body);
                 let node_ref = self.create_node(node);
