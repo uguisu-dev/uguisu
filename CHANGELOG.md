@@ -17,6 +17,9 @@
 - `loop`文
 - `break`文
 
+### Changes
+バイナリファイルの名前が「uguisu-cli」から「uguisu」になりました。
+
 ## 0.1.0 (2023/01/23)
 
 Initial release.
