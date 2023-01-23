@@ -113,7 +113,7 @@ impl<'a> Runner<'a> {
     }
 
     fn exec_statement(&self, node_ref: NodeRef, symbols: &mut SymbolTable) -> Result<StatementResult, RuntimeError> {
-        match node_ref.as_node(self.graph_source) {
+        match node_ref.get(self.graph_source) {
             Node::FunctionDeclaration(_) => {
                 //println!("FunctionDeclaration");
                 // TODO: check duplicate
@@ -201,7 +201,7 @@ impl<'a> Runner<'a> {
     }
 
     fn eval_expr(&self, node_ref: NodeRef, symbols: &mut SymbolTable) -> Result<Symbol, RuntimeError> {
-        match node_ref.as_node(self.graph_source) {
+        match node_ref.get(self.graph_source) {
             Node::VariableDeclaration(_) => {
                 match symbols.lookup_symbol(node_ref) {
                     Some(x) => Ok(x),
@@ -285,7 +285,7 @@ impl<'a> Runner<'a> {
             }
             Node::CallExpr(call_expr) => {
                 //println!("CallExpr");
-                let symbol = match call_expr.callee.as_node(self.graph_source) {
+                let symbol = match call_expr.callee.get(self.graph_source) {
                     Node::FunctionDeclaration(func) => {
                         if func.is_external {
                             symbols.push_layer();
