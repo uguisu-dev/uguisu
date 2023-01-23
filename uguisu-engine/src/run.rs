@@ -58,7 +58,7 @@ impl SymbolTable {
 
     pub fn pop_layer(&mut self) {
         if self.layers.len() == 1 {
-            panic!("Left the root scope.");
+            panic!("Left the root layer.");
         }
         self.layers.remove(0);
     }

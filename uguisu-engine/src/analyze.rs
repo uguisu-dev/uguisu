@@ -59,7 +59,7 @@ impl Scope {
 
     pub fn leave_scope(&mut self) {
         if self.layers.len() == 1 {
-            panic!("Left the global scope.");
+            panic!("Left the root layer.");
         }
         self.layers.remove(0);
     }
