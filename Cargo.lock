@@ -3,6 +3,15 @@
 version = 3
 
 [[package]]
+name = "getopts"
+version = "0.2.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14dbbfd5c71d70241ecf9e6f13737f7b5ce823821063188d7e46c41d371eebd5"
+dependencies = [
+ "unicode-width",
+]
+
+[[package]]
 name = "peg"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -51,6 +60,7 @@ dependencies = [
 name = "uguisu-cli"
 version = "0.2.0"
 dependencies = [
+ "getopts",
  "uguisu-engine",
 ]
 
@@ -66,3 +76,9 @@ name = "unicode-ident"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84a22b9f218b40614adcb3f4ff08b703773ad44fa9423e4e0d346d5db86e4ebc"
+
+[[package]]
+name = "unicode-width"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
