@@ -267,10 +267,22 @@ impl<'a> Runner<'a> {
                             _ => panic!("number expected (node_id={})", node_ref.id),
                         };
                         match binary_expr.operator {
-                            Operator::Add => Ok(Symbol::Number(left + right)),
-                            Operator::Sub => Ok(Symbol::Number(left - right)),
-                            Operator::Mult => Ok(Symbol::Number(left * right)),
-                            Operator::Div => Ok(Symbol::Number(left / right)),
+                            Operator::Add => match left.checked_add(right) {
+                                Some(x) => Ok(Symbol::Number(x)),
+                                None => Err(RuntimeError::new("add operation overflowed")),
+                            }
+                            Operator::Sub => match left.checked_sub(right) {
+                                Some(x) => Ok(Symbol::Number(x)),
+                                None => Err(RuntimeError::new("sub operation overflowed")),
+                            }
+                            Operator::Mult => match left.checked_mul(right) {
+                                Some(x) => Ok(Symbol::Number(x)),
+                                None => Err(RuntimeError::new("mult operation overflowed")),
+                            }
+                            Operator::Div => match left.checked_div(right) {
+                                Some(x) => Ok(Symbol::Number(x)),
+                                None => Err(RuntimeError::new("div operation overflowed")),
+                            }
                             _ => panic!("unexpected operator"),
                         }
                     }
