@@ -1,7 +1,6 @@
+![uguisu logo](uguisu-logo.png)  
 # Uguisu
-![uguisu logo](uguisu-logo.png)
-
-A Execution engine for the Uguisu language.  
+The Uguisu programming language.  
 Not ready to use yet.
 
 The syntax is like this:
