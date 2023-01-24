@@ -1,4 +1,4 @@
-<img src="uguisu-logo.png" width="128px" alt="uguisu logo"/>
+<img alt="uguisu logo" width="128px" src="https://raw.githubusercontent.com/uguisu-dev/uguisu/master/uguisu-logo.png" />
 
 # Uguisu
 The Uguisu programming language.  
