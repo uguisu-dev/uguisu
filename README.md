@@ -1,4 +1,5 @@
 # Uguisu
+![uguisu logo](uguisu-logo.png)
 A Execution engine for the Uguisu language.  
 Not ready to use yet.
 
