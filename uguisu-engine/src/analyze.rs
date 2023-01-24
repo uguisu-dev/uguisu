@@ -289,7 +289,11 @@ impl<'a> Analyzer<'a> {
         let mut ids = Vec::new();
 
         // register builtin declarations
-        ids.push(self.register_builtin("print_num", vec![("value", Type::Number)], None));
+        ids.push(self.register_builtin(
+            "print_num",
+            vec![("value", Type::Number)],
+            None,
+        ));
         ids.push(self.register_builtin(
             "assert_eq",
             vec![("actual", Type::Number), ("expected", Type::Number)],
