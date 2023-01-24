@@ -45,8 +45,8 @@ fn main() {
 Usage: uguisu [OPTIONS] INPUT
 
 Options:
-    -h      Display help message
-    -V      Print version info
+    -h, --help          Print this message.
+    -v, --version       Print Uguisu version.
 ```
 
 ## License

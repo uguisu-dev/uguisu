@@ -7,7 +7,7 @@ use uguisu_engine::Engine;
 pub fn parse_command() {
     let mut opts = Options::new();
     opts.optflag("h", "help", "Print this message.");
-    opts.optflag("v", "version", "Print Uguisu version");
+    opts.optflag("v", "version", "Print Uguisu version.");
     let args: Vec<String> = env::args().collect();
     let matches = match opts.parse(&args[1..]) {
         Ok(x) => x,
