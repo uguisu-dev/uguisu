@@ -1,4 +1,5 @@
-<img src="uguisu-logo.png" width="128px" alt="uguisu logo" />
+<img src="uguisu-logo.png" width="128px" alt="uguisu logo"/>
+
 # Uguisu
 The Uguisu programming language.  
 Not ready to use yet.
