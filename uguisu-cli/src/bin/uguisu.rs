@@ -1,15 +1,14 @@
-use uguisu_cli;
-
 fn main() {
-    const STACK_SIZE: usize = 512 * 1024 * 1024;
-    std::thread::Builder::new()
-        .stack_size(STACK_SIZE)
-        .spawn(run_thread)
-        .unwrap()
-        .join()
+    let builder = std::thread::Builder::new()
+        .name(String::from("uguisu"))
+        .stack_size(8 * 1024 * 1024);
+    let join_handle = builder
+        .spawn(sub_thread)
+        .unwrap();
+    join_handle.join()
         .unwrap();
 }
 
-fn run_thread() {
+fn sub_thread() {
     uguisu_cli::parse_command();
 }

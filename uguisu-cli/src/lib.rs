@@ -1,29 +1,40 @@
-use std::{env, fs::File, io::Read};
+use getopts::Options;
+use std::env;
+use std::fs::File;
+use std::io::Read;
 use uguisu_engine::Engine;
 
 pub fn parse_command() {
+    let mut opts = Options::new();
+    opts.optflag("h", "help", "Print this message.");
+    opts.optflag("v", "version", "Print Uguisu version.");
     let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        show_help();
+    let matches = match opts.parse(&args[1..]) {
+        Ok(x) => x,
+        Err(e) => {
+            println!("Error: {}", e.to_string());
+            return;
+        }
+    };
+    if matches.opt_present("h") {
+        show_help(opts);
         return;
     }
-    if &args[1] == "-h" {
-        show_help();
-        return;
-    }
-    if &args[1] == "-V" {
+    if matches.opt_present("v") {
         show_version();
         return;
     }
-    run_script(&args[1]);
+    if matches.free.is_empty() {
+        show_help(opts);
+        return;
+    }
+    let input = &matches.free[0];
+    run_script(input);
 }
 
-fn show_help() {
-    println!("Usage: uguisu [OPTIONS] INPUT");
-    println!("");
-    println!("Options:");
-    println!("    -h      Display help message");
-    println!("    -V      Print version info");
+fn show_help(opts: Options) {
+    let brief = "Usage: uguisu [OPTIONS] INPUT";
+    print!("{}", opts.usage(brief));
 }
 
 fn show_version() {

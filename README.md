@@ -1,5 +1,7 @@
+<img src="uguisu-logo.png" width="128px" alt="uguisu logo"/>
+
 # Uguisu
-A Execution engine for the Uguisu language.  
+The Uguisu programming language.  
 Not ready to use yet.
 
 The syntax is like this:
@@ -43,8 +45,8 @@ fn main() {
 Usage: uguisu [OPTIONS] INPUT
 
 Options:
-    -h      Display help message
-    -V      Print version info
+    -h, --help          Print this message.
+    -v, --version       Print Uguisu version.
 ```
 
 ## License

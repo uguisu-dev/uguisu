@@ -105,26 +105,26 @@ impl Node {
     fn get_ty(&self) -> Option<Type> {
         match self {
             Node::Literal(literal) => {
-                Some(literal.ty.clone())
+                Some(literal.ty)
             }
             Node::BinaryExpr(binary_expr) => {
-                Some(binary_expr.ty.clone())
+                Some(binary_expr.ty)
             }
             Node::CallExpr(call_expr) => {
-                call_expr.ty.clone()
+                call_expr.ty
             }
             Node::FuncParam(func_param) => {
-                Some(func_param.ty.clone())
+                Some(func_param.ty)
             }
             Node::VariableDeclaration(variable) => {
-                Some(variable.ty.clone())
+                Some(variable.ty)
             }
             _ => panic!("unexpected node"),
         }
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Type {
     Number,
     Bool,
@@ -260,12 +260,12 @@ impl<'a> Analyzer<'a> {
         ret_ty: Option<Type>,
     ) -> NodeRef {
         let mut param_nodes = Vec::new();
-        for (i, (param_name, param_ty)) in params.iter().enumerate() {
+        for (i, &(param_name, param_ty)) in params.iter().enumerate() {
             // make param node
             let node = Node::FuncParam(FuncParam {
-                identifier: String::from(*param_name),
+                identifier: String::from(param_name),
                 param_index: i,
-                ty: param_ty.clone(),
+                ty: param_ty,
             });
             let node_ref = self.register_node(node);
             param_nodes.push(node_ref);
@@ -610,7 +610,7 @@ impl<'a> Analyzer<'a> {
                     | Operator::LessThanEqual
                     | Operator::GreaterThan
                     | Operator::GreaterThanEqual => {
-                        let ty = Type::compare_option(left_ty, right_ty)?;
+                        Type::compare_option(left_ty, right_ty)?;
                         Node::BinaryExpr(BinaryExpr {
                             operator: op,
                             left,
@@ -628,7 +628,7 @@ impl<'a> Analyzer<'a> {
                     Node::FunctionDeclaration(decl) => decl,
                     _ => return Err(SyntaxError::new("function expected")),
                 };
-                let ret_ty = callee.ret_ty.clone();
+                let ret_ty = callee.ret_ty;
                 let params = callee.params.clone();
                 if params.len() != call_expr.args.len() {
                     return Err(SyntaxError::new("argument count incorrect"));

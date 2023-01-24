@@ -51,7 +51,7 @@ impl SymbolTable {
         self.layers.remove(0);
     }
 
-    pub fn set_symbol(&mut self, node_ref: NodeRef, symbol: Symbol) {
+    pub fn set(&mut self, node_ref: NodeRef, symbol: Symbol) {
         match self.layers.get_mut(0) {
             Some(layer) => {
                 layer.symbols.insert(node_ref.id, symbol);
@@ -60,10 +60,10 @@ impl SymbolTable {
         }
     }
 
-    pub fn lookup_symbol(&self, node_ref: NodeRef) -> Option<Symbol> {
+    pub fn lookup(&self, node_ref: NodeRef) -> Option<&Symbol> {
         for layer in self.layers.iter() {
             match layer.symbols.get(&node_ref.id) {
-                Some(x) => return Some(x.clone()),
+                Some(x) => return Some(x),
                 None => {}
             }
         }
@@ -109,14 +109,14 @@ impl<'a> Runner<'a> {
             Node::FunctionDeclaration(_) => {
                 //println!("FunctionDeclaration");
                 // TODO: check duplicate
-                symbols.set_symbol(node_ref, Symbol::Function(node_ref));
+                symbols.set(node_ref, Symbol::Function(node_ref));
                 Ok(StatementResult::None)
             }
             Node::VariableDeclaration(variable) => {
                 //println!("VariableDeclaration");
                 // TODO: check duplicate
                 let symbol = self.eval_expr(variable.body, symbols)?;
-                symbols.set_symbol(node_ref, symbol);
+                symbols.set(node_ref, symbol);
                 Ok(StatementResult::None)
             }
             Node::ReturnStatement(Some(expr)) => {
@@ -132,7 +132,7 @@ impl<'a> Runner<'a> {
             Node::Assignment(statement) => {
                 //println!("Assignment");
                 let symbol = self.eval_expr(statement.body, symbols)?;
-                symbols.set_symbol(statement.dest, symbol);
+                symbols.set(statement.dest, symbol);
                 Ok(StatementResult::None)
             }
             Node::IfStatement(statement) => {
@@ -197,8 +197,8 @@ impl<'a> Runner<'a> {
     ) -> Result<Symbol, RuntimeError> {
         match node_ref.get(self.graph_source) {
             Node::VariableDeclaration(_) => {
-                match symbols.lookup_symbol(node_ref) {
-                    Some(x) => Ok(x),
+                match symbols.lookup(node_ref) {
+                    Some(x) => Ok(x.clone()),
                     None => panic!("symbol not found (node_id={})", node_ref.id),
                 }
             }
@@ -267,10 +267,22 @@ impl<'a> Runner<'a> {
                             _ => panic!("number expected (node_id={})", node_ref.id),
                         };
                         match binary_expr.operator {
-                            Operator::Add => Ok(Symbol::Number(left + right)),
-                            Operator::Sub => Ok(Symbol::Number(left - right)),
-                            Operator::Mult => Ok(Symbol::Number(left * right)),
-                            Operator::Div => Ok(Symbol::Number(left / right)),
+                            Operator::Add => match left.checked_add(right) {
+                                Some(x) => Ok(Symbol::Number(x)),
+                                None => Err(RuntimeError::new("add operation overflowed")),
+                            }
+                            Operator::Sub => match left.checked_sub(right) {
+                                Some(x) => Ok(Symbol::Number(x)),
+                                None => Err(RuntimeError::new("sub operation overflowed")),
+                            }
+                            Operator::Mult => match left.checked_mul(right) {
+                                Some(x) => Ok(Symbol::Number(x)),
+                                None => Err(RuntimeError::new("mult operation overflowed")),
+                            }
+                            Operator::Div => match left.checked_div(right) {
+                                Some(x) => Ok(Symbol::Number(x)),
+                                None => Err(RuntimeError::new("div operation overflowed")),
+                            }
                             _ => panic!("unexpected operator"),
                         }
                     }
@@ -284,11 +296,9 @@ impl<'a> Runner<'a> {
                             symbols.push_layer();
                             let mut args = Vec::new();
                             for i in 0..func.params.len() {
-                                //let param_node = &func.params[i];
                                 let arg_node = &call_expr.args[i];
                                 let arg_symbol = self.eval_expr(*arg_node, symbols)?;
                                 args.push(arg_symbol);
-                                //symbols.set_symbol(*param_node, arg_symbol);
                             }
                             // TODO: improve builtin
                             if &func.identifier == "print_num" {
@@ -324,7 +334,7 @@ impl<'a> Runner<'a> {
                                 let param_node = &func.params[i];
                                 let arg_node = &call_expr.args[i];
                                 let arg_symbol = self.eval_expr(*arg_node, symbols)?;
-                                symbols.set_symbol(*param_node, arg_symbol);
+                                symbols.set(*param_node, arg_symbol);
                             }
                             let mut result = None;
                             match &func.body {
@@ -362,8 +372,8 @@ impl<'a> Runner<'a> {
             }
             Node::FuncParam(_) => {
                 //println!("FuncParam");
-                match symbols.lookup_symbol(node_ref) {
-                    Some(x) => Ok(x),
+                match symbols.lookup(node_ref) {
+                    Some(x) => Ok(x.clone()),
                     None => panic!("symbol not found (node_id={})", node_ref.id),
                 }
             }
