@@ -161,14 +161,6 @@ impl Type {
             Err(SyntaxError::new(message.as_str()))
         }
     }
-
-    fn compare_option(x: Option<Type>, y: Option<Type>) -> Result<Option<Type>, SyntaxError> {
-        if x == y {
-            Ok(x)
-        } else {
-            Err(SyntaxError::new("type not compatible"))
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -662,9 +654,15 @@ impl<'a> Analyzer<'a> {
                 let mut args = Vec::new();
                 for (i, &param) in params.iter().enumerate() {
                     let arg = self.translate_expr(&call_expr.args[i])?;
-                    let param_ty = param.get(self.source).get_ty();
-                    let arg_ty = arg.get(self.source).get_ty();
-                    Type::compare_option(param_ty, arg_ty)?;
+                    let param_ty = match param.get(self.source).get_ty() {
+                        Some(x) => x,
+                        None => return Err(SyntaxError::new("value expected")),
+                    };
+                    let arg_ty = match arg.get(self.source).get_ty() {
+                        Some(x) => x,
+                        None => return Err(SyntaxError::new("value expected")),
+                    };
+                    Type::assert(arg_ty, param_ty)?;
                     args.push(arg);
                 }
                 let node = Node::CallExpr(CallExpr {
