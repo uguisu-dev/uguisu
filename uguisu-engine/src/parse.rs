@@ -9,12 +9,12 @@ mod test;
 
 #[derive(Debug, PartialEq)]
 pub struct Node {
-    pub detail: NodeDetail,
+    pub inner: NodeInner,
     pub location: Option<usize>,
 }
 
 #[derive(Debug, PartialEq)]
-pub enum NodeDetail {
+pub enum NodeInner {
     // statement
     FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
@@ -28,20 +28,29 @@ pub enum NodeDetail {
     Literal(Literal),
     BinaryExpr(BinaryExpr),
     CallExpr(CallExpr),
+    // function
+    FuncParam(FuncParam),
 }
 
-impl NodeDetail {
+impl NodeInner {
     pub fn as_node(self, location: usize) -> Node {
         Node {
-            detail: self,
+            inner: self,
             location: Some(location),
         }
     }
 
     pub fn as_node_internal(self) -> Node {
         Node {
-            detail: self,
+            inner: self,
             location: None,
+        }
+    }
+
+    pub fn as_func_param(&self) -> &FuncParam {
+        match self {
+            NodeInner::FuncParam(x) => x,
+            _ => panic!("function parameter expected"),
         }
     }
 }
@@ -50,13 +59,13 @@ impl NodeDetail {
 pub struct FunctionDeclaration {
     pub identifier: String,
     pub body: Option<Vec<Node>>,
-    pub params: Vec<Parameter>,
+    pub params: Vec<Node>,
     pub ret: Option<String>,
     pub attributes: Vec<FunctionAttribute>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Parameter {
+pub struct FuncParam {
     pub identifier: String,
     pub type_identifier: Option<String>,
 }
@@ -138,11 +147,11 @@ pub struct LoopStatement {
 pub fn function_declaration(
     identifier: String,
     body: Option<Vec<Node>>,
-    params: Vec<Parameter>,
+    params: Vec<Node>,
     ret: Option<String>,
     attributes: Vec<FunctionAttribute>,
-) -> NodeDetail {
-    NodeDetail::FunctionDeclaration(FunctionDeclaration {
+) -> NodeInner {
+    NodeInner::FunctionDeclaration(FunctionDeclaration {
         identifier,
         body,
         params,
@@ -151,11 +160,11 @@ pub fn function_declaration(
     })
 }
 
-pub fn parameter(identifier: String, type_identifier: Option<String>) -> Parameter {
-    Parameter {
+pub fn func_param(identifier: String, type_identifier: Option<String>) -> NodeInner {
+    NodeInner::FuncParam(FuncParam {
         identifier,
         type_identifier,
-    }
+    })
 }
 
 pub fn variable_declaration(
@@ -163,8 +172,8 @@ pub fn variable_declaration(
     body: Node,
     type_identifier: Option<String>,
     attributes: Vec<VariableAttribute>,
-) -> NodeDetail {
-    NodeDetail::VariableDeclaration(VariableDeclaration {
+) -> NodeInner {
+    NodeInner::VariableDeclaration(VariableDeclaration {
         identifier,
         body: Box::new(body),
         type_identifier,
@@ -172,63 +181,63 @@ pub fn variable_declaration(
     })
 }
 
-pub fn return_statement(expr: Option<Node>) -> NodeDetail {
+pub fn return_statement(expr: Option<Node>) -> NodeInner {
     match expr {
-        Some(x) => NodeDetail::ReturnStatement(Some(Box::new(x))),
-        None => NodeDetail::ReturnStatement(None),
+        Some(x) => NodeInner::ReturnStatement(Some(Box::new(x))),
+        None => NodeInner::ReturnStatement(None),
     }
 }
 
-pub fn assignment(dest: Node, body: Node, mode: AssignmentMode) -> NodeDetail {
-    NodeDetail::Assignment(Assignment {
+pub fn assignment(dest: Node, body: Node, mode: AssignmentMode) -> NodeInner {
+    NodeInner::Assignment(Assignment {
         dest: Box::new(dest),
         body: Box::new(body),
         mode,
     })
 }
 
-pub fn reference(identifier: &str) -> NodeDetail {
-    NodeDetail::Reference(Reference {
+pub fn reference(identifier: &str) -> NodeInner {
+    NodeInner::Reference(Reference {
         identifier: identifier.to_string(),
     })
 }
 
-pub fn number(value: i64) -> NodeDetail {
-    NodeDetail::Literal(Literal::Number(value))
+pub fn number(value: i64) -> NodeInner {
+    NodeInner::Literal(Literal::Number(value))
 }
 
-pub fn bool(value: bool) -> NodeDetail {
-    NodeDetail::Literal(Literal::Bool(value))
+pub fn bool(value: bool) -> NodeInner {
+    NodeInner::Literal(Literal::Bool(value))
 }
 
-pub fn binary_expr(op: &str, left: Node, right: Node) -> NodeDetail {
-    NodeDetail::BinaryExpr(BinaryExpr {
+pub fn binary_expr(op: &str, left: Node, right: Node) -> NodeInner {
+    NodeInner::BinaryExpr(BinaryExpr {
         operator: op.to_string(),
         left: Box::new(left),
         right: Box::new(right),
     })
 }
 
-pub fn call_expr(callee: Node, args: Vec<Node>) -> NodeDetail {
-    NodeDetail::CallExpr(CallExpr {
+pub fn call_expr(callee: Node, args: Vec<Node>) -> NodeInner {
+    NodeInner::CallExpr(CallExpr {
         callee: Box::new(callee),
         args,
     })
 }
 
-pub fn if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<Node>>) -> NodeDetail {
+pub fn if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<Node>>) -> NodeInner {
     let mut items = Vec::new();
     for (cond, block) in cond_blocks {
         items.push((Box::new(cond), block))
     }
-    NodeDetail::IfStatement(IfStatement {
+    NodeInner::IfStatement(IfStatement {
         cond_blocks: items,
         else_block,
     })
 }
 
-pub fn loop_statement(body: Vec<Node>) -> NodeDetail {
-    NodeDetail::LoopStatement(LoopStatement { body })
+pub fn loop_statement(body: Vec<Node>) -> NodeInner {
+    NodeInner::LoopStatement(LoopStatement { body })
 }
 
 //
@@ -279,7 +288,7 @@ peg::parser! {
             e:bool() { e }
             e:call_expr() { e }
             p:pos() id:idenfitier() { reference(id).as_node(p) }
-            p:position!() "(" __* e:expression() __* ")" { p; e }
+            "(" __* e:expression() __* ")" { e }
         }
 
         rule function_declaration() -> Node =
@@ -291,12 +300,12 @@ peg::parser! {
             function_declaration(name.to_string(), body, params, ret, attrs).as_node(p)
         }
 
-        rule func_dec_params() -> Vec<Parameter>
+        rule func_dec_params() -> Vec<Node>
             = func_dec_param() ++ (__* "," __*)
 
-        rule func_dec_param() -> Parameter
-            = name:idenfitier() type_name:(__* ":" __* n:idenfitier() { n.to_string() })?
-        { parameter(name.to_string(), type_name) }
+        rule func_dec_param() -> Node
+            = p:pos() name:idenfitier() type_name:(__* ":" __* n:idenfitier() { n.to_string() })?
+        { func_param(name.to_string(), type_name).as_node(p) }
 
         rule func_dec_return_type() -> String
             = ":" __* type_name:idenfitier() { type_name.to_string() }
@@ -312,7 +321,7 @@ peg::parser! {
             = "external" { FunctionAttribute::External }
 
         rule break_statement() -> Node
-            = p:pos() "break" __* ";" { NodeDetail::BreakStatement.as_node(p) }
+            = p:pos() "break" __* ";" { NodeInner::BreakStatement.as_node(p) }
 
         rule return_statement() -> Node
             = p:pos() "return" e2:(__+ e1:expression() { e1 })? __* ";" { return_statement(e2).as_node(p) }

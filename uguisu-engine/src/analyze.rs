@@ -336,10 +336,11 @@ impl<'a> Analyzer<'a> {
     /// - check if the statement is available in the global or local
     /// - check type compatibility for inner expression
     fn translate_statement(&mut self, parser_node: &parse::Node) -> Result<NodeRef, SyntaxError> {
-        match &parser_node.detail {
-            parse::NodeDetail::FunctionDeclaration(parser_decl) => {
+        match &parser_node.inner {
+            parse::NodeInner::FunctionDeclaration(parser_decl) => {
                 let mut params = Vec::new();
-                for (i, param) in parser_decl.params.iter().enumerate() {
+                for (i, n) in parser_decl.params.iter().enumerate() {
+                    let param = n.inner.as_func_param();
                     let param_type = match &param.type_identifier {
                         Some(x) => Type::lookup(x)?,
                         None => return Err(SyntaxError::new("parameter type missing")),
@@ -410,7 +411,7 @@ impl<'a> Analyzer<'a> {
 
                 Ok(node_ref)
             }
-            parse::NodeDetail::VariableDeclaration(decl) => {
+            parse::NodeInner::VariableDeclaration(decl) => {
                 let body = self.translate_expr(&decl.body)?;
                 let is_mutable = decl
                     .attributes
@@ -436,7 +437,7 @@ impl<'a> Analyzer<'a> {
                 self.scope.add_node(&decl.identifier, node_ref);
                 Ok(node_ref)
             }
-            parse::NodeDetail::BreakStatement => {
+            parse::NodeInner::BreakStatement => {
                 if self.scope.layers.len() == 1 {
                     return Err(SyntaxError::new(
                         "A break statement cannot be used in global space",
@@ -447,7 +448,7 @@ impl<'a> Analyzer<'a> {
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeDetail::ReturnStatement(expr) => {
+            parse::NodeInner::ReturnStatement(expr) => {
                 // TODO: consider type check
                 // when global scope
                 if self.scope.layers.len() == 1 {
@@ -463,7 +464,7 @@ impl<'a> Analyzer<'a> {
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeDetail::Assignment(statement) => {
+            parse::NodeInner::Assignment(statement) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
                     return Err(SyntaxError::new(
@@ -504,7 +505,7 @@ impl<'a> Analyzer<'a> {
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeDetail::IfStatement(if_statement) => {
+            parse::NodeInner::IfStatement(if_statement) => {
                 fn transform(
                     index: usize,
                     analyzer: &mut Analyzer,
@@ -562,7 +563,7 @@ impl<'a> Analyzer<'a> {
                 };
                 Ok(node_ref)
             }
-            parse::NodeDetail::LoopStatement(statement) => {
+            parse::NodeInner::LoopStatement(statement) => {
                 if self.scope.layers.len() == 1 {
                     return Err(SyntaxError::new(
                         "A loop statement cannot be used in global space",
@@ -573,10 +574,10 @@ impl<'a> Analyzer<'a> {
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeDetail::Reference(_)
-            | parse::NodeDetail::Literal(_)
-            | parse::NodeDetail::BinaryExpr(_)
-            | parse::NodeDetail::CallExpr(_) => {
+            parse::NodeInner::Reference(_)
+            | parse::NodeInner::Literal(_)
+            | parse::NodeInner::BinaryExpr(_)
+            | parse::NodeInner::CallExpr(_) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
                     return Err(SyntaxError::new(
@@ -585,6 +586,7 @@ impl<'a> Analyzer<'a> {
                 }
                 self.translate_expr(parser_node)
             }
+            parse::NodeInner::FuncParam(_) => panic!("unexpected node"),
         }
     }
 
@@ -592,14 +594,14 @@ impl<'a> Analyzer<'a> {
     /// - infer type for the expression
     /// - check type compatibility for inner expression
     fn translate_expr(&mut self, parser_node: &parse::Node) -> Result<NodeRef, SyntaxError> {
-        match &parser_node.detail {
-            parse::NodeDetail::Reference(reference) => {
+        match &parser_node.inner {
+            parse::NodeInner::Reference(reference) => {
                 match self.scope.lookup(&reference.identifier) {
                     Some(node_ref) => Ok(node_ref),
                     None => Err(SyntaxError::new("unknown identifier")),
                 }
             }
-            parse::NodeDetail::Literal(parse::Literal::Number(n)) => {
+            parse::NodeInner::Literal(parse::Literal::Number(n)) => {
                 let node = Node::Literal(Literal {
                     value: LiteralValue::Number(*n),
                     ty: Type::Number,
@@ -607,7 +609,7 @@ impl<'a> Analyzer<'a> {
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeDetail::Literal(parse::Literal::Bool(value)) => {
+            parse::NodeInner::Literal(parse::Literal::Bool(value)) => {
                 let node = Node::Literal(Literal {
                     value: LiteralValue::Bool(*value),
                     ty: Type::Bool,
@@ -615,7 +617,7 @@ impl<'a> Analyzer<'a> {
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeDetail::BinaryExpr(binary_expr) => {
+            parse::NodeInner::BinaryExpr(binary_expr) => {
                 let left = self.translate_expr(&binary_expr.left)?;
                 let right = self.translate_expr(&binary_expr.right)?;
                 let left_ty = match left.get(self.source).get_ty() {
@@ -672,7 +674,7 @@ impl<'a> Analyzer<'a> {
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeDetail::CallExpr(call_expr) => {
+            parse::NodeInner::CallExpr(call_expr) => {
                 let callee_node = self.translate_expr(&call_expr.callee)?;
                 let callee = callee_node.get(self.source).as_function()?;
                 let ret_ty = callee.ret_ty;
