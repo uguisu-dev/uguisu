@@ -122,6 +122,13 @@ impl Node {
             _ => panic!("unexpected node"),
         }
     }
+
+    fn as_function(&self) -> Result<&FunctionDeclaration, SyntaxError> {
+        match self {
+            Node::FunctionDeclaration(decl) => Ok(decl),
+            _ => return Err(SyntaxError::new("function expected")),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -131,6 +138,13 @@ pub enum Type {
 }
 
 impl Type {
+    fn get_name(&self) -> &str {
+        match self {
+            Type::Number => "number",
+            Type::Bool => "bool",
+        }
+    }
+
     fn lookup(ty_identifier: &str) -> Result<Type, SyntaxError> {
         match ty_identifier {
             "number" => Ok(Type::Number),
@@ -139,11 +153,12 @@ impl Type {
         }
     }
 
-    fn compare(x: Type, y: Type) -> Result<Type, SyntaxError> {
-        if x == y {
-            Ok(x)
+    fn assert(actual: Type, expected: Type) -> Result<Type, SyntaxError> {
+        if actual == expected {
+            Ok(actual)
         } else {
-            Err(SyntaxError::new("type not compatible"))
+            let message = format!("type mismatch: expected `{}`, found `{}`", expected.get_name(), expected.get_name());
+            Err(SyntaxError::new(message.as_str()))
         }
     }
 
@@ -413,7 +428,7 @@ impl<'a> Analyzer<'a> {
                     None => return Err(SyntaxError::new("value expected")),
                 };
                 let ty = match &decl.type_identifier {
-                    Some(ident) => Type::compare(Type::lookup(ident)?, infer_ty)?,
+                    Some(ident) => Type::assert(infer_ty, Type::lookup(ident)?)?,
                     None => infer_ty,
                 };
                 // make node
@@ -478,9 +493,11 @@ impl<'a> Analyzer<'a> {
                     match items.get(index) {
                         Some((cond, then_block)) => {
                             let cond_node = analyzer.translate_expr(cond)?;
-                            if cond_node.get(analyzer.source).get_ty() != Some(Type::Bool) {
-                                return Err(SyntaxError::new("type error: bool expected"));
-                            }
+                            let cond_ty = match cond_node.get(analyzer.source).get_ty() {
+                                Some(x) => x,
+                                None => return Err(SyntaxError::new("value expected")),
+                            };
+                            Type::assert(cond_ty, Type::Bool)?;
                             let then_nodes = analyzer.translate_statements(then_block)?;
                             // next else if part
                             let elif = transform(index + 1, analyzer, items, else_block)?;
@@ -580,8 +597,15 @@ impl<'a> Analyzer<'a> {
             parse::Node::BinaryExpr(binary_expr) => {
                 let left = self.translate_expr(&binary_expr.left)?;
                 let right = self.translate_expr(&binary_expr.right)?;
-                let left_ty = left.get(self.source).get_ty();
-                let right_ty = right.get(self.source).get_ty();
+                let left_ty = match left.get(self.source).get_ty() {
+                    Some(x) => x,
+                    None => return Err(SyntaxError::new("value expected")),
+                };
+                //Type::assert(cond_ty, Type::Bool)?;
+                let right_ty = match right.get(self.source).get_ty() {
+                    Some(x) => x,
+                    None => return Err(SyntaxError::new("value expected")),
+                };
                 let op = match binary_expr.operator.as_str() {
                     "+" => Operator::Add,
                     "-" => Operator::Sub,
@@ -600,10 +624,8 @@ impl<'a> Analyzer<'a> {
                     | Operator::Sub
                     | Operator::Mult
                     | Operator::Div => {
-                        let ty = Type::compare_option(left_ty, right_ty)?;
-                        if ty != Some(Type::Number) {
-                            return Err(SyntaxError::new("type error: number expected"));
-                        }
+                        Type::assert(left_ty, Type::Number)?;
+                        Type::assert(right_ty, Type::Number)?;
                         Node::BinaryExpr(BinaryExpr {
                             operator: op,
                             left,
@@ -617,7 +639,7 @@ impl<'a> Analyzer<'a> {
                     | Operator::LessThanEqual
                     | Operator::GreaterThan
                     | Operator::GreaterThanEqual => {
-                        Type::compare_option(left_ty, right_ty)?;
+                        Type::assert(left_ty, right_ty)?;
                         Node::BinaryExpr(BinaryExpr {
                             operator: op,
                             left,
@@ -631,10 +653,7 @@ impl<'a> Analyzer<'a> {
             }
             parse::Node::CallExpr(call_expr) => {
                 let callee_node = self.translate_expr(&call_expr.callee)?;
-                let callee = match callee_node.get(self.source) {
-                    Node::FunctionDeclaration(decl) => decl,
-                    _ => return Err(SyntaxError::new("function expected")),
-                };
+                let callee = callee_node.get(self.source).as_function()?;
                 let ret_ty = callee.ret_ty;
                 let params = callee.params.clone();
                 if params.len() != call_expr.args.len() {

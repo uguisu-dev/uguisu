@@ -28,6 +28,31 @@ pub enum Symbol {
     Function(NodeRef),
 }
 
+impl Symbol {
+    pub fn get_type_name(&self) -> &str {
+        match self {
+            Symbol::Number(_) => "number",
+            Symbol::Bool(_) => "bool",
+            Symbol::Function(_) => panic!("get type error"),
+            Symbol::NoneValue => panic!("get type error"),
+        }
+    }
+
+    pub fn as_number(&self) -> i64 {
+        match self {
+            &Symbol::Number(value) => value,
+            _ => panic!("type mismatch: expected `number`, found `{}`", self.get_type_name()),
+        }
+    }
+
+    pub fn as_bool(&self) -> bool {
+        match self {
+            &Symbol::Bool(value) => value,
+            _ => panic!("type mismatch: expected `bool`, found `{}`", self.get_type_name()),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SymbolTable {
     layers: Vec<SymbolTableLayer>,
@@ -147,10 +172,7 @@ impl<'a> Runner<'a> {
                 Ok(StatementResult::None)
             }
             Node::IfStatement(statement) => {
-                let condition = match self.eval_expr(statement.condition, symbols)? {
-                    Symbol::Bool(value) => value,
-                    _ => panic!("bool expected (node_id={})", statement.condition.id),
-                };
+                let condition = self.eval_expr(statement.condition, symbols)?.as_bool();
                 let block = if condition {
                     &statement.then_block
                 } else {
@@ -206,60 +228,47 @@ impl<'a> Runner<'a> {
             }
             Node::BinaryExpr(binary_expr) => {
                 match binary_expr.ty {
-                    Type::Bool => {
+                    Type::Bool => { // relational operation
                         let left = self.eval_expr(binary_expr.left, symbols)?;
                         let right = self.eval_expr(binary_expr.right, symbols)?;
                         match left {
                             Symbol::Number(l) => {
-                                match right {
-                                    Symbol::Number(r) => {
-                                        match binary_expr.operator {
-                                            Operator::Equal => Ok(Symbol::Bool(l == r)),
-                                            Operator::NotEqual => Ok(Symbol::Bool(l != r)),
-                                            Operator::LessThan => Ok(Symbol::Bool(l < r)),
-                                            Operator::LessThanEqual => Ok(Symbol::Bool(l <= r)),
-                                            Operator::GreaterThan => Ok(Symbol::Bool(l > r)),
-                                            Operator::GreaterThanEqual => Ok(Symbol::Bool(l >= r)),
-                                            _ => panic!("unexpected operator (node_id={})", node_ref.id),
-                                        }
-                                    }
-                                    _ => panic!("number expected (node_id={})", node_ref.id),
+                                let r = right.as_number();
+                                match binary_expr.operator {
+                                    Operator::Equal => Ok(Symbol::Bool(l == r)),
+                                    Operator::NotEqual => Ok(Symbol::Bool(l != r)),
+                                    Operator::LessThan => Ok(Symbol::Bool(l < r)),
+                                    Operator::LessThanEqual => Ok(Symbol::Bool(l <= r)),
+                                    Operator::GreaterThan => Ok(Symbol::Bool(l > r)),
+                                    Operator::GreaterThanEqual => Ok(Symbol::Bool(l >= r)),
+                                    _ => panic!("unsupported operation (node_id={})", node_ref.id),
                                 }
                             }
                             Symbol::Bool(l) => {
-                                match right {
-                                    Symbol::Bool(r) => {
-                                        match binary_expr.operator {
-                                            Operator::Equal => Ok(Symbol::Bool(l == r)),
-                                            Operator::NotEqual => Ok(Symbol::Bool(l != r)),
-                                            Operator::LessThan => Ok(Symbol::Bool(l < r)),
-                                            Operator::LessThanEqual => Ok(Symbol::Bool(l <= r)),
-                                            Operator::GreaterThan => Ok(Symbol::Bool(l > r)),
-                                            Operator::GreaterThanEqual => Ok(Symbol::Bool(l >= r)),
-                                            _ => panic!("unexpected operator (node_id={})", node_ref.id),
-                                        }
-                                    }
-                                    _ => panic!("bool expected (node_id={})", node_ref.id),
+                                let r = right.as_bool();
+                                match binary_expr.operator {
+                                    Operator::Equal => Ok(Symbol::Bool(l == r)),
+                                    Operator::NotEqual => Ok(Symbol::Bool(l != r)),
+                                    Operator::LessThan => Ok(Symbol::Bool(l < r)),
+                                    Operator::LessThanEqual => Ok(Symbol::Bool(l <= r)),
+                                    Operator::GreaterThan => Ok(Symbol::Bool(l > r)),
+                                    Operator::GreaterThanEqual => Ok(Symbol::Bool(l >= r)),
+                                    _ => panic!("unsupported operation (node_id={})", node_ref.id),
                                 }
                             }
                             Symbol::NoneValue => {
-                                panic!("unexpected operation (node_id={})", node_ref.id)
+                                panic!("invalid operation (node_id={})", node_ref.id)
                             }
-                            Symbol::Function(_) =>
+                            Symbol::Function(_) => {
                                 Err(RuntimeError::new(
                                     format!("function comparison is not supported (node_id={})", node_ref.id).as_str()
-                                )),
+                                ))
+                            }
                         }
                     }
-                    Type::Number => {
-                        let left = match self.eval_expr(binary_expr.left, symbols)? {
-                            Symbol::Number(n) => n,
-                            _ => panic!("number expected (node_id={})", node_ref.id),
-                        };
-                        let right = match self.eval_expr(binary_expr.right, symbols)? {
-                            Symbol::Number(n) => n,
-                            _ => panic!("number expected (node_id={})", node_ref.id),
-                        };
+                    Type::Number => { // arithmetic operation
+                        let left = self.eval_expr(binary_expr.left, symbols)?.as_number();
+                        let right = self.eval_expr(binary_expr.right, symbols)?.as_number();
                         match binary_expr.operator {
                             Operator::Add => match left.checked_add(right) {
                                 Some(x) => Ok(Symbol::Number(x)),
@@ -277,7 +286,7 @@ impl<'a> Runner<'a> {
                                 Some(x) => Ok(Symbol::Number(x)),
                                 None => Err(RuntimeError::new("div operation overflowed")),
                             }
-                            _ => panic!("unexpected operator"),
+                            _ => panic!("unsupported operation"),
                         }
                     }
                 }
@@ -319,29 +328,20 @@ impl<'a> Runner<'a> {
                                     if args.len() != 1 {
                                         panic!("parameters count error");
                                     }
-                                    let value = match &args[0] {
-                                        Symbol::Number(n) => *n,
-                                        _ => panic!("number expected {:?}", args[0]),
-                                    };
+                                    let value = args[0].as_number();
                                     builtin::print_num(value);
                                 } else if &func.identifier == "assert_eq" {
                                     if args.len() != 2 {
                                         panic!("parameters count error");
                                     }
-                                    let a = match &args[0] {
-                                        Symbol::Number(n) => *n,
-                                        _ => panic!("number expected {:?}", args[0]),
-                                    };
-                                    let b = match &args[1] {
-                                        Symbol::Number(n) => *n,
-                                        _ => panic!("number expected {:?}", args[1]),
-                                    };
-                                    builtin::assert_eq(a, b);
+                                    let actual = args[0].as_number();
+                                    let expected = args[0].as_number();
+                                    builtin::assert_eq(actual, expected);
                                 } else {
-                                    return Err(RuntimeError::new("unknown builtin"));
+                                    return Err(RuntimeError::new("unknown function"));
                                 }
                             }
-                            None => panic!("function body not found (callee={})", call_expr.callee.id),
+                            None => panic!("function `{}` is not defined (callee={})", func.identifier, call_expr.callee.id),
                         }
                         symbols.pop_layer();
                         match result {
@@ -349,7 +349,7 @@ impl<'a> Runner<'a> {
                             None => Symbol::NoneValue,
                         }
                     }
-                    _ => panic!("function expected (callee={})", call_expr.callee.id),
+                    _ => panic!("callee is not function (callee={})", call_expr.callee.id),
                 };
                 Ok(symbol)
             }
@@ -359,7 +359,7 @@ impl<'a> Runner<'a> {
                     None => panic!("symbol not found (node_id={})", node_ref.id),
                 }
             }
-            _ => panic!("unexpected expr node (node_id={})", node_ref.id),
+            _ => panic!("Failed to evaluate the expression: unsupported node (node_id={})", node_ref.id),
         }
     }
 }
