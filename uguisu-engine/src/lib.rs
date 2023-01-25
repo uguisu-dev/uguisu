@@ -19,6 +19,16 @@ impl SyntaxError {
             message: message.to_string(),
         }
     }
+
+    pub fn new_with_location(message: &str, location: Option<usize>) -> Self {
+        let message = match location {
+            Some(loc) => format!("{} (Location index: {})", message, loc),
+            None => message.to_string(),
+        };
+        Self {
+            message,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
