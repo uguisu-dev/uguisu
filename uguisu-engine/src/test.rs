@@ -20,10 +20,9 @@ fn try_run_test(code: &str) -> Result<(), String> {
 
     // println!("[Info] running ...");
     match engine.run(graph) {
-        Ok(_) => {}
+        Ok(x) => Ok(x),
         Err(e) => return Err(format!("RunnerError: {}", e.message)),
-    };
-    Ok(())
+    }
 }
 
 fn run_test(code: &str) {
