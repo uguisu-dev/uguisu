@@ -100,6 +100,22 @@ impl<'a> Runner<'a> {
         Ok(())
     }
 
+    fn exec_block(&self, statements: &Vec<NodeRef>, symbols: &mut SymbolTable) -> Result<StatementResult, RuntimeError> {
+        let mut result = StatementResult::None;
+        for &node_ref in statements.iter() {
+            result = self.exec_statement(node_ref, symbols)?;
+            match result {
+                StatementResult::None => {}
+                StatementResult::Break
+                | StatementResult::Return
+                | StatementResult::ReturnWith(_) => {
+                    break;
+                }
+            }
+        }
+        Ok(result)
+    }
+
     fn exec_statement(
         &self,
         node_ref: NodeRef,
@@ -145,35 +161,21 @@ impl<'a> Runner<'a> {
                 } else {
                     &statement.else_block
                 };
-                let mut result = StatementResult::None;
-                for &node_ref in block.iter() {
-                    result = self.exec_statement(node_ref, symbols)?;
-                    match result {
-                        StatementResult::None => {}
-                        StatementResult::Break
-                        | StatementResult::Return
-                        | StatementResult::ReturnWith(_) => {
-                            break;
-                        }
-                    }
-                }
-                Ok(result)
+                self.exec_block(block, symbols)
             }
             Node::LoopStatement(body) => {
                 let mut result;
-                'A: loop {
-                    for &node_ref in body.iter() {
-                        result = self.exec_statement(node_ref, symbols)?;
-                        match result {
-                            StatementResult::None => {}
-                            StatementResult::Break => {
-                                result = StatementResult::None;
-                                break 'A;
-                            }
-                            StatementResult::Return
-                            | StatementResult::ReturnWith(_) => {
-                                break 'A;
-                            }
+                loop {
+                    result = self.exec_block(body, symbols)?;
+                    match result {
+                        StatementResult::None => {}
+                        StatementResult::Break => {
+                            result = StatementResult::None;
+                            break;
+                        }
+                        StatementResult::Return
+                        | StatementResult::ReturnWith(_) => {
+                            break;
                         }
                     }
                 }
@@ -339,22 +341,16 @@ impl<'a> Runner<'a> {
                             let mut result = None;
                             match &func.body {
                                 Some(body) => {
-                                    for &node_ref in body.iter() {
-                                        match self.exec_statement(node_ref, symbols)? {
-                                            StatementResult::None => {}
-                                            StatementResult::Break => {
-                                                return Err(RuntimeError::new(
-                                                    "break target is missing",
-                                                ));
-                                            }
-                                            StatementResult::Return => {
-                                                break;
-                                            }
-                                            StatementResult::ReturnWith(symbol) => {
-                                                result = Some(symbol);
-                                                break;
-                                            }
+                                    match self.exec_block(body, symbols)? {
+                                        StatementResult::Break => {
+                                            return Err(RuntimeError::new(
+                                                "break target is missing",
+                                            ));
                                         }
+                                        StatementResult::ReturnWith(symbol) => {
+                                            result = Some(symbol);
+                                        }
+                                        _ => {}
                                     }
                                 }
                                 None => panic!("function body not found (callee={})", call_expr.callee.id),
