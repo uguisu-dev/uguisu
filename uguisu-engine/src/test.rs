@@ -1,18 +1,18 @@
 use crate::Engine;
 
-fn run_test(code: &str) {
+fn try_run_test(code: &str) -> Result<(), String> {
     let mut engine = Engine::new();
 
     // println!("[Info] parsing ...");
     let ast = match engine.parse(code) {
         Ok(x) => x,
-        Err(e) => panic!("SyntaxError: {}", e.message),
+        Err(e) => return Err(format!("ParseError: {}", e.message)),
     };
 
     // println!("[Info] code analyzing ...");
     let graph = match engine.analyze(ast) {
         Ok(x) => x,
-        Err(e) => panic!("SyntaxError: {}", e.message),
+        Err(e) => return Err(format!("AnalyzeError: {}", e.message)),
     };
 
     // println!("[Info] show graph map");
@@ -21,8 +21,13 @@ fn run_test(code: &str) {
     // println!("[Info] running ...");
     match engine.run(graph) {
         Ok(_) => {}
-        Err(e) => panic!("RuntimeError: {}", e.message),
+        Err(e) => return Err(format!("RunnerError: {}", e.message)),
     };
+    Ok(())
+}
+
+fn run_test(code: &str) {
+    try_run_test(code).unwrap();
 }
 
 #[test]
@@ -189,4 +194,31 @@ fn test_relational_op() {
         }
         ",
     );
+}
+
+#[test]
+fn test_break_no_target() {
+    let result = try_run_test(
+        "
+        fn main() {
+            break;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_break_no_target_nested() {
+    let result = try_run_test(
+        "
+        fn main() {
+            let x = true;
+            if x {
+                break;
+            }
+        }
+        ",
+    );
+    assert!(result.is_err());
 }
