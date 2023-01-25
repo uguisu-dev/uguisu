@@ -7,13 +7,13 @@ fn try_run_test(code: &str) -> Result<Vec<analyze::NodeRef>, String> {
     // println!("[Info] parsing ...");
     let ast = match engine.parse(code) {
         Ok(x) => x,
-        Err(e) => return Err(format!("ParseError: {}", e.message)),
+        Err(e) => return Err(format!("Parser Error: {}", e.message)),
     };
 
     // println!("[Info] code analyzing ...");
     let graph = match engine.analyze(ast) {
         Ok(x) => x,
-        Err(e) => return Err(format!("AnalyzeError: {}", e.message)),
+        Err(e) => return Err(format!("Analyzer Error: {}", e.message)),
     };
 
     // println!("[Info] show graph map");
