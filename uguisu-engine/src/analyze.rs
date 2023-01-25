@@ -157,12 +157,17 @@ impl Type {
 }
 
 #[derive(Debug)]
+pub enum FunctionBody {
+    Statements(Vec<NodeRef>),
+    NativeCode,
+}
+
+#[derive(Debug)]
 pub struct FunctionDeclaration {
     pub identifier: String,
-    pub body: Option<Vec<NodeRef>>,
+    pub body: Option<FunctionBody>,
     pub params: Vec<NodeRef>,
     pub ret_ty: Option<Type>,
-    pub is_native_code: bool,
 }
 
 #[derive(Debug)]
@@ -275,8 +280,7 @@ impl<'a> Analyzer<'a> {
             identifier: String::from(name),
             params: param_nodes,
             ret_ty,
-            is_native_code: true,
-            body: None,
+            body: Some(FunctionBody::NativeCode),
         });
         let node_ref = self.register_node(decl_node);
         // add to scope
@@ -359,7 +363,6 @@ impl<'a> Analyzer<'a> {
                     identifier: parser_decl.identifier.clone(),
                     params,
                     ret_ty,
-                    is_native_code: false,
                     body: None,
                 });
                 let node_ref = self.register_node(decl_node);
@@ -387,7 +390,7 @@ impl<'a> Analyzer<'a> {
                     i += 1;
                 }
                 let body = match &parser_decl.body {
-                    Some(body_nodes) => Some(self.translate_statements(body_nodes)?),
+                    Some(body_nodes) => Some(FunctionBody::Statements(self.translate_statements(body_nodes)?)),
                     None => None,
                 };
                 let decl = match node_ref.get_mut(self.source) {
@@ -689,18 +692,20 @@ impl<'a> Analyzer<'a> {
                 }
                 println!("  }}");
                 match &func.body {
-                    Some(body) => {
+                    Some(FunctionBody::Statements(body)) => {
                         println!("  body: {{");
                         for item in body.iter() {
                             println!("    [{}]", item.id);
                         }
                         println!("  }}");
                     }
+                    Some(FunctionBody::NativeCode) => {
+                        println!("  body: (native code)");
+                    }
                     None => {
                         println!("  body: (None)");
                     }
                 }
-                println!("  is_native_code: {}", func.is_native_code);
             }
             Node::VariableDeclaration(variable) => {
                 println!("  name: {}", variable.identifier);

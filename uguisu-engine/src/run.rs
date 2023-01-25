@@ -1,4 +1,4 @@
-use crate::analyze::{LiteralValue, Node, NodeId, NodeRef, Operator, Type};
+use crate::analyze::{LiteralValue, Node, NodeId, NodeRef, Operator, Type, FunctionBody};
 use crate::RuntimeError;
 use std::collections::HashMap;
 
@@ -285,72 +285,68 @@ impl<'a> Runner<'a> {
             Node::CallExpr(call_expr) => {
                 let symbol = match call_expr.callee.get(self.graph_source) {
                     Node::FunctionDeclaration(func) => {
-                        if func.is_native_code {
-                            symbols.push_layer();
-                            let mut args = Vec::new();
-                            for i in 0..func.params.len() {
-                                let arg_node = &call_expr.args[i];
-                                let arg_symbol = self.eval_expr(*arg_node, symbols)?;
-                                args.push(arg_symbol);
-                            }
-                            // TODO: improve builtin
-                            if &func.identifier == "print_num" {
-                                if args.len() != 1 {
-                                    panic!("parameters count error");
+                        symbols.push_layer();
+                        let mut result = None;
+                        match &func.body {
+                            Some(FunctionBody::Statements(body)) => {
+                                for i in 0..func.params.len() {
+                                    let param_node = &func.params[i];
+                                    let arg_node = &call_expr.args[i];
+                                    let arg_symbol = self.eval_expr(*arg_node, symbols)?;
+                                    symbols.set(*param_node, arg_symbol);
                                 }
-                                let value = match &args[0] {
-                                    Symbol::Number(n) => *n,
-                                    _ => panic!("number expected {:?}", args[0]),
-                                };
-                                builtin::print_num(value);
-                            } else if &func.identifier == "assert_eq" {
-                                if args.len() != 2 {
-                                    panic!("parameters count error");
-                                }
-                                let a = match &args[0] {
-                                    Symbol::Number(n) => *n,
-                                    _ => panic!("number expected {:?}", args[0]),
-                                };
-                                let b = match &args[1] {
-                                    Symbol::Number(n) => *n,
-                                    _ => panic!("number expected {:?}", args[1]),
-                                };
-                                builtin::assert_eq(a, b);
-                            } else {
-                                return Err(RuntimeError::new("unknown builtin"));
-                            }
-                            symbols.pop_layer();
-                            Symbol::NoneValue
-                        } else {
-                            symbols.push_layer();
-                            for i in 0..func.params.len() {
-                                let param_node = &func.params[i];
-                                let arg_node = &call_expr.args[i];
-                                let arg_symbol = self.eval_expr(*arg_node, symbols)?;
-                                symbols.set(*param_node, arg_symbol);
-                            }
-                            let mut result = None;
-                            match &func.body {
-                                Some(body) => {
-                                    match self.exec_block(body, symbols)? {
-                                        StatementResult::Break => {
-                                            return Err(RuntimeError::new(
-                                                "break target is missing",
-                                            ));
-                                        }
-                                        StatementResult::ReturnWith(symbol) => {
-                                            result = Some(symbol);
-                                        }
-                                        _ => {}
+                                match self.exec_block(body, symbols)? {
+                                    StatementResult::Break => {
+                                        return Err(RuntimeError::new(
+                                            "break target is missing",
+                                        ));
                                     }
+                                    StatementResult::ReturnWith(symbol) => {
+                                        result = Some(symbol);
+                                    }
+                                    _ => {}
                                 }
-                                None => panic!("function body not found (callee={})", call_expr.callee.id),
                             }
-                            symbols.pop_layer();
-                            match result {
-                                Some(x) => x,
-                                None => Symbol::NoneValue,
+                            Some(FunctionBody::NativeCode) => {
+                                let mut args = Vec::new();
+                                for i in 0..func.params.len() {
+                                    let arg_node = &call_expr.args[i];
+                                    let arg_symbol = self.eval_expr(*arg_node, symbols)?;
+                                    args.push(arg_symbol);
+                                }
+                                // TODO: improve builtin
+                                if &func.identifier == "print_num" {
+                                    if args.len() != 1 {
+                                        panic!("parameters count error");
+                                    }
+                                    let value = match &args[0] {
+                                        Symbol::Number(n) => *n,
+                                        _ => panic!("number expected {:?}", args[0]),
+                                    };
+                                    builtin::print_num(value);
+                                } else if &func.identifier == "assert_eq" {
+                                    if args.len() != 2 {
+                                        panic!("parameters count error");
+                                    }
+                                    let a = match &args[0] {
+                                        Symbol::Number(n) => *n,
+                                        _ => panic!("number expected {:?}", args[0]),
+                                    };
+                                    let b = match &args[1] {
+                                        Symbol::Number(n) => *n,
+                                        _ => panic!("number expected {:?}", args[1]),
+                                    };
+                                    builtin::assert_eq(a, b);
+                                } else {
+                                    return Err(RuntimeError::new("unknown builtin"));
+                                }
                             }
+                            None => panic!("function body not found (callee={})", call_expr.callee.id),
+                        }
+                        symbols.pop_layer();
+                        match result {
+                            Some(x) => x,
+                            None => Symbol::NoneValue,
                         }
                     }
                     _ => panic!("function expected (callee={})", call_expr.callee.id),
