@@ -23,7 +23,7 @@ fn main() {
 ## Supported features
 - 変数
   - 定義文 `const x = value;` or `let x = value;`
-  - 代入文 `x = value;`
+  - 代入文 `x = value;` `x += value;` など
   - 参照 `x`
 - 関数
   - 定義文 `fn func_1(param_1, param_2) { statement; }`
