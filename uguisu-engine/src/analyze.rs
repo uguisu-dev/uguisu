@@ -1,4 +1,4 @@
-use crate::{parse, SyntaxError};
+use crate::{parse::{self, AssignmentMode}, SyntaxError};
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -122,6 +122,13 @@ impl Node {
             _ => panic!("unexpected node"),
         }
     }
+
+    fn as_function(&self) -> Result<&FunctionDeclaration, SyntaxError> {
+        match self {
+            Node::FunctionDeclaration(decl) => Ok(decl),
+            _ => return Err(SyntaxError::new("function expected")),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -131,6 +138,13 @@ pub enum Type {
 }
 
 impl Type {
+    fn get_name(&self) -> &str {
+        match self {
+            Type::Number => "number",
+            Type::Bool => "bool",
+        }
+    }
+
     fn lookup(ty_identifier: &str) -> Result<Type, SyntaxError> {
         match ty_identifier {
             "number" => Ok(Type::Number),
@@ -139,30 +153,28 @@ impl Type {
         }
     }
 
-    fn compare(x: Type, y: Type) -> Result<Type, SyntaxError> {
-        if x == y {
-            Ok(x)
+    fn assert(actual: Type, expected: Type) -> Result<Type, SyntaxError> {
+        if actual == expected {
+            Ok(actual)
         } else {
-            Err(SyntaxError::new("type not compatible"))
-        }
-    }
-
-    fn compare_option(x: Option<Type>, y: Option<Type>) -> Result<Option<Type>, SyntaxError> {
-        if x == y {
-            Ok(x)
-        } else {
-            Err(SyntaxError::new("type not compatible"))
+            let message = format!("type mismatched. expected `{}`, found `{}`", expected.get_name(), actual.get_name());
+            Err(SyntaxError::new(message.as_str()))
         }
     }
 }
 
 #[derive(Debug)]
+pub enum FunctionBody {
+    Statements(Vec<NodeRef>),
+    NativeCode,
+}
+
+#[derive(Debug)]
 pub struct FunctionDeclaration {
     pub identifier: String,
-    pub body: Option<Vec<NodeRef>>,
+    pub body: Option<FunctionBody>,
     pub params: Vec<NodeRef>,
     pub ret_ty: Option<Type>,
-    pub is_external: bool,
 }
 
 #[derive(Debug)]
@@ -184,6 +196,7 @@ pub struct VariableDeclaration {
 pub struct Assignment {
     pub dest: NodeRef,
     pub body: NodeRef,
+    pub mode: AssignmentMode,
 }
 
 #[derive(Debug)]
@@ -275,8 +288,7 @@ impl<'a> Analyzer<'a> {
             identifier: String::from(name),
             params: param_nodes,
             ret_ty,
-            is_external: true,
-            body: None,
+            body: Some(FunctionBody::NativeCode),
         });
         let node_ref = self.register_node(decl_node);
         // add to scope
@@ -289,7 +301,11 @@ impl<'a> Analyzer<'a> {
         let mut ids = Vec::new();
 
         // register builtin declarations
-        ids.push(self.register_builtin("print_num", vec![("value", Type::Number)], None));
+        ids.push(self.register_builtin(
+            "print_num",
+            vec![("value", Type::Number)],
+            None,
+        ));
         ids.push(self.register_builtin(
             "assert_eq",
             vec![("actual", Type::Number), ("expected", Type::Number)],
@@ -355,7 +371,6 @@ impl<'a> Analyzer<'a> {
                     identifier: parser_decl.identifier.clone(),
                     params,
                     ret_ty,
-                    is_external,
                     body: None,
                 });
                 let node_ref = self.register_node(decl_node);
@@ -383,7 +398,7 @@ impl<'a> Analyzer<'a> {
                     i += 1;
                 }
                 let body = match &parser_decl.body {
-                    Some(body_nodes) => Some(self.translate_statements(body_nodes)?),
+                    Some(body_nodes) => Some(FunctionBody::Statements(self.translate_statements(body_nodes)?)),
                     None => None,
                 };
                 let decl = match node_ref.get_mut(self.source) {
@@ -406,7 +421,7 @@ impl<'a> Analyzer<'a> {
                     None => return Err(SyntaxError::new("value expected")),
                 };
                 let ty = match &decl.type_identifier {
-                    Some(ident) => Type::compare(Type::lookup(ident)?, infer_ty)?,
+                    Some(ident) => Type::assert(infer_ty, Type::lookup(ident)?)?,
                     None => infer_ty,
                 };
                 // make node
@@ -457,7 +472,35 @@ impl<'a> Analyzer<'a> {
                 }
                 let dest = self.translate_expr(&statement.dest)?;
                 let body = self.translate_expr(&statement.body)?;
-                let node = Node::Assignment(Assignment { dest, body });
+                match statement.mode {
+                    AssignmentMode::Assign => {
+                        let dest_ty = match dest.get(self.source).get_ty() {
+                            Some(x) => x,
+                            None => return Err(SyntaxError::new("value expected")),
+                        };
+                        let body_ty = match body.get(self.source).get_ty() {
+                            Some(x) => x,
+                            None => return Err(SyntaxError::new("value expected")),
+                        };
+                        Type::assert(body_ty, dest_ty)?;
+                    },
+                    AssignmentMode::AddAssign
+                    | AssignmentMode::SubAssign
+                    | AssignmentMode::MultAssign
+                    | AssignmentMode::DivAssign => {
+                        let dest_ty = match dest.get(self.source).get_ty() {
+                            Some(x) => x,
+                            None => return Err(SyntaxError::new("value expected")),
+                        };
+                        Type::assert(dest_ty, Type::Number)?;
+                        let body_ty = match body.get(self.source).get_ty() {
+                            Some(x) => x,
+                            None => return Err(SyntaxError::new("value expected")),
+                        };
+                        Type::assert(body_ty, Type::Number)?;
+                    }
+                }
+                let node = Node::Assignment(Assignment { dest, body, mode: statement.mode });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
@@ -471,9 +514,11 @@ impl<'a> Analyzer<'a> {
                     match items.get(index) {
                         Some((cond, then_block)) => {
                             let cond_node = analyzer.translate_expr(cond)?;
-                            if cond_node.get(analyzer.source).get_ty() != Some(Type::Bool) {
-                                return Err(SyntaxError::new("type error: bool expected"));
-                            }
+                            let cond_ty = match cond_node.get(analyzer.source).get_ty() {
+                                Some(x) => x,
+                                None => return Err(SyntaxError::new("value expected")),
+                            };
+                            Type::assert(cond_ty, Type::Bool)?;
                             let then_nodes = analyzer.translate_statements(then_block)?;
                             // next else if part
                             let elif = transform(index + 1, analyzer, items, else_block)?;
@@ -573,8 +618,15 @@ impl<'a> Analyzer<'a> {
             parse::Node::BinaryExpr(binary_expr) => {
                 let left = self.translate_expr(&binary_expr.left)?;
                 let right = self.translate_expr(&binary_expr.right)?;
-                let left_ty = left.get(self.source).get_ty();
-                let right_ty = right.get(self.source).get_ty();
+                let left_ty = match left.get(self.source).get_ty() {
+                    Some(x) => x,
+                    None => return Err(SyntaxError::new("value expected")),
+                };
+                //Type::assert(cond_ty, Type::Bool)?;
+                let right_ty = match right.get(self.source).get_ty() {
+                    Some(x) => x,
+                    None => return Err(SyntaxError::new("value expected")),
+                };
                 let op = match binary_expr.operator.as_str() {
                     "+" => Operator::Add,
                     "-" => Operator::Sub,
@@ -593,10 +645,8 @@ impl<'a> Analyzer<'a> {
                     | Operator::Sub
                     | Operator::Mult
                     | Operator::Div => {
-                        let ty = Type::compare_option(left_ty, right_ty)?;
-                        if ty != Some(Type::Number) {
-                            return Err(SyntaxError::new("type error: number expected"));
-                        }
+                        Type::assert(left_ty, Type::Number)?;
+                        Type::assert(right_ty, Type::Number)?;
                         Node::BinaryExpr(BinaryExpr {
                             operator: op,
                             left,
@@ -610,7 +660,7 @@ impl<'a> Analyzer<'a> {
                     | Operator::LessThanEqual
                     | Operator::GreaterThan
                     | Operator::GreaterThanEqual => {
-                        Type::compare_option(left_ty, right_ty)?;
+                        Type::assert(left_ty, right_ty)?;
                         Node::BinaryExpr(BinaryExpr {
                             operator: op,
                             left,
@@ -624,10 +674,7 @@ impl<'a> Analyzer<'a> {
             }
             parse::Node::CallExpr(call_expr) => {
                 let callee_node = self.translate_expr(&call_expr.callee)?;
-                let callee = match callee_node.get(self.source) {
-                    Node::FunctionDeclaration(decl) => decl,
-                    _ => return Err(SyntaxError::new("function expected")),
-                };
+                let callee = callee_node.get(self.source).as_function()?;
                 let ret_ty = callee.ret_ty;
                 let params = callee.params.clone();
                 if params.len() != call_expr.args.len() {
@@ -636,9 +683,15 @@ impl<'a> Analyzer<'a> {
                 let mut args = Vec::new();
                 for (i, &param) in params.iter().enumerate() {
                     let arg = self.translate_expr(&call_expr.args[i])?;
-                    let param_ty = param.get(self.source).get_ty();
-                    let arg_ty = arg.get(self.source).get_ty();
-                    Type::compare_option(param_ty, arg_ty)?;
+                    let param_ty = match param.get(self.source).get_ty() {
+                        Some(x) => x,
+                        None => return Err(SyntaxError::new("value expected")),
+                    };
+                    let arg_ty = match arg.get(self.source).get_ty() {
+                        Some(x) => x,
+                        None => return Err(SyntaxError::new("value expected")),
+                    };
+                    Type::assert(arg_ty, param_ty)?;
                     args.push(arg);
                 }
                 let node = Node::CallExpr(CallExpr {
@@ -685,18 +738,20 @@ impl<'a> Analyzer<'a> {
                 }
                 println!("  }}");
                 match &func.body {
-                    Some(body) => {
+                    Some(FunctionBody::Statements(body)) => {
                         println!("  body: {{");
                         for item in body.iter() {
                             println!("    [{}]", item.id);
                         }
                         println!("  }}");
                     }
+                    Some(FunctionBody::NativeCode) => {
+                        println!("  body: (native code)");
+                    }
                     None => {
                         println!("  body: (None)");
                     }
                 }
-                println!("  is_external: {}", func.is_external);
             }
             Node::VariableDeclaration(variable) => {
                 println!("  name: {}", variable.identifier);

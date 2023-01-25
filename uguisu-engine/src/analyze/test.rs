@@ -1,29 +1,26 @@
 use crate::analyze;
-use crate::parse;
-use std::collections::HashMap;
+use crate::Engine;
 
-fn run_analyze(code: &str) -> Result<(), String> {
-    let ast = parse::parse(code).map_err(|e| format!("Syntax Error: {}", e.message))?;
+fn try_run_test(code: &str) -> Result<Vec<analyze::NodeRef>, String> {
+    let mut engine = Engine::new();
 
-    let mut graph_source: HashMap<analyze::NodeId, analyze::Node> = HashMap::new();
-    let mut analyzer = analyze::Analyzer::new(&mut graph_source);
-    let _graph = analyzer
-        .translate(&ast)
-        .map_err(|e| format!("Syntax Error: {}", e.message))?;
+    let ast = match engine.parse(code) {
+        Ok(x) => x,
+        Err(e) => return Err(format!("Parser Error: {}", e.message)),
+    };
 
-    //analyzer.show_graph();
+    let graph = match engine.analyze(ast) {
+        Ok(x) => x,
+        Err(e) => return Err(format!("Analyzer Error: {}", e.message)),
+    };
 
-    Ok(())
+    // engine.show_graph_map();
+
+    Ok(graph)
 }
 
 fn run_test(code: &str) {
-    match run_analyze(code) {
-        Err(e) => {
-            println!("{}", e);
-            panic!();
-        }
-        _ => {}
-    }
+    try_run_test(code).unwrap();
 }
 
 #[test]

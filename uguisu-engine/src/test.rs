@@ -1,28 +1,28 @@
 use crate::Engine;
 
-fn run_test(code: &str) {
+fn try_run_test(code: &str) -> Result<(), String> {
     let mut engine = Engine::new();
 
-    // println!("[Info] parsing ...");
     let ast = match engine.parse(code) {
         Ok(x) => x,
-        Err(e) => return println!("SyntaxError: {}", e.message),
+        Err(e) => return Err(format!("Parser Error: {}", e.message)),
     };
 
-    // println!("[Info] code analyzing ...");
     let graph = match engine.analyze(ast) {
         Ok(x) => x,
-        Err(e) => return println!("SyntaxError: {}", e.message),
+        Err(e) => return Err(format!("Analyzer Error: {}", e.message)),
     };
 
-    // println!("[Info] show graph map");
     // engine.show_graph_map();
 
-    // println!("[Info] running ...");
     match engine.run(graph) {
-        Ok(_) => {}
-        Err(e) => return println!("RuntimeError: {}", e.message),
-    };
+        Ok(x) => Ok(x),
+        Err(e) => return Err(format!("Runner Error: {}", e.message)),
+    }
+}
+
+fn run_test(code: &str) {
+    try_run_test(code).unwrap();
 }
 
 #[test]
@@ -186,6 +186,69 @@ fn test_relational_op() {
                 x = 1;
             }
             assert_eq(x, 1);
+        }
+        ",
+    );
+}
+
+#[test]
+fn test_break_no_target() {
+    let result = try_run_test(
+        "
+        fn main() {
+            break;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_break_no_target_nested() {
+    let result = try_run_test(
+        "
+        fn main() {
+            let x = true;
+            if x {
+                break;
+            }
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_assignment() {
+    run_test(
+        "
+        fn main() {
+            let x = 0;
+            assert_eq(x, 0);
+            x = 1;
+            assert_eq(x, 1);
+            x = 2;
+            assert_eq(x, 2);
+        }
+        ",
+    );
+}
+
+#[test]
+fn test_assignment_modes() {
+    run_test(
+        "
+        fn main() {
+            let x = 0;
+            assert_eq(x, 0);
+            x += 10;
+            assert_eq(x, 10);
+            x -= 2;
+            assert_eq(x, 8);
+            x *= 2;
+            assert_eq(x, 16);
+            x /= 4;
+            assert_eq(x, 4);
         }
         ",
     );

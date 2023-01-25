@@ -1,4 +1,4 @@
-<img src="uguisu-logo.png" width="128px" alt="uguisu logo"/>
+<img alt="uguisu logo" width="128px" src="https://raw.githubusercontent.com/uguisu-dev/uguisu/master/uguisu-logo.png" />
 
 # Uguisu
 The Uguisu programming language.  
@@ -21,21 +21,21 @@ fn main() {
 ```
 
 ## Supported features
-- 変数(`const`, `let`)
-  - 定義
-  - 代入
-  - 参照
-- 関数(`fn`)
-  - 定義
-  - 呼び出し
-- `if`文
-- `loop`文
-- `break`文
-- `return`文
+- 変数
+  - 定義文 `const x = value;` or `let x = value;`
+  - 代入文 `x = value;`
+  - 参照 `x`
+- 関数
+  - 定義文 `fn func_1(param_1, param_2) { statement; }`
+  - 呼び出し `func_1(param_1, param_2)`
+- if文 `if condition { statement; } else if condition { statement; } else { statement; }`
+- loop文 `loop { statement; }`
+- break文 `break;`
+- return文 `return;` or `return value;`
 - 二項演算子: `+` `-` `*` `/` `==` `!=` `<` `<=` `>` `>=`
-- 値
-  - `number`型
-  - `bool`型
+- 型
+  - number型 `123`
+  - bool型 `true` `false`
 - ビルトイン関数
   - `fn print_num(value: number);`
   - `fn assert_eq(actual: number, expected: number);`

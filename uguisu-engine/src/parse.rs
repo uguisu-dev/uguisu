@@ -62,6 +62,16 @@ pub enum VariableAttribute {
 pub struct Assignment {
     pub dest: Box<Node>,
     pub body: Box<Node>,
+    pub mode: AssignmentMode,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum AssignmentMode {
+    Assign,
+    AddAssign,
+    SubAssign,
+    MultAssign,
+    DivAssign,
 }
 
 #[derive(Debug, PartialEq)]
@@ -147,10 +157,11 @@ pub fn return_statement(expr: Option<Node>) -> Node {
     }
 }
 
-pub fn assignment(dest: Node, body: Node) -> Node {
+pub fn assignment(dest: Node, body: Node, mode: AssignmentMode) -> Node {
     Node::Assignment(Assignment {
         dest: Box::new(dest),
         body: Box::new(body),
+        mode,
     })
 }
 
@@ -291,8 +302,16 @@ peg::parser! {
         { variable_declaration(id.to_string(), e, ty, vec![kind]) }
 
         rule assignment() -> Node
-            = id:idenfitier() __* "=" __* e:expression() ";"
-        { assignment(reference(id), e) }
+            = id:idenfitier() __* mode:assignment_mode() __* e:expression() ";" {
+                assignment(reference(id), e, mode)
+            }
+
+        rule assignment_mode() -> AssignmentMode
+            = "=" { AssignmentMode::Assign }
+            / "+=" { AssignmentMode::AddAssign }
+            / "-=" { AssignmentMode::SubAssign }
+            / "*=" { AssignmentMode::MultAssign }
+            / "/=" { AssignmentMode::DivAssign }
 
         rule number() -> Node
             = quiet!{ n:$(['1'..='9'] ['0'..='9']+)
