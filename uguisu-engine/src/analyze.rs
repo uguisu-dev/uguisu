@@ -1,4 +1,4 @@
-use crate::{parse, SyntaxError};
+use crate::{parse::{self, AssignmentMode}, SyntaxError};
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -196,6 +196,7 @@ pub struct VariableDeclaration {
 pub struct Assignment {
     pub dest: NodeRef,
     pub body: NodeRef,
+    pub mode: AssignmentMode,
 }
 
 #[derive(Debug)]
@@ -471,7 +472,35 @@ impl<'a> Analyzer<'a> {
                 }
                 let dest = self.translate_expr(&statement.dest)?;
                 let body = self.translate_expr(&statement.body)?;
-                let node = Node::Assignment(Assignment { dest, body });
+                match statement.mode {
+                    AssignmentMode::Assign => {
+                        let dest_ty = match dest.get(self.source).get_ty() {
+                            Some(x) => x,
+                            None => return Err(SyntaxError::new("value expected")),
+                        };
+                        let body_ty = match body.get(self.source).get_ty() {
+                            Some(x) => x,
+                            None => return Err(SyntaxError::new("value expected")),
+                        };
+                        Type::assert(body_ty, dest_ty)?;
+                    },
+                    AssignmentMode::AddAssign
+                    | AssignmentMode::SubAssign
+                    | AssignmentMode::MultAssign
+                    | AssignmentMode::DivAssign => {
+                        let dest_ty = match dest.get(self.source).get_ty() {
+                            Some(x) => x,
+                            None => return Err(SyntaxError::new("value expected")),
+                        };
+                        Type::assert(dest_ty, Type::Number)?;
+                        let body_ty = match body.get(self.source).get_ty() {
+                            Some(x) => x,
+                            None => return Err(SyntaxError::new("value expected")),
+                        };
+                        Type::assert(body_ty, Type::Number)?;
+                    }
+                }
+                let node = Node::Assignment(Assignment { dest, body, mode: statement.mode });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }

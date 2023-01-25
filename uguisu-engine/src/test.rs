@@ -217,3 +217,39 @@ fn test_break_no_target_nested() {
     );
     assert!(result.is_err());
 }
+
+#[test]
+fn test_assignment() {
+    run_test(
+        "
+        fn main() {
+            let x = 0;
+            assert_eq(x, 0);
+            x = 1;
+            assert_eq(x, 1);
+            x = 2;
+            assert_eq(x, 2);
+        }
+        ",
+    );
+}
+
+#[test]
+fn test_assignment_modes() {
+    run_test(
+        "
+        fn main() {
+            let x = 0;
+            assert_eq(x, 0);
+            x += 10;
+            assert_eq(x, 10);
+            x -= 2;
+            assert_eq(x, 8);
+            x *= 2;
+            assert_eq(x, 16);
+            x /= 4;
+            assert_eq(x, 4);
+        }
+        ",
+    );
+}

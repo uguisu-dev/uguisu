@@ -1,5 +1,6 @@
 use crate::analyze::{LiteralValue, Node, NodeId, NodeRef, Operator, Type, FunctionBody};
 use crate::RuntimeError;
+use crate::parse::AssignmentMode;
 use std::collections::HashMap;
 
 mod builtin {
@@ -167,8 +168,52 @@ impl<'a> Runner<'a> {
                 Ok(StatementResult::Return)
             }
             Node::Assignment(statement) => {
-                let symbol = self.eval_expr(statement.body, symbols)?;
-                symbols.set(statement.dest, symbol);
+                let curr_symbol = match symbols.lookup(statement.dest) {
+                    Some(x) => x,
+                    None => panic!("symbol not found (node_id={})", node_ref.id),
+                };
+                match statement.mode {
+                    AssignmentMode::Assign => {
+                        let symbol = self.eval_expr(statement.body, symbols)?;
+                        symbols.set(statement.dest, symbol);
+                    }
+                    AssignmentMode::AddAssign => {
+                        let restored_value = curr_symbol.as_number();
+                        let body_value = self.eval_expr(statement.body, symbols)?.as_number();
+                        let value = match restored_value.checked_add(body_value) {
+                            Some(x) => x,
+                            None => return Err(RuntimeError::new("add operation overflowed")),
+                        };
+                        symbols.set(statement.dest, Symbol::Number(value));
+                    }
+                    AssignmentMode::SubAssign => {
+                        let restored_value = curr_symbol.as_number();
+                        let body_value = self.eval_expr(statement.body, symbols)?.as_number();
+                        let value = match restored_value.checked_sub(body_value) {
+                            Some(x) => x,
+                            None => return Err(RuntimeError::new("sub operation overflowed")),
+                        };
+                        symbols.set(statement.dest, Symbol::Number(value));
+                    }
+                    AssignmentMode::MultAssign => {
+                        let restored_value = curr_symbol.as_number();
+                        let body_value = self.eval_expr(statement.body, symbols)?.as_number();
+                        let value = match restored_value.checked_mul(body_value) {
+                            Some(x) => x,
+                            None => return Err(RuntimeError::new("mult operation overflowed")),
+                        };
+                        symbols.set(statement.dest, Symbol::Number(value));
+                    }
+                    AssignmentMode::DivAssign => {
+                        let restored_value = curr_symbol.as_number();
+                        let body_value = self.eval_expr(statement.body, symbols)?.as_number();
+                        let value = match restored_value.checked_div(body_value) {
+                            Some(x) => x,
+                            None => return Err(RuntimeError::new("div operation overflowed")),
+                        };
+                        symbols.set(statement.dest, Symbol::Number(value));
+                    }
+                }
                 Ok(StatementResult::None)
             }
             Node::IfStatement(statement) => {
