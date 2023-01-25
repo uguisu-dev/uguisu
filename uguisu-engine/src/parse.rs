@@ -8,7 +8,13 @@ mod test;
 //
 
 #[derive(Debug, PartialEq)]
-pub enum Node {
+pub struct Node {
+    pub detail: NodeDetail,
+    pub location: Option<usize>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum NodeDetail {
     // statement
     FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
@@ -22,6 +28,22 @@ pub enum Node {
     Literal(Literal),
     BinaryExpr(BinaryExpr),
     CallExpr(CallExpr),
+}
+
+impl NodeDetail {
+    pub fn as_node(self, location: usize) -> Node {
+        Node {
+            detail: self,
+            location: Some(location),
+        }
+    }
+
+    pub fn as_node_internal(self) -> Node {
+        Node {
+            detail: self,
+            location: None,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -113,21 +135,14 @@ pub struct LoopStatement {
 // node utility
 //
 
-pub fn parameter(identifier: String, type_identifier: Option<String>) -> Parameter {
-    Parameter {
-        identifier,
-        type_identifier,
-    }
-}
-
 pub fn function_declaration(
     identifier: String,
     body: Option<Vec<Node>>,
     params: Vec<Parameter>,
     ret: Option<String>,
     attributes: Vec<FunctionAttribute>,
-) -> Node {
-    Node::FunctionDeclaration(FunctionDeclaration {
+) -> NodeDetail {
+    NodeDetail::FunctionDeclaration(FunctionDeclaration {
         identifier,
         body,
         params,
@@ -136,13 +151,20 @@ pub fn function_declaration(
     })
 }
 
+pub fn parameter(identifier: String, type_identifier: Option<String>) -> Parameter {
+    Parameter {
+        identifier,
+        type_identifier,
+    }
+}
+
 pub fn variable_declaration(
     identifier: String,
     body: Node,
     type_identifier: Option<String>,
     attributes: Vec<VariableAttribute>,
-) -> Node {
-    Node::VariableDeclaration(VariableDeclaration {
+) -> NodeDetail {
+    NodeDetail::VariableDeclaration(VariableDeclaration {
         identifier,
         body: Box::new(body),
         type_identifier,
@@ -150,63 +172,63 @@ pub fn variable_declaration(
     })
 }
 
-pub fn return_statement(expr: Option<Node>) -> Node {
+pub fn return_statement(expr: Option<Node>) -> NodeDetail {
     match expr {
-        Some(x) => Node::ReturnStatement(Some(Box::new(x))),
-        None => Node::ReturnStatement(None),
+        Some(x) => NodeDetail::ReturnStatement(Some(Box::new(x))),
+        None => NodeDetail::ReturnStatement(None),
     }
 }
 
-pub fn assignment(dest: Node, body: Node, mode: AssignmentMode) -> Node {
-    Node::Assignment(Assignment {
+pub fn assignment(dest: Node, body: Node, mode: AssignmentMode) -> NodeDetail {
+    NodeDetail::Assignment(Assignment {
         dest: Box::new(dest),
         body: Box::new(body),
         mode,
     })
 }
 
-pub fn reference(id: &str) -> Node {
-    Node::Reference(Reference {
-        identifier: id.to_string(),
+pub fn reference(identifier: &str) -> NodeDetail {
+    NodeDetail::Reference(Reference {
+        identifier: identifier.to_string(),
     })
 }
 
-pub fn number(value: i64) -> Node {
-    Node::Literal(Literal::Number(value))
+pub fn number(value: i64) -> NodeDetail {
+    NodeDetail::Literal(Literal::Number(value))
 }
 
-pub fn bool(value: bool) -> Node {
-    Node::Literal(Literal::Bool(value))
+pub fn bool(value: bool) -> NodeDetail {
+    NodeDetail::Literal(Literal::Bool(value))
 }
 
-pub fn binary_expr(op: &str, left: Node, right: Node) -> Node {
-    Node::BinaryExpr(BinaryExpr {
+pub fn binary_expr(op: &str, left: Node, right: Node) -> NodeDetail {
+    NodeDetail::BinaryExpr(BinaryExpr {
         operator: op.to_string(),
         left: Box::new(left),
         right: Box::new(right),
     })
 }
 
-pub fn call_expr(callee: Node, args: Vec<Node>) -> Node {
-    Node::CallExpr(CallExpr {
+pub fn call_expr(callee: Node, args: Vec<Node>) -> NodeDetail {
+    NodeDetail::CallExpr(CallExpr {
         callee: Box::new(callee),
         args,
     })
 }
 
-pub fn if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<Node>>) -> Node {
+pub fn if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<Node>>) -> NodeDetail {
     let mut items = Vec::new();
     for (cond, block) in cond_blocks {
         items.push((Box::new(cond), block))
     }
-    Node::IfStatement(IfStatement {
+    NodeDetail::IfStatement(IfStatement {
         cond_blocks: items,
         else_block,
     })
 }
 
-pub fn loop_statement(body: Vec<Node>) -> Node {
-    Node::LoopStatement(LoopStatement { body })
+pub fn loop_statement(body: Vec<Node>) -> NodeDetail {
+    NodeDetail::LoopStatement(LoopStatement { body })
 }
 
 //
@@ -234,19 +256,19 @@ peg::parser! {
             / e:expression() __* ";" { e }
 
         pub rule expression() -> Node = precedence! {
-            left:(@) __* "==" __* right:@ { binary_expr("==", left, right) }
-            left:(@) __* "!=" __* right:@ { binary_expr("!=", left, right) }
+            left:(@) __* p:pos() "==" __* right:@ { binary_expr("==", left, right).as_node(p) }
+            left:(@) __* p:pos() "!=" __* right:@ { binary_expr("!=", left, right).as_node(p) }
             --
-            left:(@) __* "<" __* right:@ { binary_expr("<", left, right) }
-            left:(@) __* "<=" __* right:@ { binary_expr("<=", left, right) }
-            left:(@) __* ">" __* right:@ { binary_expr(">", left, right) }
-            left:(@) __* ">=" __* right:@ { binary_expr(">=", left, right) }
+            left:(@) __* p:pos() "<" __* right:@ { binary_expr("<", left, right).as_node(p) }
+            left:(@) __* p:pos() "<=" __* right:@ { binary_expr("<=", left, right).as_node(p) }
+            left:(@) __* p:pos() ">" __* right:@ { binary_expr(">", left, right).as_node(p) }
+            left:(@) __* p:pos() ">=" __* right:@ { binary_expr(">=", left, right).as_node(p) }
             --
-            left:(@) __* "+" __* right:@ { binary_expr("+", left, right) }
-            left:(@) __* "-" __* right:@ { binary_expr("-", left, right) }
+            left:(@) __* p:pos() "+" __* right:@ { binary_expr("+", left, right).as_node(p) }
+            left:(@) __* p:pos() "-" __* right:@ { binary_expr("-", left, right).as_node(p) }
             --
-            left:(@) __* "*" __* right:@ { binary_expr("*", left, right) }
-            left:(@) __* "/" __* right:@ { binary_expr("/", left, right) }
+            left:(@) __* p:pos() "*" __* right:@ { binary_expr("*", left, right).as_node(p) }
+            left:(@) __* p:pos() "/" __* right:@ { binary_expr("/", left, right).as_node(p) }
             // left:(@) __* "%" __* right:@ { Node::mod(left, right) }
             --
             // "!" __* right:(@) { right }
@@ -256,17 +278,17 @@ peg::parser! {
             e:number() { e }
             e:bool() { e }
             e:call_expr() { e }
-            id:idenfitier() { reference(id) }
+            p:pos() id:idenfitier() { reference(id).as_node(p) }
             p:position!() "(" __* e:expression() __* ")" { p; e }
         }
 
         rule function_declaration() -> Node =
-            attrs:func_dec_attrs()? "fn" __+ name:idenfitier() __* "(" __* params:func_dec_params()? __* ")" __* ret:func_dec_return_type()? __*
-            body:func_dec_body()
+            p:pos() attrs:func_dec_attrs()? "fn" __+ name:idenfitier() __* "(" __* params:func_dec_params()? __* ")"
+            __* ret:func_dec_return_type()? __* body:func_dec_body()
         {
             let params = if let Some(v) = params { v } else { vec![] };
             let attrs = if let Some(v) = attrs { v } else { vec![] };
-            function_declaration(name.to_string(), body, params, ret, attrs)
+            function_declaration(name.to_string(), body, params, ret, attrs).as_node(p)
         }
 
         rule func_dec_params() -> Vec<Parameter>
@@ -290,20 +312,20 @@ peg::parser! {
             = "external" { FunctionAttribute::External }
 
         rule break_statement() -> Node
-            = "break" __* ";" { Node::BreakStatement }
+            = p:pos() "break" __* ";" { NodeDetail::BreakStatement.as_node(p) }
 
         rule return_statement() -> Node
-            = "return" e2:(__+ e1:expression() { e1 })? __* ";" { return_statement(e2) }
+            = p:pos() "return" e2:(__+ e1:expression() { e1 })? __* ";" { return_statement(e2).as_node(p) }
 
         rule variable_declaration() -> Node
-            = kind:(
+            = p:pos() kind:(
                 "let" {VariableAttribute::Let} / "const" {VariableAttribute::Const}
             ) __+ id:idenfitier() ty:(__* ":" __* x:idenfitier() {x.to_string()})? __* "=" __* e:expression() ";"
-        { variable_declaration(id.to_string(), e, ty, vec![kind]) }
+        { variable_declaration(id.to_string(), e, ty, vec![kind]).as_node(p) }
 
         rule assignment() -> Node
-            = id:idenfitier() __* mode:assignment_mode() __* e:expression() ";" {
-                assignment(reference(id), e, mode)
+            = p:pos() id:idenfitier() __* mode:assignment_mode() __* e:expression() ";" {
+                assignment(reference(id).as_node(p), e, mode).as_node(p)
             }
 
         rule assignment_mode() -> AssignmentMode
@@ -314,28 +336,28 @@ peg::parser! {
             / "/=" { AssignmentMode::DivAssign }
 
         rule number() -> Node
-            = quiet!{ n:$(['1'..='9'] ['0'..='9']+)
-        {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n))) } }
-            / quiet!{ n:$(['0'..='9'])
-        {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n))) } }
+            = quiet! {
+                p:pos() n:$(['1'..='9'] ['0'..='9']+) {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n).as_node(p))) } }
+            / quiet!{
+                p:pos() n:$(['0'..='9']) {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n).as_node(p))) } }
             / expected!("number")
 
         rule bool() -> Node
-            = "true" { bool(true) }
-            / "false" { bool(false) }
+            = p:pos() "true" { bool(true).as_node(p) }
+            / p:pos() "false" { bool(false).as_node(p) }
 
         rule call_expr() -> Node
-            = name:idenfitier() __* "(" __* args:call_params()? __* ")"
+            = p:pos() name:idenfitier() __* "(" __* args:call_params()? __* ")"
         {
             let args = if let Some(v) = args { v } else { vec![] };
-            call_expr(reference(name), args)
+            call_expr(reference(name).as_node(p), args).as_node(p)
         }
 
         rule call_params() -> Vec<Node>
             = expression() ++ (__* "," __*)
 
         rule if_statement() -> Node
-            = head:if_cond_block() tails:(__* x:elseif_parts() {x})? else_block:(__* x:else_part() {x})? {
+            = p:pos() head:if_cond_block() tails:(__* x:elseif_parts() {x})? else_block:(__* x:else_part() {x})? {
                 let cond_blocks = if let Some(x) = tails {
                     let mut items = vec![head];
                     items.extend(x);
@@ -343,7 +365,7 @@ peg::parser! {
                 } else {
                     vec![head]
                 };
-                if_statement(cond_blocks, else_block)
+                if_statement(cond_blocks, else_block).as_node(p)
             }
 
         rule if_cond_block() -> (Node, Vec<Node>)
@@ -365,8 +387,8 @@ peg::parser! {
             }
 
         rule loop_statement() -> Node
-            = "loop" __* body:block() {
-                loop_statement(body)
+            = p:pos() "loop" __* body:block() {
+                loop_statement(body).as_node(p)
             }
 
         rule block() -> Vec<Node>
@@ -388,6 +410,10 @@ peg::parser! {
 
         rule __() -> char
             = quiet! { c:[' '|'\t'|'\r'|'\n'] { c } }
+
+        rule pos() -> usize = p:position!() {
+            p
+        }
     }
 }
 
