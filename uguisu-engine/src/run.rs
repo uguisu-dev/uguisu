@@ -285,7 +285,7 @@ impl<'a> Runner<'a> {
             Node::CallExpr(call_expr) => {
                 let symbol = match call_expr.callee.get(self.graph_source) {
                     Node::FunctionDeclaration(func) => {
-                        if func.is_external {
+                        if func.is_native_code {
                             symbols.push_layer();
                             let mut args = Vec::new();
                             for i in 0..func.params.len() {

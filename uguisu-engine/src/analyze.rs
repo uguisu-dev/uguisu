@@ -162,7 +162,7 @@ pub struct FunctionDeclaration {
     pub body: Option<Vec<NodeRef>>,
     pub params: Vec<NodeRef>,
     pub ret_ty: Option<Type>,
-    pub is_external: bool,
+    pub is_native_code: bool,
 }
 
 #[derive(Debug)]
@@ -275,7 +275,7 @@ impl<'a> Analyzer<'a> {
             identifier: String::from(name),
             params: param_nodes,
             ret_ty,
-            is_external: true,
+            is_native_code: true,
             body: None,
         });
         let node_ref = self.register_node(decl_node);
@@ -359,7 +359,7 @@ impl<'a> Analyzer<'a> {
                     identifier: parser_decl.identifier.clone(),
                     params,
                     ret_ty,
-                    is_external,
+                    is_native_code: false,
                     body: None,
                 });
                 let node_ref = self.register_node(decl_node);
@@ -700,7 +700,7 @@ impl<'a> Analyzer<'a> {
                         println!("  body: (None)");
                     }
                 }
-                println!("  is_external: {}", func.is_external);
+                println!("  is_native_code: {}", func.is_native_code);
             }
             Node::VariableDeclaration(variable) => {
                 println!("  name: {}", variable.identifier);
