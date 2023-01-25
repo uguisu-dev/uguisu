@@ -157,7 +157,7 @@ impl Type {
         if actual == expected {
             Ok(actual)
         } else {
-            let message = format!("type mismatch: expected `{}`, found `{}`", expected.get_name(), expected.get_name());
+            let message = format!("type mismatch: expected `{}`, found `{}`", expected.get_name(), actual.get_name());
             Err(SyntaxError::new(message.as_str()))
         }
     }
