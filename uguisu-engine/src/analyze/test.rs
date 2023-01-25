@@ -18,11 +18,10 @@ fn run_analyze(code: &str) -> Result<(), String> {
 
 fn run_test(code: &str) {
     match run_analyze(code) {
+        Ok(_) => {}
         Err(e) => {
-            println!("{}", e);
-            panic!();
+            panic!("SyntaxError: {}", e);
         }
-        _ => {}
     }
 }
 

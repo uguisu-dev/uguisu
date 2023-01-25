@@ -6,13 +6,13 @@ fn run_test(code: &str) {
     // println!("[Info] parsing ...");
     let ast = match engine.parse(code) {
         Ok(x) => x,
-        Err(e) => return println!("SyntaxError: {}", e.message),
+        Err(e) => panic!("SyntaxError: {}", e.message),
     };
 
     // println!("[Info] code analyzing ...");
     let graph = match engine.analyze(ast) {
         Ok(x) => x,
-        Err(e) => return println!("SyntaxError: {}", e.message),
+        Err(e) => panic!("SyntaxError: {}", e.message),
     };
 
     // println!("[Info] show graph map");
@@ -21,7 +21,7 @@ fn run_test(code: &str) {
     // println!("[Info] running ...");
     match engine.run(graph) {
         Ok(_) => {}
-        Err(e) => return println!("RuntimeError: {}", e.message),
+        Err(e) => panic!("RuntimeError: {}", e.message),
     };
 }
 
