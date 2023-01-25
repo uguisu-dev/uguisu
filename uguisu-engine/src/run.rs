@@ -123,30 +123,25 @@ impl<'a> Runner<'a> {
     ) -> Result<StatementResult, RuntimeError> {
         match node_ref.get(self.graph_source) {
             Node::FunctionDeclaration(_) => {
-                //println!("FunctionDeclaration");
                 // TODO: check duplicate
                 symbols.set(node_ref, Symbol::Function(node_ref));
                 Ok(StatementResult::None)
             }
             Node::VariableDeclaration(variable) => {
-                //println!("VariableDeclaration");
                 // TODO: check duplicate
                 let symbol = self.eval_expr(variable.body, symbols)?;
                 symbols.set(node_ref, symbol);
                 Ok(StatementResult::None)
             }
             Node::ReturnStatement(Some(expr)) => {
-                //println!("ReturnStatement");
                 let symbol = self.eval_expr(*expr, symbols)?;
                 Ok(StatementResult::ReturnWith(symbol))
             }
             Node::BreakStatement => Ok(StatementResult::Break),
             Node::ReturnStatement(None) => {
-                //println!("ReturnStatement");
                 Ok(StatementResult::Return)
             }
             Node::Assignment(statement) => {
-                //println!("Assignment");
                 let symbol = self.eval_expr(statement.body, symbols)?;
                 symbols.set(statement.dest, symbol);
                 Ok(StatementResult::None)
@@ -185,7 +180,6 @@ impl<'a> Runner<'a> {
             | Node::BinaryExpr(_)
             | Node::CallExpr(_)
             | Node::FuncParam(_) => {
-                //println!("ExprStatement");
                 self.eval_expr(node_ref, symbols)?;
                 Ok(StatementResult::None)
             }
@@ -205,14 +199,12 @@ impl<'a> Runner<'a> {
                 }
             }
             Node::Literal(literal) => {
-                //println!("Literal");
                 match literal.value {
                     LiteralValue::Number(n) => Ok(Symbol::Number(n)),
                     LiteralValue::Bool(value) => Ok(Symbol::Bool(value)),
                 }
             }
             Node::BinaryExpr(binary_expr) => {
-                //println!("BinaryExpr");
                 match binary_expr.ty {
                     Type::Bool => {
                         let left = self.eval_expr(binary_expr.left, symbols)?;
@@ -291,7 +283,6 @@ impl<'a> Runner<'a> {
                 }
             }
             Node::CallExpr(call_expr) => {
-                //println!("CallExpr");
                 let symbol = match call_expr.callee.get(self.graph_source) {
                     Node::FunctionDeclaration(func) => {
                         if func.is_external {
@@ -367,7 +358,6 @@ impl<'a> Runner<'a> {
                 Ok(symbol)
             }
             Node::FuncParam(_) => {
-                //println!("FuncParam");
                 match symbols.lookup(node_ref) {
                     Some(x) => Ok(x.clone()),
                     None => panic!("symbol not found (node_id={})", node_ref.id),
