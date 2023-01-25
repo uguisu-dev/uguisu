@@ -343,7 +343,7 @@ impl<'a> Analyzer<'a> {
                     let param = n.inner.as_func_param();
                     let param_type = match &param.type_identifier {
                         Some(x) => Type::lookup(x)?,
-                        None => return Err(SyntaxError::new("parameter type missing")),
+                        None => return Err(SyntaxError::new_with_location("parameter type missing", n.location)),
                     };
                     // make param node
                     let node = Node::FuncParam(FuncParam {
@@ -363,8 +363,9 @@ impl<'a> Analyzer<'a> {
                     .iter()
                     .any(|x| *x == parse::FunctionAttribute::External);
                 if is_external {
-                    return Err(SyntaxError::new(
+                    return Err(SyntaxError::new_with_location(
                         "External function declarations are obsoleted",
+                        parser_node.location,
                     ));
                 }
                 // make function node
@@ -419,7 +420,7 @@ impl<'a> Analyzer<'a> {
                     .any(|x| *x == parse::VariableAttribute::Let);
                 let infer_ty = match body.get(self.source).get_ty() {
                     Some(x) => x,
-                    None => return Err(SyntaxError::new("value expected")),
+                    None => return Err(SyntaxError::new_with_location("value expected", parser_node.location)),
                 };
                 let ty = match &decl.type_identifier {
                     Some(ident) => Type::assert(infer_ty, Type::lookup(ident)?)?,
@@ -439,8 +440,9 @@ impl<'a> Analyzer<'a> {
             }
             parse::NodeInner::BreakStatement => {
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new(
+                    return Err(SyntaxError::new_with_location(
                         "A break statement cannot be used in global space",
+                        parser_node.location,
                     ));
                 }
                 // TODO: check target
@@ -452,8 +454,9 @@ impl<'a> Analyzer<'a> {
                 // TODO: consider type check
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new(
+                    return Err(SyntaxError::new_with_location(
                         "A return statement cannot be used in global space",
+                        parser_node.location,
                     ));
                 }
                 let inner = match expr {
@@ -467,8 +470,9 @@ impl<'a> Analyzer<'a> {
             parse::NodeInner::Assignment(statement) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new(
+                    return Err(SyntaxError::new_with_location(
                         "An assignment statement cannot be used in global space",
+                        parser_node.location,
                     ));
                 }
                 let dest = self.translate_expr(&statement.dest)?;
@@ -477,11 +481,11 @@ impl<'a> Analyzer<'a> {
                     AssignmentMode::Assign => {
                         let dest_ty = match dest.get(self.source).get_ty() {
                             Some(x) => x,
-                            None => return Err(SyntaxError::new("value expected")),
+                            None => return Err(SyntaxError::new_with_location("value expected", statement.dest.location)),
                         };
                         let body_ty = match body.get(self.source).get_ty() {
                             Some(x) => x,
-                            None => return Err(SyntaxError::new("value expected")),
+                            None => return Err(SyntaxError::new_with_location("value expected", statement.body.location)),
                         };
                         Type::assert(body_ty, dest_ty)?;
                     },
@@ -491,12 +495,12 @@ impl<'a> Analyzer<'a> {
                     | AssignmentMode::DivAssign => {
                         let dest_ty = match dest.get(self.source).get_ty() {
                             Some(x) => x,
-                            None => return Err(SyntaxError::new("value expected")),
+                            None => return Err(SyntaxError::new_with_location("value expected", statement.dest.location)),
                         };
                         Type::assert(dest_ty, Type::Number)?;
                         let body_ty = match body.get(self.source).get_ty() {
                             Some(x) => x,
-                            None => return Err(SyntaxError::new("value expected")),
+                            None => return Err(SyntaxError::new_with_location("value expected", statement.body.location)),
                         };
                         Type::assert(body_ty, Type::Number)?;
                     }
@@ -565,8 +569,9 @@ impl<'a> Analyzer<'a> {
             }
             parse::NodeInner::LoopStatement(statement) => {
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new(
+                    return Err(SyntaxError::new_with_location(
                         "A loop statement cannot be used in global space",
+                        parser_node.location,
                     ));
                 }
                 let body = self.translate_statements(&statement.body)?;
@@ -580,8 +585,9 @@ impl<'a> Analyzer<'a> {
             | parse::NodeInner::CallExpr(_) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new(
+                    return Err(SyntaxError::new_with_location(
                         "An expression cannot be used in global space",
+                        parser_node.location,
                     ));
                 }
                 self.translate_expr(parser_node)
