@@ -420,7 +420,7 @@ impl<'a> Analyzer<'a> {
                     .any(|x| *x == parse::VariableAttribute::Let);
                 let infer_ty = match body.get(self.source).get_ty() {
                     Some(x) => x,
-                    None => return Err(SyntaxError::new_with_location("value expected", parser_node.location)),
+                    None => return Err(SyntaxError::new_with_location("value expected", decl.body.location)),
                 };
                 let ty = match &decl.type_identifier {
                     Some(ident) => Type::assert(infer_ty, Type::lookup(ident)?)?,
@@ -481,7 +481,8 @@ impl<'a> Analyzer<'a> {
                     AssignmentMode::Assign => {
                         let dest_ty = match dest.get(self.source).get_ty() {
                             Some(x) => x,
-                            None => return Err(SyntaxError::new_with_location("value expected", statement.dest.location)),
+                            // None => return Err(SyntaxError::new_with_location("value expected", statement.dest.location)),
+                            None => panic!("unexpected"),
                         };
                         let body_ty = match body.get(self.source).get_ty() {
                             Some(x) => x,
@@ -495,7 +496,8 @@ impl<'a> Analyzer<'a> {
                     | AssignmentMode::DivAssign => {
                         let dest_ty = match dest.get(self.source).get_ty() {
                             Some(x) => x,
-                            None => return Err(SyntaxError::new_with_location("value expected", statement.dest.location)),
+                            //None => return Err(SyntaxError::new_with_location("value expected", statement.dest.location)),
+                            None => panic!("unexpected"),
                         };
                         Type::assert(dest_ty, Type::Number)?;
                         let body_ty = match body.get(self.source).get_ty() {
