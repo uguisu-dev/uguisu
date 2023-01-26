@@ -262,6 +262,49 @@ impl<'a> Analyzer<'a> {
         }
     }
 
+    /// supported newline characters: CR, CR+LF, LF
+    pub fn calc_location(input: &str, index: usize) -> Result<(usize, usize), String> {
+        let mut pos = 0;
+        let mut line = 1;
+        let mut column = 1;
+        let mut cr_flag = false;
+        let mut iter = input.char_indices();
+        loop {
+            if pos == index {
+                return Ok((line, column));
+            }
+            // prepare next location
+            let (i, c) = match iter.next() {
+                Some((i, c)) => (i + c.len_utf8(), c),
+                None => return Err("invalid location".to_string()),
+            };
+            pos = i;
+            match c {
+                '\r' => { // CR
+                    line += 1;
+                    column = 1;
+                    cr_flag = true;
+                }
+                '\n' => { // LF
+                    if cr_flag {
+                        cr_flag = false;
+                    } else {
+                        line += 1;
+                        column = 1;
+                    }
+                }
+                _ => {
+                    if cr_flag {
+                        cr_flag = false;
+                        column += 1;
+                    } else {
+                        column += 1;
+                    }
+                }
+            }
+        }
+    }
+
     fn register_node(&mut self, node: Node) -> NodeRef {
         let node_id = self.source.len();
         self.source.insert(node_id, node);
