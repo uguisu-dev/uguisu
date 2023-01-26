@@ -417,8 +417,17 @@ peg::parser! {
             = &['\u{00}'..='\u{7F}'] c:['A'..='Z'|'a'..='z'|'0'..='9'|'_'] { c }
             / !['\u{00}'..='\u{7F}'] c:[_] { c }
 
-        rule __() -> char
-            = quiet! { c:[' '|'\t'|'\r'|'\n'] { c } }
+        rule comment_range()
+            = "/*" (!"*/" [_])* "*/"
+
+        rule comment_line()
+            = "//" (!newline() [_])* newline()?
+
+        rule newline() -> String
+            = quiet! { "\r\n" { "\r\n".to_string() } / c:['\r'|'\n'] { c.to_string() } }
+
+        rule __()
+            = quiet! { [' '|'\t'|'\r'|'\n'] / comment_line() / comment_range() }
 
         rule pos() -> usize = p:position!() {
             p
