@@ -523,7 +523,7 @@ impl<'a> Analyzer<'a> {
                             let cond_node = analyzer.translate_expr(cond)?;
                             let cond_ty = match cond_node.get(analyzer.source).get_ty() {
                                 Some(x) => x,
-                                None => return Err(SyntaxError::new("value expected")),
+                                None => return Err(SyntaxError::new_with_location("value expected", cond.location)),
                             };
                             Type::assert(cond_ty, Type::Bool)?;
                             let then_nodes = analyzer.translate_statements(then_block)?;
