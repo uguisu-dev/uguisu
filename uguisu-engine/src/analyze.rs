@@ -102,22 +102,22 @@ pub enum Node {
 }
 
 impl Node {
-    fn get_ty(&self) -> Option<Type> {
+    fn get_ty(&self) -> Type {
         match self {
             Node::Literal(literal) => {
-                Some(literal.ty)
+                literal.ty
             }
             Node::BinaryExpr(binary_expr) => {
-                Some(binary_expr.ty)
+                binary_expr.ty
             }
             Node::CallExpr(call_expr) => {
                 call_expr.ty
             }
             Node::FuncParam(func_param) => {
-                Some(func_param.ty)
+                func_param.ty
             }
             Node::VariableDeclaration(variable) => {
-                Some(variable.ty)
+                variable.ty
             }
             _ => panic!("unexpected node"),
         }
@@ -133,6 +133,7 @@ impl Node {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Type {
+    Void,
     Number,
     Bool,
 }
@@ -140,6 +141,7 @@ pub enum Type {
 impl Type {
     fn get_name(&self) -> &str {
         match self {
+            Type::Void => "void",
             Type::Number => "number",
             Type::Bool => "bool",
         }
@@ -147,6 +149,7 @@ impl Type {
 
     fn lookup(ty_identifier: &str, input: &str, location: Option<usize>) -> Result<Type, SyntaxError> {
         match ty_identifier {
+            "void" => Err(SyntaxError::new_with_location("type `void` is invalid", input, location)),
             "number" => Ok(Type::Number),
             "bool" => Ok(Type::Bool),
             _ => Err(SyntaxError::new_with_location("unknown type name", input, location)),
@@ -174,7 +177,7 @@ pub struct FunctionDeclaration {
     pub identifier: String,
     pub body: Option<FunctionBody>,
     pub params: Vec<NodeRef>,
-    pub ret_ty: Option<Type>,
+    pub ret_ty: Type,
 }
 
 #[derive(Debug)]
@@ -244,7 +247,7 @@ pub enum Operator {
 pub struct CallExpr {
     pub callee: NodeRef,
     pub args: Vec<NodeRef>,
-    pub ty: Option<Type>,
+    pub ty: Type,
 }
 
 pub struct Analyzer<'a> {
@@ -315,7 +318,7 @@ impl<'a> Analyzer<'a> {
         &mut self,
         name: &str,
         params: Vec<(&str, Type)>,
-        ret_ty: Option<Type>,
+        ret_ty: Type,
     ) -> NodeRef {
         let mut param_nodes = Vec::new();
         for (i, &(param_name, param_ty)) in params.iter().enumerate() {
@@ -349,12 +352,12 @@ impl<'a> Analyzer<'a> {
         ids.push(self.register_builtin(
             "print_num",
             vec![("value", Type::Number)],
-            None,
+            Type::Void,
         ));
         ids.push(self.register_builtin(
             "assert_eq",
             vec![("actual", Type::Number), ("expected", Type::Number)],
-            None,
+            Type::Void,
         ));
 
         ids.extend(self.translate_statements(ast)?);
@@ -400,8 +403,8 @@ impl<'a> Analyzer<'a> {
                     params.push(node_ref);
                 }
                 let ret_ty = match &parser_decl.ret {
-                    Some(x) => Some(Type::lookup(x, self.input, parser_node.location)?), // TODO: improve error location
-                    None => None,
+                    Some(x) => Type::lookup(x, self.input, parser_node.location)?, // TODO: improve error location
+                    None => Type::Void,
                 };
                 let is_external = parser_decl
                     .attributes
@@ -464,10 +467,8 @@ impl<'a> Analyzer<'a> {
                     .attributes
                     .iter()
                     .any(|x| *x == parse::VariableAttribute::Let);
-                let infer_ty = match body.get(self.source).get_ty() {
-                    Some(x) => x,
-                    None => return Err(SyntaxError::new_with_location("The right-side expression needs to return a value", self.input, decl.body.location)),
-                };
+                let infer_ty = body.get(self.source).get_ty();
+                // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
                 let ty = match &decl.type_identifier {
                     Some(ident) => Type::assert(infer_ty, Type::lookup(ident, self.input, parser_node.location)?, self.input, parser_node.location)?, // TODO: improve error location
                     None => infer_ty,
@@ -528,29 +529,17 @@ impl<'a> Analyzer<'a> {
                 let body = self.translate_expr(&statement.body)?;
                 match statement.mode {
                     AssignmentMode::Assign => {
-                        let dest_ty = match dest.get(self.source).get_ty() {
-                            Some(x) => x,
-                            None => panic!("unexpected"),
-                        };
-                        let body_ty = match body.get(self.source).get_ty() {
-                            Some(x) => x,
-                            None => return Err(SyntaxError::new_with_location("The right-side expression needs to return a value", self.input, statement.body.location)),
-                        };
+                        let dest_ty = dest.get(self.source).get_ty();
+                        let body_ty = body.get(self.source).get_ty();
                         Type::assert(body_ty, dest_ty, self.input, parser_node.location)?;
                     },
                     AssignmentMode::AddAssign
                     | AssignmentMode::SubAssign
                     | AssignmentMode::MultAssign
                     | AssignmentMode::DivAssign => {
-                        let dest_ty = match dest.get(self.source).get_ty() {
-                            Some(x) => x,
-                            None => panic!("unexpected"),
-                        };
+                        let dest_ty = dest.get(self.source).get_ty();
                         Type::assert(dest_ty, Type::Number, self.input, parser_node.location)?; // TODO: improve error message
-                        let body_ty = match body.get(self.source).get_ty() {
-                            Some(x) => x,
-                            None => return Err(SyntaxError::new_with_location("The right-side expression needs to return a value", self.input, statement.body.location)),
-                        };
+                        let body_ty = body.get(self.source).get_ty();
                         Type::assert(body_ty, Type::Number, self.input, statement.body.location)?;
                     }
                 }
@@ -568,10 +557,7 @@ impl<'a> Analyzer<'a> {
                     match items.get(index) {
                         Some((cond, then_block)) => {
                             let cond_node = analyzer.translate_expr(cond)?;
-                            let cond_ty = match cond_node.get(analyzer.source).get_ty() {
-                                Some(x) => x,
-                                None => return Err(SyntaxError::new_with_location("The condition expression needs to return a value", analyzer.input, cond.location)),
-                            };
+                            let cond_ty = cond_node.get(analyzer.source).get_ty();
                             Type::assert(cond_ty, Type::Bool, analyzer.input, cond.location)?;
                             let then_nodes = analyzer.translate_statements(then_block)?;
                             // next else if part
@@ -677,14 +663,8 @@ impl<'a> Analyzer<'a> {
             parse::NodeInner::BinaryExpr(binary_expr) => {
                 let left = self.translate_expr(&binary_expr.left)?;
                 let right = self.translate_expr(&binary_expr.right)?;
-                let left_ty = match left.get(self.source).get_ty() {
-                    Some(x) => x,
-                    None => return Err(SyntaxError::new_with_location("The expression needs to return a value", self.input, binary_expr.left.location)),
-                };
-                let right_ty = match right.get(self.source).get_ty() {
-                    Some(x) => x,
-                    None => return Err(SyntaxError::new_with_location("The expression needs to return a value", self.input, binary_expr.right.location)),
-                };
+                let left_ty = left.get(self.source).get_ty();
+                let right_ty = right.get(self.source).get_ty();
                 let op = match binary_expr.operator.as_str() {
                     "+" => Operator::Add,
                     "-" => Operator::Sub,
@@ -741,14 +721,8 @@ impl<'a> Analyzer<'a> {
                 let mut args = Vec::new();
                 for (i, &param) in params.iter().enumerate() {
                     let arg = self.translate_expr(&call_expr.args[i])?;
-                    let param_ty = match param.get(self.source).get_ty() {
-                        Some(x) => x,
-                        None => panic!("unexpected"),
-                    };
-                    let arg_ty = match arg.get(self.source).get_ty() {
-                        Some(x) => x,
-                        None => return Err(SyntaxError::new_with_location("The argument needs to return a value", self.input, call_expr.args[i].location)),
-                    };
+                    let param_ty = param.get(self.source).get_ty();
+                    let arg_ty = arg.get(self.source).get_ty();
                     Type::assert(arg_ty, param_ty, self.input, call_expr.args[i].location)?;
                     args.push(arg);
                 }

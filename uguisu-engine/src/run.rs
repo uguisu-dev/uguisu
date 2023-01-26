@@ -334,6 +334,7 @@ impl<'a> Runner<'a> {
                             _ => panic!("unsupported operation"),
                         }
                     }
+                    Type::Void => panic!("unexpected type: void"),
                 }
             }
             Node::CallExpr(call_expr) => {
