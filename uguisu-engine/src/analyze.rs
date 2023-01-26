@@ -119,7 +119,14 @@ impl Node {
             Node::VariableDeclaration(variable) => {
                 variable.ty
             }
-            _ => panic!("unexpected node"),
+            Node::FunctionDeclaration(_)
+            | Node::BreakStatement
+            | Node::ReturnStatement(_)
+            | Node::Assignment(_)
+            | Node::IfStatement(_)
+            | Node::LoopStatement(_) => {
+                panic!("unexpected node");
+            }
         }
     }
 
@@ -734,7 +741,16 @@ impl<'a> Analyzer<'a> {
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            _ => panic!("unexpected expr node"),
+            parse::NodeInner::FunctionDeclaration(_)
+            | parse::NodeInner::VariableDeclaration(_)
+            | parse::NodeInner::BreakStatement
+            | parse::NodeInner::ReturnStatement(_)
+            | parse::NodeInner::Assignment(_)
+            | parse::NodeInner::IfStatement(_)
+            | parse::NodeInner::LoopStatement(_)
+            | parse::NodeInner::FuncParam(_) => {
+                panic!("unexpected expr node");
+            }
         }
     }
 
