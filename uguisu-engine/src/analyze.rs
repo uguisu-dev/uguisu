@@ -145,20 +145,20 @@ impl Type {
         }
     }
 
-    fn lookup(ty_identifier: &str) -> Result<Type, SyntaxError> {
+    fn lookup(ty_identifier: &str, input: &str, location: Option<usize>) -> Result<Type, SyntaxError> {
         match ty_identifier {
             "number" => Ok(Type::Number),
             "bool" => Ok(Type::Bool),
-            _ => Err(SyntaxError::new("unknown type name")),
+            _ => Err(SyntaxError::new_with_location("unknown type name", input, location)),
         }
     }
 
-    fn assert(actual: Type, expected: Type) -> Result<Type, SyntaxError> {
+    fn assert(actual: Type, expected: Type, input: &str, location: Option<usize>) -> Result<Type, SyntaxError> {
         if actual == expected {
             Ok(actual)
         } else {
             let message = format!("type mismatched. expected `{}`, found `{}`", expected.get_name(), actual.get_name());
-            Err(SyntaxError::new(message.as_str()))
+            Err(SyntaxError::new_with_location(message.as_str(), input, location))
         }
     }
 }
@@ -387,7 +387,7 @@ impl<'a> Analyzer<'a> {
                 for (i, n) in parser_decl.params.iter().enumerate() {
                     let param = n.inner.as_func_param();
                     let param_type = match &param.type_identifier {
-                        Some(x) => Type::lookup(x)?,
+                        Some(x) => Type::lookup(x, self.input, n.location)?, // TODO: improve error location
                         None => return Err(SyntaxError::new_with_location("parameter type missing", self.input, n.location)),
                     };
                     // make param node
@@ -400,7 +400,7 @@ impl<'a> Analyzer<'a> {
                     params.push(node_ref);
                 }
                 let ret_ty = match &parser_decl.ret {
-                    Some(x) => Some(Type::lookup(x)?),
+                    Some(x) => Some(Type::lookup(x, self.input, parser_node.location)?), // TODO: improve error location
                     None => None,
                 };
                 let is_external = parser_decl
@@ -469,7 +469,7 @@ impl<'a> Analyzer<'a> {
                     None => return Err(SyntaxError::new_with_location("value expected", self.input, decl.body.location)),
                 };
                 let ty = match &decl.type_identifier {
-                    Some(ident) => Type::assert(infer_ty, Type::lookup(ident)?)?,
+                    Some(ident) => Type::assert(infer_ty, Type::lookup(ident, self.input, parser_node.location)?, self.input, parser_node.location)?, // TODO: improve error location
                     None => infer_ty,
                 };
                 // make node
@@ -537,7 +537,7 @@ impl<'a> Analyzer<'a> {
                             Some(x) => x,
                             None => return Err(SyntaxError::new_with_location("value expected", self.input, statement.body.location)),
                         };
-                        Type::assert(body_ty, dest_ty)?;
+                        Type::assert(body_ty, dest_ty, self.input, parser_node.location)?;
                     },
                     AssignmentMode::AddAssign
                     | AssignmentMode::SubAssign
@@ -548,12 +548,12 @@ impl<'a> Analyzer<'a> {
                             //None => return Err(SyntaxError::new_with_location("value expected", statement.dest.location)),
                             None => panic!("unexpected"),
                         };
-                        Type::assert(dest_ty, Type::Number)?;
+                        Type::assert(dest_ty, Type::Number, self.input, parser_node.location)?; // TODO: improve error message
                         let body_ty = match body.get(self.source).get_ty() {
                             Some(x) => x,
                             None => return Err(SyntaxError::new_with_location("value expected", self.input, statement.body.location)),
                         };
-                        Type::assert(body_ty, Type::Number)?;
+                        Type::assert(body_ty, Type::Number, self.input, statement.body.location)?;
                     }
                 }
                 let node = Node::Assignment(Assignment { dest, body, mode: statement.mode });
@@ -574,7 +574,7 @@ impl<'a> Analyzer<'a> {
                                 Some(x) => x,
                                 None => return Err(SyntaxError::new_with_location("value expected", analyzer.input, cond.location)),
                             };
-                            Type::assert(cond_ty, Type::Bool)?;
+                            Type::assert(cond_ty, Type::Bool, analyzer.input, cond.location)?;
                             let then_nodes = analyzer.translate_statements(then_block)?;
                             // next else if part
                             let elif = transform(index + 1, analyzer, items, else_block)?;
@@ -705,8 +705,8 @@ impl<'a> Analyzer<'a> {
                     | Operator::Sub
                     | Operator::Mult
                     | Operator::Div => {
-                        Type::assert(left_ty, Type::Number)?;
-                        Type::assert(right_ty, Type::Number)?;
+                        Type::assert(left_ty, Type::Number, self.input, binary_expr.left.location)?;
+                        Type::assert(right_ty, Type::Number, self.input, binary_expr.right.location)?;
                         Node::BinaryExpr(BinaryExpr {
                             operator: op,
                             left,
@@ -720,7 +720,7 @@ impl<'a> Analyzer<'a> {
                     | Operator::LessThanEqual
                     | Operator::GreaterThan
                     | Operator::GreaterThanEqual => {
-                        Type::assert(left_ty, right_ty)?;
+                        Type::assert(right_ty, left_ty, self.input, parser_node.location)?; // TODO: improve error message
                         Node::BinaryExpr(BinaryExpr {
                             operator: op,
                             left,
@@ -751,7 +751,7 @@ impl<'a> Analyzer<'a> {
                         Some(x) => x,
                         None => return Err(SyntaxError::new_with_location("value expected", self.input, call_expr.args[i].location)),
                     };
-                    Type::assert(arg_ty, param_ty)?;
+                    Type::assert(arg_ty, param_ty, self.input, call_expr.args[i].location)?;
                     args.push(arg);
                 }
                 let node = Node::CallExpr(CallExpr {
