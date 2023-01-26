@@ -606,7 +606,7 @@ impl<'a> Analyzer<'a> {
             parse::NodeInner::Reference(reference) => {
                 match self.scope.lookup(&reference.identifier) {
                     Some(node_ref) => Ok(node_ref),
-                    None => Err(SyntaxError::new("unknown identifier")),
+                    None => Err(SyntaxError::new_with_location("unknown identifier", parser_node.location)),
                 }
             }
             parse::NodeInner::Literal(parse::Literal::Number(n)) => {
@@ -630,12 +630,11 @@ impl<'a> Analyzer<'a> {
                 let right = self.translate_expr(&binary_expr.right)?;
                 let left_ty = match left.get(self.source).get_ty() {
                     Some(x) => x,
-                    None => return Err(SyntaxError::new("value expected")),
+                    None => return Err(SyntaxError::new_with_location("value expected", binary_expr.left.location)),
                 };
-                //Type::assert(cond_ty, Type::Bool)?;
                 let right_ty = match right.get(self.source).get_ty() {
                     Some(x) => x,
-                    None => return Err(SyntaxError::new("value expected")),
+                    None => return Err(SyntaxError::new_with_location("value expected", binary_expr.right.location)),
                 };
                 let op = match binary_expr.operator.as_str() {
                     "+" => Operator::Add,
@@ -688,18 +687,18 @@ impl<'a> Analyzer<'a> {
                 let ret_ty = callee.ret_ty;
                 let params = callee.params.clone();
                 if params.len() != call_expr.args.len() {
-                    return Err(SyntaxError::new("argument count incorrect"));
+                    return Err(SyntaxError::new_with_location("argument count incorrect", parser_node.location));
                 }
                 let mut args = Vec::new();
                 for (i, &param) in params.iter().enumerate() {
                     let arg = self.translate_expr(&call_expr.args[i])?;
                     let param_ty = match param.get(self.source).get_ty() {
                         Some(x) => x,
-                        None => return Err(SyntaxError::new("value expected")),
+                        None => panic!("unexpected"),
                     };
                     let arg_ty = match arg.get(self.source).get_ty() {
                         Some(x) => x,
-                        None => return Err(SyntaxError::new("value expected")),
+                        None => return Err(SyntaxError::new_with_location("value expected", call_expr.args[i].location)),
                     };
                     Type::assert(arg_ty, param_ty)?;
                     args.push(arg);
