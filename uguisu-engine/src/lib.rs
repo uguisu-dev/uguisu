@@ -59,13 +59,13 @@ impl Engine {
         parse::parse(code)
     }
 
-    pub fn analyze(&mut self, ast: Vec<parse::Node>) -> Result<Vec<analyze::NodeRef>, SyntaxError> {
-        let mut analyzer = analyze::Analyzer::new(&mut self.graph_source);
+    pub fn analyze(&mut self, code: &str, ast: Vec<parse::Node>) -> Result<Vec<analyze::NodeRef>, SyntaxError> {
+        let mut analyzer = analyze::Analyzer::new(code, &mut self.graph_source);
         analyzer.translate(&ast)
     }
 
     pub fn show_graph_map(&mut self) {
-        let analyzer = analyze::Analyzer::new(&mut self.graph_source);
+        let analyzer = analyze::Analyzer::new("", &mut self.graph_source);
         analyzer.show_graph();
     }
 

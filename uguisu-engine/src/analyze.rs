@@ -248,13 +248,15 @@ pub struct CallExpr {
 }
 
 pub struct Analyzer<'a> {
+    input: &'a str,
     source: &'a mut HashMap<NodeId, Node>,
     scope: Scope,
 }
 
 impl<'a> Analyzer<'a> {
-    pub fn new(source: &'a mut HashMap<NodeId, Node>) -> Self {
+    pub fn new(input: &'a str, source: &'a mut HashMap<NodeId, Node>) -> Self {
         Self {
+            input,
             source,
             scope: Scope::new(),
         }
