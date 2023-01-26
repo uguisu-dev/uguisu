@@ -388,7 +388,7 @@ impl<'a> Analyzer<'a> {
                     let param = n.inner.as_func_param();
                     let param_type = match &param.type_identifier {
                         Some(x) => Type::lookup(x)?,
-                        None => return Err(SyntaxError::new_with_location("parameter type missing", n.location)),
+                        None => return Err(SyntaxError::new_with_location("parameter type missing", self.input, n.location)),
                     };
                     // make param node
                     let node = Node::FuncParam(FuncParam {
@@ -410,6 +410,7 @@ impl<'a> Analyzer<'a> {
                 if is_external {
                     return Err(SyntaxError::new_with_location(
                         "External function declarations are obsoleted",
+                        self.input,
                         parser_node.location,
                     ));
                 }
@@ -465,7 +466,7 @@ impl<'a> Analyzer<'a> {
                     .any(|x| *x == parse::VariableAttribute::Let);
                 let infer_ty = match body.get(self.source).get_ty() {
                     Some(x) => x,
-                    None => return Err(SyntaxError::new_with_location("value expected", decl.body.location)),
+                    None => return Err(SyntaxError::new_with_location("value expected", self.input, decl.body.location)),
                 };
                 let ty = match &decl.type_identifier {
                     Some(ident) => Type::assert(infer_ty, Type::lookup(ident)?)?,
@@ -487,6 +488,7 @@ impl<'a> Analyzer<'a> {
                 if self.scope.layers.len() == 1 {
                     return Err(SyntaxError::new_with_location(
                         "A break statement cannot be used in global space",
+                        self.input,
                         parser_node.location,
                     ));
                 }
@@ -501,6 +503,7 @@ impl<'a> Analyzer<'a> {
                 if self.scope.layers.len() == 1 {
                     return Err(SyntaxError::new_with_location(
                         "A return statement cannot be used in global space",
+                        self.input,
                         parser_node.location,
                     ));
                 }
@@ -517,6 +520,7 @@ impl<'a> Analyzer<'a> {
                 if self.scope.layers.len() == 1 {
                     return Err(SyntaxError::new_with_location(
                         "An assignment statement cannot be used in global space",
+                        self.input,
                         parser_node.location,
                     ));
                 }
@@ -531,7 +535,7 @@ impl<'a> Analyzer<'a> {
                         };
                         let body_ty = match body.get(self.source).get_ty() {
                             Some(x) => x,
-                            None => return Err(SyntaxError::new_with_location("value expected", statement.body.location)),
+                            None => return Err(SyntaxError::new_with_location("value expected", self.input, statement.body.location)),
                         };
                         Type::assert(body_ty, dest_ty)?;
                     },
@@ -547,7 +551,7 @@ impl<'a> Analyzer<'a> {
                         Type::assert(dest_ty, Type::Number)?;
                         let body_ty = match body.get(self.source).get_ty() {
                             Some(x) => x,
-                            None => return Err(SyntaxError::new_with_location("value expected", statement.body.location)),
+                            None => return Err(SyntaxError::new_with_location("value expected", self.input, statement.body.location)),
                         };
                         Type::assert(body_ty, Type::Number)?;
                     }
@@ -568,7 +572,7 @@ impl<'a> Analyzer<'a> {
                             let cond_node = analyzer.translate_expr(cond)?;
                             let cond_ty = match cond_node.get(analyzer.source).get_ty() {
                                 Some(x) => x,
-                                None => return Err(SyntaxError::new_with_location("value expected", cond.location)),
+                                None => return Err(SyntaxError::new_with_location("value expected", analyzer.input, cond.location)),
                             };
                             Type::assert(cond_ty, Type::Bool)?;
                             let then_nodes = analyzer.translate_statements(then_block)?;
@@ -618,6 +622,7 @@ impl<'a> Analyzer<'a> {
                 if self.scope.layers.len() == 1 {
                     return Err(SyntaxError::new_with_location(
                         "A loop statement cannot be used in global space",
+                        self.input,
                         parser_node.location,
                     ));
                 }
@@ -634,6 +639,7 @@ impl<'a> Analyzer<'a> {
                 if self.scope.layers.len() == 1 {
                     return Err(SyntaxError::new_with_location(
                         "An expression cannot be used in global space",
+                        self.input,
                         parser_node.location,
                     ));
                 }
@@ -651,7 +657,7 @@ impl<'a> Analyzer<'a> {
             parse::NodeInner::Reference(reference) => {
                 match self.scope.lookup(&reference.identifier) {
                     Some(node_ref) => Ok(node_ref),
-                    None => Err(SyntaxError::new_with_location("unknown identifier", parser_node.location)),
+                    None => Err(SyntaxError::new_with_location("unknown identifier", self.input, parser_node.location)),
                 }
             }
             parse::NodeInner::Literal(parse::Literal::Number(n)) => {
@@ -675,11 +681,11 @@ impl<'a> Analyzer<'a> {
                 let right = self.translate_expr(&binary_expr.right)?;
                 let left_ty = match left.get(self.source).get_ty() {
                     Some(x) => x,
-                    None => return Err(SyntaxError::new_with_location("value expected", binary_expr.left.location)),
+                    None => return Err(SyntaxError::new_with_location("value expected", self.input, binary_expr.left.location)),
                 };
                 let right_ty = match right.get(self.source).get_ty() {
                     Some(x) => x,
-                    None => return Err(SyntaxError::new_with_location("value expected", binary_expr.right.location)),
+                    None => return Err(SyntaxError::new_with_location("value expected", self.input, binary_expr.right.location)),
                 };
                 let op = match binary_expr.operator.as_str() {
                     "+" => Operator::Add,
@@ -732,7 +738,7 @@ impl<'a> Analyzer<'a> {
                 let ret_ty = callee.ret_ty;
                 let params = callee.params.clone();
                 if params.len() != call_expr.args.len() {
-                    return Err(SyntaxError::new_with_location("argument count incorrect", parser_node.location));
+                    return Err(SyntaxError::new_with_location("argument count incorrect", self.input, parser_node.location));
                 }
                 let mut args = Vec::new();
                 for (i, &param) in params.iter().enumerate() {
@@ -743,7 +749,7 @@ impl<'a> Analyzer<'a> {
                     };
                     let arg_ty = match arg.get(self.source).get_ty() {
                         Some(x) => x,
-                        None => return Err(SyntaxError::new_with_location("value expected", call_expr.args[i].location)),
+                        None => return Err(SyntaxError::new_with_location("value expected", self.input, call_expr.args[i].location)),
                     };
                     Type::assert(arg_ty, param_ty)?;
                     args.push(arg);

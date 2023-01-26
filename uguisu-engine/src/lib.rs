@@ -1,4 +1,5 @@
 use crate::run::SymbolTable;
+use analyze::Analyzer;
 use std::collections::HashMap;
 
 mod analyze;
@@ -20,9 +21,13 @@ impl SyntaxError {
         }
     }
 
-    pub fn new_with_location(message: &str, location: Option<usize>) -> Self {
+    pub fn new_with_location(message: &str, input: &str, location: Option<usize>) -> Self {
         let message = match location {
-            Some(loc) => format!("{} (Location index: {})", message, loc),
+            Some(index) => {
+                let (line, column) = Analyzer::calc_location(input, index)
+                    .expect("calc location failed");
+                format!("{} ({}:{})", message, line, column)
+            }
             None => message.to_string(),
         };
         Self {
