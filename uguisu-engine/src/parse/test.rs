@@ -39,18 +39,18 @@ fn test_calc() {
     let actual = uguisu_parser::expression("1+2*(3+4)/5");
     let expect = Ok(
         binary_expr("+",
-            number(1),
+            number(1).as_node(0),
             binary_expr("/",
                 binary_expr("*",
-                    number(2),
+                    number(2).as_node(2),
                     binary_expr("+",
-                        number(3),
-                        number(4)
-                    )
-                ),
-                number(5),
-            ),
-        )
+                        number(3).as_node(5),
+                        number(4).as_node(7)
+                    ).as_node(6)
+                ).as_node(3),
+                number(5).as_node(10),
+            ).as_node(9),
+        ).as_node(1)
     );
     assert_eq!(actual, expect);
 }
@@ -63,7 +63,7 @@ fn test_declare_func_no_annotations() {
         vec![],
         None,
         vec![],
-    ));
+    ).as_node(0));
     assert_eq!(uguisu_parser::statement("fn abc() { }"), expect);
     assert_eq!(uguisu_parser::statement("fn abc(){}"), expect);
     assert_eq!(uguisu_parser::statement("fn  abc(  )  {  }"), expect);
@@ -72,50 +72,84 @@ fn test_declare_func_no_annotations() {
 }
 
 #[test]
-fn test_declare_func_with_types() {
+fn test_declare_func_with_types_1() {
     let expect = Ok(function_declaration(
         "abc".to_string(),
         Some(vec![]),
         vec![
-            parameter("x".to_string(), Some("number".to_string())),
-            parameter("y".to_string(), Some("number".to_string())),
+            func_param("x".to_string(), Some("number".to_string())).as_node(7),
+            func_param("y".to_string(), Some("number".to_string())).as_node(18),
         ],
         Some("number".to_string()),
         vec![],
-    ));
+    ).as_node(0));
+
     assert_eq!(
         uguisu_parser::statement("fn abc(x: number, y: number): number { }"),
         expect
     );
+}
+
+#[test]
+fn test_declare_func_with_types_2() {
+    let expect = Ok(function_declaration(
+        "abc".to_string(),
+        Some(vec![]),
+        vec![
+            func_param("x".to_string(), Some("number".to_string())).as_node(7),
+            func_param("y".to_string(), Some("number".to_string())).as_node(16),
+        ],
+        Some("number".to_string()),
+        vec![],
+    ).as_node(0));
+
     assert_eq!(
         uguisu_parser::statement("fn abc(x:number,y:number):number{}"),
         expect
     );
+}
+
+#[test]
+fn test_declare_func_with_types_3() {
+    let expect = Ok(function_declaration(
+        "abc".to_string(),
+        Some(vec![]),
+        vec![
+            func_param("x".to_string(), Some("number".to_string())).as_node(12),
+            func_param("y".to_string(), Some("number".to_string())).as_node(29),
+        ],
+        Some("number".to_string()),
+        vec![],
+    ).as_node(0));
+
     assert_eq!(
         uguisu_parser::statement(
             "fn  abc  (  x  :  number  ,  y  :  number  )  :  number  {  }"
         ),
         expect
     );
+}
 
+#[test]
+fn test_declare_func_with_types_4() {
     assert!(uguisu_parser::statement("fnabc(x:number,y:number):number{}").is_err());
 }
 
 #[test]
 fn test_identifier_single_ascii() {
-    if let Ok(Node::Reference(Reference { identifier, .. })) = uguisu_parser::expression("a") {
+    if let Ok(Node { inner: NodeInner::Reference(Reference { identifier, .. }), location: Some(0) }) = uguisu_parser::expression("a") {
         assert_eq!(identifier, "a");
     } else {
         panic!("incorrect result 1");
     }
 
-    if let Ok(Node::Reference(Reference { identifier, .. })) = uguisu_parser::expression("z") {
+    if let Ok(Node { inner: NodeInner::Reference(Reference { identifier, .. }), location: Some(0) }) = uguisu_parser::expression("z") {
         assert_eq!(identifier, "z");
     } else {
         panic!("incorrect result 2");
     }
 
-    if let Ok(Node::Reference(Reference { identifier, .. })) = uguisu_parser::expression("_") {
+    if let Ok(Node { inner: NodeInner::Reference(Reference { identifier, .. }), location: Some(0) }) = uguisu_parser::expression("_") {
         assert_eq!(identifier, "_");
     } else {
         panic!("incorrect result 3");
@@ -128,7 +162,7 @@ fn test_identifier_single_ascii() {
 
 #[test]
 fn test_identifier_multi_ascii() {
-    if let Ok(Node::Reference(Reference { identifier, .. })) = uguisu_parser::expression("abc") {
+    if let Ok(Node { inner: NodeInner::Reference(Reference { identifier, .. }), location: Some(0) }) = uguisu_parser::expression("abc") {
         assert_eq!(identifier, "abc");
     } else {
         panic!("incorrect result");
@@ -141,13 +175,13 @@ fn test_identifier_multi_ascii() {
 
 #[test]
 fn test_identifier_multi_byte() {
-    if let Ok(Node::Reference(Reference { identifier, .. })) = uguisu_parser::expression("あ") {
+    if let Ok(Node { inner: NodeInner::Reference(Reference { identifier, .. }), location: Some(0) }) = uguisu_parser::expression("あ") {
         assert_eq!(identifier, "あ");
     } else {
         panic!("incorrect result");
     }
 
-    if let Ok(Node::Reference(Reference { identifier, .. })) = uguisu_parser::expression("変数1") {
+    if let Ok(Node { inner: NodeInner::Reference(Reference { identifier, .. }), location: Some(0) }) = uguisu_parser::expression("変数1") {
         assert_eq!(identifier, "変数1");
     } else {
         panic!("incorrect result");

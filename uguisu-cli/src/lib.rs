@@ -60,7 +60,7 @@ fn run_script(filename: &str) {
         Err(e) => return println!("SyntaxError: {}", e.message),
     };
 
-    let graph = match engine.analyze(ast) {
+    let graph = match engine.analyze(&code, ast) {
         Ok(x) => x,
         Err(e) => return println!("SyntaxError: {}", e.message),
     };
