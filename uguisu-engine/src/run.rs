@@ -159,14 +159,14 @@ impl<'a> Runner<'a> {
                 symbols.set(node_ref, symbol);
                 Ok(StatementResult::None)
             }
+            Node::ReturnStatement(None) => {
+                Ok(StatementResult::Return)
+            }
             Node::ReturnStatement(Some(expr)) => {
                 let symbol = self.eval_expr(*expr, symbols)?;
                 Ok(StatementResult::ReturnWith(symbol))
             }
             Node::BreakStatement => Ok(StatementResult::Break),
-            Node::ReturnStatement(None) => {
-                Ok(StatementResult::Return)
-            }
             Node::Assignment(statement) => {
                 let curr_symbol = match symbols.lookup(statement.dest) {
                     Some(x) => x,
@@ -334,6 +334,7 @@ impl<'a> Runner<'a> {
                             _ => panic!("unsupported operation"),
                         }
                     }
+                    Type::Void => panic!("unexpected type: void"),
                 }
             }
             Node::CallExpr(call_expr) => {
@@ -404,7 +405,15 @@ impl<'a> Runner<'a> {
                     None => panic!("symbol not found (node_id={})", node_ref.id),
                 }
             }
-            _ => panic!("Failed to evaluate the expression: unsupported node (node_id={})", node_ref.id),
+            Node::FunctionDeclaration(_)
+            | Node::ReturnStatement(None)
+            | Node::ReturnStatement(Some(_))
+            | Node::BreakStatement
+            | Node::Assignment(_)
+            | Node::IfStatement(_)
+            | Node::LoopStatement(_) => {
+                panic!("Failed to evaluate the expression: unsupported node (node_id={})", node_ref.id);
+            }
         }
     }
 }

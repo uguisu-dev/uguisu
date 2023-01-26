@@ -8,7 +8,7 @@ fn try_run_test(code: &str) -> Result<(), String> {
         Err(e) => return Err(format!("Parser Error: {}", e.message)),
     };
 
-    let graph = match engine.analyze(ast) {
+    let graph = match engine.analyze(code, ast) {
         Ok(x) => x,
         Err(e) => return Err(format!("Analyzer Error: {}", e.message)),
     };
@@ -252,4 +252,16 @@ fn test_assignment_modes() {
         }
         ",
     );
+}
+
+#[test]
+fn test_assign_function() {
+    let result = try_run_test(
+        "
+        fn main() {
+            main = 1;
+        }
+        ",
+    );
+    assert!(result.is_err());
 }
