@@ -466,7 +466,7 @@ impl<'a> Analyzer<'a> {
                     .any(|x| *x == parse::VariableAttribute::Let);
                 let infer_ty = match body.get(self.source).get_ty() {
                     Some(x) => x,
-                    None => return Err(SyntaxError::new_with_location("value expected", self.input, decl.body.location)),
+                    None => return Err(SyntaxError::new_with_location("The right-side expression needs to return a value", self.input, decl.body.location)),
                 };
                 let ty = match &decl.type_identifier {
                     Some(ident) => Type::assert(infer_ty, Type::lookup(ident, self.input, parser_node.location)?, self.input, parser_node.location)?, // TODO: improve error location
@@ -530,12 +530,11 @@ impl<'a> Analyzer<'a> {
                     AssignmentMode::Assign => {
                         let dest_ty = match dest.get(self.source).get_ty() {
                             Some(x) => x,
-                            // None => return Err(SyntaxError::new_with_location("value expected", statement.dest.location)),
                             None => panic!("unexpected"),
                         };
                         let body_ty = match body.get(self.source).get_ty() {
                             Some(x) => x,
-                            None => return Err(SyntaxError::new_with_location("value expected", self.input, statement.body.location)),
+                            None => return Err(SyntaxError::new_with_location("The right-side expression needs to return a value", self.input, statement.body.location)),
                         };
                         Type::assert(body_ty, dest_ty, self.input, parser_node.location)?;
                     },
@@ -545,13 +544,12 @@ impl<'a> Analyzer<'a> {
                     | AssignmentMode::DivAssign => {
                         let dest_ty = match dest.get(self.source).get_ty() {
                             Some(x) => x,
-                            //None => return Err(SyntaxError::new_with_location("value expected", statement.dest.location)),
                             None => panic!("unexpected"),
                         };
                         Type::assert(dest_ty, Type::Number, self.input, parser_node.location)?; // TODO: improve error message
                         let body_ty = match body.get(self.source).get_ty() {
                             Some(x) => x,
-                            None => return Err(SyntaxError::new_with_location("value expected", self.input, statement.body.location)),
+                            None => return Err(SyntaxError::new_with_location("The right-side expression needs to return a value", self.input, statement.body.location)),
                         };
                         Type::assert(body_ty, Type::Number, self.input, statement.body.location)?;
                     }
@@ -572,7 +570,7 @@ impl<'a> Analyzer<'a> {
                             let cond_node = analyzer.translate_expr(cond)?;
                             let cond_ty = match cond_node.get(analyzer.source).get_ty() {
                                 Some(x) => x,
-                                None => return Err(SyntaxError::new_with_location("value expected", analyzer.input, cond.location)),
+                                None => return Err(SyntaxError::new_with_location("The condition expression needs to return a value", analyzer.input, cond.location)),
                             };
                             Type::assert(cond_ty, Type::Bool, analyzer.input, cond.location)?;
                             let then_nodes = analyzer.translate_statements(then_block)?;
@@ -681,11 +679,11 @@ impl<'a> Analyzer<'a> {
                 let right = self.translate_expr(&binary_expr.right)?;
                 let left_ty = match left.get(self.source).get_ty() {
                     Some(x) => x,
-                    None => return Err(SyntaxError::new_with_location("value expected", self.input, binary_expr.left.location)),
+                    None => return Err(SyntaxError::new_with_location("The expression needs to return a value", self.input, binary_expr.left.location)),
                 };
                 let right_ty = match right.get(self.source).get_ty() {
                     Some(x) => x,
-                    None => return Err(SyntaxError::new_with_location("value expected", self.input, binary_expr.right.location)),
+                    None => return Err(SyntaxError::new_with_location("The expression needs to return a value", self.input, binary_expr.right.location)),
                 };
                 let op = match binary_expr.operator.as_str() {
                     "+" => Operator::Add,
@@ -749,7 +747,7 @@ impl<'a> Analyzer<'a> {
                     };
                     let arg_ty = match arg.get(self.source).get_ty() {
                         Some(x) => x,
-                        None => return Err(SyntaxError::new_with_location("value expected", self.input, call_expr.args[i].location)),
+                        None => return Err(SyntaxError::new_with_location("The argument needs to return a value", self.input, call_expr.args[i].location)),
                     };
                     Type::assert(arg_ty, param_ty, self.input, call_expr.args[i].location)?;
                     args.push(arg);
