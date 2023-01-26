@@ -536,7 +536,11 @@ impl<'a> Analyzer<'a> {
                 let body = self.translate_expr(&statement.body)?;
                 match statement.mode {
                     AssignmentMode::Assign => {
-                        let dest_ty = dest.get(self.source).get_ty();
+                        let dest_node = dest.get(self.source);
+                        if let Ok(_) = dest_node.as_function() {
+                            return Err(SyntaxError::new_with_location("function is not assignable", self.input, statement.dest.location));
+                        }
+                        let dest_ty = dest_node.get_ty();
                         let body_ty = body.get(self.source).get_ty();
                         Type::assert(body_ty, dest_ty, self.input, parser_node.location)?;
                     },

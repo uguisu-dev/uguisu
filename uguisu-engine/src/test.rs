@@ -253,3 +253,15 @@ fn test_assignment_modes() {
         ",
     );
 }
+
+#[test]
+fn test_assign_function() {
+    let result = try_run_test(
+        "
+        fn main() {
+            main = 1;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
