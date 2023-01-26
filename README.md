@@ -44,6 +44,7 @@ fn main() {
 - ビルトイン関数
   - `fn print_num(value: number);`
   - `fn assert_eq(actual: number, expected: number);`
+- コメント構文: `// single-line comment` `/* multi-line comment */`
 
 ## Usage
 ```
