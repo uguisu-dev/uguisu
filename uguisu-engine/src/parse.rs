@@ -16,8 +16,7 @@ pub struct Node {
 #[derive(Debug, PartialEq)]
 pub enum NodeInner {
     // statement
-    FunctionDeclaration(FunctionDeclaration),
-    VariableDeclaration(VariableDeclaration),
+    Declaration(Declaration),
     BreakStatement,
     ReturnStatement(Option<Box<Node>>),
     Assignment(Assignment),
@@ -28,8 +27,11 @@ pub enum NodeInner {
     Literal(Literal),
     BinaryExpr(BinaryExpr),
     CallExpr(CallExpr),
-    // function
+    // function declaration
+    Function(Function),
     FuncParam(FuncParam),
+    // variable declaration
+    Variable(Variable),
 }
 
 impl NodeInner {
@@ -56,7 +58,12 @@ impl NodeInner {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct FunctionDeclaration {
+pub struct Declaration {
+    pub body: Box<Node>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Function {
     pub identifier: String,
     pub body: Option<Vec<Node>>,
     pub params: Vec<Node>,
@@ -72,11 +79,10 @@ pub struct FuncParam {
 
 #[derive(Debug, PartialEq)]
 pub enum FunctionAttribute {
-    External,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct VariableDeclaration {
+pub struct Variable {
     pub identifier: String,
     pub body: Box<Node>,
     pub type_identifier: Option<String>,
@@ -145,14 +151,20 @@ pub struct LoopStatement {
 // node utility
 //
 
-pub fn function_declaration(
+pub fn declaration(body: Node) -> NodeInner {
+    NodeInner::Declaration(Declaration {
+        body: Box::new(body),
+    })
+}
+
+pub fn function(
     identifier: String,
     body: Option<Vec<Node>>,
     params: Vec<Node>,
     ret: Option<String>,
     attributes: Vec<FunctionAttribute>,
 ) -> NodeInner {
-    NodeInner::FunctionDeclaration(FunctionDeclaration {
+    NodeInner::Function(Function {
         identifier,
         body,
         params,
@@ -168,13 +180,13 @@ pub fn func_param(identifier: String, type_identifier: Option<String>) -> NodeIn
     })
 }
 
-pub fn variable_declaration(
+pub fn variable(
     identifier: String,
     body: Node,
     type_identifier: Option<String>,
     attributes: Vec<VariableAttribute>,
 ) -> NodeInner {
-    NodeInner::VariableDeclaration(VariableDeclaration {
+    NodeInner::Variable(Variable {
         identifier,
         body: Box::new(body),
         type_identifier,
@@ -298,7 +310,8 @@ peg::parser! {
         {
             let params = if let Some(v) = params { v } else { vec![] };
             let attrs = if let Some(v) = attrs { v } else { vec![] };
-            function_declaration(name.to_string(), body, params, ret, attrs).as_node(p)
+            let body = function(name.to_string(), body, params, ret, attrs).as_node(p);
+            declaration(body).as_node(p)
         }
 
         rule func_dec_params() -> Vec<Node>
@@ -315,11 +328,12 @@ peg::parser! {
             = "{" __* s:statements()? __* "}" { Some(if let Some(v) = s { v } else { vec![] }) }
             / ";" { None }
 
-        rule func_dec_attrs() -> Vec<FunctionAttribute>
-            = attrs:(func_dec_attr() ++ (__+)) __+ { attrs }
+        rule func_dec_attrs() -> Vec<FunctionAttribute> = "" { vec![] }
+        // rule func_dec_attrs() -> Vec<FunctionAttribute>
+        //     = attrs:(func_dec_attr() ++ (__+)) __+ { attrs }
 
-        rule func_dec_attr() -> FunctionAttribute
-            = "external" { FunctionAttribute::External }
+        // rule func_dec_attr() -> FunctionAttribute
+        //     = "" { }
 
         rule break_statement() -> Node
             = p:pos() "break" __* ";" { NodeInner::BreakStatement.as_node(p) }
@@ -331,7 +345,10 @@ peg::parser! {
             = p:pos() kind:(
                 "let" {VariableAttribute::Let} / "const" {VariableAttribute::Const}
             ) __+ id:idenfitier() ty:(__* ":" __* x:idenfitier() {x.to_string()})? __* "=" __* e:expression() ";"
-        { variable_declaration(id.to_string(), e, ty, vec![kind]).as_node(p) }
+        {
+            let body = variable(id.to_string(), e, ty, vec![kind]).as_node(p);
+            declaration(body).as_node(p)
+        }
 
         rule assignment() -> Node
             = p:pos() id:idenfitier() __* mode:assignment_mode() __* e:expression() ";" {

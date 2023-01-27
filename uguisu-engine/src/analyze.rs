@@ -398,105 +398,99 @@ impl<'a> Analyzer<'a> {
     /// - check type compatibility for inner expression
     fn translate_statement(&mut self, parser_node: &parse::Node) -> Result<NodeRef, SyntaxError> {
         match &parser_node.inner {
-            parse::NodeInner::FunctionDeclaration(parser_decl) => {
-                let mut params = Vec::new();
-                for (i, n) in parser_decl.params.iter().enumerate() {
-                    let param = n.inner.as_func_param();
-                    let param_type = match &param.type_identifier {
-                        Some(x) => Type::lookup(x, self.input, n.location)?, // TODO: improve error location
-                        None => return Err(SyntaxError::new_with_location("parameter type missing", self.input, n.location)),
-                    };
-                    // make param node
-                    let node = Node::FuncParam(FuncParam {
-                        identifier: param.identifier.clone(),
-                        param_index: i,
-                        ty: param_type,
-                    });
-                    let node_ref = self.register_node(node);
-                    params.push(node_ref);
-                }
-                let ret_ty = match &parser_decl.ret {
-                    Some(x) => Type::lookup(x, self.input, parser_node.location)?, // TODO: improve error location
-                    None => Type::Void,
-                };
-                let is_external = parser_decl
-                    .attributes
-                    .iter()
-                    .any(|x| *x == parse::FunctionAttribute::External);
-                if is_external {
-                    return Err(SyntaxError::new_with_location(
-                        "External function declarations are obsoleted",
-                        self.input,
-                        parser_node.location,
-                    ));
-                }
-                // make function node
-                let decl_node = Node::FunctionDeclaration(FunctionDeclaration {
-                    identifier: parser_decl.identifier.clone(),
-                    params,
-                    ret_ty,
-                    body: None,
-                });
-                let node_ref = self.register_node(decl_node);
-                // add to scope
-                self.scope.add_node(&parser_decl.identifier, node_ref);
+            parse::NodeInner::Declaration(parser_decl) => {
+                match &parser_decl.body.inner {
+                    parse::NodeInner::Function(func_decl) => {
+                        let mut params = Vec::new();
+                        for (i, n) in func_decl.params.iter().enumerate() {
+                            let param = n.inner.as_func_param();
+                            let param_type = match &param.type_identifier {
+                                Some(x) => Type::lookup(x, self.input, n.location)?, // TODO: improve error location
+                                None => return Err(SyntaxError::new_with_location("parameter type missing", self.input, n.location)),
+                            };
+                            // make param node
+                            let node = Node::FuncParam(FuncParam {
+                                identifier: param.identifier.clone(),
+                                param_index: i,
+                                ty: param_type,
+                            });
+                            let node_ref = self.register_node(node);
+                            params.push(node_ref);
+                        }
+                        let ret_ty = match &func_decl.ret {
+                            Some(x) => Type::lookup(x, self.input, parser_node.location)?, // TODO: improve error location
+                            None => Type::Void,
+                        };
+                        // make function node
+                        let decl_node = Node::FunctionDeclaration(FunctionDeclaration {
+                            identifier: func_decl.identifier.clone(),
+                            params,
+                            ret_ty,
+                            body: None,
+                        });
+                        let node_ref = self.register_node(decl_node);
+                        // add to scope
+                        self.scope.add_node(&func_decl.identifier, node_ref);
 
-                // define body
-                self.scope.enter_scope();
-                let mut i = 0;
-                loop {
-                    let decl = match node_ref.get(self.source) {
-                        Node::FunctionDeclaration(x) => x,
-                        _ => panic!("function expected"),
-                    };
-                    let param = match decl.params.get(i) {
-                        Some(&x) => x,
-                        None => break,
-                    };
-                    let param_node = match param.get(self.source) {
-                        Node::FuncParam(x) => x,
-                        _ => panic!("function parameter expected"),
-                    };
-                    // add to scope
-                    self.scope.add_node(&param_node.identifier, param);
-                    i += 1;
-                }
-                let body = match &parser_decl.body {
-                    Some(body_nodes) => Some(FunctionBody::Statements(self.translate_statements(body_nodes)?)),
-                    None => None,
-                };
-                let decl = match node_ref.get_mut(self.source) {
-                    Node::FunctionDeclaration(x) => x,
-                    _ => panic!("function expected"),
-                };
-                decl.body = body;
-                self.scope.leave_scope();
+                        // define body
+                        self.scope.enter_scope();
+                        let mut i = 0;
+                        loop {
+                            let decl = match node_ref.get(self.source) {
+                                Node::FunctionDeclaration(x) => x,
+                                _ => panic!("function expected"),
+                            };
+                            let param = match decl.params.get(i) {
+                                Some(&x) => x,
+                                None => break,
+                            };
+                            let param_node = match param.get(self.source) {
+                                Node::FuncParam(x) => x,
+                                _ => panic!("function parameter expected"),
+                            };
+                            // add to scope
+                            self.scope.add_node(&param_node.identifier, param);
+                            i += 1;
+                        }
+                        let body = match &func_decl.body {
+                            Some(body_nodes) => Some(FunctionBody::Statements(self.translate_statements(body_nodes)?)),
+                            None => None,
+                        };
+                        let decl = match node_ref.get_mut(self.source) {
+                            Node::FunctionDeclaration(x) => x,
+                            _ => panic!("function expected"),
+                        };
+                        decl.body = body;
+                        self.scope.leave_scope();
 
-                Ok(node_ref)
-            }
-            parse::NodeInner::VariableDeclaration(decl) => {
-                let body = self.translate_expr(&decl.body)?;
-                let is_mutable = decl
-                    .attributes
-                    .iter()
-                    .any(|x| *x == parse::VariableAttribute::Let);
-                let infer_ty = body.get(self.source).get_ty();
-                // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
-                let ty = match &decl.type_identifier {
-                    Some(ident) => Type::assert(infer_ty, Type::lookup(ident, self.input, parser_node.location)?, self.input, parser_node.location)?, // TODO: improve error location
-                    None => infer_ty,
-                };
-                // make node
-                let node = Node::VariableDeclaration(VariableDeclaration {
-                    identifier: decl.identifier.clone(),
-                    body,
-                    is_mutable,
-                    ty,
-                });
-                let node_ref = self.register_node(node);
-                // add to scope
-                self.scope.add_node(&decl.identifier, node_ref);
-                Ok(node_ref)
+                        Ok(node_ref)
+                    }
+                    parse::NodeInner::Variable(var_decl) => {
+                        let body = self.translate_expr(&var_decl.body)?;
+                        let is_mutable = var_decl
+                            .attributes
+                            .iter()
+                            .any(|x| *x == parse::VariableAttribute::Let);
+                        let infer_ty = body.get(self.source).get_ty();
+                        // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
+                        let ty = match &var_decl.type_identifier {
+                            Some(ident) => Type::assert(infer_ty, Type::lookup(ident, self.input, parser_node.location)?, self.input, parser_node.location)?, // TODO: improve error location
+                            None => infer_ty,
+                        };
+                        // make node
+                        let node = Node::VariableDeclaration(VariableDeclaration {
+                            identifier: var_decl.identifier.clone(),
+                            body,
+                            is_mutable,
+                            ty,
+                        });
+                        let node_ref = self.register_node(node);
+                        // add to scope
+                        self.scope.add_node(&var_decl.identifier, node_ref);
+                        Ok(node_ref)
+                    }
+                    _ => panic!("unexpected declaration"),
+                }
             }
             parse::NodeInner::BreakStatement => {
                 if self.scope.layers.len() == 1 {
@@ -647,7 +641,9 @@ impl<'a> Analyzer<'a> {
                 }
                 self.translate_expr(parser_node)
             }
-            parse::NodeInner::FuncParam(_) => panic!("unexpected node"),
+            parse::NodeInner::Function(_)
+            | parse::NodeInner::FuncParam(_)
+            | parse::NodeInner::Variable(_) => panic!("unexpected node"),
         }
     }
 
@@ -754,8 +750,9 @@ impl<'a> Analyzer<'a> {
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeInner::FunctionDeclaration(_)
-            | parse::NodeInner::VariableDeclaration(_)
+            parse::NodeInner::Declaration(_)
+            | parse::NodeInner::Function(_)
+            | parse::NodeInner::Variable(_)
             | parse::NodeInner::BreakStatement
             | parse::NodeInner::ReturnStatement(_)
             | parse::NodeInner::Assignment(_)

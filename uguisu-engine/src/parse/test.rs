@@ -57,13 +57,13 @@ fn test_calc() {
 
 #[test]
 fn test_declare_func_no_annotations() {
-    let expect = Ok(function_declaration(
+    let expect = Ok(declaration(function(
         "abc".to_string(),
         Some(vec![]),
         vec![],
         None,
         vec![],
-    ).as_node(0));
+    ).as_node(0)).as_node(0));
     assert_eq!(uguisu_parser::statement("fn abc() { }"), expect);
     assert_eq!(uguisu_parser::statement("fn abc(){}"), expect);
     assert_eq!(uguisu_parser::statement("fn  abc(  )  {  }"), expect);
@@ -73,7 +73,7 @@ fn test_declare_func_no_annotations() {
 
 #[test]
 fn test_declare_func_with_types_1() {
-    let expect = Ok(function_declaration(
+    let expect = Ok(declaration(function(
         "abc".to_string(),
         Some(vec![]),
         vec![
@@ -82,7 +82,7 @@ fn test_declare_func_with_types_1() {
         ],
         Some("number".to_string()),
         vec![],
-    ).as_node(0));
+    ).as_node(0)).as_node(0));
 
     assert_eq!(
         uguisu_parser::statement("fn abc(x: number, y: number): number { }"),
@@ -92,7 +92,7 @@ fn test_declare_func_with_types_1() {
 
 #[test]
 fn test_declare_func_with_types_2() {
-    let expect = Ok(function_declaration(
+    let expect = Ok(declaration(function(
         "abc".to_string(),
         Some(vec![]),
         vec![
@@ -101,7 +101,7 @@ fn test_declare_func_with_types_2() {
         ],
         Some("number".to_string()),
         vec![],
-    ).as_node(0));
+    ).as_node(0)).as_node(0));
 
     assert_eq!(
         uguisu_parser::statement("fn abc(x:number,y:number):number{}"),
@@ -111,7 +111,7 @@ fn test_declare_func_with_types_2() {
 
 #[test]
 fn test_declare_func_with_types_3() {
-    let expect = Ok(function_declaration(
+    let expect = Ok(declaration(function(
         "abc".to_string(),
         Some(vec![]),
         vec![
@@ -120,7 +120,7 @@ fn test_declare_func_with_types_3() {
         ],
         Some("number".to_string()),
         vec![],
-    ).as_node(0));
+    ).as_node(0)).as_node(0));
 
     assert_eq!(
         uguisu_parser::statement(
