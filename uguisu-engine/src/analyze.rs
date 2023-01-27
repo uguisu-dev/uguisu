@@ -363,6 +363,11 @@ impl<'a> Analyzer<'a> {
             Type::Void,
         ));
         ids.push(self.register_builtin(
+            "print_lf",
+            vec![],
+            Type::Void,
+        ));
+        ids.push(self.register_builtin(
             "assert_eq",
             vec![("actual", Type::Number), ("expected", Type::Number)],
             Type::Void,

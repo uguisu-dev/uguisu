@@ -5,7 +5,10 @@ use std::collections::HashMap;
 
 mod builtin {
     pub fn print_num(value: i64) {
-        println!("{}", value);
+        print!("{}", value);
+    }
+    pub fn print_lf() {
+        println!("\n");
     }
     pub fn assert_eq(actual: i64, expected: i64) {
         if actual != expected {
@@ -389,6 +392,11 @@ impl<'a> Runner<'a> {
                                     }
                                     let value = args[0].as_number();
                                     builtin::print_num(value);
+                                } else if &func.identifier == "print_lf" {
+                                    if args.len() != 0 {
+                                        panic!("parameters count error");
+                                    }
+                                    builtin::print_lf();
                                 } else if &func.identifier == "assert_eq" {
                                     if args.len() != 2 {
                                         panic!("parameters count error");
