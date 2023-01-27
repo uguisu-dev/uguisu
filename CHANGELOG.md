@@ -3,6 +3,10 @@
 
 -->
 
+## x.x.x (unreleased)
+
+- 既に廃止された関数宣言の属性である「External」がコードから削除されました。
+
 ## 0.4.0 (2023/01/27)
 
 - コメント構文が利用できるようになりました。`// single-line comment` `/* multi-line comment */`
