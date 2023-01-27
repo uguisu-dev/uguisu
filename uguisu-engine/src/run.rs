@@ -213,6 +213,15 @@ impl<'a> Runner<'a> {
                         };
                         symbols.set(statement.dest, Symbol::Number(value));
                     }
+                    AssignmentMode::ModAssign => {
+                        let restored_value = curr_symbol.as_number();
+                        let body_value = self.eval_expr(statement.body, symbols)?.as_number();
+                        let value = match restored_value.checked_rem(body_value) {
+                            Some(x) => x,
+                            None => return Err(RuntimeError::new("mod operation overflowed")),
+                        };
+                        symbols.set(statement.dest, Symbol::Number(value));
+                    }
                 }
                 Ok(StatementResult::None)
             }
@@ -330,6 +339,10 @@ impl<'a> Runner<'a> {
                             Operator::Div => match left.checked_div(right) {
                                 Some(x) => Ok(Symbol::Number(x)),
                                 None => Err(RuntimeError::new("div operation overflowed")),
+                            }
+                            Operator::Mod => match left.checked_rem(right) {
+                                Some(x) => Ok(Symbol::Number(x)),
+                                None => Err(RuntimeError::new("mod operation overflowed")),
                             }
                             _ => panic!("unsupported operation"),
                         }

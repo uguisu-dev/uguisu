@@ -242,6 +242,7 @@ pub enum Operator {
     Sub,
     Mult,
     Div,
+    Mod,
     Equal,
     NotEqual,
     GreaterThan,
@@ -547,7 +548,8 @@ impl<'a> Analyzer<'a> {
                     AssignmentMode::AddAssign
                     | AssignmentMode::SubAssign
                     | AssignmentMode::MultAssign
-                    | AssignmentMode::DivAssign => {
+                    | AssignmentMode::DivAssign
+                    | AssignmentMode::ModAssign => {
                         let dest_ty = dest.get(self.source).get_ty();
                         Type::assert(dest_ty, Type::Number, self.input, parser_node.location)?; // TODO: improve error message
                         let body_ty = body.get(self.source).get_ty();
@@ -681,6 +683,7 @@ impl<'a> Analyzer<'a> {
                     "-" => Operator::Sub,
                     "*" => Operator::Mult,
                     "/" => Operator::Div,
+                    "%" => Operator::Mod,
                     "==" => Operator::Equal,
                     "!=" => Operator::NotEqual,
                     "<" => Operator::LessThan,
@@ -693,7 +696,8 @@ impl<'a> Analyzer<'a> {
                     Operator::Add
                     | Operator::Sub
                     | Operator::Mult
-                    | Operator::Div => {
+                    | Operator::Div
+                    | Operator::Mod => {
                         Type::assert(left_ty, Type::Number, self.input, binary_expr.left.location)?;
                         Type::assert(right_ty, Type::Number, self.input, binary_expr.right.location)?;
                         Node::BinaryExpr(BinaryExpr {

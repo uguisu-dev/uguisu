@@ -103,6 +103,7 @@ pub enum AssignmentMode {
     SubAssign,
     MultAssign,
     DivAssign,
+    ModAssign,
 }
 
 #[derive(Debug, PartialEq)]
@@ -278,7 +279,7 @@ peg::parser! {
             --
             left:(@) __* p:pos() "*" __* right:@ { binary_expr("*", left, right).as_node(p) }
             left:(@) __* p:pos() "/" __* right:@ { binary_expr("/", left, right).as_node(p) }
-            // left:(@) __* "%" __* right:@ { Node::mod(left, right) }
+            left:(@) __* p:pos() "%" __* right:@ { binary_expr("%", left, right).as_node(p) }
             --
             // "!" __* right:(@) { right }
             // "+" __* right:(@) { right }
@@ -343,6 +344,7 @@ peg::parser! {
             / "-=" { AssignmentMode::SubAssign }
             / "*=" { AssignmentMode::MultAssign }
             / "/=" { AssignmentMode::DivAssign }
+            / "%=" { AssignmentMode::ModAssign }
 
         rule number() -> Node
             = quiet! {
