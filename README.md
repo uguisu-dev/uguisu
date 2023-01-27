@@ -1,7 +1,7 @@
 <img alt="uguisu logo" width="100px" align="right" src="https://raw.githubusercontent.com/uguisu-dev/uguisu/master/uguisu-logo.png" />
 
 # Uguisu
-The Uguisu programming language.  
+The Uguisu is a statically typed scripting language.
 Not ready to use yet.
 
 The syntax is like this:
