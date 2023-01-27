@@ -8,7 +8,7 @@ mod builtin {
         print!("{}", value);
     }
     pub fn print_lf() {
-        println!("\n");
+        print!("\n");
     }
     pub fn assert_eq(actual: i64, expected: i64) {
         if actual != expected {
