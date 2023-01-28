@@ -1,4 +1,4 @@
-use crate::run::SymbolTable;
+use crate::run::RuningStack;
 use analyze::Analyzer;
 use std::collections::HashMap;
 
@@ -75,8 +75,8 @@ impl Engine {
     }
 
     pub fn run(&mut self, graph: Vec<analyze::NodeRef>) -> Result<(), RuntimeError> {
-        let mut symbols = SymbolTable::new();
+        let mut stack = RuningStack::new();
         let runner = run::Runner::new(&self.graph_source);
-        runner.run(&graph, &mut symbols)
+        runner.run(&graph, &mut stack)
     }
 }

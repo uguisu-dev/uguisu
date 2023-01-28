@@ -58,40 +58,40 @@ impl Symbol {
 }
 
 #[derive(Debug, Clone)]
-pub struct SymbolTable {
-    layers: Vec<SymbolTableLayer>,
+pub struct RuningStack {
+    frames: Vec<StackFrame>,
 }
 
-impl SymbolTable {
+impl RuningStack {
     pub fn new() -> Self {
         Self {
-            layers: vec![SymbolTableLayer::new()],
+            frames: vec![StackFrame::new()],
         }
     }
 
-    pub fn push_layer(&mut self) {
-        self.layers.insert(0, SymbolTableLayer::new());
+    pub fn push_frame(&mut self) {
+        self.frames.insert(0, StackFrame::new());
     }
 
-    pub fn pop_layer(&mut self) {
-        if self.layers.len() == 1 {
-            panic!("Left the root layer.");
+    pub fn pop_frame(&mut self) {
+        if self.frames.len() == 1 {
+            panic!("Left the root frame.");
         }
-        self.layers.remove(0);
+        self.frames.remove(0);
     }
 
-    pub fn set(&mut self, node_ref: NodeRef, symbol: Symbol) {
-        match self.layers.get_mut(0) {
-            Some(layer) => {
-                layer.symbols.insert(node_ref.id, symbol);
+    pub fn set_symbol(&mut self, node_ref: NodeRef, symbol: Symbol) {
+        match self.frames.get_mut(0) {
+            Some(frame) => {
+                frame.table.insert(node_ref.id, symbol);
             }
-            None => panic!("layer not found"),
+            None => panic!("frame not found"),
         }
     }
 
-    pub fn lookup(&self, node_ref: NodeRef) -> Option<&Symbol> {
-        for layer in self.layers.iter() {
-            match layer.symbols.get(&node_ref.id) {
+    pub fn lookup_symbol(&self, node_ref: NodeRef) -> Option<&Symbol> {
+        for frame in self.frames.iter() {
+            match frame.table.get(&node_ref.id) {
                 Some(x) => return Some(x),
                 None => {}
             }
@@ -101,14 +101,14 @@ impl SymbolTable {
 }
 
 #[derive(Debug, Clone)]
-struct SymbolTableLayer {
-    symbols: HashMap<NodeId, Symbol>,
+struct StackFrame {
+    table: HashMap<NodeId, Symbol>,
 }
 
-impl SymbolTableLayer {
+impl StackFrame {
     pub fn new() -> Self {
         Self {
-            symbols: HashMap::new(),
+            table: HashMap::new(),
         }
     }
 }
@@ -122,17 +122,17 @@ impl<'a> Runner<'a> {
         Self { graph_source }
     }
 
-    pub fn run(&self, graph: &Vec<NodeRef>, symbols: &mut SymbolTable) -> Result<(), RuntimeError> {
+    pub fn run(&self, graph: &Vec<NodeRef>, stack: &mut RuningStack) -> Result<(), RuntimeError> {
         for &node_ref in graph.iter() {
-            self.exec_statement(node_ref, symbols)?;
+            self.exec_statement(node_ref, stack)?;
         }
         Ok(())
     }
 
-    fn exec_block(&self, statements: &Vec<NodeRef>, symbols: &mut SymbolTable) -> Result<StatementResult, RuntimeError> {
+    fn exec_block(&self, statements: &Vec<NodeRef>, stack: &mut RuningStack) -> Result<StatementResult, RuntimeError> {
         let mut result = StatementResult::None;
         for &node_ref in statements.iter() {
-            result = self.exec_statement(node_ref, symbols)?;
+            result = self.exec_statement(node_ref, stack)?;
             match result {
                 StatementResult::None => {}
                 StatementResult::Break
@@ -148,99 +148,99 @@ impl<'a> Runner<'a> {
     fn exec_statement(
         &self,
         node_ref: NodeRef,
-        symbols: &mut SymbolTable,
+        stack: &mut RuningStack,
     ) -> Result<StatementResult, RuntimeError> {
         match node_ref.get(self.graph_source) {
             Node::FunctionDeclaration(_) => {
                 // TODO: check duplicate
-                symbols.set(node_ref, Symbol::Function(node_ref));
+                stack.set_symbol(node_ref, Symbol::Function(node_ref));
                 Ok(StatementResult::None)
             }
             Node::VariableDeclaration(variable) => {
                 // TODO: check duplicate
-                let symbol = self.eval_expr(variable.body, symbols)?;
-                symbols.set(node_ref, symbol);
+                let symbol = self.eval_expr(variable.body, stack)?;
+                stack.set_symbol(node_ref, symbol);
                 Ok(StatementResult::None)
             }
             Node::ReturnStatement(None) => {
                 Ok(StatementResult::Return)
             }
             Node::ReturnStatement(Some(expr)) => {
-                let symbol = self.eval_expr(*expr, symbols)?;
+                let symbol = self.eval_expr(*expr, stack)?;
                 Ok(StatementResult::ReturnWith(symbol))
             }
             Node::BreakStatement => Ok(StatementResult::Break),
             Node::Assignment(statement) => {
-                let curr_symbol = match symbols.lookup(statement.dest) {
+                let curr_symbol = match stack.lookup_symbol(statement.dest) {
                     Some(x) => x,
                     None => panic!("symbol not found (node_id={})", node_ref.id),
                 };
                 match statement.mode {
                     AssignmentMode::Assign => {
-                        let symbol = self.eval_expr(statement.body, symbols)?;
-                        symbols.set(statement.dest, symbol);
+                        let symbol = self.eval_expr(statement.body, stack)?;
+                        stack.set_symbol(statement.dest, symbol);
                     }
                     AssignmentMode::AddAssign => {
                         let restored_value = curr_symbol.as_number();
-                        let body_value = self.eval_expr(statement.body, symbols)?.as_number();
+                        let body_value = self.eval_expr(statement.body, stack)?.as_number();
                         let value = match restored_value.checked_add(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("add operation overflowed")),
                         };
-                        symbols.set(statement.dest, Symbol::Number(value));
+                        stack.set_symbol(statement.dest, Symbol::Number(value));
                     }
                     AssignmentMode::SubAssign => {
                         let restored_value = curr_symbol.as_number();
-                        let body_value = self.eval_expr(statement.body, symbols)?.as_number();
+                        let body_value = self.eval_expr(statement.body, stack)?.as_number();
                         let value = match restored_value.checked_sub(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("sub operation overflowed")),
                         };
-                        symbols.set(statement.dest, Symbol::Number(value));
+                        stack.set_symbol(statement.dest, Symbol::Number(value));
                     }
                     AssignmentMode::MultAssign => {
                         let restored_value = curr_symbol.as_number();
-                        let body_value = self.eval_expr(statement.body, symbols)?.as_number();
+                        let body_value = self.eval_expr(statement.body, stack)?.as_number();
                         let value = match restored_value.checked_mul(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("mult operation overflowed")),
                         };
-                        symbols.set(statement.dest, Symbol::Number(value));
+                        stack.set_symbol(statement.dest, Symbol::Number(value));
                     }
                     AssignmentMode::DivAssign => {
                         let restored_value = curr_symbol.as_number();
-                        let body_value = self.eval_expr(statement.body, symbols)?.as_number();
+                        let body_value = self.eval_expr(statement.body, stack)?.as_number();
                         let value = match restored_value.checked_div(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("div operation overflowed")),
                         };
-                        symbols.set(statement.dest, Symbol::Number(value));
+                        stack.set_symbol(statement.dest, Symbol::Number(value));
                     }
                     AssignmentMode::ModAssign => {
                         let restored_value = curr_symbol.as_number();
-                        let body_value = self.eval_expr(statement.body, symbols)?.as_number();
+                        let body_value = self.eval_expr(statement.body, stack)?.as_number();
                         let value = match restored_value.checked_rem(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("mod operation overflowed")),
                         };
-                        symbols.set(statement.dest, Symbol::Number(value));
+                        stack.set_symbol(statement.dest, Symbol::Number(value));
                     }
                 }
                 Ok(StatementResult::None)
             }
             Node::IfStatement(statement) => {
-                let condition = self.eval_expr(statement.condition, symbols)?.as_bool();
+                let condition = self.eval_expr(statement.condition, stack)?.as_bool();
                 let block = if condition {
                     &statement.then_block
                 } else {
                     &statement.else_block
                 };
-                self.exec_block(block, symbols)
+                self.exec_block(block, stack)
             }
             Node::LoopStatement(body) => {
                 let mut result;
                 loop {
-                    result = self.exec_block(body, symbols)?;
+                    result = self.exec_block(body, stack)?;
                     match result {
                         StatementResult::None => {}
                         StatementResult::Break => {
@@ -259,7 +259,7 @@ impl<'a> Runner<'a> {
             | Node::BinaryExpr(_)
             | Node::CallExpr(_)
             | Node::FuncParam(_) => {
-                self.eval_expr(node_ref, symbols)?;
+                self.eval_expr(node_ref, stack)?;
                 Ok(StatementResult::None)
             }
         }
@@ -268,11 +268,11 @@ impl<'a> Runner<'a> {
     fn eval_expr(
         &self,
         node_ref: NodeRef,
-        symbols: &mut SymbolTable,
+        stack: &mut RuningStack,
     ) -> Result<Symbol, RuntimeError> {
         match node_ref.get(self.graph_source) {
             Node::VariableDeclaration(_) => {
-                match symbols.lookup(node_ref) {
+                match stack.lookup_symbol(node_ref) {
                     Some(x) => Ok(x.clone()),
                     None => panic!("symbol not found (node_id={})", node_ref.id),
                 }
@@ -286,8 +286,8 @@ impl<'a> Runner<'a> {
             Node::BinaryExpr(binary_expr) => {
                 match binary_expr.ty {
                     Type::Bool => { // relational operation
-                        let left = self.eval_expr(binary_expr.left, symbols)?;
-                        let right = self.eval_expr(binary_expr.right, symbols)?;
+                        let left = self.eval_expr(binary_expr.left, stack)?;
+                        let right = self.eval_expr(binary_expr.right, stack)?;
                         match left {
                             Symbol::Number(l) => {
                                 let r = right.as_number();
@@ -324,8 +324,8 @@ impl<'a> Runner<'a> {
                         }
                     }
                     Type::Number => { // arithmetic operation
-                        let left = self.eval_expr(binary_expr.left, symbols)?.as_number();
-                        let right = self.eval_expr(binary_expr.right, symbols)?.as_number();
+                        let left = self.eval_expr(binary_expr.left, stack)?.as_number();
+                        let right = self.eval_expr(binary_expr.right, stack)?.as_number();
                         match binary_expr.operator {
                             Operator::Add => match left.checked_add(right) {
                                 Some(x) => Ok(Symbol::Number(x)),
@@ -356,17 +356,17 @@ impl<'a> Runner<'a> {
             Node::CallExpr(call_expr) => {
                 let symbol = match call_expr.callee.get(self.graph_source) {
                     Node::FunctionDeclaration(func) => {
-                        symbols.push_layer();
+                        stack.push_frame();
                         let mut result = None;
                         match &func.body {
                             Some(FunctionBody::Statements(body)) => {
                                 for i in 0..func.params.len() {
                                     let param_node = &func.params[i];
                                     let arg_node = &call_expr.args[i];
-                                    let arg_symbol = self.eval_expr(*arg_node, symbols)?;
-                                    symbols.set(*param_node, arg_symbol);
+                                    let arg_symbol = self.eval_expr(*arg_node, stack)?;
+                                    stack.set_symbol(*param_node, arg_symbol);
                                 }
-                                match self.exec_block(body, symbols)? {
+                                match self.exec_block(body, stack)? {
                                     StatementResult::Break => {
                                         return Err(RuntimeError::new(
                                             "break target is missing",
@@ -382,7 +382,7 @@ impl<'a> Runner<'a> {
                                 let mut args = Vec::new();
                                 for i in 0..func.params.len() {
                                     let arg_node = &call_expr.args[i];
-                                    let arg_symbol = self.eval_expr(*arg_node, symbols)?;
+                                    let arg_symbol = self.eval_expr(*arg_node, stack)?;
                                     args.push(arg_symbol);
                                 }
                                 // TODO: improve builtin
@@ -410,7 +410,7 @@ impl<'a> Runner<'a> {
                             }
                             None => panic!("function `{}` is not defined (callee={})", func.identifier, call_expr.callee.id),
                         }
-                        symbols.pop_layer();
+                        stack.pop_frame();
                         match result {
                             Some(x) => x,
                             None => Symbol::NoneValue,
@@ -421,7 +421,7 @@ impl<'a> Runner<'a> {
                 Ok(symbol)
             }
             Node::FuncParam(_) => {
-                match symbols.lookup(node_ref) {
+                match stack.lookup_symbol(node_ref) {
                     Some(x) => Ok(x.clone()),
                     None => panic!("symbol not found (node_id={})", node_ref.id),
                 }
