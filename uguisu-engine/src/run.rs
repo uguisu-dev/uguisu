@@ -24,7 +24,7 @@ enum StatementResult {
     ReturnWith(Symbol),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Symbol {
     NoneValue,
     Number(i64),
@@ -57,7 +57,6 @@ impl Symbol {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct RuningStack {
     frames: Vec<StackFrame>,
 }
@@ -100,7 +99,6 @@ impl RuningStack {
     }
 }
 
-#[derive(Debug, Clone)]
 struct StackFrame {
     table: HashMap<NodeId, Symbol>,
 }

@@ -9,7 +9,6 @@ mod run;
 #[cfg(test)]
 mod test;
 
-#[derive(Debug, Clone)]
 pub struct SyntaxError {
     pub message: String,
 }
@@ -36,7 +35,6 @@ impl SyntaxError {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct RuntimeError {
     pub message: String,
 }

@@ -28,7 +28,6 @@ impl NodeRef {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct Scope {
     layers: Vec<ScopeLayer>,
 }
@@ -71,7 +70,6 @@ impl Scope {
     }
 }
 
-#[derive(Debug, Clone)]
 struct ScopeLayer {
     nodes: HashMap<String, NodeRef>,
 }
@@ -84,7 +82,6 @@ impl ScopeLayer {
     }
 }
 
-#[derive(Debug)]
 pub enum Node {
     // statement
     FunctionDeclaration(FunctionDeclaration),
@@ -173,13 +170,11 @@ impl Type {
     }
 }
 
-#[derive(Debug)]
 pub enum FunctionBody {
     Statements(Vec<NodeRef>),
     NativeCode,
 }
 
-#[derive(Debug)]
 pub struct FunctionDeclaration {
     pub identifier: String,
     pub body: Option<FunctionBody>,
@@ -187,14 +182,12 @@ pub struct FunctionDeclaration {
     pub ret_ty: Type,
 }
 
-#[derive(Debug)]
 pub struct FuncParam {
     pub identifier: String,
     pub param_index: usize,
     pub ty: Type,
 }
 
-#[derive(Debug)]
 pub struct VariableDeclaration {
     pub identifier: String,
     pub body: NodeRef,
@@ -202,21 +195,18 @@ pub struct VariableDeclaration {
     pub ty: Type,
 }
 
-#[derive(Debug)]
 pub struct Assignment {
     pub dest: NodeRef,
     pub body: NodeRef,
     pub mode: AssignmentMode,
 }
 
-#[derive(Debug)]
 pub struct IfStatement {
     pub condition: NodeRef,
     pub then_block: Vec<NodeRef>,
     pub else_block: Vec<NodeRef>,
 }
 
-#[derive(Debug)]
 pub struct Literal {
     pub value: LiteralValue,
     pub ty: Type,
@@ -228,7 +218,6 @@ pub enum LiteralValue {
     Bool(bool),
 }
 
-#[derive(Debug)]
 pub struct BinaryExpr {
     pub operator: Operator,
     pub left: NodeRef,
@@ -236,7 +225,7 @@ pub struct BinaryExpr {
     pub ty: Type,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub enum Operator {
     Add,
     Sub,
@@ -251,7 +240,6 @@ pub enum Operator {
     LessThanEqual,
 }
 
-#[derive(Debug)]
 pub struct CallExpr {
     pub callee: NodeRef,
     pub args: Vec<NodeRef>,
