@@ -49,11 +49,11 @@ expression + expression
 
 ### 変数の宣言
 ```
-const variable_name: type_name = expression;
+const variable_name: type = expression;
 ```
 or
 ```
-let variable_name: type_name = expression;
+let variable_name: type = expression;
 ```
 ※型は省略することもできます。その場合は与えられた式から変数の型が推論されます。
 
@@ -66,18 +66,21 @@ variable_name = expression;
 `=` `+=` `-=` `*=` `/=`
 
 ### 変数の参照
-`x`
+```
+variable_name
+```
 
 ## 関数
 
 ### 関数の宣言
 ```
-fn function_name(parameter_name: type_name, parameter_name: type_name): type_name {
+fn function_name(parameter_name: type, parameter_name: type): type {
     statement
     statement
 }
 ```
-※戻り値の型が指定されない場合は戻り値の無い関数として扱われます。
+パラメーターの型と戻り値の型を指定します。  
+また、戻り値の型を指定しないことで戻り値が無い関数としても宣言できます。
 
 ### 関数の呼び出し
 ```
@@ -88,10 +91,10 @@ function_name(argument_name, argument_name)
 
 ### if文
 ```
-if condition_expression {
+if expression {
     statement
     statement
-} else if condition_expression {
+} else if expression {
     statement
     statement
 } else {
@@ -99,6 +102,7 @@ if condition_expression {
     statement
 }
 ```
+※条件式はbool値を返す必要があります。
 
 ### loop文
 ```
