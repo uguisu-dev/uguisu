@@ -48,13 +48,6 @@ impl NodeInner {
             location: None,
         }
     }
-
-    pub fn as_func_param(&self) -> &FuncParam {
-        match self {
-            NodeInner::FuncParam(x) => x,
-            _ => panic!("function parameter expected"),
-        }
-    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -62,10 +55,12 @@ pub struct Declaration {
     pub body: Box<Node>,
 }
 
-pub fn declaration(body: Node) -> NodeInner {
-    NodeInner::Declaration(Declaration {
-        body: Box::new(body),
-    })
+impl NodeInner {
+    pub fn new_declaration(body: Node) -> Self {
+        NodeInner::Declaration(Declaration {
+            body: Box::new(body),
+        })
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -77,20 +72,22 @@ pub struct Function {
     pub attributes: Vec<FunctionAttribute>,
 }
 
-pub fn function(
-    identifier: String,
-    body: Option<Vec<Node>>,
-    params: Vec<Node>,
-    ret: Option<String>,
-    attributes: Vec<FunctionAttribute>,
-) -> NodeInner {
-    NodeInner::Function(Function {
-        identifier,
-        body,
-        params,
-        ret,
-        attributes,
-    })
+impl NodeInner {
+    pub fn new_function(
+        identifier: String,
+        body: Option<Vec<Node>>,
+        params: Vec<Node>,
+        ret: Option<String>,
+        attributes: Vec<FunctionAttribute>,
+    ) -> Self {
+        NodeInner::Function(Function {
+            identifier,
+            body,
+            params,
+            ret,
+            attributes,
+        })
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -99,11 +96,20 @@ pub struct FuncParam {
     pub type_identifier: Option<String>,
 }
 
-pub fn func_param(identifier: String, type_identifier: Option<String>) -> NodeInner {
-    NodeInner::FuncParam(FuncParam {
-        identifier,
-        type_identifier,
-    })
+impl NodeInner {
+    pub fn new_func_param(identifier: String, type_identifier: Option<String>) -> Self {
+        NodeInner::FuncParam(FuncParam {
+            identifier,
+            type_identifier,
+        })
+    }
+
+    pub fn as_func_param(&self) -> &FuncParam {
+        match self {
+            NodeInner::FuncParam(x) => x,
+            _ => panic!("function parameter expected"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -118,18 +124,20 @@ pub struct Variable {
     pub attributes: Vec<VariableAttribute>,
 }
 
-pub fn variable(
-    identifier: String,
-    body: Node,
-    type_identifier: Option<String>,
-    attributes: Vec<VariableAttribute>,
-) -> NodeInner {
-    NodeInner::Variable(Variable {
-        identifier,
-        body: Box::new(body),
-        type_identifier,
-        attributes,
-    })
+impl NodeInner {
+    pub fn new_variable(
+        identifier: String,
+        body: Node,
+        type_identifier: Option<String>,
+        attributes: Vec<VariableAttribute>,
+    ) -> Self {
+        NodeInner::Variable(Variable {
+            identifier,
+            body: Box::new(body),
+            type_identifier,
+            attributes,
+        })
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -138,10 +146,12 @@ pub enum VariableAttribute {
     Let,
 }
 
-pub fn return_statement(expr: Option<Node>) -> NodeInner {
-    match expr {
-        Some(x) => NodeInner::ReturnStatement(Some(Box::new(x))),
-        None => NodeInner::ReturnStatement(None),
+impl NodeInner {
+    pub fn new_return_statement(expr: Option<Node>) -> Self {
+        match expr {
+            Some(x) => NodeInner::ReturnStatement(Some(Box::new(x))),
+            None => NodeInner::ReturnStatement(None),
+        }
     }
 }
 
@@ -162,12 +172,14 @@ pub enum AssignmentMode {
     ModAssign,
 }
 
-pub fn assignment(dest: Node, body: Node, mode: AssignmentMode) -> NodeInner {
-    NodeInner::Assignment(Assignment {
-        dest: Box::new(dest),
-        body: Box::new(body),
-        mode,
-    })
+impl NodeInner {
+    pub fn new_assignment(dest: Node, body: Node, mode: AssignmentMode) -> Self {
+        NodeInner::Assignment(Assignment {
+            dest: Box::new(dest),
+            body: Box::new(body),
+            mode,
+        })
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -175,10 +187,12 @@ pub struct Reference {
     pub identifier: String,
 }
 
-pub fn reference(identifier: &str) -> NodeInner {
-    NodeInner::Reference(Reference {
-        identifier: identifier.to_string(),
-    })
+impl NodeInner {
+    pub fn new_reference(identifier: &str) -> Self {
+        NodeInner::Reference(Reference {
+            identifier: identifier.to_string(),
+        })
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -187,12 +201,14 @@ pub enum Literal {
     Bool(bool),
 }
 
-pub fn number(value: i64) -> NodeInner {
-    NodeInner::Literal(Literal::Number(value))
-}
+impl NodeInner {
+    pub fn new_number(value: i64) -> Self {
+        NodeInner::Literal(Literal::Number(value))
+    }
 
-pub fn bool(value: bool) -> NodeInner {
-    NodeInner::Literal(Literal::Bool(value))
+    pub fn new_bool(value: bool) -> Self {
+        NodeInner::Literal(Literal::Bool(value))
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -202,12 +218,14 @@ pub struct BinaryExpr {
     pub right: Box<Node>,
 }
 
-pub fn binary_expr(op: &str, left: Node, right: Node) -> NodeInner {
-    NodeInner::BinaryExpr(BinaryExpr {
-        operator: op.to_string(),
-        left: Box::new(left),
-        right: Box::new(right),
-    })
+impl NodeInner {
+    pub fn new_binary_expr(op: &str, left: Node, right: Node) -> Self {
+        NodeInner::BinaryExpr(BinaryExpr {
+            operator: op.to_string(),
+            left: Box::new(left),
+            right: Box::new(right),
+        })
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -216,11 +234,13 @@ pub struct CallExpr {
     pub args: Vec<Node>,
 }
 
-pub fn call_expr(callee: Node, args: Vec<Node>) -> NodeInner {
-    NodeInner::CallExpr(CallExpr {
-        callee: Box::new(callee),
-        args,
-    })
+impl NodeInner {
+    pub fn new_call_expr(callee: Node, args: Vec<Node>) -> Self {
+        NodeInner::CallExpr(CallExpr {
+            callee: Box::new(callee),
+            args,
+        })
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -229,15 +249,17 @@ pub struct IfStatement {
     pub else_block: Option<Vec<Node>>,            // else
 }
 
-pub fn if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<Node>>) -> NodeInner {
-    let mut items = Vec::new();
-    for (cond, block) in cond_blocks {
-        items.push((Box::new(cond), block))
+impl NodeInner {
+    pub fn new_if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<Node>>) -> Self {
+        let mut items = Vec::new();
+        for (cond, block) in cond_blocks {
+            items.push((Box::new(cond), block))
+        }
+        NodeInner::IfStatement(IfStatement {
+            cond_blocks: items,
+            else_block,
+        })
     }
-    NodeInner::IfStatement(IfStatement {
-        cond_blocks: items,
-        else_block,
-    })
 }
 
 #[derive(Debug, PartialEq)]
@@ -245,8 +267,10 @@ pub struct LoopStatement {
     pub body: Vec<Node>, // statements
 }
 
-pub fn loop_statement(body: Vec<Node>) -> NodeInner {
-    NodeInner::LoopStatement(LoopStatement { body })
+impl NodeInner {
+    pub fn new_loop_statement(body: Vec<Node>) -> Self {
+        NodeInner::LoopStatement(LoopStatement { body })
+    }
 }
 
 //
@@ -274,20 +298,20 @@ peg::parser! {
             / e:expression() __* ";" { e }
 
         pub rule expression() -> Node = precedence! {
-            left:(@) __* p:pos() "==" __* right:@ { binary_expr("==", left, right).as_node(p) }
-            left:(@) __* p:pos() "!=" __* right:@ { binary_expr("!=", left, right).as_node(p) }
+            left:(@) __* p:pos() "==" __* right:@ { NodeInner::new_binary_expr("==", left, right).as_node(p) }
+            left:(@) __* p:pos() "!=" __* right:@ { NodeInner::new_binary_expr("!=", left, right).as_node(p) }
             --
-            left:(@) __* p:pos() "<" __* right:@ { binary_expr("<", left, right).as_node(p) }
-            left:(@) __* p:pos() "<=" __* right:@ { binary_expr("<=", left, right).as_node(p) }
-            left:(@) __* p:pos() ">" __* right:@ { binary_expr(">", left, right).as_node(p) }
-            left:(@) __* p:pos() ">=" __* right:@ { binary_expr(">=", left, right).as_node(p) }
+            left:(@) __* p:pos() "<" __* right:@ { NodeInner::new_binary_expr("<", left, right).as_node(p) }
+            left:(@) __* p:pos() "<=" __* right:@ { NodeInner::new_binary_expr("<=", left, right).as_node(p) }
+            left:(@) __* p:pos() ">" __* right:@ { NodeInner::new_binary_expr(">", left, right).as_node(p) }
+            left:(@) __* p:pos() ">=" __* right:@ { NodeInner::new_binary_expr(">=", left, right).as_node(p) }
             --
-            left:(@) __* p:pos() "+" __* right:@ { binary_expr("+", left, right).as_node(p) }
-            left:(@) __* p:pos() "-" __* right:@ { binary_expr("-", left, right).as_node(p) }
+            left:(@) __* p:pos() "+" __* right:@ { NodeInner::new_binary_expr("+", left, right).as_node(p) }
+            left:(@) __* p:pos() "-" __* right:@ { NodeInner::new_binary_expr("-", left, right).as_node(p) }
             --
-            left:(@) __* p:pos() "*" __* right:@ { binary_expr("*", left, right).as_node(p) }
-            left:(@) __* p:pos() "/" __* right:@ { binary_expr("/", left, right).as_node(p) }
-            left:(@) __* p:pos() "%" __* right:@ { binary_expr("%", left, right).as_node(p) }
+            left:(@) __* p:pos() "*" __* right:@ { NodeInner::new_binary_expr("*", left, right).as_node(p) }
+            left:(@) __* p:pos() "/" __* right:@ { NodeInner::new_binary_expr("/", left, right).as_node(p) }
+            left:(@) __* p:pos() "%" __* right:@ { NodeInner::new_binary_expr("%", left, right).as_node(p) }
             --
             // "!" __* right:(@) { right }
             // "+" __* right:(@) { right }
@@ -296,7 +320,7 @@ peg::parser! {
             e:number() { e }
             e:bool() { e }
             e:call_expr() { e }
-            p:pos() id:idenfitier() { reference(id).as_node(p) }
+            p:pos() id:idenfitier() { NodeInner::new_reference(id).as_node(p) }
             "(" __* e:expression() __* ")" { e }
         }
 
@@ -306,8 +330,8 @@ peg::parser! {
         {
             let params = if let Some(v) = params { v } else { vec![] };
             let attrs = if let Some(v) = attrs { v } else { vec![] };
-            let body = function(name.to_string(), body, params, ret, attrs).as_node(p);
-            declaration(body).as_node(p)
+            let body = NodeInner::new_function(name.to_string(), body, params, ret, attrs).as_node(p);
+            NodeInner::new_declaration(body).as_node(p)
         }
 
         rule func_dec_params() -> Vec<Node>
@@ -315,7 +339,7 @@ peg::parser! {
 
         rule func_dec_param() -> Node
             = p:pos() name:idenfitier() type_name:(__* ":" __* n:idenfitier() { n.to_string() })?
-        { func_param(name.to_string(), type_name).as_node(p) }
+        { NodeInner::new_func_param(name.to_string(), type_name).as_node(p) }
 
         rule func_dec_return_type() -> String
             = ":" __* type_name:idenfitier() { type_name.to_string() }
@@ -335,20 +359,20 @@ peg::parser! {
             = p:pos() "break" __* ";" { NodeInner::BreakStatement.as_node(p) }
 
         rule return_statement() -> Node
-            = p:pos() "return" e2:(__+ e1:expression() { e1 })? __* ";" { return_statement(e2).as_node(p) }
+            = p:pos() "return" e2:(__+ e1:expression() { e1 })? __* ";" { NodeInner::new_return_statement(e2).as_node(p) }
 
         rule variable_declaration() -> Node
             = p:pos() kind:(
                 "let" {VariableAttribute::Let} / "const" {VariableAttribute::Const}
             ) __+ id:idenfitier() ty:(__* ":" __* x:idenfitier() {x.to_string()})? __* "=" __* e:expression() ";"
         {
-            let body = variable(id.to_string(), e, ty, vec![kind]).as_node(p);
-            declaration(body).as_node(p)
+            let body = NodeInner::new_variable(id.to_string(), e, ty, vec![kind]).as_node(p);
+            NodeInner::new_declaration(body).as_node(p)
         }
 
         rule assignment() -> Node
             = p:pos() id:idenfitier() __* mode:assignment_mode() __* e:expression() ";" {
-                assignment(reference(id).as_node(p), e, mode).as_node(p)
+                NodeInner::new_assignment(NodeInner::new_reference(id).as_node(p), e, mode).as_node(p)
             }
 
         rule assignment_mode() -> AssignmentMode
@@ -361,20 +385,20 @@ peg::parser! {
 
         rule number() -> Node
             = quiet! {
-                p:pos() n:$(['1'..='9'] ['0'..='9']+) {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n).as_node(p))) } }
+                p:pos() n:$(['1'..='9'] ['0'..='9']+) {? n.parse().or(Err("u32")).and_then(|n| Ok(NodeInner::new_number(n).as_node(p))) } }
             / quiet!{
-                p:pos() n:$(['0'..='9']) {? n.parse().or(Err("u32")).and_then(|n| Ok(number(n).as_node(p))) } }
+                p:pos() n:$(['0'..='9']) {? n.parse().or(Err("u32")).and_then(|n| Ok(NodeInner::new_number(n).as_node(p))) } }
             / expected!("number")
 
         rule bool() -> Node
-            = p:pos() "true" { bool(true).as_node(p) }
-            / p:pos() "false" { bool(false).as_node(p) }
+            = p:pos() "true" { NodeInner::new_bool(true).as_node(p) }
+            / p:pos() "false" { NodeInner::new_bool(false).as_node(p) }
 
         rule call_expr() -> Node
             = p:pos() name:idenfitier() __* "(" __* args:call_params()? __* ")"
         {
             let args = if let Some(v) = args { v } else { vec![] };
-            call_expr(reference(name).as_node(p), args).as_node(p)
+            NodeInner::new_call_expr(NodeInner::new_reference(name).as_node(p), args).as_node(p)
         }
 
         rule call_params() -> Vec<Node>
@@ -389,7 +413,7 @@ peg::parser! {
                 } else {
                     vec![head]
                 };
-                if_statement(cond_blocks, else_block).as_node(p)
+                NodeInner::new_if_statement(cond_blocks, else_block).as_node(p)
             }
 
         rule if_cond_block() -> (Node, Vec<Node>)
@@ -412,7 +436,7 @@ peg::parser! {
 
         rule loop_statement() -> Node
             = p:pos() "loop" __* body:block() {
-                loop_statement(body).as_node(p)
+                NodeInner::new_loop_statement(body).as_node(p)
             }
 
         rule block() -> Vec<Node>
