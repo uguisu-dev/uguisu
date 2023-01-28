@@ -364,10 +364,11 @@ impl<'a> Analyzer<'a> {
         ids.extend(self.translate_statements(ast)?);
 
         // make call main function
-        let call_main = parse::NodeInner::new_call_expr(
-            parse::NodeInner::new_reference("main").as_node_internal(),
+        let call_main = parse::Node::new_call_expr(
+            parse::Node::new_reference("main", 0),
             vec![],
-        ).as_node_internal();
+            0,
+        );
         ids.push(self.translate_expr(&call_main)?);
 
         Ok(ids)

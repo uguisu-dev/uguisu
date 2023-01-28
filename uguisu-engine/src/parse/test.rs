@@ -37,33 +37,39 @@ fn test_digits() {
 #[test]
 fn test_calc() {
     let actual = uguisu_parser::expression("1+2*(3+4)/5");
-    let expect = Ok(
-        NodeInner::new_binary_expr("+",
-            NodeInner::new_number(1).as_node(0),
-            NodeInner::new_binary_expr("/",
-                NodeInner::new_binary_expr("*",
-                    NodeInner::new_number(2).as_node(2),
-                    NodeInner::new_binary_expr("+",
-                        NodeInner::new_number(3).as_node(5),
-                        NodeInner::new_number(4).as_node(7)
-                    ).as_node(6)
-                ).as_node(3),
-                NodeInner::new_number(5).as_node(10),
-            ).as_node(9),
-        ).as_node(1),
-    );
+    let expect = Ok(Node::new_binary_expr("+",
+        Node::new_number(1, 0),
+        Node::new_binary_expr("/",
+            Node::new_binary_expr("*",
+                Node::new_number(2, 2),
+                Node::new_binary_expr("+",
+                    Node::new_number(3, 5),
+                    Node::new_number(4, 7),
+                    6,
+                ),
+                3,
+            ),
+            Node::new_number(5, 10),
+            9,
+        ),
+        1,
+    ));
     assert_eq!(actual, expect);
 }
 
 #[test]
 fn test_declare_func_no_annotations() {
-    let expect = Ok(NodeInner::new_declaration(NodeInner::new_function(
-        "abc".to_string(),
-        Some(vec![]),
-        vec![],
-        None,
-        vec![],
-    ).as_node(0)).as_node(0));
+    let expect = Ok(Node::new_declaration(
+        Node::new_function(
+            "abc".to_string(),
+            Some(vec![]),
+            vec![],
+            None,
+            vec![],
+            0,
+        ),
+        0,
+    ));
     assert_eq!(uguisu_parser::statement("fn abc() { }"), expect);
     assert_eq!(uguisu_parser::statement("fn abc(){}"), expect);
     assert_eq!(uguisu_parser::statement("fn  abc(  )  {  }"), expect);
@@ -73,16 +79,20 @@ fn test_declare_func_no_annotations() {
 
 #[test]
 fn test_declare_func_with_types_1() {
-    let expect = Ok(NodeInner::new_declaration(NodeInner::new_function(
-        "abc".to_string(),
-        Some(vec![]),
-        vec![
-            NodeInner::new_func_param("x".to_string(), Some("number".to_string())).as_node(7),
-            NodeInner::new_func_param("y".to_string(), Some("number".to_string())).as_node(18),
-        ],
-        Some("number".to_string()),
-        vec![],
-    ).as_node(0)).as_node(0));
+    let expect = Ok(Node::new_declaration(
+        Node::new_function(
+            "abc".to_string(),
+            Some(vec![]),
+            vec![
+                Node::new_func_param("x".to_string(), Some("number".to_string()), 7),
+                Node::new_func_param("y".to_string(), Some("number".to_string()), 18),
+            ],
+            Some("number".to_string()),
+            vec![],
+            0,
+        ),
+        0,
+    ));
 
     assert_eq!(
         uguisu_parser::statement("fn abc(x: number, y: number): number { }"),
@@ -92,16 +102,20 @@ fn test_declare_func_with_types_1() {
 
 #[test]
 fn test_declare_func_with_types_2() {
-    let expect = Ok(NodeInner::new_declaration(NodeInner::new_function(
-        "abc".to_string(),
-        Some(vec![]),
-        vec![
-            NodeInner::new_func_param("x".to_string(), Some("number".to_string())).as_node(7),
-            NodeInner::new_func_param("y".to_string(), Some("number".to_string())).as_node(16),
-        ],
-        Some("number".to_string()),
-        vec![],
-    ).as_node(0)).as_node(0));
+    let expect = Ok(Node::new_declaration(
+        Node::new_function(
+            "abc".to_string(),
+            Some(vec![]),
+            vec![
+                Node::new_func_param("x".to_string(), Some("number".to_string()), 7),
+                Node::new_func_param("y".to_string(), Some("number".to_string()), 16),
+            ],
+            Some("number".to_string()),
+            vec![],
+            0,
+        ),
+        0,
+    ));
 
     assert_eq!(
         uguisu_parser::statement("fn abc(x:number,y:number):number{}"),
@@ -111,16 +125,20 @@ fn test_declare_func_with_types_2() {
 
 #[test]
 fn test_declare_func_with_types_3() {
-    let expect = Ok(NodeInner::new_declaration(NodeInner::new_function(
-        "abc".to_string(),
-        Some(vec![]),
-        vec![
-            NodeInner::new_func_param("x".to_string(), Some("number".to_string())).as_node(12),
-            NodeInner::new_func_param("y".to_string(), Some("number".to_string())).as_node(29),
-        ],
-        Some("number".to_string()),
-        vec![],
-    ).as_node(0)).as_node(0));
+    let expect = Ok(Node::new_declaration(
+        Node::new_function(
+            "abc".to_string(),
+            Some(vec![]),
+            vec![
+                Node::new_func_param("x".to_string(), Some("number".to_string()), 12),
+                Node::new_func_param("y".to_string(), Some("number".to_string()), 29),
+            ],
+            Some("number".to_string()),
+            vec![],
+            0,
+        ),
+        0,
+    ));
 
     assert_eq!(
         uguisu_parser::statement(
