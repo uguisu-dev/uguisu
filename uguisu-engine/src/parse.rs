@@ -10,7 +10,7 @@ mod test;
 #[derive(Debug, PartialEq)]
 pub struct Node {
     pub inner: NodeInner,
-    pub location: Option<usize>,
+    pub position: Option<usize>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -35,17 +35,17 @@ pub enum NodeInner {
 }
 
 impl NodeInner {
-    pub fn as_node(self, location: usize) -> Node {
+    pub fn as_node(self, position: usize) -> Node {
         Node {
             inner: self,
-            location: Some(location),
+            position: Some(position),
         }
     }
 
     pub fn as_node_internal(self) -> Node {
         Node {
             inner: self,
-            location: None,
+            position: None,
         }
     }
 }
