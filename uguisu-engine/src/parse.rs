@@ -62,6 +62,12 @@ pub struct Declaration {
     pub body: Box<Node>,
 }
 
+pub fn declaration(body: Node) -> NodeInner {
+    NodeInner::Declaration(Declaration {
+        body: Box::new(body),
+    })
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Function {
     pub identifier: String,
@@ -71,10 +77,33 @@ pub struct Function {
     pub attributes: Vec<FunctionAttribute>,
 }
 
+pub fn function(
+    identifier: String,
+    body: Option<Vec<Node>>,
+    params: Vec<Node>,
+    ret: Option<String>,
+    attributes: Vec<FunctionAttribute>,
+) -> NodeInner {
+    NodeInner::Function(Function {
+        identifier,
+        body,
+        params,
+        ret,
+        attributes,
+    })
+}
+
 #[derive(Debug, PartialEq)]
 pub struct FuncParam {
     pub identifier: String,
     pub type_identifier: Option<String>,
+}
+
+pub fn func_param(identifier: String, type_identifier: Option<String>) -> NodeInner {
+    NodeInner::FuncParam(FuncParam {
+        identifier,
+        type_identifier,
+    })
 }
 
 #[derive(Debug, PartialEq)]
@@ -89,10 +118,31 @@ pub struct Variable {
     pub attributes: Vec<VariableAttribute>,
 }
 
+pub fn variable(
+    identifier: String,
+    body: Node,
+    type_identifier: Option<String>,
+    attributes: Vec<VariableAttribute>,
+) -> NodeInner {
+    NodeInner::Variable(Variable {
+        identifier,
+        body: Box::new(body),
+        type_identifier,
+        attributes,
+    })
+}
+
 #[derive(Debug, PartialEq)]
 pub enum VariableAttribute {
     Const,
     Let,
+}
+
+pub fn return_statement(expr: Option<Node>) -> NodeInner {
+    match expr {
+        Some(x) => NodeInner::ReturnStatement(Some(Box::new(x))),
+        None => NodeInner::ReturnStatement(None),
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -112,95 +162,6 @@ pub enum AssignmentMode {
     ModAssign,
 }
 
-#[derive(Debug, PartialEq)]
-pub struct Reference {
-    pub identifier: String,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Literal {
-    Number(i64),
-    Bool(bool),
-}
-
-#[derive(Debug, PartialEq)]
-pub struct BinaryExpr {
-    pub operator: String,
-    pub left: Box<Node>,
-    pub right: Box<Node>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct CallExpr {
-    pub callee: Box<Node>,
-    pub args: Vec<Node>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct IfStatement {
-    pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // if, else if
-    pub else_block: Option<Vec<Node>>,            // else
-}
-
-#[derive(Debug, PartialEq)]
-pub struct LoopStatement {
-    pub body: Vec<Node>, // statements
-}
-
-//
-// node utility
-//
-
-pub fn declaration(body: Node) -> NodeInner {
-    NodeInner::Declaration(Declaration {
-        body: Box::new(body),
-    })
-}
-
-pub fn function(
-    identifier: String,
-    body: Option<Vec<Node>>,
-    params: Vec<Node>,
-    ret: Option<String>,
-    attributes: Vec<FunctionAttribute>,
-) -> NodeInner {
-    NodeInner::Function(Function {
-        identifier,
-        body,
-        params,
-        ret,
-        attributes,
-    })
-}
-
-pub fn func_param(identifier: String, type_identifier: Option<String>) -> NodeInner {
-    NodeInner::FuncParam(FuncParam {
-        identifier,
-        type_identifier,
-    })
-}
-
-pub fn variable(
-    identifier: String,
-    body: Node,
-    type_identifier: Option<String>,
-    attributes: Vec<VariableAttribute>,
-) -> NodeInner {
-    NodeInner::Variable(Variable {
-        identifier,
-        body: Box::new(body),
-        type_identifier,
-        attributes,
-    })
-}
-
-pub fn return_statement(expr: Option<Node>) -> NodeInner {
-    match expr {
-        Some(x) => NodeInner::ReturnStatement(Some(Box::new(x))),
-        None => NodeInner::ReturnStatement(None),
-    }
-}
-
 pub fn assignment(dest: Node, body: Node, mode: AssignmentMode) -> NodeInner {
     NodeInner::Assignment(Assignment {
         dest: Box::new(dest),
@@ -209,10 +170,21 @@ pub fn assignment(dest: Node, body: Node, mode: AssignmentMode) -> NodeInner {
     })
 }
 
+#[derive(Debug, PartialEq)]
+pub struct Reference {
+    pub identifier: String,
+}
+
 pub fn reference(identifier: &str) -> NodeInner {
     NodeInner::Reference(Reference {
         identifier: identifier.to_string(),
     })
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Literal {
+    Number(i64),
+    Bool(bool),
 }
 
 pub fn number(value: i64) -> NodeInner {
@@ -223,6 +195,13 @@ pub fn bool(value: bool) -> NodeInner {
     NodeInner::Literal(Literal::Bool(value))
 }
 
+#[derive(Debug, PartialEq)]
+pub struct BinaryExpr {
+    pub operator: String,
+    pub left: Box<Node>,
+    pub right: Box<Node>,
+}
+
 pub fn binary_expr(op: &str, left: Node, right: Node) -> NodeInner {
     NodeInner::BinaryExpr(BinaryExpr {
         operator: op.to_string(),
@@ -231,11 +210,23 @@ pub fn binary_expr(op: &str, left: Node, right: Node) -> NodeInner {
     })
 }
 
+#[derive(Debug, PartialEq)]
+pub struct CallExpr {
+    pub callee: Box<Node>,
+    pub args: Vec<Node>,
+}
+
 pub fn call_expr(callee: Node, args: Vec<Node>) -> NodeInner {
     NodeInner::CallExpr(CallExpr {
         callee: Box::new(callee),
         args,
     })
+}
+
+#[derive(Debug, PartialEq)]
+pub struct IfStatement {
+    pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // if, else if
+    pub else_block: Option<Vec<Node>>,            // else
 }
 
 pub fn if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<Node>>) -> NodeInner {
@@ -247,6 +238,11 @@ pub fn if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<
         cond_blocks: items,
         else_block,
     })
+}
+
+#[derive(Debug, PartialEq)]
+pub struct LoopStatement {
+    pub body: Vec<Node>, // statements
 }
 
 pub fn loop_statement(body: Vec<Node>) -> NodeInner {
