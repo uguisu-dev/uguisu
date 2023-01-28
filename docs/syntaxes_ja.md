@@ -99,9 +99,7 @@ fn function_name(parameter_name: type, parameter_name: type): type {
 function_name(argument_name, argument_name)
 ```
 
-## 制御文
-
-### if文
+## if文
 ```
 if expression {
     statement
@@ -116,7 +114,7 @@ if expression {
 ```
 条件式ではbool値を返す必要があります。
 
-### loop文
+## loop文
 ```
 loop {
     statement
@@ -124,18 +122,30 @@ loop {
 }
 ```
 
-### break文
+## break文
 ```
 break;
 ```
 
-### return文
+## return文
 ```
 return;
 ```
 or
 ```
 return expression;
+```
+
+## コメント
+```
+// single-line comment
+```
+or
+```
+/*
+multi-line
+comment
+*/
 ```
 
 ## ビルトイン関数
@@ -161,15 +171,3 @@ fn print_lf();
 fn assert_eq(actual: number, expected: number);
 ```
 与えられた数値と期待する数値を比較して、値が異なる場合にランタイムエラーを発生させます。
-
-## コメント構文
-```
-// single-line comment
-```
-or
-```
-/*
-multi-line
-comment
-*/
-```
