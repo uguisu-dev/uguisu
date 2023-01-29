@@ -8,23 +8,18 @@ mod test;
 //
 
 #[derive(Debug, PartialEq)]
-pub struct Node {
-    pub inner: NodeInner,
-    pub position: Option<usize>,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum NodeInner {
+pub enum Node {
     // statement
     Declaration(Declaration),
-    BreakStatement,
-    ReturnStatement(Option<Box<Node>>),
+    BreakStatement(BreakStatement),
+    ReturnStatement(ReturnStatement),
     Assignment(Assignment),
     IfStatement(IfStatement),
     LoopStatement(LoopStatement),
     // expression
     Reference(Reference),
-    Literal(Literal),
+    NumberLiteral(NumberLiteral),
+    BoolLiteral(BoolLiteral),
     BinaryExpr(BinaryExpr),
     CallExpr(CallExpr),
     // function declaration
@@ -34,18 +29,23 @@ pub enum NodeInner {
     Variable(Variable),
 }
 
-impl NodeInner {
-    pub fn as_node(self, position: usize) -> Node {
-        Node {
-            inner: self,
-            position: Some(position),
-        }
-    }
-
-    pub fn as_node_internal(self) -> Node {
-        Node {
-            inner: self,
-            position: None,
+impl Node {
+    pub fn get_pos(&self) -> usize {
+        match self {
+            Self::Declaration(node) => node.pos,
+            Self::BreakStatement(node) => node.pos,
+            Self::ReturnStatement(node) => node.pos,
+            Self::Assignment(node) => node.pos,
+            Self::IfStatement(node) => node.pos,
+            Self::LoopStatement(node) => node.pos,
+            Self::Reference(node) => node.pos,
+            Self::NumberLiteral(node) => node.pos,
+            Self::BoolLiteral(node) => node.pos,
+            Self::BinaryExpr(node) => node.pos,
+            Self::CallExpr(node) => node.pos,
+            Self::Function(node) => node.pos,
+            Self::FuncParam(node) => node.pos,
+            Self::Variable(node) => node.pos,
         }
     }
 }
@@ -53,13 +53,43 @@ impl NodeInner {
 #[derive(Debug, PartialEq)]
 pub struct Declaration {
     pub body: Box<Node>,
+    pub pos: usize,
 }
 
 impl Node {
-    pub fn new_declaration(body: Node, position: usize) -> Self {
-        NodeInner::Declaration(Declaration {
+    pub fn new_declaration(body: Node, pos: usize) -> Self {
+        Self::Declaration(Declaration {
             body: Box::new(body),
-        }).as_node(position)
+            pos,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct BreakStatement {
+    pub pos: usize,
+}
+
+impl Node {
+    pub fn new_break_statement(pos: usize) -> Self {
+        Self::BreakStatement(BreakStatement {
+            pos,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ReturnStatement {
+    pub body: Option<Box<Node>>,
+    pub pos: usize,
+}
+
+impl Node {
+    pub fn new_return_statement(expr: Option<Node>, pos: usize) -> Self {
+        match expr {
+            Some(x) => Self::ReturnStatement(ReturnStatement { body: Some(Box::new(x)), pos }),
+            None => Self::ReturnStatement(ReturnStatement { body: None, pos }),
+        }
     }
 }
 
@@ -70,6 +100,7 @@ pub struct Function {
     pub params: Vec<Node>,
     pub ret: Option<String>,
     pub attributes: Vec<FunctionAttribute>,
+    pub pos: usize,
 }
 
 impl Node {
@@ -79,15 +110,16 @@ impl Node {
         params: Vec<Node>,
         ret: Option<String>,
         attributes: Vec<FunctionAttribute>,
-        position: usize,
+        pos: usize,
     ) -> Self {
-        NodeInner::Function(Function {
+        Self::Function(Function {
             identifier,
             body,
             params,
             ret,
             attributes,
-        }).as_node(position)
+            pos,
+        })
     }
 }
 
@@ -95,21 +127,21 @@ impl Node {
 pub struct FuncParam {
     pub identifier: String,
     pub type_identifier: Option<String>,
+    pub pos: usize,
 }
 
 impl Node {
-    pub fn new_func_param(identifier: String, type_identifier: Option<String>, position: usize) -> Self {
-        NodeInner::FuncParam(FuncParam {
+    pub fn new_func_param(identifier: String, type_identifier: Option<String>, pos: usize) -> Self {
+        Self::FuncParam(FuncParam {
             identifier,
             type_identifier,
-        }).as_node(position)
+            pos,
+        })
     }
-}
 
-impl NodeInner {
     pub fn as_func_param(&self) -> &FuncParam {
         match self {
-            NodeInner::FuncParam(x) => x,
+            Self::FuncParam(x) => x,
             _ => panic!("function parameter expected"),
         }
     }
@@ -125,6 +157,7 @@ pub struct Variable {
     pub body: Box<Node>,
     pub type_identifier: Option<String>,
     pub attributes: Vec<VariableAttribute>,
+    pub pos: usize,
 }
 
 impl Node {
@@ -133,14 +166,15 @@ impl Node {
         body: Node,
         type_identifier: Option<String>,
         attributes: Vec<VariableAttribute>,
-        position: usize,
+        pos: usize,
     ) -> Self {
-        NodeInner::Variable(Variable {
+        Self::Variable(Variable {
             identifier,
             body: Box::new(body),
             type_identifier,
             attributes,
-        }).as_node(position)
+            pos,
+        })
     }
 }
 
@@ -150,20 +184,23 @@ pub enum VariableAttribute {
     Let,
 }
 
-impl Node {
-    pub fn new_return_statement(expr: Option<Node>, position: usize) -> Self {
-        match expr {
-            Some(x) => NodeInner::ReturnStatement(Some(Box::new(x))).as_node(position),
-            None => NodeInner::ReturnStatement(None).as_node(position),
-        }
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub struct Assignment {
     pub dest: Box<Node>,
     pub body: Box<Node>,
     pub mode: AssignmentMode,
+    pub pos: usize,
+}
+
+impl Node {
+    pub fn new_assignment(dest: Node, body: Node, mode: AssignmentMode, pos: usize) -> Self {
+        Self::Assignment(Assignment {
+            dest: Box::new(dest),
+            body: Box::new(body),
+            mode,
+            pos,
+        })
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -176,42 +213,42 @@ pub enum AssignmentMode {
     ModAssign,
 }
 
-impl Node {
-    pub fn new_assignment(dest: Node, body: Node, mode: AssignmentMode, position: usize) -> Self {
-        NodeInner::Assignment(Assignment {
-            dest: Box::new(dest),
-            body: Box::new(body),
-            mode,
-        }).as_node(position)
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub struct Reference {
     pub identifier: String,
+    pub pos: usize,
 }
 
 impl Node {
-    pub fn new_reference(identifier: &str, position: usize) -> Self {
-        NodeInner::Reference(Reference {
+    pub fn new_reference(identifier: &str, pos: usize) -> Self {
+        Self::Reference(Reference {
             identifier: identifier.to_string(),
-        }).as_node(position)
+            pos,
+        })
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Literal {
-    Number(i64),
-    Bool(bool),
+pub struct NumberLiteral {
+    pub value: i64,
+    pub pos: usize,
 }
 
 impl Node {
-    pub fn new_number(value: i64, position: usize) -> Self {
-        NodeInner::Literal(Literal::Number(value)).as_node(position)
+    pub fn new_number(value: i64, pos: usize) -> Self {
+        Self::NumberLiteral(NumberLiteral { value, pos })
     }
+}
 
-    pub fn new_bool(value: bool, position: usize) -> Self {
-        NodeInner::Literal(Literal::Bool(value)).as_node(position)
+#[derive(Debug, PartialEq)]
+pub struct BoolLiteral {
+    pub value: bool,
+    pub pos: usize,
+}
+
+impl Node {
+    pub fn new_bool(value: bool, pos: usize) -> Self {
+        Self::BoolLiteral(BoolLiteral { value, pos })
     }
 }
 
@@ -220,15 +257,17 @@ pub struct BinaryExpr {
     pub operator: String,
     pub left: Box<Node>,
     pub right: Box<Node>,
+    pub pos: usize,
 }
 
 impl Node {
-    pub fn new_binary_expr(op: &str, left: Node, right: Node, position: usize) -> Self {
-        NodeInner::BinaryExpr(BinaryExpr {
+    pub fn new_binary_expr(op: &str, left: Node, right: Node, pos: usize) -> Self {
+        Self::BinaryExpr(BinaryExpr {
             operator: op.to_string(),
             left: Box::new(left),
             right: Box::new(right),
-        }).as_node(position)
+            pos,
+        })
     }
 }
 
@@ -236,14 +275,16 @@ impl Node {
 pub struct CallExpr {
     pub callee: Box<Node>,
     pub args: Vec<Node>,
+    pub pos: usize,
 }
 
 impl Node {
-    pub fn new_call_expr(callee: Node, args: Vec<Node>, position: usize) -> Self {
-        NodeInner::CallExpr(CallExpr {
+    pub fn new_call_expr(callee: Node, args: Vec<Node>, pos: usize) -> Self {
+        Self::CallExpr(CallExpr {
             callee: Box::new(callee),
             args,
-        }).as_node(position)
+            pos,
+        })
     }
 }
 
@@ -251,29 +292,32 @@ impl Node {
 pub struct IfStatement {
     pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // if, else if
     pub else_block: Option<Vec<Node>>,            // else
+    pub pos: usize,
 }
 
 impl Node {
-    pub fn new_if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<Node>>, position: usize) -> Self {
+    pub fn new_if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<Node>>, pos: usize) -> Self {
         let mut items = Vec::new();
         for (cond, block) in cond_blocks {
             items.push((Box::new(cond), block))
         }
-        NodeInner::IfStatement(IfStatement {
+        Self::IfStatement(IfStatement {
             cond_blocks: items,
             else_block,
-        }).as_node(position)
+            pos,
+        })
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct LoopStatement {
     pub body: Vec<Node>, // statements
+    pub pos: usize,
 }
 
 impl Node {
-    pub fn new_loop_statement(body: Vec<Node>, position: usize) -> Self {
-        NodeInner::LoopStatement(LoopStatement { body }).as_node(position)
+    pub fn new_loop_statement(body: Vec<Node>, pos: usize) -> Self {
+        Self::LoopStatement(LoopStatement { body, pos })
     }
 }
 
@@ -319,7 +363,7 @@ peg::parser! {
             --
             // "!" __* right:(@) { right }
             // "+" __* right:(@) { right }
-            // "-" __* right:(@) { Node::mult(Node::number(-1), right) }
+            // "-" __* right:(@) { right }
             // --
             e:number() { e }
             e:bool() { e }
@@ -360,7 +404,7 @@ peg::parser! {
         //     = "" { }
 
         rule break_statement() -> Node
-            = p:pos() "break" __* ";" { NodeInner::BreakStatement.as_node(p) }
+            = p:pos() "break" __* ";" { Node::new_break_statement(p) }
 
         rule return_statement() -> Node
             = p:pos() "return" e2:(__+ e1:expression() { e1 })? __* ";" { Node::new_return_statement(e2, p) }
