@@ -86,11 +86,11 @@ pub enum Node {
     // statement
     FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
-    BreakStatement,
-    ReturnStatement(Option<NodeRef>),
+    BreakStatement(BreakStatement),
+    ReturnStatement(ReturnStatement),
     Assignment(Assignment),
     IfStatement(IfStatement),
-    LoopStatement(Vec<NodeRef>),
+    LoopStatement(LoopStatement),
     // expression
     Literal(Literal),
     BinaryExpr(BinaryExpr),
@@ -117,13 +117,29 @@ impl Node {
                 variable.ty
             }
             Node::FunctionDeclaration(_)
-            | Node::BreakStatement
+            | Node::BreakStatement(_)
             | Node::ReturnStatement(_)
             | Node::Assignment(_)
             | Node::IfStatement(_)
             | Node::LoopStatement(_) => {
                 panic!("unexpected node");
             }
+        }
+    }
+
+    pub fn get_pos(&self) -> (usize, usize) {
+        match self {
+            Self::FunctionDeclaration(node) => node.pos,
+            Self::VariableDeclaration(node) => node.pos,
+            Self::BreakStatement(node) => node.pos,
+            Self::ReturnStatement(node) => node.pos,
+            Self::Assignment(node) => node.pos,
+            Self::IfStatement(node) => node.pos,
+            Self::LoopStatement(node) => node.pos,
+            Self::Literal(node) => node.pos,
+            Self::BinaryExpr(node) => node.pos,
+            Self::CallExpr(node) => node.pos,
+            Self::FuncParam(node) => node.pos,
         }
     }
 
@@ -180,12 +196,14 @@ pub struct FunctionDeclaration {
     pub body: Option<FunctionBody>,
     pub params: Vec<NodeRef>,
     pub ret_ty: Type,
+    pub pos: (usize, usize),
 }
 
 pub struct FuncParam {
     pub identifier: String,
     pub param_index: usize,
     pub ty: Type,
+    pub pos: (usize, usize),
 }
 
 pub struct VariableDeclaration {
@@ -193,23 +211,41 @@ pub struct VariableDeclaration {
     pub body: NodeRef,
     pub is_mutable: bool,
     pub ty: Type,
+    pub pos: (usize, usize),
+}
+
+pub struct BreakStatement {
+    pub pos: (usize, usize),
+}
+
+pub struct ReturnStatement {
+    pub body: Option<NodeRef>,
+    pub pos: (usize, usize),
 }
 
 pub struct Assignment {
     pub dest: NodeRef,
     pub body: NodeRef,
     pub mode: AssignmentMode,
+    pub pos: (usize, usize),
 }
 
 pub struct IfStatement {
     pub condition: NodeRef,
     pub then_block: Vec<NodeRef>,
     pub else_block: Vec<NodeRef>,
+    pub pos: (usize, usize),
+}
+
+pub struct LoopStatement {
+    pub body: Vec<NodeRef>,
+    pub pos: (usize, usize),
 }
 
 pub struct Literal {
     pub value: LiteralValue,
     pub ty: Type,
+    pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -223,6 +259,7 @@ pub struct BinaryExpr {
     pub left: NodeRef,
     pub right: NodeRef,
     pub ty: Type,
+    pub pos: (usize, usize),
 }
 
 #[derive(Debug, Clone)]
@@ -244,6 +281,7 @@ pub struct CallExpr {
     pub callee: NodeRef,
     pub args: Vec<NodeRef>,
     pub ty: Type,
+    pub pos: (usize, usize),
 }
 
 pub struct Analyzer<'a> {
@@ -323,6 +361,7 @@ impl<'a> Analyzer<'a> {
                 identifier: String::from(param_name),
                 param_index: i,
                 ty: param_ty,
+                pos: (0, 0),
             });
             let node_ref = self.register_node(node);
             param_nodes.push(node_ref);
@@ -333,6 +372,7 @@ impl<'a> Analyzer<'a> {
             params: param_nodes,
             ret_ty,
             body: Some(FunctionBody::NativeCode),
+            pos: (0, 0),
         });
         let node_ref = self.register_node(decl_node);
         // add to scope
@@ -405,6 +445,7 @@ impl<'a> Analyzer<'a> {
                                 identifier: param.identifier.clone(),
                                 param_index: i,
                                 ty: param_type,
+                                pos: Self::calc_location(self.input, n.get_pos())?,
                             });
                             let node_ref = self.register_node(node);
                             params.push(node_ref);
@@ -493,7 +534,8 @@ impl<'a> Analyzer<'a> {
                     ));
                 }
                 // TODO: check target
-                let node = Node::BreakStatement;
+                let node = Node::BreakStatement(BreakStatement {
+                });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
@@ -768,7 +810,7 @@ impl<'a> Analyzer<'a> {
         let name = match node_ref.get(self.source) {
             Node::FunctionDeclaration(_) => "FunctionDeclaration",
             Node::VariableDeclaration(_) => "VariableDeclaration",
-            Node::BreakStatement => "BreakStatement",
+            Node::BreakStatement(_) => "BreakStatement",
             Node::ReturnStatement(_) => "ReturnStatement",
             Node::Assignment(_) => "Assignment",
             Node::IfStatement(_) => "IfStatement",
@@ -811,9 +853,9 @@ impl<'a> Analyzer<'a> {
                 println!("  }}");
                 println!("  is_mutable: {}", variable.is_mutable);
             }
-            Node::BreakStatement => {}
-            Node::ReturnStatement(expr) => {
-                match expr {
+            Node::BreakStatement(_) => {}
+            Node::ReturnStatement(node) => {
+                match node.body {
                     Some(x) => {
                         println!("  expr: {{");
                         println!("    [{}]", x.id);
@@ -849,7 +891,7 @@ impl<'a> Analyzer<'a> {
             }
             Node::LoopStatement(statement) => {
                 println!("  body: {{");
-                for item in statement.iter() {
+                for item in statement.body.iter() {
                     println!("    [{}]", item.id);
                 }
                 println!("  }}");
