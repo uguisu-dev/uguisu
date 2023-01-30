@@ -1,5 +1,4 @@
 use crate::run::RuningStack;
-use analyze::Analyzer;
 use std::collections::HashMap;
 
 mod analyze;
@@ -9,6 +8,7 @@ mod run;
 #[cfg(test)]
 mod test;
 
+#[derive(Debug)]
 pub struct SyntaxError {
     pub message: String,
 }
@@ -17,16 +17,6 @@ impl SyntaxError {
     pub fn new(message: &str) -> Self {
         Self {
             message: message.to_string(),
-        }
-    }
-
-    pub fn new_with_location(message: &str, input: &str, pos: usize) -> Self {
-        let (line, column) = Analyzer::calc_location(input, pos)
-            .expect("calc location failed");
-        let message = format!("{} ({}:{})", message, line, column);
-
-        Self {
-            message,
         }
     }
 }
