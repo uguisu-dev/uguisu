@@ -48,6 +48,49 @@ impl Node {
             Self::Variable(node) => node.pos,
         }
     }
+
+    /// supported newline characters: CR, CR+LF, LF
+    pub fn calc_location(input: &str, pos: usize) -> Result<(usize, usize), String> {
+        let mut i = 0;
+        let mut line = 1;
+        let mut column = 1;
+        let mut cr_flag = false;
+        let mut iter = input.char_indices();
+        loop {
+            if i == pos {
+                return Ok((line, column));
+            }
+            // prepare next location
+            let (next, char) = match iter.next() {
+                Some((i, char)) => (i + char.len_utf8(), char),
+                None => return Err("invalid location".to_string()),
+            };
+            i = next;
+            match char {
+                '\r' => { // CR
+                    line += 1;
+                    column = 1;
+                    cr_flag = true;
+                }
+                '\n' => { // LF
+                    if cr_flag {
+                        cr_flag = false;
+                    } else {
+                        line += 1;
+                        column = 1;
+                    }
+                }
+                _ => {
+                    if cr_flag {
+                        cr_flag = false;
+                        column += 1;
+                    } else {
+                        column += 1;
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
