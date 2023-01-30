@@ -426,7 +426,7 @@ peg::parser! {
             let params = if let Some(v) = params { v } else { vec![] };
             let attrs = if let Some(v) = attrs { v } else { vec![] };
             let body = Node::new_function(name.to_string(), body, params, ret, attrs, p);
-            Node::new_declaration(body, 0)
+            Node::new_declaration(body, p)
         }
 
         rule func_dec_params() -> Vec<Node>

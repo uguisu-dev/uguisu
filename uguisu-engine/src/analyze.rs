@@ -580,6 +580,7 @@ impl<'a> Analyzer<'a> {
                 fn transform(
                     index: usize,
                     analyzer: &mut Analyzer,
+                    parser_node: &parse::Node,
                     items: &Vec<(Box<parse::Node>, Vec<parse::Node>)>,
                     else_block: &Option<Vec<parse::Node>>,
                 ) -> Result<Option<NodeRef>, SyntaxError> {
@@ -592,14 +593,14 @@ impl<'a> Analyzer<'a> {
                                 .map_err(|e| analyzer.make_error(&e, cond_node))?;
                             let then_nodes = analyzer.translate_statements(then_block)?;
                             // next else if part
-                            let elif = transform(index + 1, analyzer, items, else_block)?;
+                            let elif = transform(index + 1, analyzer, parser_node, items, else_block)?;
                             match elif {
                                 Some(x) => {
                                     let node = Node::IfStatement(IfStatement {
                                         condition: cond_ref,
                                         then_block: then_nodes,
                                         else_block: vec![x],
-                                        pos: analyzer.calc_location(cond)?,
+                                        pos: analyzer.calc_location(parser_node)?,
                                     });
                                     let node_ref = analyzer.register_node(node);
                                     Ok(Some(node_ref))
@@ -613,7 +614,7 @@ impl<'a> Analyzer<'a> {
                                         condition: cond_ref,
                                         then_block: then_nodes,
                                         else_block: else_nodes,
-                                        pos: analyzer.calc_location(cond)?,
+                                        pos: analyzer.calc_location(parser_node)?,
                                     });
                                     let node_ref = analyzer.register_node(node);
                                     Ok(Some(node_ref))
@@ -627,6 +628,7 @@ impl<'a> Analyzer<'a> {
                 let node_ref = match transform(
                     0,
                     self,
+                    parser_node,
                     &if_statement.cond_blocks,
                     &if_statement.else_block,
                 )? {
