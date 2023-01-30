@@ -99,25 +99,15 @@ pub enum Node {
 }
 
 impl Node {
-    fn get_ty(&self) -> Type {
+    fn get_ty(&self) -> Result<Type, String> {
         match self {
-            Node::Literal(literal) => {
-                literal.ty
-            }
-            Node::BinaryExpr(binary_expr) => {
-                binary_expr.ty
-            }
-            Node::CallExpr(call_expr) => {
-                call_expr.ty
-            }
-            Node::FuncParam(func_param) => {
-                func_param.ty
-            }
-            Node::VariableDeclaration(variable) => {
-                variable.ty
-            }
+            Node::Literal(node) => Ok(node.ty),
+            Node::BinaryExpr(node) => Ok(node.ty),
+            Node::CallExpr(node) => Ok(node.ty),
+            Node::FuncParam(node) => Ok(node.ty),
+            Node::VariableDeclaration(node) => Ok(node.ty),
             Node::FunctionDeclaration(_) => {
-                panic!("type `function` is not supported");
+                Err("type `function` is not supported".to_owned())
             }
             | Node::BreakStatement(_)
             | Node::ReturnStatement(_)
@@ -480,7 +470,8 @@ impl<'a> Analyzer<'a> {
                             .attributes
                             .iter()
                             .any(|x| *x == parse::VariableAttribute::Let);
-                        let infer_ty = body.get_ty();
+                        let infer_ty = body.get_ty()
+                            .map_err(|e| self.make_error(&e, body))?;
                         // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
                         let ty = match &var_decl.type_identifier {
                             Some(ident) => {
@@ -549,8 +540,10 @@ impl<'a> Analyzer<'a> {
                         if let Some(_) = dest_node.as_function() {
                             return Err(self.make_error("function is not assignable", dest_node));
                         }
-                        let dest_ty = dest_node.get_ty();
-                        let body_ty = body_node.get_ty();
+                        let dest_ty = dest_node.get_ty()
+                            .map_err(|e| self.make_low_error(&e, parser_node))?;
+                        let body_ty = body_node.get_ty()
+                            .map_err(|e| self.make_error(&e, body_node))?;
                         Type::assert(body_ty, dest_ty)
                             .map_err(|e| self.make_error(&e, body_node))?;
                     },
@@ -561,10 +554,12 @@ impl<'a> Analyzer<'a> {
                     | AssignmentMode::ModAssign => {
                         let dest_node = dest.get(self.source);
                         let body_node = body.get(self.source);
-                        let dest_ty = dest_node.get_ty();
+                        let dest_ty = dest_node.get_ty()
+                            .map_err(|e| self.make_low_error(&e, parser_node))?;
                         Type::assert(dest_ty, Type::Number)
                             .map_err(|e| self.make_error(&e, dest_node))?; // TODO: improve error message
-                        let body_ty = body_node.get_ty();
+                        let body_ty = body_node.get_ty()
+                            .map_err(|e| self.make_error(&e, body_node))?;
                         Type::assert(body_ty, Type::Number)
                             .map_err(|e| self.make_error(&e, body_node))?;
                     }
@@ -590,7 +585,8 @@ impl<'a> Analyzer<'a> {
                         Some((cond, then_block)) => {
                             let cond_ref = analyzer.translate_expr(cond)?;
                             let cond_node = cond_ref.get(analyzer.source);
-                            let cond_ty = cond_node.get_ty();
+                            let cond_ty = cond_node.get_ty()
+                                .map_err(|e| analyzer.make_error(&e, cond_node))?;
                             Type::assert(cond_ty, Type::Bool)
                                 .map_err(|e| analyzer.make_error(&e, cond_node))?;
                             let then_nodes = analyzer.translate_statements(then_block)?;
@@ -702,8 +698,10 @@ impl<'a> Analyzer<'a> {
                 let right_ref = self.translate_expr(&binary_expr.right)?;
                 let left_node = left_ref.get(self.source);
                 let right_node = right_ref.get(self.source);
-                let left_ty = left_node.get_ty();
-                let right_ty = right_node.get_ty();
+                let left_ty = left_node.get_ty()
+                    .map_err(|e| self.make_error(&e, left_node))?;
+                let right_ty = right_node.get_ty()
+                    .map_err(|e| self.make_error(&e, right_node))?;
                 let op = match binary_expr.operator.as_str() {
                     "+" => Operator::Add,
                     "-" => Operator::Sub,
@@ -772,8 +770,11 @@ impl<'a> Analyzer<'a> {
                 for (i, &param_ref) in params.iter().enumerate() {
                     let arg_ref = self.translate_expr(&call_expr.args[i])?;
                     let arg = arg_ref.get(self.source);
-                    let param_ty = param_ref.get(self.source).get_ty();
-                    let arg_ty = arg.get_ty();
+                    let param_node = param_ref.get(self.source);
+                    let param_ty = param_node.get_ty()
+                        .map_err(|e| self.make_error(&e, param_node))?;
+                    let arg_ty = arg.get_ty()
+                        .map_err(|e| self.make_error(&e, arg))?;
                     Type::assert(arg_ty, param_ty)
                         .map_err(|e| self.make_error(&e, arg))?;
                     args.push(arg_ref);
