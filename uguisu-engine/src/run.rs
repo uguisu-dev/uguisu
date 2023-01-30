@@ -57,14 +57,14 @@ impl Symbol {
     pub fn as_number(&self) -> i64 {
         match self {
             &Symbol::Number(value) => value,
-            _ => panic!("type mismatch: expected `number`, found `{}`", self.get_type_name()),
+            _ => panic!("type mismatched. expected `number`, found `{}`", self.get_type_name()),
         }
     }
 
     pub fn as_bool(&self) -> bool {
         match self {
             &Symbol::Bool(value) => value,
-            _ => panic!("type mismatch: expected `bool`, found `{}`", self.get_type_name()),
+            _ => panic!("type mismatched. expected `bool`, found `{}`", self.get_type_name()),
         }
     }
 }

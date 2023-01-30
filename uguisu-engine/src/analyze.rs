@@ -116,7 +116,9 @@ impl Node {
             Node::VariableDeclaration(variable) => {
                 variable.ty
             }
-            Node::FunctionDeclaration(_)
+            Node::FunctionDeclaration(_) => {
+                panic!("type `function` is not supported");
+            }
             | Node::BreakStatement(_)
             | Node::ReturnStatement(_)
             | Node::Assignment(_)
