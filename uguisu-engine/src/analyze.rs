@@ -542,7 +542,7 @@ impl<'a> Analyzer<'a> {
                 match statement.mode {
                     AssignmentMode::Assign => {
                         let dest_node = dest.get(self.source);
-                        if let None = dest_node.as_function() {
+                        if let Some(_) = dest_node.as_function() {
                             return Err(self.make_low_error("function is not assignable", &statement.dest));
                         }
                         let dest_ty = dest_node.get_ty();

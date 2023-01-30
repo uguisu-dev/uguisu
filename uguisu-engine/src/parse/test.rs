@@ -209,7 +209,7 @@ fn test_identifier_multi_byte() {
 #[test]
 fn test_location_single_line() {
     let input = "";
-    match Node::calc_location(input, 0) {
+    match calc_location(0, input) {
         Ok((line, column)) => {
             assert_eq!(line, 1);
             assert_eq!(column, 1);
@@ -217,21 +217,21 @@ fn test_location_single_line() {
         Err(_) => panic!(),
     }
     let input = "a";
-    match Node::calc_location(input, 0) {
+    match calc_location(0, input) {
         Ok((line, column)) => {
             assert_eq!(line, 1);
             assert_eq!(column, 1);
         }
         Err(_) => panic!(),
     }
-    match Node::calc_location(input, 1) {
+    match calc_location(1, input) {
         Ok((line, column)) => {
             assert_eq!(line, 1);
             assert_eq!(column, 2);
         }
         Err(_) => panic!(),
     }
-    match Node::calc_location(input, 1) {
+    match calc_location(1, input) {
         Ok((line, column)) => {
             assert_eq!(line, 1);
             assert_eq!(column, 2);
@@ -239,14 +239,14 @@ fn test_location_single_line() {
         Err(_) => panic!(),
     }
     let input = "ab";
-    match Node::calc_location(input, 1) {
+    match calc_location(1, input) {
         Ok((line, column)) => {
             assert_eq!(line, 1);
             assert_eq!(column, 2);
         }
         Err(_) => panic!(),
     }
-    match Node::calc_location(input, 2) {
+    match calc_location(2, input) {
         Ok((line, column)) => {
             assert_eq!(line, 1);
             assert_eq!(column, 3);
@@ -258,21 +258,21 @@ fn test_location_single_line() {
 #[test]
 fn test_location_multiline_lf() {
     let input = "a\nb";
-    match Node::calc_location(input, 1) {
+    match calc_location(1, input) {
         Ok((line, column)) => {
             assert_eq!(line, 1);
             assert_eq!(column, 2);
         }
         Err(_) => panic!(),
     }
-    match Node::calc_location(input, 2) {
+    match calc_location(2, input) {
         Ok((line, column)) => {
             assert_eq!(line, 2);
             assert_eq!(column, 1);
         }
         Err(_) => panic!(),
     }
-    match Node::calc_location(input, 3) {
+    match calc_location(3, input) {
         Ok((line, column)) => {
             assert_eq!(line, 2);
             assert_eq!(column, 2);
@@ -280,7 +280,7 @@ fn test_location_multiline_lf() {
         Err(_) => panic!(),
     }
     let input = "a\n\nb";
-    match Node::calc_location(input, 3) {
+    match calc_location(3, input) {
         Ok((line, column)) => {
             assert_eq!(line, 3);
             assert_eq!(column, 1);
@@ -292,21 +292,21 @@ fn test_location_multiline_lf() {
 #[test]
 fn test_location_multiline_crlf() {
     let input = "a\r\nb";
-    match Node::calc_location(input, 1) {
+    match calc_location(1, input) {
         Ok((line, column)) => {
             assert_eq!(line, 1);
             assert_eq!(column, 2);
         }
         Err(_) => panic!(),
     }
-    match Node::calc_location(input, 3) {
+    match calc_location(3, input) {
         Ok((line, column)) => {
             assert_eq!(line, 2);
             assert_eq!(column, 1);
         }
         Err(_) => panic!(),
     }
-    match Node::calc_location(input, 4) {
+    match calc_location(4, input) {
         Ok((line, column)) => {
             assert_eq!(line, 2);
             assert_eq!(column, 2);
@@ -314,7 +314,7 @@ fn test_location_multiline_crlf() {
         Err(_) => panic!(),
     }
     let input = "a\r\n\r\nb";
-    match Node::calc_location(input, 5) {
+    match calc_location(5, input) {
         Ok((line, column)) => {
             assert_eq!(line, 3);
             assert_eq!(column, 1);
@@ -326,21 +326,21 @@ fn test_location_multiline_crlf() {
 #[test]
 fn test_location_multiline_cr() {
     let input = "a\rb";
-    match Node::calc_location(input, 1) {
+    match calc_location(1, input) {
         Ok((line, column)) => {
             assert_eq!(line, 1);
             assert_eq!(column, 2);
         }
         Err(_) => panic!(),
     }
-    match Node::calc_location(input, 2) {
+    match calc_location(2, input) {
         Ok((line, column)) => {
             assert_eq!(line, 2);
             assert_eq!(column, 1);
         }
         Err(_) => panic!(),
     }
-    match Node::calc_location(input, 3) {
+    match calc_location(3, input) {
         Ok((line, column)) => {
             assert_eq!(line, 2);
             assert_eq!(column, 2);
@@ -348,7 +348,7 @@ fn test_location_multiline_cr() {
         Err(_) => panic!(),
     }
     let input = "a\r\rb";
-    match Node::calc_location(input, 3) {
+    match calc_location(3, input) {
         Ok((line, column)) => {
             assert_eq!(line, 3);
             assert_eq!(column, 1);
