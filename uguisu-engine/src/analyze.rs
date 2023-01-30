@@ -333,7 +333,7 @@ impl<'a> Analyzer<'a> {
                 identifier: String::from(param_name),
                 param_index: i,
                 ty: param_ty,
-                pos: (0, 0),
+                pos: (1, 1),
             });
             let node_ref = self.register_node(node);
             param_nodes.push(node_ref);
@@ -344,7 +344,7 @@ impl<'a> Analyzer<'a> {
             params: param_nodes,
             ret_ty,
             body: Some(FunctionBody::NativeCode),
-            pos: (0, 0),
+            pos: (1, 1),
         });
         let node_ref = self.register_node(decl_node);
         // add to scope
@@ -472,26 +472,27 @@ impl<'a> Analyzer<'a> {
                         Ok(node_ref)
                     }
                     parse::Node::Variable(var_decl) => {
-                        let body = self.translate_expr(&var_decl.body)?;
+                        let body_ref = self.translate_expr(&var_decl.body)?;
+                        let body = body_ref.get(self.source);
                         let is_mutable = var_decl
                             .attributes
                             .iter()
                             .any(|x| *x == parse::VariableAttribute::Let);
-                        let infer_ty = body.get(self.source).get_ty();
+                        let infer_ty = body.get_ty();
                         // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
                         let ty = match &var_decl.type_identifier {
                             Some(ident) => {
                                 let specified_ty = Type::lookup(ident)
                                     .map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error location
                                 Type::assert(infer_ty, specified_ty)
-                                    .map_err(|e| self.make_low_error(&e, parser_node))?
+                                    .map_err(|e| self.make_error(&e, body))?
                             }
                             None => infer_ty,
                         };
                         // make node
                         let node = Node::VariableDeclaration(VariableDeclaration {
                             identifier: var_decl.identifier.clone(),
-                            body,
+                            body: body_ref,
                             is_mutable,
                             ty,
                             pos: self.calc_location(parser_node)?,
@@ -542,25 +543,28 @@ impl<'a> Analyzer<'a> {
                 match statement.mode {
                     AssignmentMode::Assign => {
                         let dest_node = dest.get(self.source);
+                        let body_node = body.get(self.source);
                         if let Some(_) = dest_node.as_function() {
-                            return Err(self.make_low_error("function is not assignable", &statement.dest));
+                            return Err(self.make_error("function is not assignable", dest_node));
                         }
                         let dest_ty = dest_node.get_ty();
-                        let body_ty = body.get(self.source).get_ty();
+                        let body_ty = body_node.get_ty();
                         Type::assert(body_ty, dest_ty)
-                            .map_err(|e| self.make_low_error(&e, parser_node))?;
+                            .map_err(|e| self.make_error(&e, body_node))?;
                     },
                     AssignmentMode::AddAssign
                     | AssignmentMode::SubAssign
                     | AssignmentMode::MultAssign
                     | AssignmentMode::DivAssign
                     | AssignmentMode::ModAssign => {
-                        let dest_ty = dest.get(self.source).get_ty();
+                        let dest_node = dest.get(self.source);
+                        let body_node = body.get(self.source);
+                        let dest_ty = dest_node.get_ty();
                         Type::assert(dest_ty, Type::Number)
-                            .map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error message
-                        let body_ty = body.get(self.source).get_ty();
+                            .map_err(|e| self.make_error(&e, dest_node))?; // TODO: improve error message
+                        let body_ty = body_node.get_ty();
                         Type::assert(body_ty, Type::Number)
-                            .map_err(|e| self.make_low_error(&e, &statement.body))?;
+                            .map_err(|e| self.make_error(&e, body_node))?;
                     }
                 }
                 let node = Node::Assignment(Assignment {
@@ -581,17 +585,18 @@ impl<'a> Analyzer<'a> {
                 ) -> Result<Option<NodeRef>, SyntaxError> {
                     match items.get(index) {
                         Some((cond, then_block)) => {
-                            let cond_node = analyzer.translate_expr(cond)?;
-                            let cond_ty = cond_node.get(analyzer.source).get_ty();
+                            let cond_ref = analyzer.translate_expr(cond)?;
+                            let cond_node = cond_ref.get(analyzer.source);
+                            let cond_ty = cond_node.get_ty();
                             Type::assert(cond_ty, Type::Bool)
-                                .map_err(|e| analyzer.make_low_error(&e, cond))?;
+                                .map_err(|e| analyzer.make_error(&e, cond_node))?;
                             let then_nodes = analyzer.translate_statements(then_block)?;
                             // next else if part
                             let elif = transform(index + 1, analyzer, items, else_block)?;
                             match elif {
                                 Some(x) => {
                                     let node = Node::IfStatement(IfStatement {
-                                        condition: cond_node,
+                                        condition: cond_ref,
                                         then_block: then_nodes,
                                         else_block: vec![x],
                                         pos: analyzer.calc_location(cond)?,
@@ -605,7 +610,7 @@ impl<'a> Analyzer<'a> {
                                         None => vec![],
                                     };
                                     let node = Node::IfStatement(IfStatement {
-                                        condition: cond_node,
+                                        condition: cond_ref,
                                         then_block: then_nodes,
                                         else_block: else_nodes,
                                         pos: analyzer.calc_location(cond)?,
@@ -689,10 +694,12 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             parse::Node::BinaryExpr(binary_expr) => {
-                let left = self.translate_expr(&binary_expr.left)?;
-                let right = self.translate_expr(&binary_expr.right)?;
-                let left_ty = left.get(self.source).get_ty();
-                let right_ty = right.get(self.source).get_ty();
+                let left_ref = self.translate_expr(&binary_expr.left)?;
+                let right_ref = self.translate_expr(&binary_expr.right)?;
+                let left_node = left_ref.get(self.source);
+                let right_node = right_ref.get(self.source);
+                let left_ty = left_node.get_ty();
+                let right_ty = right_node.get_ty();
                 let op = match binary_expr.operator.as_str() {
                     "+" => Operator::Add,
                     "-" => Operator::Sub,
@@ -714,13 +721,13 @@ impl<'a> Analyzer<'a> {
                     | Operator::Div
                     | Operator::Mod => {
                         Type::assert(left_ty, Type::Number)
-                            .map_err(|e| self.make_low_error(&e, &binary_expr.left))?;
+                            .map_err(|e| self.make_error(&e, left_node))?;
                         Type::assert(right_ty, Type::Number)
-                            .map_err(|e| self.make_low_error(&e, &binary_expr.right))?;
+                            .map_err(|e| self.make_error(&e, right_node))?;
                         Node::BinaryExpr(BinaryExpr {
                             operator: op,
-                            left,
-                            right,
+                            left: left_ref,
+                            right: right_ref,
                             ty: Type::Number,
                             pos: self.calc_location(parser_node)?,
                         })
@@ -735,8 +742,8 @@ impl<'a> Analyzer<'a> {
                             .map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error message
                         Node::BinaryExpr(BinaryExpr {
                             operator: op,
-                            left,
-                            right,
+                            left: left_ref,
+                            right: right_ref,
                             ty: Type::Bool,
                             pos: self.calc_location(parser_node)?,
                         })
@@ -750,7 +757,7 @@ impl<'a> Analyzer<'a> {
                 let callee_node = callee_ref.get(self.source);
                 let callee = match callee_node.as_function() {
                     Some(x) => x,
-                    None => return Err(self.make_low_error("function expected", parser_node)),
+                    None => return Err(self.make_error("function expected", callee_node)),
                 };
                 let ret_ty = callee.ret_ty;
                 let params = callee.params.clone();
@@ -758,13 +765,14 @@ impl<'a> Analyzer<'a> {
                     return Err(self.make_low_error("argument count incorrect", parser_node));
                 }
                 let mut args = Vec::new();
-                for (i, &param) in params.iter().enumerate() {
-                    let arg = self.translate_expr(&call_expr.args[i])?;
-                    let param_ty = param.get(self.source).get_ty();
-                    let arg_ty = arg.get(self.source).get_ty();
+                for (i, &param_ref) in params.iter().enumerate() {
+                    let arg_ref = self.translate_expr(&call_expr.args[i])?;
+                    let arg = arg_ref.get(self.source);
+                    let param_ty = param_ref.get(self.source).get_ty();
+                    let arg_ty = arg.get_ty();
                     Type::assert(arg_ty, param_ty)
-                        .map_err(|e| self.make_low_error(&e, &call_expr.args[i]))?;
-                    args.push(arg);
+                        .map_err(|e| self.make_error(&e, arg))?;
+                    args.push(arg_ref);
                 }
                 let node = Node::CallExpr(CallExpr {
                     callee: callee_ref,
@@ -797,7 +805,8 @@ impl<'a> Analyzer<'a> {
     }
 
     fn show_node(&self, node_ref: NodeRef) {
-        let name = match node_ref.get(self.source) {
+        let node = node_ref.get(self.source);
+        let name = match node {
             Node::FunctionDeclaration(_) => "FunctionDeclaration",
             Node::VariableDeclaration(_) => "VariableDeclaration",
             Node::BreakStatement(_) => "BreakStatement",
@@ -810,9 +819,9 @@ impl<'a> Analyzer<'a> {
             Node::CallExpr(_) => "CallExpr",
             Node::FuncParam(_) => "FuncParam",
         };
-        println!("[{}] {}", node_ref.id, name);
-
-        match node_ref.get(self.source) {
+        let (line, column) = node.get_pos();
+        println!("[{}] {} ({}:{})", node_ref.id, name, line, column);
+        match node {
             Node::FunctionDeclaration(func) => {
                 println!("  name: {}", func.identifier);
                 println!("  params: {{");
