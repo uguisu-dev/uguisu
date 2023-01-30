@@ -50,14 +50,14 @@ impl Node {
     }
 
     /// supported newline characters: CR, CR+LF, LF
-    pub fn calc_location(input: &str, pos: usize) -> Result<(usize, usize), String> {
+    pub fn calc_location(&self, code: &str) -> Result<(usize, usize), String> {
         let mut i = 0;
         let mut line = 1;
         let mut column = 1;
         let mut cr_flag = false;
-        let mut iter = input.char_indices();
+        let mut iter = code.char_indices();
         loop {
-            if i == pos {
+            if i == self.get_pos() {
                 return Ok((line, column));
             }
             // prepare next location

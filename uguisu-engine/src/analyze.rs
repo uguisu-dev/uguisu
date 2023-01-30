@@ -143,10 +143,10 @@ impl Node {
         }
     }
 
-    fn as_function(&self) -> Result<&FunctionDeclaration, SyntaxError> {
+    fn as_function(&self) -> Option<&FunctionDeclaration> {
         match self {
-            Node::FunctionDeclaration(decl) => Ok(decl),
-            _ => return Err(SyntaxError::new("function expected")),
+            Node::FunctionDeclaration(decl) => Some(decl),
+            _ => None,
         }
     }
 }
@@ -306,12 +306,17 @@ impl<'a> Analyzer<'a> {
     }
 
     fn calc_location(&self, node: &parse::Node) -> Result<(usize, usize), SyntaxError> {
-        parse::Node::calc_location(self.input, node.get_pos())
-            .map_err(|e| self.make_error(&e, node))
+        node.calc_location(self.input)
+            .map_err(|e| SyntaxError::new(&e))
     }
 
-    fn make_error(&self, message: &str, node: &parse::Node) -> SyntaxError {
-        let (line, column) = self.calc_location(node).unwrap();
+    fn make_low_error(&self, message: &str, node: &parse::Node) -> SyntaxError {
+        let (line, column) = node.calc_location(self.input).unwrap();
+        SyntaxError::new(&format!("{} ({}:{})", message, line, column))
+    }
+
+    fn make_error(&self, message: &str, node: &Node) -> SyntaxError {
+        let (line, column) = node.get_pos();
         SyntaxError::new(&format!("{} ({}:{})", message, line, column))
     }
 
@@ -404,8 +409,8 @@ impl<'a> Analyzer<'a> {
                         for (i, n) in func_decl.params.iter().enumerate() {
                             let param = n.as_func_param();
                             let param_type = match &param.type_identifier {
-                                Some(x) => Type::lookup(x).map_err(|e| self.make_error(&e, n))?, // TODO: improve error location
-                                None => return Err(self.make_error("parameter type missing", n)),
+                                Some(x) => Type::lookup(x).map_err(|e| self.make_low_error(&e, n))?, // TODO: improve error location
+                                None => return Err(self.make_low_error("parameter type missing", n)),
                             };
                             // make param node
                             let node = Node::FuncParam(FuncParam {
@@ -418,7 +423,7 @@ impl<'a> Analyzer<'a> {
                             params.push(node_ref);
                         }
                         let ret_ty = match &func_decl.ret {
-                            Some(x) => Type::lookup(x).map_err(|e| self.make_error(&e, parser_node))?, // TODO: improve error location
+                            Some(x) => Type::lookup(x).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
                             None => Type::Void,
                         };
                         // make function node
@@ -477,9 +482,9 @@ impl<'a> Analyzer<'a> {
                         let ty = match &var_decl.type_identifier {
                             Some(ident) => {
                                 let specified_ty = Type::lookup(ident)
-                                    .map_err(|e| self.make_error(&e, parser_node))?; // TODO: improve error location
+                                    .map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error location
                                 Type::assert(infer_ty, specified_ty)
-                                    .map_err(|e| self.make_error(&e, parser_node))?
+                                    .map_err(|e| self.make_low_error(&e, parser_node))?
                             }
                             None => infer_ty,
                         };
@@ -501,7 +506,7 @@ impl<'a> Analyzer<'a> {
             }
             parse::Node::BreakStatement(_) => {
                 if self.scope.layers.len() == 1 {
-                    return Err(self.make_error("A break statement cannot be used in global space", parser_node));
+                    return Err(self.make_low_error("A break statement cannot be used in global space", parser_node));
                 }
                 // TODO: check target
                 let node = Node::BreakStatement(BreakStatement {
@@ -514,7 +519,7 @@ impl<'a> Analyzer<'a> {
                 // TODO: consider type check
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(self.make_error("A return statement cannot be used in global space", parser_node));
+                    return Err(self.make_low_error("A return statement cannot be used in global space", parser_node));
                 }
                 let body = match node.body.as_ref() {
                     Some(x) => Some(self.translate_expr(x)?),
@@ -530,20 +535,20 @@ impl<'a> Analyzer<'a> {
             parse::Node::Assignment(statement) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(self.make_error("An assignment statement cannot be used in global space", parser_node));
+                    return Err(self.make_low_error("An assignment statement cannot be used in global space", parser_node));
                 }
                 let dest = self.translate_expr(&statement.dest)?;
                 let body = self.translate_expr(&statement.body)?;
                 match statement.mode {
                     AssignmentMode::Assign => {
                         let dest_node = dest.get(self.source);
-                        if let Ok(_) = dest_node.as_function() {
-                            return Err(self.make_error("function is not assignable", &statement.dest));
+                        if let None = dest_node.as_function() {
+                            return Err(self.make_low_error("function is not assignable", &statement.dest));
                         }
                         let dest_ty = dest_node.get_ty();
                         let body_ty = body.get(self.source).get_ty();
                         Type::assert(body_ty, dest_ty)
-                            .map_err(|e| self.make_error(&e, parser_node))?;
+                            .map_err(|e| self.make_low_error(&e, parser_node))?;
                     },
                     AssignmentMode::AddAssign
                     | AssignmentMode::SubAssign
@@ -552,10 +557,10 @@ impl<'a> Analyzer<'a> {
                     | AssignmentMode::ModAssign => {
                         let dest_ty = dest.get(self.source).get_ty();
                         Type::assert(dest_ty, Type::Number)
-                            .map_err(|e| self.make_error(&e, parser_node))?; // TODO: improve error message
+                            .map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error message
                         let body_ty = body.get(self.source).get_ty();
                         Type::assert(body_ty, Type::Number)
-                            .map_err(|e| self.make_error(&e, &statement.body))?;
+                            .map_err(|e| self.make_low_error(&e, &statement.body))?;
                     }
                 }
                 let node = Node::Assignment(Assignment {
@@ -579,7 +584,7 @@ impl<'a> Analyzer<'a> {
                             let cond_node = analyzer.translate_expr(cond)?;
                             let cond_ty = cond_node.get(analyzer.source).get_ty();
                             Type::assert(cond_ty, Type::Bool)
-                                .map_err(|e| analyzer.make_error(&e, cond))?;
+                                .map_err(|e| analyzer.make_low_error(&e, cond))?;
                             let then_nodes = analyzer.translate_statements(then_block)?;
                             // next else if part
                             let elif = transform(index + 1, analyzer, items, else_block)?;
@@ -627,7 +632,7 @@ impl<'a> Analyzer<'a> {
             }
             parse::Node::LoopStatement(statement) => {
                 if self.scope.layers.len() == 1 {
-                    return Err(self.make_error("A loop statement cannot be used in global space", parser_node));
+                    return Err(self.make_low_error("A loop statement cannot be used in global space", parser_node));
                 }
                 let body = self.translate_statements(&statement.body)?;
                 let node = Node::LoopStatement(LoopStatement {
@@ -644,7 +649,7 @@ impl<'a> Analyzer<'a> {
             | parse::Node::CallExpr(_) => {
                 // when global scope
                 if self.scope.layers.len() == 1 {
-                    return Err(self.make_error("An expression cannot be used in global space", parser_node));
+                    return Err(self.make_low_error("An expression cannot be used in global space", parser_node));
                 }
                 self.translate_expr(parser_node)
             }
@@ -662,7 +667,7 @@ impl<'a> Analyzer<'a> {
             parse::Node::Reference(reference) => {
                 match self.scope.lookup(&reference.identifier) {
                     Some(node_ref) => Ok(node_ref),
-                    None => Err(self.make_error("unknown identifier", parser_node)),
+                    None => Err(self.make_low_error("unknown identifier", parser_node)),
                 }
             }
             parse::Node::NumberLiteral(node) => {
@@ -709,9 +714,9 @@ impl<'a> Analyzer<'a> {
                     | Operator::Div
                     | Operator::Mod => {
                         Type::assert(left_ty, Type::Number)
-                            .map_err(|e| self.make_error(&e, &binary_expr.left))?;
+                            .map_err(|e| self.make_low_error(&e, &binary_expr.left))?;
                         Type::assert(right_ty, Type::Number)
-                            .map_err(|e| self.make_error(&e, &binary_expr.right))?;
+                            .map_err(|e| self.make_low_error(&e, &binary_expr.right))?;
                         Node::BinaryExpr(BinaryExpr {
                             operator: op,
                             left,
@@ -727,7 +732,7 @@ impl<'a> Analyzer<'a> {
                     | Operator::GreaterThan
                     | Operator::GreaterThanEqual => {
                         Type::assert(right_ty, left_ty)
-                            .map_err(|e| self.make_error(&e, parser_node))?; // TODO: improve error message
+                            .map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error message
                         Node::BinaryExpr(BinaryExpr {
                             operator: op,
                             left,
@@ -741,12 +746,16 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             parse::Node::CallExpr(call_expr) => {
-                let callee_node = self.translate_expr(&call_expr.callee)?;
-                let callee = callee_node.get(self.source).as_function()?;
+                let callee_ref = self.translate_expr(&call_expr.callee)?;
+                let callee_node = callee_ref.get(self.source);
+                let callee = match callee_node.as_function() {
+                    Some(x) => x,
+                    None => return Err(self.make_low_error("function expected", parser_node)),
+                };
                 let ret_ty = callee.ret_ty;
                 let params = callee.params.clone();
                 if params.len() != call_expr.args.len() {
-                    return Err(self.make_error("argument count incorrect", parser_node));
+                    return Err(self.make_low_error("argument count incorrect", parser_node));
                 }
                 let mut args = Vec::new();
                 for (i, &param) in params.iter().enumerate() {
@@ -754,11 +763,11 @@ impl<'a> Analyzer<'a> {
                     let param_ty = param.get(self.source).get_ty();
                     let arg_ty = arg.get(self.source).get_ty();
                     Type::assert(arg_ty, param_ty)
-                        .map_err(|e| self.make_error(&e, &call_expr.args[i]))?;
+                        .map_err(|e| self.make_low_error(&e, &call_expr.args[i]))?;
                     args.push(arg);
                 }
                 let node = Node::CallExpr(CallExpr {
-                    callee: callee_node,
+                    callee: callee_ref,
                     args,
                     ty: ret_ty,
                     pos: self.calc_location(parser_node)?,
