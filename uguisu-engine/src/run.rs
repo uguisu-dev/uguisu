@@ -181,14 +181,18 @@ impl<'a> Runner<'a> {
                 stack.set_symbol(node_ref, symbol);
                 Ok(StatementResult::None)
             }
-            Node::ReturnStatement(None) => {
-                Ok(StatementResult::Return)
+            Node::ReturnStatement(statement) => {
+                match &statement.body {
+                    Some(expr) => {
+                        let symbol = self.eval_expr(*expr, stack)?;
+                        Ok(StatementResult::ReturnWith(symbol))
+                    }
+                    None => {
+                        Ok(StatementResult::Return)
+                    }
+                }
             }
-            Node::ReturnStatement(Some(expr)) => {
-                let symbol = self.eval_expr(*expr, stack)?;
-                Ok(StatementResult::ReturnWith(symbol))
-            }
-            Node::BreakStatement => Ok(StatementResult::Break),
+            Node::BreakStatement(_) => Ok(StatementResult::Break),
             Node::Assignment(statement) => {
                 let curr_symbol = match stack.lookup_symbol(statement.dest) {
                     Some(x) => x,
@@ -256,10 +260,10 @@ impl<'a> Runner<'a> {
                 };
                 self.exec_block(block, stack)
             }
-            Node::LoopStatement(body) => {
+            Node::LoopStatement(statement) => {
                 let mut result;
                 loop {
-                    result = self.exec_block(body, stack)?;
+                    result = self.exec_block(&statement.body, stack)?;
                     match result {
                         StatementResult::None => {}
                         StatementResult::Break => {
@@ -434,9 +438,8 @@ impl<'a> Runner<'a> {
                 }
             }
             Node::FunctionDeclaration(_)
-            | Node::ReturnStatement(None)
-            | Node::ReturnStatement(Some(_))
-            | Node::BreakStatement
+            | Node::ReturnStatement(_)
+            | Node::BreakStatement(_)
             | Node::Assignment(_)
             | Node::IfStatement(_)
             | Node::LoopStatement(_) => {
