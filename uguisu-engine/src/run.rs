@@ -332,7 +332,7 @@ impl<'a> Runner<'a> {
                             }
                             Symbol::Function(_) => {
                                 Err(RuntimeError::new(
-                                    format!("function comparison is not supported (node_id={})", node_ref.id).as_str()
+                                    format!("function is not comparable").as_str()
                                 ))
                             }
                         }
