@@ -9,26 +9,17 @@ mod builtin {
     use crate::run::Symbol;
 
     pub fn print_num(args: &Vec<Symbol>) -> Result<(), RuntimeError> {
-        if args.len() != 1 {
-            return Err(RuntimeError::new("parameters count error"));
-        }
         let value = args[0].as_number(); // value: number
         print!("{}", value);
         Ok(())
     }
 
-    pub fn print_lf(args: &Vec<Symbol>) -> Result<(), RuntimeError> {
-        if args.len() != 0 {
-            return Err(RuntimeError::new("parameters count error"));
-        }
+    pub fn print_lf(_args: &Vec<Symbol>) -> Result<(), RuntimeError> {
         print!("\n");
         Ok(())
     }
 
     pub fn assert_eq(args: &Vec<Symbol>) -> Result<(), RuntimeError> {
-        if args.len() != 2 {
-            return Err(RuntimeError::new("parameters count error"));
-        }
         let actual = args[0].as_number(); // actual: number
         let expected = args[1].as_number(); // expected: number
         if actual != expected {
@@ -407,6 +398,9 @@ impl<'a> Runner<'a> {
                                     let arg_node = &call_expr.args[i];
                                     let arg_symbol = self.eval_expr(*arg_node, stack)?;
                                     args.push(arg_symbol);
+                                }
+                                if call_expr.args.len() != func.params.len() {
+                                    return Err(RuntimeError::new("parameters count error"));
                                 }
                                 // TODO: improve builtin
                                 if &func.identifier == "print_num" {
