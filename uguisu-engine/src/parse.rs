@@ -3,6 +3,49 @@ use crate::SyntaxError;
 #[cfg(test)]
 mod test;
 
+/// supported newline characters: CR, CR+LF, LF
+pub fn calc_location(pos: usize, code: &str) -> Result<(usize, usize), String> {
+    let mut i = 0;
+    let mut line = 1;
+    let mut column = 1;
+    let mut cr_flag = false;
+    let mut iter = code.char_indices();
+    loop {
+        if i == pos {
+            return Ok((line, column));
+        }
+        // prepare next location
+        let (next, char) = match iter.next() {
+            Some((i, char)) => (i + char.len_utf8(), char),
+            None => return Err("invalid location".to_string()),
+        };
+        i = next;
+        match char {
+            '\r' => { // CR
+                line += 1;
+                column = 1;
+                cr_flag = true;
+            }
+            '\n' => { // LF
+                if cr_flag {
+                    cr_flag = false;
+                } else {
+                    line += 1;
+                    column = 1;
+                }
+            }
+            _ => {
+                if cr_flag {
+                    cr_flag = false;
+                    column += 1;
+                } else {
+                    column += 1;
+                }
+            }
+        }
+    }
+}
+
 //
 // node
 //
@@ -49,47 +92,8 @@ impl Node {
         }
     }
 
-    /// supported newline characters: CR, CR+LF, LF
-    pub fn calc_location(input: &str, pos: usize) -> Result<(usize, usize), String> {
-        let mut i = 0;
-        let mut line = 1;
-        let mut column = 1;
-        let mut cr_flag = false;
-        let mut iter = input.char_indices();
-        loop {
-            if i == pos {
-                return Ok((line, column));
-            }
-            // prepare next location
-            let (next, char) = match iter.next() {
-                Some((i, char)) => (i + char.len_utf8(), char),
-                None => return Err("invalid location".to_string()),
-            };
-            i = next;
-            match char {
-                '\r' => { // CR
-                    line += 1;
-                    column = 1;
-                    cr_flag = true;
-                }
-                '\n' => { // LF
-                    if cr_flag {
-                        cr_flag = false;
-                    } else {
-                        line += 1;
-                        column = 1;
-                    }
-                }
-                _ => {
-                    if cr_flag {
-                        cr_flag = false;
-                        column += 1;
-                    } else {
-                        column += 1;
-                    }
-                }
-            }
-        }
+    pub fn calc_location(&self, code: &str) -> Result<(usize, usize), String> {
+        calc_location(self.get_pos(), code)
     }
 }
 
@@ -422,7 +426,7 @@ peg::parser! {
             let params = if let Some(v) = params { v } else { vec![] };
             let attrs = if let Some(v) = attrs { v } else { vec![] };
             let body = Node::new_function(name.to_string(), body, params, ret, attrs, p);
-            Node::new_declaration(body, 0)
+            Node::new_declaration(body, p)
         }
 
         rule func_dec_params() -> Vec<Node>
