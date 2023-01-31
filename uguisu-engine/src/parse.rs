@@ -73,6 +73,132 @@ pub enum Node {
 }
 
 impl Node {
+    pub fn new_declaration(body: Node, pos: usize) -> Self {
+        Self::Declaration(Declaration {
+            body: Box::new(body),
+            pos,
+        })
+    }
+
+    pub fn new_break_statement(pos: usize) -> Self {
+        Self::BreakStatement(BreakStatement {
+            pos,
+        })
+    }
+
+    pub fn new_return_statement(expr: Option<Node>, pos: usize) -> Self {
+        match expr {
+            Some(x) => Self::ReturnStatement(ReturnStatement { body: Some(Box::new(x)), pos }),
+            None => Self::ReturnStatement(ReturnStatement { body: None, pos }),
+        }
+    }
+
+    pub fn new_assignment(dest: Node, body: Node, mode: AssignmentMode, pos: usize) -> Self {
+        Self::Assignment(Assignment {
+            dest: Box::new(dest),
+            body: Box::new(body),
+            mode,
+            pos,
+        })
+    }
+
+    pub fn new_if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<Node>>, pos: usize) -> Self {
+        let mut items = Vec::new();
+        for (cond, block) in cond_blocks {
+            items.push((Box::new(cond), block))
+        }
+        Self::IfStatement(IfStatement {
+            cond_blocks: items,
+            else_block,
+            pos,
+        })
+    }
+
+    pub fn new_loop_statement(body: Vec<Node>, pos: usize) -> Self {
+        Self::LoopStatement(LoopStatement { body, pos })
+    }
+
+    pub fn new_reference(identifier: &str, pos: usize) -> Self {
+        Self::Reference(Reference {
+            identifier: identifier.to_string(),
+            pos,
+        })
+    }
+
+    pub fn new_number(value: i64, pos: usize) -> Self {
+        Self::NumberLiteral(NumberLiteral { value, pos })
+    }
+
+    pub fn new_bool(value: bool, pos: usize) -> Self {
+        Self::BoolLiteral(BoolLiteral { value, pos })
+    }
+
+    pub fn new_binary_expr(op: &str, left: Node, right: Node, pos: usize) -> Self {
+        Self::BinaryExpr(BinaryExpr {
+            operator: op.to_string(),
+            left: Box::new(left),
+            right: Box::new(right),
+            pos,
+        })
+    }
+
+    pub fn new_call_expr(callee: Node, args: Vec<Node>, pos: usize) -> Self {
+        Self::CallExpr(CallExpr {
+            callee: Box::new(callee),
+            args,
+            pos,
+        })
+    }
+
+    pub fn new_function(
+        identifier: String,
+        body: Option<Vec<Node>>,
+        params: Vec<Node>,
+        ret: Option<String>,
+        attributes: Vec<FunctionAttribute>,
+        pos: usize,
+    ) -> Self {
+        Self::Function(Function {
+            identifier,
+            body,
+            params,
+            ret,
+            attributes,
+            pos,
+        })
+    }
+
+    pub fn new_func_param(identifier: String, type_identifier: Option<String>, pos: usize) -> Self {
+        Self::FuncParam(FuncParam {
+            identifier,
+            type_identifier,
+            pos,
+        })
+    }
+
+    pub fn as_func_param(&self) -> &FuncParam {
+        match self {
+            Self::FuncParam(x) => x,
+            _ => panic!("function parameter expected"),
+        }
+    }
+
+    pub fn new_variable(
+        identifier: String,
+        body: Node,
+        type_identifier: Option<String>,
+        attributes: Vec<VariableAttribute>,
+        pos: usize,
+    ) -> Self {
+        Self::Variable(Variable {
+            identifier,
+            body: Box::new(body),
+            type_identifier,
+            attributes,
+            pos,
+        })
+    }
+
     pub fn get_pos(&self) -> usize {
         match self {
             Self::Declaration(node) => node.pos,
@@ -103,26 +229,9 @@ pub struct Declaration {
     pub pos: usize,
 }
 
-impl Node {
-    pub fn new_declaration(body: Node, pos: usize) -> Self {
-        Self::Declaration(Declaration {
-            body: Box::new(body),
-            pos,
-        })
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub struct BreakStatement {
     pub pos: usize,
-}
-
-impl Node {
-    pub fn new_break_statement(pos: usize) -> Self {
-        Self::BreakStatement(BreakStatement {
-            pos,
-        })
-    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -131,123 +240,12 @@ pub struct ReturnStatement {
     pub pos: usize,
 }
 
-impl Node {
-    pub fn new_return_statement(expr: Option<Node>, pos: usize) -> Self {
-        match expr {
-            Some(x) => Self::ReturnStatement(ReturnStatement { body: Some(Box::new(x)), pos }),
-            None => Self::ReturnStatement(ReturnStatement { body: None, pos }),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Function {
-    pub identifier: String,
-    pub body: Option<Vec<Node>>,
-    pub params: Vec<Node>,
-    pub ret: Option<String>,
-    pub attributes: Vec<FunctionAttribute>,
-    pub pos: usize,
-}
-
-impl Node {
-    pub fn new_function(
-        identifier: String,
-        body: Option<Vec<Node>>,
-        params: Vec<Node>,
-        ret: Option<String>,
-        attributes: Vec<FunctionAttribute>,
-        pos: usize,
-    ) -> Self {
-        Self::Function(Function {
-            identifier,
-            body,
-            params,
-            ret,
-            attributes,
-            pos,
-        })
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct FuncParam {
-    pub identifier: String,
-    pub type_identifier: Option<String>,
-    pub pos: usize,
-}
-
-impl Node {
-    pub fn new_func_param(identifier: String, type_identifier: Option<String>, pos: usize) -> Self {
-        Self::FuncParam(FuncParam {
-            identifier,
-            type_identifier,
-            pos,
-        })
-    }
-
-    pub fn as_func_param(&self) -> &FuncParam {
-        match self {
-            Self::FuncParam(x) => x,
-            _ => panic!("function parameter expected"),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum FunctionAttribute {
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Variable {
-    pub identifier: String,
-    pub body: Box<Node>,
-    pub type_identifier: Option<String>,
-    pub attributes: Vec<VariableAttribute>,
-    pub pos: usize,
-}
-
-impl Node {
-    pub fn new_variable(
-        identifier: String,
-        body: Node,
-        type_identifier: Option<String>,
-        attributes: Vec<VariableAttribute>,
-        pos: usize,
-    ) -> Self {
-        Self::Variable(Variable {
-            identifier,
-            body: Box::new(body),
-            type_identifier,
-            attributes,
-            pos,
-        })
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum VariableAttribute {
-    Const,
-    Let,
-}
-
 #[derive(Debug, PartialEq)]
 pub struct Assignment {
     pub dest: Box<Node>,
     pub body: Box<Node>,
     pub mode: AssignmentMode,
     pub pos: usize,
-}
-
-impl Node {
-    pub fn new_assignment(dest: Node, body: Node, mode: AssignmentMode, pos: usize) -> Self {
-        Self::Assignment(Assignment {
-            dest: Box::new(dest),
-            body: Box::new(body),
-            mode,
-            pos,
-        })
-    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -261,18 +259,22 @@ pub enum AssignmentMode {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Reference {
-    pub identifier: String,
+pub struct IfStatement {
+    pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // if, else if
+    pub else_block: Option<Vec<Node>>,            // else
     pub pos: usize,
 }
 
-impl Node {
-    pub fn new_reference(identifier: &str, pos: usize) -> Self {
-        Self::Reference(Reference {
-            identifier: identifier.to_string(),
-            pos,
-        })
-    }
+#[derive(Debug, PartialEq)]
+pub struct LoopStatement {
+    pub body: Vec<Node>, // statements
+    pub pos: usize,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Reference {
+    pub identifier: String,
+    pub pos: usize,
 }
 
 #[derive(Debug, PartialEq)]
@@ -281,22 +283,10 @@ pub struct NumberLiteral {
     pub pos: usize,
 }
 
-impl Node {
-    pub fn new_number(value: i64, pos: usize) -> Self {
-        Self::NumberLiteral(NumberLiteral { value, pos })
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub struct BoolLiteral {
     pub value: bool,
     pub pos: usize,
-}
-
-impl Node {
-    pub fn new_bool(value: bool, pos: usize) -> Self {
-        Self::BoolLiteral(BoolLiteral { value, pos })
-    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -307,17 +297,6 @@ pub struct BinaryExpr {
     pub pos: usize,
 }
 
-impl Node {
-    pub fn new_binary_expr(op: &str, left: Node, right: Node, pos: usize) -> Self {
-        Self::BinaryExpr(BinaryExpr {
-            operator: op.to_string(),
-            left: Box::new(left),
-            right: Box::new(right),
-            pos,
-        })
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub struct CallExpr {
     pub callee: Box<Node>,
@@ -325,47 +304,40 @@ pub struct CallExpr {
     pub pos: usize,
 }
 
-impl Node {
-    pub fn new_call_expr(callee: Node, args: Vec<Node>, pos: usize) -> Self {
-        Self::CallExpr(CallExpr {
-            callee: Box::new(callee),
-            args,
-            pos,
-        })
-    }
-}
-
 #[derive(Debug, PartialEq)]
-pub struct IfStatement {
-    pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // if, else if
-    pub else_block: Option<Vec<Node>>,            // else
+pub struct Function {
+    pub identifier: String,
+    pub body: Option<Vec<Node>>,
+    pub params: Vec<Node>,
+    pub ret: Option<String>,
+    pub attributes: Vec<FunctionAttribute>,
     pub pos: usize,
 }
 
-impl Node {
-    pub fn new_if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<Node>>, pos: usize) -> Self {
-        let mut items = Vec::new();
-        for (cond, block) in cond_blocks {
-            items.push((Box::new(cond), block))
-        }
-        Self::IfStatement(IfStatement {
-            cond_blocks: items,
-            else_block,
-            pos,
-        })
-    }
+#[derive(Debug, PartialEq)]
+pub enum FunctionAttribute {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct LoopStatement {
-    pub body: Vec<Node>, // statements
+pub struct FuncParam {
+    pub identifier: String,
+    pub type_identifier: Option<String>,
     pub pos: usize,
 }
 
-impl Node {
-    pub fn new_loop_statement(body: Vec<Node>, pos: usize) -> Self {
-        Self::LoopStatement(LoopStatement { body, pos })
-    }
+#[derive(Debug, PartialEq)]
+pub struct Variable {
+    pub identifier: String,
+    pub body: Box<Node>,
+    pub type_identifier: Option<String>,
+    pub attributes: Vec<VariableAttribute>,
+    pub pos: usize,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum VariableAttribute {
+    Const,
+    Let,
 }
 
 //
