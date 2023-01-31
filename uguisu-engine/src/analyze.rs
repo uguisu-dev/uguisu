@@ -92,6 +92,7 @@ pub enum Node {
     IfStatement(IfStatement),
     LoopStatement(LoopStatement),
     // expression
+    Reference(Reference),
     Literal(Literal),
     BinaryExpr(BinaryExpr),
     CallExpr(CallExpr),
@@ -101,15 +102,14 @@ pub enum Node {
 impl Node {
     fn get_ty(&self) -> Result<Type, String> {
         match self {
+            Node::Reference(node) => Ok(node.ty),
             Node::Literal(node) => Ok(node.ty),
             Node::BinaryExpr(node) => Ok(node.ty),
             Node::CallExpr(node) => Ok(node.ty),
             Node::FuncParam(node) => Ok(node.ty),
             Node::VariableDeclaration(node) => Ok(node.ty),
-            Node::FunctionDeclaration(_) => {
-                Err("type `function` is not supported".to_owned())
-            }
-            | Node::BreakStatement(_)
+            Node::FunctionDeclaration(_) => Ok(Type::Function),
+            Node::BreakStatement(_)
             | Node::ReturnStatement(_)
             | Node::Assignment(_)
             | Node::IfStatement(_)
@@ -128,10 +128,18 @@ impl Node {
             Self::Assignment(node) => node.pos,
             Self::IfStatement(node) => node.pos,
             Self::LoopStatement(node) => node.pos,
+            Self::Reference(node) => node.pos,
             Self::Literal(node) => node.pos,
             Self::BinaryExpr(node) => node.pos,
             Self::CallExpr(node) => node.pos,
             Self::FuncParam(node) => node.pos,
+        }
+    }
+
+    fn as_reference(&self) -> Option<&Reference> {
+        match self {
+            Node::Reference(reference) => Some(reference),
+            _ => None,
         }
     }
 
@@ -148,6 +156,7 @@ pub enum Type {
     Void,
     Number,
     Bool,
+    Function,
 }
 
 impl Type {
@@ -156,10 +165,11 @@ impl Type {
             Type::Void => "void",
             Type::Number => "number",
             Type::Bool => "bool",
+            Type::Function => "function",
         }
     }
 
-    fn lookup(ty_identifier: &str) -> Result<Type, String> {
+    fn lookup_user_type(ty_identifier: &str) -> Result<Type, String> {
         match ty_identifier {
             "void" => Err("type `void` is invalid".to_owned()),
             "number" => Ok(Type::Number),
@@ -231,6 +241,12 @@ pub struct IfStatement {
 
 pub struct LoopStatement {
     pub body: Vec<NodeRef>,
+    pub pos: (usize, usize),
+}
+
+pub struct Reference {
+    pub dest: NodeRef,
+    pub ty: Type,
     pub pos: (usize, usize),
 }
 
@@ -401,7 +417,7 @@ impl<'a> Analyzer<'a> {
                         for (i, n) in func_decl.params.iter().enumerate() {
                             let param = n.as_func_param();
                             let param_type = match &param.type_identifier {
-                                Some(x) => Type::lookup(x).map_err(|e| self.make_low_error(&e, n))?, // TODO: improve error location
+                                Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, n))?, // TODO: improve error location
                                 None => return Err(self.make_low_error("parameter type missing", n)),
                             };
                             // make param node
@@ -415,7 +431,7 @@ impl<'a> Analyzer<'a> {
                             params.push(node_ref);
                         }
                         let ret_ty = match &func_decl.ret {
-                            Some(x) => Type::lookup(x).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
+                            Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
                             None => Type::Void,
                         };
                         // make function node
@@ -470,17 +486,20 @@ impl<'a> Analyzer<'a> {
                             .attributes
                             .iter()
                             .any(|x| *x == parse::VariableAttribute::Let);
-                        let infer_ty = body.get_ty()
+                        let body_ty = body.get_ty()
                             .map_err(|e| self.make_error(&e, body))?;
+                        if body_ty == Type::Function {
+                            return Err(self.make_error("type `function` is not supported", body));
+                        }
                         // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
                         let ty = match &var_decl.type_identifier {
                             Some(ident) => {
-                                let specified_ty = Type::lookup(ident)
+                                let specified_ty = Type::lookup_user_type(ident)
                                     .map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error location
-                                Type::assert(infer_ty, specified_ty)
+                                Type::assert(body_ty, specified_ty)
                                     .map_err(|e| self.make_error(&e, body))?
                             }
-                            None => infer_ty,
+                            None => body_ty,
                         };
                         // make node
                         let node = Node::VariableDeclaration(VariableDeclaration {
@@ -537,13 +556,16 @@ impl<'a> Analyzer<'a> {
                     AssignmentMode::Assign => {
                         let dest_node = dest.get(self.source);
                         let body_node = body.get(self.source);
-                        if let Some(_) = dest_node.as_function() {
-                            return Err(self.make_error("function is not assignable", dest_node));
-                        }
                         let dest_ty = dest_node.get_ty()
                             .map_err(|e| self.make_low_error(&e, parser_node))?;
                         let body_ty = body_node.get_ty()
                             .map_err(|e| self.make_error(&e, body_node))?;
+                        if dest_ty == Type::Function {
+                            return Err(self.make_error("type `function` is not supported", dest_node));
+                        }
+                        if body_ty == Type::Function {
+                            return Err(self.make_error("type `function` is not supported", body_node));
+                        }
                         Type::assert(body_ty, dest_ty)
                             .map_err(|e| self.make_error(&e, body_node))?;
                     },
@@ -670,10 +692,20 @@ impl<'a> Analyzer<'a> {
     fn translate_expr(&mut self, parser_node: &parse::Node) -> Result<NodeRef, SyntaxError> {
         match parser_node {
             parse::Node::Reference(reference) => {
-                match self.scope.lookup(&reference.identifier) {
-                    Some(node_ref) => Ok(node_ref),
-                    None => Err(self.make_low_error("unknown identifier", parser_node)),
-                }
+                let dest_ref = match self.scope.lookup(&reference.identifier) {
+                    Some(x) => x,
+                    None => return Err(self.make_low_error("unknown identifier", parser_node)),
+                };
+                let dest_node = dest_ref.get(self.source);
+                let dest_ty = dest_node.get_ty()
+                    .map_err(|e| self.make_error(&e, dest_node))?;
+                let node = Node::Reference(Reference {
+                    dest: dest_ref,
+                    ty: dest_ty,
+                    pos: self.calc_location(parser_node)?,
+                });
+                let node_ref = self.register_node(node);
+                Ok(node_ref)
             }
             parse::Node::NumberLiteral(node) => {
                 let node = Node::Literal(Literal {
@@ -702,6 +734,12 @@ impl<'a> Analyzer<'a> {
                     .map_err(|e| self.make_error(&e, left_node))?;
                 let right_ty = right_node.get_ty()
                     .map_err(|e| self.make_error(&e, right_node))?;
+                if left_ty == Type::Function {
+                    return Err(self.make_error("type `function` is not supported", left_node));
+                }
+                if right_ty == Type::Function {
+                    return Err(self.make_error("type `function` is not supported", right_node));
+                }
                 let op = match binary_expr.operator.as_str() {
                     "+" => Operator::Add,
                     "-" => Operator::Sub,
@@ -755,11 +793,15 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             parse::Node::CallExpr(call_expr) => {
-                let callee_ref = self.translate_expr(&call_expr.callee)?;
-                let callee_node = callee_ref.get(self.source);
+                let callee_container_ref = self.translate_expr(&call_expr.callee)?;
+                let callee_container_node = callee_container_ref.get(self.source); // node: reference -> declaration -> function
+                let callee_node = match callee_container_node.as_reference() {
+                    Some(x) => x.dest.get(self.source),
+                    None => return Err(self.make_error("reference expected", callee_container_node)),
+                };
                 let callee = match callee_node.as_function() {
                     Some(x) => x,
-                    None => return Err(self.make_error("function expected", callee_node)),
+                    None => return Err(self.make_error("function expected", callee_container_node)),
                 };
                 let ret_ty = callee.ret_ty;
                 let params = callee.params.clone();
@@ -769,18 +811,24 @@ impl<'a> Analyzer<'a> {
                 let mut args = Vec::new();
                 for (i, &param_ref) in params.iter().enumerate() {
                     let arg_ref = self.translate_expr(&call_expr.args[i])?;
-                    let arg = arg_ref.get(self.source);
+                    let arg_node = arg_ref.get(self.source);
                     let param_node = param_ref.get(self.source);
                     let param_ty = param_node.get_ty()
                         .map_err(|e| self.make_error(&e, param_node))?;
-                    let arg_ty = arg.get_ty()
-                        .map_err(|e| self.make_error(&e, arg))?;
+                    let arg_ty = arg_node.get_ty()
+                        .map_err(|e| self.make_error(&e, arg_node))?;
+                    if param_ty == Type::Function {
+                        return Err(self.make_error("type `function` is not supported", param_node));
+                    }
+                    if arg_ty == Type::Function {
+                        return Err(self.make_error("type `function` is not supported", arg_node));
+                    }
                     Type::assert(arg_ty, param_ty)
-                        .map_err(|e| self.make_error(&e, arg))?;
+                        .map_err(|e| self.make_error(&e, arg_node))?;
                     args.push(arg_ref);
                 }
                 let node = Node::CallExpr(CallExpr {
-                    callee: callee_ref,
+                    callee: callee_container_ref,
                     args,
                     ty: ret_ty,
                     pos: self.calc_location(parser_node)?,
@@ -819,6 +867,7 @@ impl<'a> Analyzer<'a> {
             Node::Assignment(_) => "Assignment",
             Node::IfStatement(_) => "IfStatement",
             Node::LoopStatement(_) => "LoopStatement",
+            Node::Reference(_) => "Reference",
             Node::Literal(_) => "Literal",
             Node::BinaryExpr(_) => "BinaryExpr",
             Node::CallExpr(_) => "CallExpr",
@@ -898,6 +947,11 @@ impl<'a> Analyzer<'a> {
                 for item in statement.body.iter() {
                     println!("    [{}]", item.id);
                 }
+                println!("  }}");
+            }
+            Node::Reference(x) => {
+                println!("  dest: {{");
+                println!("    [{}]", x.dest.id);
                 println!("  }}");
             }
             Node::Literal(literal) => {
