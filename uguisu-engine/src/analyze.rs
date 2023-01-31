@@ -28,40 +28,40 @@ use std::collections::HashMap;
 #[cfg(test)]
 mod test;
 
-struct Scope {
-    layers: Vec<ScopeLayer>,
+struct AnalyzeStack {
+    frames: Vec<StackFrame>,
 }
 
-impl Scope {
+impl AnalyzeStack {
     fn new() -> Self {
         Self {
-            layers: vec![ScopeLayer::new()],
+            frames: vec![StackFrame::new()],
         }
     }
 
-    fn enter_scope(&mut self) {
-        self.layers.insert(0, ScopeLayer::new());
+    fn push_frame(&mut self) {
+        self.frames.insert(0, StackFrame::new());
     }
 
-    fn leave_scope(&mut self) {
-        if self.layers.len() == 1 {
-            panic!("Left the root layer.");
+    fn pop_frame(&mut self) {
+        if self.frames.len() == 1 {
+            panic!("Left the root frame.");
         }
-        self.layers.remove(0);
+        self.frames.remove(0);
     }
 
-    fn add_node(&mut self, identifier: &str, node: graph::NodeRef) {
-        match self.layers.get_mut(0) {
-            Some(layer) => {
-                layer.nodes.insert(identifier.to_string(), node);
+    fn set_record(&mut self, identifier: &str, node: graph::NodeRef) {
+        match self.frames.get_mut(0) {
+            Some(frame) => {
+                frame.table.insert(identifier.to_string(), node);
             }
-            None => panic!("layer not found"),
+            None => panic!("frame not found"),
         }
     }
 
     fn lookup(&self, identifier: &str) -> Option<graph::NodeRef> {
-        for layer in self.layers.iter() {
-            match layer.nodes.get(identifier) {
+        for frame in self.frames.iter() {
+            match frame.table.get(identifier) {
                 Some(&x) => return Some(x),
                 None => {}
             }
@@ -70,14 +70,14 @@ impl Scope {
     }
 }
 
-struct ScopeLayer {
-    nodes: HashMap<String, graph::NodeRef>,
+struct StackFrame {
+    table: HashMap<String, graph::NodeRef>,
 }
 
-impl ScopeLayer {
+impl StackFrame {
     fn new() -> Self {
         Self {
-            nodes: HashMap::new(),
+            table: HashMap::new(),
         }
     }
 }
@@ -85,7 +85,7 @@ impl ScopeLayer {
 pub(crate) struct Analyzer<'a> {
     input: &'a str,
     source: &'a mut HashMap<graph::NodeId, graph::Node>,
-    scope: Scope,
+    stack: AnalyzeStack,
 }
 
 impl<'a> Analyzer<'a> {
@@ -93,7 +93,7 @@ impl<'a> Analyzer<'a> {
         Self {
             input,
             source,
-            scope: Scope::new(),
+            stack: AnalyzeStack::new(),
         }
     }
 
@@ -145,8 +145,8 @@ impl<'a> Analyzer<'a> {
             pos: (1, 1),
         });
         let node_ref = self.register_node(decl_node);
-        // add to scope
-        self.scope.add_node(name, node_ref);
+        // add to stack
+        self.stack.set_record(name, node_ref);
         node_ref
     }
 
@@ -233,11 +233,11 @@ impl<'a> Analyzer<'a> {
                             pos: self.calc_location(parser_node)?,
                         });
                         let node_ref = self.register_node(decl_node);
-                        // add to scope
-                        self.scope.add_node(&func_decl.identifier, node_ref);
+                        // add to stack
+                        self.stack.set_record(&func_decl.identifier, node_ref);
 
                         // define body
-                        self.scope.enter_scope();
+                        self.stack.push_frame();
                         let mut i = 0;
                         loop {
                             let decl = match node_ref.get(self.source) {
@@ -252,8 +252,8 @@ impl<'a> Analyzer<'a> {
                                 graph::Node::FuncParam(x) => x,
                                 _ => panic!("function parameter expected"),
                             };
-                            // add to scope
-                            self.scope.add_node(&param_node.identifier, param);
+                            // add to stack
+                            self.stack.set_record(&param_node.identifier, param);
                             i += 1;
                         }
                         let body = match &func_decl.body {
@@ -265,7 +265,7 @@ impl<'a> Analyzer<'a> {
                             _ => panic!("function expected"),
                         };
                         decl.body = body;
-                        self.scope.leave_scope();
+                        self.stack.pop_frame();
 
                         Ok(node_ref)
                     }
@@ -300,15 +300,15 @@ impl<'a> Analyzer<'a> {
                             pos: self.calc_location(parser_node)?,
                         });
                         let node_ref = self.register_node(node);
-                        // add to scope
-                        self.scope.add_node(&var_decl.identifier, node_ref);
+                        // add to stack
+                        self.stack.set_record(&var_decl.identifier, node_ref);
                         Ok(node_ref)
                     }
                     _ => panic!("unexpected declaration"),
                 }
             }
             ast::Node::BreakStatement(_) => {
-                if self.scope.layers.len() == 1 {
+                if self.stack.frames.len() == 1 {
                     return Err(self.make_low_error("A break statement cannot be used in global space", parser_node));
                 }
                 // TODO: check target
@@ -321,7 +321,7 @@ impl<'a> Analyzer<'a> {
             ast::Node::ReturnStatement(node) => {
                 // TODO: consider type check
                 // when global scope
-                if self.scope.layers.len() == 1 {
+                if self.stack.frames.len() == 1 {
                     return Err(self.make_low_error("A return statement cannot be used in global space", parser_node));
                 }
                 let body = match node.body.as_ref() {
@@ -337,7 +337,7 @@ impl<'a> Analyzer<'a> {
             }
             ast::Node::Assignment(statement) => {
                 // when global scope
-                if self.scope.layers.len() == 1 {
+                if self.stack.frames.len() == 1 {
                     return Err(self.make_low_error("An assignment statement cannot be used in global space", parser_node));
                 }
                 let dest = self.translate_expr(&statement.dest)?;
@@ -448,7 +448,7 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             ast::Node::LoopStatement(statement) => {
-                if self.scope.layers.len() == 1 {
+                if self.stack.frames.len() == 1 {
                     return Err(self.make_low_error("A loop statement cannot be used in global space", parser_node));
                 }
                 let body = self.translate_statements(&statement.body)?;
@@ -465,7 +465,7 @@ impl<'a> Analyzer<'a> {
             | ast::Node::BinaryExpr(_)
             | ast::Node::CallExpr(_) => {
                 // when global scope
-                if self.scope.layers.len() == 1 {
+                if self.stack.frames.len() == 1 {
                     return Err(self.make_low_error("An expression cannot be used in global space", parser_node));
                 }
                 self.translate_expr(parser_node)
@@ -482,7 +482,7 @@ impl<'a> Analyzer<'a> {
     fn translate_expr(&mut self, parser_node: &ast::Node) -> Result<graph::NodeRef, SyntaxError> {
         match parser_node {
             ast::Node::Reference(reference) => {
-                let dest_ref = match self.scope.lookup(&reference.identifier) {
+                let dest_ref = match self.stack.lookup(&reference.identifier) {
                     Some(x) => x,
                     None => return Err(self.make_low_error("unknown identifier", parser_node)),
                 };

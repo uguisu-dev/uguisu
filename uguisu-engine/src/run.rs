@@ -119,7 +119,7 @@ struct StackFrame {
 }
 
 impl StackFrame {
-    pub(crate) fn new() -> Self {
+    fn new() -> Self {
         Self {
             table: HashMap::new(),
         }
