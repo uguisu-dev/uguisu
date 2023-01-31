@@ -11,7 +11,6 @@ mod run;
 #[cfg(test)]
 mod test;
 
-#[derive(Debug)]
 pub struct SyntaxError {
     pub message: String,
 }

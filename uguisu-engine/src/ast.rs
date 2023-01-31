@@ -1,6 +1,6 @@
 use crate::parse;
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum Node {
     // statement
     Declaration(Declaration),
@@ -173,24 +173,24 @@ impl Node {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct Declaration {
     pub body: Box<Node>,
     pub pos: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct BreakStatement {
     pub pos: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct ReturnStatement {
     pub body: Option<Box<Node>>,
     pub pos: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct Assignment {
     pub dest: Box<Node>,
     pub body: Box<Node>,
@@ -198,7 +198,7 @@ pub struct Assignment {
     pub pos: usize,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum AssignmentMode {
     Assign,
     AddAssign,
@@ -208,38 +208,38 @@ pub enum AssignmentMode {
     ModAssign,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct IfStatement {
     pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // if, else if
     pub else_block: Option<Vec<Node>>,            // else
     pub pos: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct LoopStatement {
     pub body: Vec<Node>, // statements
     pub pos: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct Reference {
     pub identifier: String,
     pub pos: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct NumberLiteral {
     pub value: i64,
     pub pos: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct BoolLiteral {
     pub value: bool,
     pub pos: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct BinaryExpr {
     pub operator: String,
     pub left: Box<Node>,
@@ -247,14 +247,14 @@ pub struct BinaryExpr {
     pub pos: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct CallExpr {
     pub callee: Box<Node>,
     pub args: Vec<Node>,
     pub pos: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct Function {
     pub identifier: String,
     pub body: Option<Vec<Node>>,
@@ -264,18 +264,18 @@ pub struct Function {
     pub pos: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum FunctionAttribute {
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct FuncParam {
     pub identifier: String,
     pub type_identifier: Option<String>,
     pub pos: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct Variable {
     pub identifier: String,
     pub body: Box<Node>,
@@ -284,7 +284,7 @@ pub struct Variable {
     pub pos: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum VariableAttribute {
     Const,
     Let,

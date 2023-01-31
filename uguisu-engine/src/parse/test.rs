@@ -54,7 +54,9 @@ fn test_calc() {
         ),
         1,
     ));
-    assert_eq!(actual, expect);
+    if actual != expect {
+        panic!("assert error");
+    }
 }
 
 #[test]
@@ -70,11 +72,18 @@ fn test_declare_func_no_annotations() {
         ),
         0,
     ));
-    assert_eq!(uguisu_parser::statement("fn abc() { }"), expect);
-    assert_eq!(uguisu_parser::statement("fn abc(){}"), expect);
-    assert_eq!(uguisu_parser::statement("fn  abc(  )  {  }"), expect);
-
-    assert!(uguisu_parser::statement("fnabc(){}").is_err());
+    if uguisu_parser::statement("fn abc() { }") != expect {
+        panic!("assert error");
+    }
+    if uguisu_parser::statement("fn abc(){}") != expect {
+        panic!("assert error");
+    }
+    if uguisu_parser::statement("fn  abc(  )  {  }") != expect {
+        panic!("assert error");
+    }
+    if uguisu_parser::statement("fnabc(){}").is_ok() {
+        panic!("assert error");
+    }
 }
 
 #[test]
@@ -94,10 +103,9 @@ fn test_declare_func_with_types_1() {
         0,
     ));
 
-    assert_eq!(
-        uguisu_parser::statement("fn abc(x: number, y: number): number { }"),
-        expect
-    );
+    if uguisu_parser::statement("fn abc(x: number, y: number): number { }") != expect {
+        panic!("assert error");
+    }
 }
 
 #[test]
@@ -117,10 +125,9 @@ fn test_declare_func_with_types_2() {
         0,
     ));
 
-    assert_eq!(
-        uguisu_parser::statement("fn abc(x:number,y:number):number{}"),
-        expect
-    );
+    if uguisu_parser::statement("fn abc(x:number,y:number):number{}") != expect {
+        panic!("assert error");
+    }
 }
 
 #[test]
@@ -140,12 +147,9 @@ fn test_declare_func_with_types_3() {
         0,
     ));
 
-    assert_eq!(
-        uguisu_parser::statement(
-            "fn  abc  (  x  :  number  ,  y  :  number  )  :  number  {  }"
-        ),
-        expect
-    );
+    if uguisu_parser::statement("fn  abc  (  x  :  number  ,  y  :  number  )  :  number  {  }") != expect {
+        panic!("assert error");
+    }
 }
 
 #[test]

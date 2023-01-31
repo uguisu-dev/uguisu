@@ -4,7 +4,7 @@ use crate::types::Type;
 
 pub(crate) type NodeId = usize;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct NodeRef {
     pub id: NodeId,
 }
@@ -177,7 +177,7 @@ pub(crate) struct BinaryExpr {
     pub pos: (usize, usize),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) enum Operator {
     Add,
     Sub,
