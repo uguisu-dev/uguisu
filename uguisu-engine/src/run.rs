@@ -1,6 +1,7 @@
-use crate::analyze::{LiteralValue, Node, NodeId, NodeRef, Operator, Type, FunctionBody};
+use crate::ast::AssignmentMode;
+use crate::graph::{self, LiteralValue, Operator};
+use crate::types::Type;
 use crate::RuntimeError;
-use crate::parse::AssignmentMode;
 use std::collections::HashMap;
 
 // TODO: improve builtin
@@ -8,18 +9,18 @@ mod builtin {
     use crate::RuntimeError;
     use crate::run::Value;
 
-    pub fn print_num(args: &Vec<Value>) -> Result<(), RuntimeError> {
+    pub(crate) fn print_num(args: &Vec<Value>) -> Result<(), RuntimeError> {
         let value = args[0].as_number(); // value: number
         print!("{}", value);
         Ok(())
     }
 
-    pub fn print_lf(_args: &Vec<Value>) -> Result<(), RuntimeError> {
+    pub(crate) fn print_lf(_args: &Vec<Value>) -> Result<(), RuntimeError> {
         print!("\n");
         Ok(())
     }
 
-    pub fn assert_eq(args: &Vec<Value>) -> Result<(), RuntimeError> {
+    pub(crate) fn assert_eq(args: &Vec<Value>) -> Result<(), RuntimeError> {
         let actual = args[0].as_number(); // actual: number
         let expected = args[1].as_number(); // expected: number
         if actual != expected {
@@ -36,10 +37,10 @@ enum StatementResult {
     ReturnWith(Value),
 }
 
-pub type SymbolAddress = usize;
+pub(crate) type SymbolAddress = usize;
 
 #[derive(Clone)]
-pub enum Value {
+pub(crate) enum Value {
     NoneValue,
     Number(i64),
     Bool(bool),
@@ -47,7 +48,7 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn get_type_name(&self) -> &str {
+    pub(crate) fn get_type_name(&self) -> &str {
         match self {
             Value::Number(_) => "number",
             Value::Bool(_) => "bool",
@@ -56,14 +57,14 @@ impl Value {
         }
     }
 
-    pub fn as_number(&self) -> i64 {
+    pub(crate) fn as_number(&self) -> i64 {
         match self {
             &Value::Number(value) => value,
             _ => panic!("type mismatched. expected `number`, found `{}`", self.get_type_name()),
         }
     }
 
-    pub fn as_bool(&self) -> bool {
+    pub(crate) fn as_bool(&self) -> bool {
         match self {
             &Value::Bool(value) => value,
             _ => panic!("type mismatched. expected `bool`, found `{}`", self.get_type_name()),
@@ -71,29 +72,29 @@ impl Value {
     }
 }
 
-pub struct RuningStack {
+pub(crate) struct RuningStack {
     frames: Vec<StackFrame>,
 }
 
 impl RuningStack {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             frames: vec![StackFrame::new()],
         }
     }
 
-    pub fn push_frame(&mut self) {
+    pub(crate) fn push_frame(&mut self) {
         self.frames.insert(0, StackFrame::new());
     }
 
-    pub fn pop_frame(&mut self) {
+    pub(crate) fn pop_frame(&mut self) {
         if self.frames.len() == 1 {
             panic!("Left the root frame.");
         }
         self.frames.remove(0);
     }
 
-    pub fn set_symbol(&mut self, address: SymbolAddress, value: Value) {
+    pub(crate) fn set_symbol(&mut self, address: SymbolAddress, value: Value) {
         match self.frames.get_mut(0) {
             Some(frame) => {
                 frame.table.insert(address, value);
@@ -102,7 +103,7 @@ impl RuningStack {
         }
     }
 
-    pub fn get_symbol(&self, address: SymbolAddress) -> Option<&Value> {
+    pub(crate) fn get_symbol(&self, address: SymbolAddress) -> Option<&Value> {
         for frame in self.frames.iter() {
             match frame.table.get(&address) {
                 Some(x) => return Some(x),
@@ -114,53 +115,55 @@ impl RuningStack {
 }
 
 struct StackFrame {
-    table: HashMap<NodeId, Value>,
+    table: HashMap<graph::NodeId, Value>,
 }
 
 impl StackFrame {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             table: HashMap::new(),
         }
     }
 }
 
-pub struct Runner<'a> {
-    graph_source: &'a HashMap<NodeId, Node>,
+pub(crate) struct Runner<'a> {
+    source: &'a HashMap<graph::NodeId, graph::Node>,
 }
 
 impl<'a> Runner<'a> {
-    pub fn new(graph_source: &'a HashMap<NodeId, Node>) -> Self {
-        Self { graph_source }
+    pub(crate) fn new(source: &'a HashMap<graph::NodeId, graph::Node>) -> Self {
+        Self {
+            source,
+        }
     }
 
-    fn resolve_address(&self, node_ref: NodeRef) -> SymbolAddress {
-        match node_ref.get(self.graph_source) {
-            Node::FunctionDeclaration(_) => node_ref.id,
-            Node::VariableDeclaration(_) => node_ref.id,
-            Node::Reference(reference) => self.resolve_address(reference.dest),
-            Node::Literal(_) => node_ref.id,
-            Node::BinaryExpr(_) => node_ref.id,
-            Node::CallExpr(_) => node_ref.id,
-            Node::FuncParam(_) => node_ref.id,
-            Node::BreakStatement(_)
-            | Node::ReturnStatement(_)
-            | Node::Assignment(_)
-            | Node::IfStatement(_)
-            | Node::LoopStatement(_) => {
+    fn resolve_address(&self, node_ref: graph::NodeRef) -> SymbolAddress {
+        match node_ref.get(self.source) {
+            graph::Node::FunctionDeclaration(_) => node_ref.id,
+            graph::Node::VariableDeclaration(_) => node_ref.id,
+            graph::Node::Reference(reference) => self.resolve_address(reference.dest),
+            graph::Node::Literal(_) => node_ref.id,
+            graph::Node::BinaryExpr(_) => node_ref.id,
+            graph::Node::CallExpr(_) => node_ref.id,
+            graph::Node::FuncParam(_) => node_ref.id,
+            graph::Node::BreakStatement(_)
+            | graph::Node::ReturnStatement(_)
+            | graph::Node::Assignment(_)
+            | graph::Node::IfStatement(_)
+            | graph::Node::LoopStatement(_) => {
                 panic!("unexpected (node_id={})", node_ref.id);
             }
         }
     }
 
-    pub fn run(&self, graph: &Vec<NodeRef>, stack: &mut RuningStack) -> Result<(), RuntimeError> {
+    pub(crate) fn run(&self, graph: &Vec<graph::NodeRef>, stack: &mut RuningStack) -> Result<(), RuntimeError> {
         for &node_ref in graph.iter() {
             self.exec_statement(node_ref, stack)?;
         }
         Ok(())
     }
 
-    fn exec_block(&self, statements: &Vec<NodeRef>, stack: &mut RuningStack) -> Result<StatementResult, RuntimeError> {
+    fn exec_block(&self, statements: &Vec<graph::NodeRef>, stack: &mut RuningStack) -> Result<StatementResult, RuntimeError> {
         let mut result = StatementResult::None;
         for &node_ref in statements.iter() {
             result = self.exec_statement(node_ref, stack)?;
@@ -178,22 +181,22 @@ impl<'a> Runner<'a> {
 
     fn exec_statement(
         &self,
-        node_ref: NodeRef,
+        node_ref: graph::NodeRef,
         stack: &mut RuningStack,
     ) -> Result<StatementResult, RuntimeError> {
-        match node_ref.get(self.graph_source) {
-            Node::FunctionDeclaration(_) => {
+        match node_ref.get(self.source) {
+            graph::Node::FunctionDeclaration(_) => {
                 // TODO: check duplicate
                 stack.set_symbol(node_ref.id, Value::Function(node_ref.id));
                 Ok(StatementResult::None)
             }
-            Node::VariableDeclaration(variable) => {
+            graph::Node::VariableDeclaration(variable) => {
                 // TODO: check duplicate
                 let value = self.eval_expr(variable.body, stack)?;
                 stack.set_symbol(node_ref.id, value);
                 Ok(StatementResult::None)
             }
-            Node::ReturnStatement(statement) => {
+            graph::Node::ReturnStatement(statement) => {
                 match &statement.body {
                     Some(expr) => {
                         let value = self.eval_expr(*expr, stack)?;
@@ -204,8 +207,8 @@ impl<'a> Runner<'a> {
                     }
                 }
             }
-            Node::BreakStatement(_) => Ok(StatementResult::Break),
-            Node::Assignment(statement) => {
+            graph::Node::BreakStatement(_) => Ok(StatementResult::Break),
+            graph::Node::Assignment(statement) => {
                 let curr_value = self.eval_expr(statement.dest, stack)?;
                 // let curr_symbol = match stack.lookup_symbol(statement.dest) {
                 //     Some(x) => x,
@@ -270,7 +273,7 @@ impl<'a> Runner<'a> {
                 }
                 Ok(StatementResult::None)
             }
-            Node::IfStatement(statement) => {
+            graph::Node::IfStatement(statement) => {
                 let condition = self.eval_expr(statement.condition, stack)?.as_bool();
                 let block = if condition {
                     &statement.then_block
@@ -279,7 +282,7 @@ impl<'a> Runner<'a> {
                 };
                 self.exec_block(block, stack)
             }
-            Node::LoopStatement(statement) => {
+            graph::Node::LoopStatement(statement) => {
                 let mut result;
                 loop {
                     result = self.exec_block(&statement.body, stack)?;
@@ -297,11 +300,11 @@ impl<'a> Runner<'a> {
                 }
                 Ok(result)
             }
-            Node::Reference(_)
-            | Node::Literal(_)
-            | Node::BinaryExpr(_)
-            | Node::CallExpr(_)
-            | Node::FuncParam(_) => {
+            graph::Node::Reference(_)
+            | graph::Node::Literal(_)
+            | graph::Node::BinaryExpr(_)
+            | graph::Node::CallExpr(_)
+            | graph::Node::FuncParam(_) => {
                 self.eval_expr(node_ref, stack)?;
                 Ok(StatementResult::None)
             }
@@ -310,24 +313,24 @@ impl<'a> Runner<'a> {
 
     fn eval_expr(
         &self,
-        node_ref: NodeRef,
+        node_ref: graph::NodeRef,
         stack: &mut RuningStack,
     ) -> Result<Value, RuntimeError> {
-        match node_ref.get(self.graph_source) {
-            Node::Reference(reference) => {
+        match node_ref.get(self.source) {
+            graph::Node::Reference(reference) => {
                 let address = self.resolve_address(reference.dest);
                 match stack.get_symbol(address) {
                     Some(x) => Ok(x.clone()),
                     None => panic!("symbol not found (node_id={}, address={})", node_ref.id, address),
                 }
             }
-            Node::Literal(literal) => {
+            graph::Node::Literal(literal) => {
                 match literal.value {
                     LiteralValue::Number(n) => Ok(Value::Number(n)),
                     LiteralValue::Bool(value) => Ok(Value::Bool(value)),
                 }
             }
-            Node::BinaryExpr(binary_expr) => {
+            graph::Node::BinaryExpr(binary_expr) => {
                 match binary_expr.ty {
                     Type::Bool => { // relational operation
                         let left = self.eval_expr(binary_expr.left, stack)?;
@@ -398,19 +401,19 @@ impl<'a> Runner<'a> {
                     Type::Function => panic!("unexpected type: function"),
                 }
             }
-            Node::CallExpr(call_expr) => {
-                let callee_node = match call_expr.callee.get(self.graph_source) {
-                    Node::Reference(reference) => reference.dest,
+            graph::Node::CallExpr(call_expr) => {
+                let callee_node = match call_expr.callee.get(self.source) {
+                    graph::Node::Reference(reference) => reference.dest,
                     _ => panic!("callee is invalid (id={})", call_expr.callee.id),
                 };
-                let callee = match callee_node.get(self.graph_source) {
-                    Node::FunctionDeclaration(func) => func,
+                let callee = match callee_node.get(self.source) {
+                    graph::Node::FunctionDeclaration(func) => func,
                     _ => panic!("callee is invalid (id={})", callee_node.id),
                 };
                 stack.push_frame();
                 let mut result = None;
                 match &callee.body {
-                    Some(FunctionBody::Statements(body)) => {
+                    Some(graph::FunctionBody::Statements(body)) => {
                         for i in 0..callee.params.len() {
                             let param_node = &callee.params[i];
                             let arg_node = &call_expr.args[i];
@@ -429,7 +432,7 @@ impl<'a> Runner<'a> {
                             _ => {}
                         }
                     }
-                    Some(FunctionBody::NativeCode) => {
+                    Some(graph::FunctionBody::NativeCode) => {
                         let mut args = Vec::new();
                         for i in 0..callee.params.len() {
                             let arg_node = &call_expr.args[i];
@@ -459,19 +462,19 @@ impl<'a> Runner<'a> {
                 };
                 Ok(value)
             }
-            Node::FuncParam(_) => {
+            graph::Node::FuncParam(_) => {
                 match stack.get_symbol(node_ref.id) { // TODO: check
                     Some(x) => Ok(x.clone()),
                     None => panic!("symbol not found (node_id={})", node_ref.id),
                 }
             }
-            Node::FunctionDeclaration(_)
-            | Node::VariableDeclaration(_)
-            | Node::ReturnStatement(_)
-            | Node::BreakStatement(_)
-            | Node::Assignment(_)
-            | Node::IfStatement(_)
-            | Node::LoopStatement(_) => {
+            graph::Node::FunctionDeclaration(_)
+            | graph::Node::VariableDeclaration(_)
+            | graph::Node::ReturnStatement(_)
+            | graph::Node::BreakStatement(_)
+            | graph::Node::Assignment(_)
+            | graph::Node::IfStatement(_)
+            | graph::Node::LoopStatement(_) => {
                 panic!("Failed to evaluate the expression: unsupported node (node_id={})", node_ref.id);
             }
         }

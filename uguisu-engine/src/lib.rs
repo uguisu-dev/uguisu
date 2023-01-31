@@ -2,7 +2,10 @@ use crate::run::RuningStack;
 use std::collections::HashMap;
 
 mod analyze;
+mod graph;
+mod types;
 mod parse;
+mod ast;
 mod run;
 
 #[cfg(test)]
@@ -14,7 +17,7 @@ pub struct SyntaxError {
 }
 
 impl SyntaxError {
-    pub fn new(message: &str) -> Self {
+    pub(crate) fn new(message: &str) -> Self {
         Self {
             message: message.to_string(),
         }
@@ -26,7 +29,7 @@ pub struct RuntimeError {
 }
 
 impl RuntimeError {
-    pub fn new(message: &str) -> Self {
+    pub(crate) fn new(message: &str) -> Self {
         Self {
             message: message.to_string(),
         }
@@ -34,7 +37,7 @@ impl RuntimeError {
 }
 
 pub struct Engine {
-    graph_source: HashMap<analyze::NodeId, analyze::Node>,
+    graph_source: HashMap<graph::NodeId, graph::Node>,
 }
 
 impl Engine {
@@ -44,11 +47,11 @@ impl Engine {
         }
     }
 
-    pub fn parse(&self, code: &str) -> Result<Vec<parse::Node>, SyntaxError> {
+    pub fn parse(&self, code: &str) -> Result<Vec<ast::Node>, SyntaxError> {
         parse::parse(code)
     }
 
-    pub fn analyze(&mut self, code: &str, ast: Vec<parse::Node>) -> Result<Vec<analyze::NodeRef>, SyntaxError> {
+    pub fn analyze(&mut self, code: &str, ast: Vec<ast::Node>) -> Result<Vec<graph::NodeRef>, SyntaxError> {
         let mut analyzer = analyze::Analyzer::new(code, &mut self.graph_source);
         analyzer.translate(&ast)
     }
@@ -58,7 +61,7 @@ impl Engine {
         analyzer.show_graph();
     }
 
-    pub fn run(&mut self, graph: Vec<analyze::NodeRef>) -> Result<(), RuntimeError> {
+    pub fn run(&mut self, graph: Vec<graph::NodeRef>) -> Result<(), RuntimeError> {
         let mut stack = RuningStack::new();
         let runner = run::Runner::new(&self.graph_source);
         runner.run(&graph, &mut stack)

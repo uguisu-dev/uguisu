@@ -1,7 +1,7 @@
-use crate::analyze;
+use crate::graph;
 use crate::Engine;
 
-fn try_run_test(code: &str) -> Result<Vec<analyze::NodeRef>, String> {
+fn try_run_test(code: &str) -> Result<Vec<graph::NodeRef>, String> {
     let mut engine = Engine::new();
 
     let ast = match engine.parse(code) {
