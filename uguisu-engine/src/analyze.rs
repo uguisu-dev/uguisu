@@ -59,7 +59,7 @@ impl AnalyzeStack {
         }
     }
 
-    fn lookup(&self, identifier: &str) -> Option<graph::NodeRef> {
+    fn get_record(&self, identifier: &str) -> Option<graph::NodeRef> {
         for frame in self.frames.iter() {
             match frame.table.get(identifier) {
                 Some(&x) => return Some(x),
@@ -482,7 +482,7 @@ impl<'a> Analyzer<'a> {
     fn translate_expr(&mut self, parser_node: &ast::Node) -> Result<graph::NodeRef, SyntaxError> {
         match parser_node {
             ast::Node::Reference(reference) => {
-                let dest_ref = match self.stack.lookup(&reference.identifier) {
+                let dest_ref = match self.stack.get_record(&reference.identifier) {
                     Some(x) => x,
                     None => return Err(self.make_low_error("unknown identifier", parser_node)),
                 };
