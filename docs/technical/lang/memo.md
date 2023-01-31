@@ -75,7 +75,7 @@ external fn add(a: number, b: number): number;
 ### プロジェクトのエントリポイント
 プログラムが実行されるとmain関数が最初に呼び出される。
 ```
-fn main(): void {
+fn main() {
   print("hello");
 }
 ```
@@ -106,7 +106,7 @@ import文を使って、他のモジュールの公開メンバにアクセス�
 ```
 import MathUtil;
 
-fn main(): void {
+fn main() {
   let num = MathUtil.add(1, 2);
 }
 ```
@@ -122,7 +122,63 @@ fn main(): void {
 ```
 import Hoge::Piyo::ExampleModule;
 
-fn main(): void {
+fn main() {
   ExampleModule.hoge();
+}
+```
+
+### ユーザー定義型
+クラスとインターフェースが使える。  
+クラスは他のクラスを継承できない。  
+インターフェースは他のインターフェースを継承できる。
+
+```
+interface Drawable {
+  draw();
+}
+
+interface Position {
+  getX(): number;
+  getY(): number;
+}
+
+class Player : Position, Drawable {
+  name: string;
+  x: number;
+  y: number;
+
+  constructor(name: string) {
+    this.name = name;
+    this.x = 0;
+    this.y = 0;
+  }
+
+  getName(): string {
+    return this.name;
+  }
+
+  getX(): number {
+    return this.x;
+  }
+
+  getY(): number {
+    return this.y;
+  }
+
+  draw() {
+    // ...
+  }
+}
+
+fn showCharInfo(char: Position & Drawable) {
+  print(char.getName());
+  print(char.getX());
+  print(char.getY());
+}
+
+fn main() {
+  const player = new Player("you");
+  player.draw();
+  showCharInfo(player);
 }
 ```
