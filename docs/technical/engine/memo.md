@@ -38,15 +38,15 @@ if cond {
 if cond {
 
 } else {
-	if cond {
+    if cond {
 
-	} else {
-		if cond {
+    } else {
+        if cond {
 
-		} else {
+        } else {
 
-		}
-	}
+        }
+    }
 }
 ```
 
