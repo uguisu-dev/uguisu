@@ -135,52 +135,56 @@ fn main() {
 インターフェースは他のインターフェースを継承できる。
 
 ```
-interface Drawable {
-  draw();
-}
-
 interface Position {
-  getX(): number;
-  getY(): number;
+  fn getX(): number;
+  fn getY(): number;
 }
 
-class Player : Position, Drawable {
+interface Drawable {
+  fn draw();
+}
+
+struct Player {
   name: string;
   x: number;
   y: number;
+}
 
-  constructor(name: string) {
-    this.name = name;
-    this.x = 0;
-    this.y = 0;
-  }
-
-  getName(): string {
+impl Player {
+  fn getName(): number {
     return this.name;
   }
+}
 
-  getX(): number {
+impl Player : Position {
+  fn getX(): number {
     return this.x;
   }
 
-  getY(): number {
+  fn getY(): number {
     return this.y;
   }
+}
 
-  draw() {
+impl Player : Drawable {
+  fn draw() {
     // ...
   }
 }
 
 fn showCharInfo(char: Position & Drawable) {
-  print(char.getName());
   print(char.getX());
   print(char.getY());
+  print(char.draw());
 }
 
 fn main() {
-  const player = new Player("you");
-  player.draw();
+  const player = Player {
+    name: "you",
+    x: 0,
+    y: 0,
+  };
+  print(player.getName());
   showCharInfo(player);
 }
 ```
