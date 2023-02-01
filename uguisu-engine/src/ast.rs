@@ -14,6 +14,7 @@ pub enum Node {
     NumberLiteral(NumberLiteral),
     BoolLiteral(BoolLiteral),
     BinaryExpr(BinaryExpr),
+    UnaryOp(UnaryOp),
     CallExpr(CallExpr),
     // function declaration
     Function(Function),
@@ -92,6 +93,14 @@ impl Node {
         })
     }
 
+    pub(crate) fn new_unary_op(op: &str, expr: Node, pos: usize) -> Self {
+        Self::UnaryOp(UnaryOp {
+            operator: op.to_string(),
+            expr: Box::new(expr),
+            pos,
+        })
+    }
+
     pub(crate) fn new_call_expr(callee: Node, args: Vec<Node>, pos: usize) -> Self {
         Self::CallExpr(CallExpr {
             callee: Box::new(callee),
@@ -161,6 +170,7 @@ impl Node {
             Self::NumberLiteral(node) => node.pos,
             Self::BoolLiteral(node) => node.pos,
             Self::BinaryExpr(node) => node.pos,
+            Self::UnaryOp(node) => node.pos,
             Self::CallExpr(node) => node.pos,
             Self::Function(node) => node.pos,
             Self::FuncParam(node) => node.pos,
@@ -244,6 +254,13 @@ pub struct BinaryExpr {
     pub operator: String,
     pub left: Box<Node>,
     pub right: Box<Node>,
+    pub pos: usize,
+}
+
+#[derive(PartialEq)]
+pub struct UnaryOp {
+    pub operator: String,
+    pub expr: Box<Node>,
     pub pos: usize,
 }
 

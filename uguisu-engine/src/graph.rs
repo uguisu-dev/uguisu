@@ -39,8 +39,9 @@ pub(crate) enum Node {
     Reference(Reference),
     Literal(Literal),
     RelationalOp(RelationalOp),
-    LogicalOp(LogicalOp),
+    LogicalBinaryOp(LogicalBinaryOp),
     ArithmeticOp(ArithmeticOp),
+    LogicalUnaryOp(LogicalUnaryOp),
     CallExpr(CallExpr),
     FuncParam(FuncParam),
 }
@@ -51,8 +52,9 @@ impl Node {
             Node::Reference(node) => Ok(node.ty),
             Node::Literal(node) => Ok(node.ty),
             Node::RelationalOp(node) => Ok(node.ty),
-            Node::LogicalOp(node) => Ok(node.ty),
+            Node::LogicalBinaryOp(node) => Ok(node.ty),
             Node::ArithmeticOp(node) => Ok(node.ty),
+            Node::LogicalUnaryOp(node) => Ok(node.ty),
             Node::CallExpr(node) => Ok(node.ty),
             Node::FuncParam(node) => Ok(node.ty),
             Node::VariableDeclaration(node) => Ok(node.ty),
@@ -79,8 +81,9 @@ impl Node {
             Self::Reference(node) => node.pos,
             Self::Literal(node) => node.pos,
             Self::RelationalOp(node) => node.pos,
-            Self::LogicalOp(node) => node.pos,
+            Self::LogicalBinaryOp(node) => node.pos,
             Self::ArithmeticOp(node) => node.pos,
+            Self::LogicalUnaryOp(node) => node.pos,
             Self::CallExpr(node) => node.pos,
             Self::FuncParam(node) => node.pos,
         }
@@ -194,8 +197,8 @@ pub(crate) enum RelationalOperator {
     LessThanEqual,
 }
 
-pub(crate) struct LogicalOp {
-    pub operator: LogicalOperator,
+pub(crate) struct LogicalBinaryOp {
+    pub operator: LogicalBinaryOperator,
     pub left: NodeRef,
     pub right: NodeRef,
     pub ty: Type,
@@ -203,9 +206,21 @@ pub(crate) struct LogicalOp {
 }
 
 #[derive(Debug)]
-pub(crate) enum LogicalOperator {
+pub(crate) enum LogicalBinaryOperator {
     And,
     Or,
+}
+
+pub(crate) struct LogicalUnaryOp {
+    pub operator: LogicalUnaryOperator,
+    pub expr: NodeRef,
+    pub ty: Type,
+    pub pos: (usize, usize),
+}
+
+#[derive(Debug)]
+pub(crate) enum LogicalUnaryOperator {
+    Not,
 }
 
 pub(crate) struct ArithmeticOp {

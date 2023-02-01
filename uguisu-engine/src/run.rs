@@ -1,5 +1,5 @@
 use crate::ast::AssignmentMode;
-use crate::graph::{self, LiteralValue, ArithmeticOperator, RelationalOperator, LogicalOperator};
+use crate::graph::{self, LiteralValue, ArithmeticOperator, RelationalOperator, LogicalBinaryOperator, LogicalUnaryOperator};
 use crate::types::Type;
 use crate::RuntimeError;
 use std::collections::HashMap;
@@ -144,8 +144,9 @@ impl<'a> Runner<'a> {
             graph::Node::Reference(reference) => self.resolve_address(reference.dest),
             graph::Node::Literal(_) => node_ref.id,
             graph::Node::RelationalOp(_) => node_ref.id,
-            graph::Node::LogicalOp(_) => node_ref.id,
+            graph::Node::LogicalBinaryOp(_) => node_ref.id,
             graph::Node::ArithmeticOp(_) => node_ref.id,
+            graph::Node::LogicalUnaryOp(_) => node_ref.id,
             graph::Node::CallExpr(_) => node_ref.id,
             graph::Node::FuncParam(_) => node_ref.id,
             graph::Node::BreakStatement(_)
@@ -305,8 +306,9 @@ impl<'a> Runner<'a> {
             graph::Node::Reference(_)
             | graph::Node::Literal(_)
             | graph::Node::RelationalOp(_)
-            | graph::Node::LogicalOp(_)
+            | graph::Node::LogicalBinaryOp(_)
             | graph::Node::ArithmeticOp(_)
+            | graph::Node::LogicalUnaryOp(_)
             | graph::Node::CallExpr(_)
             | graph::Node::FuncParam(_) => {
                 self.eval_expr(node_ref, stack)?;
@@ -368,12 +370,12 @@ impl<'a> Runner<'a> {
                     }
                 }
             }
-            graph::Node::LogicalOp(expr) => {
+            graph::Node::LogicalBinaryOp(expr) => {
                 let left = self.eval_expr(expr.left, stack)?.as_bool();
                 let right = self.eval_expr(expr.right, stack)?.as_bool();
                 match expr.operator {
-                    LogicalOperator::And => Ok(Value::Bool(left && right)),
-                    LogicalOperator::Or => Ok(Value::Bool(left || right)),
+                    LogicalBinaryOperator::And => Ok(Value::Bool(left && right)),
+                    LogicalBinaryOperator::Or => Ok(Value::Bool(left || right)),
                 }
             }
             graph::Node::ArithmeticOp(expr) => {
@@ -400,6 +402,12 @@ impl<'a> Runner<'a> {
                         Some(x) => Ok(Value::Number(x)),
                         None => Err(RuntimeError::new("mod operation overflowed")),
                     }
+                }
+            }
+            graph::Node::LogicalUnaryOp(op) => {
+                let expr = self.eval_expr(op.expr, stack)?.as_bool();
+                match op.operator {
+                    LogicalUnaryOperator::Not => Ok(Value::Bool(!expr)),
                 }
             }
             graph::Node::CallExpr(call_expr) => {

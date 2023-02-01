@@ -87,10 +87,10 @@ peg::parser! {
             left:(@) __* p:pos() "/" __* right:@ { Node::new_binary_expr("/", left, right, p) }
             left:(@) __* p:pos() "%" __* right:@ { Node::new_binary_expr("%", left, right, p) }
             --
-            // "!" __* right:(@) { right }
-            // "+" __* right:(@) { right }
-            // "-" __* right:(@) { right }
-            // --
+            p:pos() "!" __* expr:(@) { Node::new_unary_op("!", expr, p) }
+            // p:pos() "+" __* expr:(@) { Node::new_unary_op("+", expr, p) }
+            // p:pos() "-" __* expr:(@) { Node::new_unary_op("-", expr, p) }
+            --
             e:number() { e }
             e:bool() { e }
             e:call_expr() { e }

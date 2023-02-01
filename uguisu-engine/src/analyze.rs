@@ -16,14 +16,16 @@ use crate::graph::{
     IfStatement,
     Literal,
     LiteralValue,
-    LogicalOp,
-    LogicalOperator,
+    LogicalBinaryOp,
+    LogicalBinaryOperator,
     LoopStatement,
     Reference,
     RelationalOp,
     RelationalOperator,
     ReturnStatement,
     VariableDeclaration,
+    LogicalUnaryOperator,
+    LogicalUnaryOp,
 };
 use crate::types::Type;
 use crate::SyntaxError;
@@ -467,6 +469,7 @@ impl<'a> Analyzer<'a> {
             | ast::Node::NumberLiteral(_)
             | ast::Node::BoolLiteral(_)
             | ast::Node::BinaryExpr(_)
+            | ast::Node::UnaryOp(_)
             | ast::Node::CallExpr(_) => {
                 // when global scope
                 if self.stack.frames.len() == 1 {
@@ -513,6 +516,30 @@ impl<'a> Analyzer<'a> {
             ast::Node::BoolLiteral(node) => {
                 let node = graph::Node::Literal(Literal {
                     value: LiteralValue::Bool(node.value),
+                    ty: Type::Bool,
+                    pos: self.calc_location(parser_node)?,
+                });
+                let node_ref = self.register_node(node);
+                Ok(node_ref)
+            }
+            ast::Node::UnaryOp(unary_op) => {
+                let expr_ref = self.translate_expr(&unary_op.expr)?;
+                let expr_node = expr_ref.get(self.source);
+                let expr_ty = expr_node.get_ty()
+                    .map_err(|e| self.make_error(&e, expr_node))?;
+                if expr_ty == Type::Function {
+                    return Err(self.make_error("type `function` is not supported", expr_node));
+                }
+                let op_str = unary_op.operator.as_str();
+                let op = match op_str {
+                    "!" => LogicalUnaryOperator::Not,
+                    _ => return Err(self.make_low_error("unexpected operation", parser_node)),
+                };
+                Type::assert(expr_ty, Type::Bool)
+                    .map_err(|e| self.make_error(&e, expr_node))?;
+                let node = graph::Node::LogicalUnaryOp(LogicalUnaryOp {
+                    operator: op,
+                    expr: expr_ref,
                     ty: Type::Bool,
                     pos: self.calc_location(parser_node)?,
                 });
@@ -590,8 +617,8 @@ impl<'a> Analyzer<'a> {
                 // Logical Operation
                 {
                     let op = match op_str {
-                        "&&" => Some(LogicalOperator::And),
-                        "||" => Some(LogicalOperator::Or),
+                        "&&" => Some(LogicalBinaryOperator::And),
+                        "||" => Some(LogicalBinaryOperator::Or),
                         _ => None,
                     };
                     if let Some(op) = op {
@@ -599,7 +626,7 @@ impl<'a> Analyzer<'a> {
                             .map_err(|e| self.make_error(&e, left_node))?;
                         Type::assert(right_ty, Type::Bool)
                             .map_err(|e| self.make_error(&e, right_node))?;
-                        let node = graph::Node::LogicalOp(LogicalOp {
+                        let node = graph::Node::LogicalBinaryOp(LogicalBinaryOp {
                             operator: op,
                             left: left_ref,
                             right: right_ref,
@@ -690,8 +717,9 @@ impl<'a> Analyzer<'a> {
             graph::Node::Reference(_) => "Reference",
             graph::Node::Literal(_) => "Literal",
             graph::Node::RelationalOp(_) => "RelationalOp",
-            graph::Node::LogicalOp(_) => "LogicalOp",
+            graph::Node::LogicalBinaryOp(_) => "LogicalBinaryOp",
             graph::Node::ArithmeticOp(_) => "ArithmeticOp",
+            graph::Node::LogicalUnaryOp(_) => "LogicalUnaryOp",
             graph::Node::CallExpr(_) => "CallExpr",
             graph::Node::FuncParam(_) => "FuncParam",
         };
@@ -788,7 +816,7 @@ impl<'a> Analyzer<'a> {
                 println!("    [{}]", expr.right.id);
                 println!("  }}");
             },
-            graph::Node::LogicalOp(expr) => {
+            graph::Node::LogicalBinaryOp(expr) => {
                 println!("  operator: {:?}", expr.operator);
                 println!("  left: {{");
                 println!("    [{}]", expr.left.id);
@@ -804,6 +832,12 @@ impl<'a> Analyzer<'a> {
                 println!("  }}");
                 println!("  right: {{");
                 println!("    [{}]", expr.right.id);
+                println!("  }}");
+            },
+            graph::Node::LogicalUnaryOp(op) => {
+                println!("  operator: {:?}", op.operator);
+                println!("  expr: {{");
+                println!("    [{}]", op.expr.id);
                 println!("  }}");
             },
             graph::Node::CallExpr(call_expr) => {
