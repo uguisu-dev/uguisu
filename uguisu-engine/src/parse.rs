@@ -138,7 +138,7 @@ peg::parser! {
         rule variable_declaration() -> Node
             = p:pos() kind:(
                 "let" {VariableAttribute::Let} / "const" {VariableAttribute::Const}
-            ) __+ id:idenfitier() ty:(__* ":" __* x:idenfitier() {x.to_string()})? __* "=" __* e:expression() ";"
+            ) __+ id:idenfitier() ty:(__* ":" __* x:idenfitier() {x.to_string()})? __* "=" __* e:expression() __* ";"
         {
             let body = Node::new_variable(id.to_string(), e, ty, vec![kind], p);
             Node::new_declaration(body, p)
