@@ -37,97 +37,119 @@ fn test_digits() {
 #[test]
 fn test_calc() {
     let actual = uguisu_parser::expression("1+2*(3+4)/5");
-    let expect = Ok(
-        binary_expr("+",
-            number(1).as_node(0),
-            binary_expr("/",
-                binary_expr("*",
-                    number(2).as_node(2),
-                    binary_expr("+",
-                        number(3).as_node(5),
-                        number(4).as_node(7)
-                    ).as_node(6)
-                ).as_node(3),
-                number(5).as_node(10),
-            ).as_node(9),
-        ).as_node(1)
-    );
-    assert_eq!(actual, expect);
+    let expect = Ok(Node::new_binary_expr("+",
+        Node::new_number(1, 0),
+        Node::new_binary_expr("/",
+            Node::new_binary_expr("*",
+                Node::new_number(2, 2),
+                Node::new_binary_expr("+",
+                    Node::new_number(3, 5),
+                    Node::new_number(4, 7),
+                    6,
+                ),
+                3,
+            ),
+            Node::new_number(5, 10),
+            9,
+        ),
+        1,
+    ));
+    if actual != expect {
+        panic!("assert error");
+    }
 }
 
 #[test]
 fn test_declare_func_no_annotations() {
-    let expect = Ok(function_declaration(
-        "abc".to_string(),
-        Some(vec![]),
-        vec![],
-        None,
-        vec![],
-    ).as_node(0));
-    assert_eq!(uguisu_parser::statement("fn abc() { }"), expect);
-    assert_eq!(uguisu_parser::statement("fn abc(){}"), expect);
-    assert_eq!(uguisu_parser::statement("fn  abc(  )  {  }"), expect);
-
-    assert!(uguisu_parser::statement("fnabc(){}").is_err());
+    let expect = Ok(Node::new_declaration(
+        Node::new_function(
+            "abc".to_string(),
+            Some(vec![]),
+            vec![],
+            None,
+            vec![],
+            0,
+        ),
+        0,
+    ));
+    if uguisu_parser::statement("fn abc() { }") != expect {
+        panic!("assert error");
+    }
+    if uguisu_parser::statement("fn abc(){}") != expect {
+        panic!("assert error");
+    }
+    if uguisu_parser::statement("fn  abc(  )  {  }") != expect {
+        panic!("assert error");
+    }
+    if uguisu_parser::statement("fnabc(){}").is_ok() {
+        panic!("assert error");
+    }
 }
 
 #[test]
 fn test_declare_func_with_types_1() {
-    let expect = Ok(function_declaration(
-        "abc".to_string(),
-        Some(vec![]),
-        vec![
-            func_param("x".to_string(), Some("number".to_string())).as_node(7),
-            func_param("y".to_string(), Some("number".to_string())).as_node(18),
-        ],
-        Some("number".to_string()),
-        vec![],
-    ).as_node(0));
+    let expect = Ok(Node::new_declaration(
+        Node::new_function(
+            "abc".to_string(),
+            Some(vec![]),
+            vec![
+                Node::new_func_param("x".to_string(), Some("number".to_string()), 7),
+                Node::new_func_param("y".to_string(), Some("number".to_string()), 18),
+            ],
+            Some("number".to_string()),
+            vec![],
+            0,
+        ),
+        0,
+    ));
 
-    assert_eq!(
-        uguisu_parser::statement("fn abc(x: number, y: number): number { }"),
-        expect
-    );
+    if uguisu_parser::statement("fn abc(x: number, y: number): number { }") != expect {
+        panic!("assert error");
+    }
 }
 
 #[test]
 fn test_declare_func_with_types_2() {
-    let expect = Ok(function_declaration(
-        "abc".to_string(),
-        Some(vec![]),
-        vec![
-            func_param("x".to_string(), Some("number".to_string())).as_node(7),
-            func_param("y".to_string(), Some("number".to_string())).as_node(16),
-        ],
-        Some("number".to_string()),
-        vec![],
-    ).as_node(0));
+    let expect = Ok(Node::new_declaration(
+        Node::new_function(
+            "abc".to_string(),
+            Some(vec![]),
+            vec![
+                Node::new_func_param("x".to_string(), Some("number".to_string()), 7),
+                Node::new_func_param("y".to_string(), Some("number".to_string()), 16),
+            ],
+            Some("number".to_string()),
+            vec![],
+            0,
+        ),
+        0,
+    ));
 
-    assert_eq!(
-        uguisu_parser::statement("fn abc(x:number,y:number):number{}"),
-        expect
-    );
+    if uguisu_parser::statement("fn abc(x:number,y:number):number{}") != expect {
+        panic!("assert error");
+    }
 }
 
 #[test]
 fn test_declare_func_with_types_3() {
-    let expect = Ok(function_declaration(
-        "abc".to_string(),
-        Some(vec![]),
-        vec![
-            func_param("x".to_string(), Some("number".to_string())).as_node(12),
-            func_param("y".to_string(), Some("number".to_string())).as_node(29),
-        ],
-        Some("number".to_string()),
-        vec![],
-    ).as_node(0));
-
-    assert_eq!(
-        uguisu_parser::statement(
-            "fn  abc  (  x  :  number  ,  y  :  number  )  :  number  {  }"
+    let expect = Ok(Node::new_declaration(
+        Node::new_function(
+            "abc".to_string(),
+            Some(vec![]),
+            vec![
+                Node::new_func_param("x".to_string(), Some("number".to_string()), 12),
+                Node::new_func_param("y".to_string(), Some("number".to_string()), 29),
+            ],
+            Some("number".to_string()),
+            vec![],
+            0,
         ),
-        expect
-    );
+        0,
+    ));
+
+    if uguisu_parser::statement("fn  abc  (  x  :  number  ,  y  :  number  )  :  number  {  }") != expect {
+        panic!("assert error");
+    }
 }
 
 #[test]
@@ -137,19 +159,19 @@ fn test_declare_func_with_types_4() {
 
 #[test]
 fn test_identifier_single_ascii() {
-    if let Ok(Node { inner: NodeInner::Reference(Reference { identifier, .. }), location: Some(0) }) = uguisu_parser::expression("a") {
+    if let Ok(Node::Reference(Reference { identifier, pos: 0, .. })) = uguisu_parser::expression("a") {
         assert_eq!(identifier, "a");
     } else {
         panic!("incorrect result 1");
     }
 
-    if let Ok(Node { inner: NodeInner::Reference(Reference { identifier, .. }), location: Some(0) }) = uguisu_parser::expression("z") {
+    if let Ok(Node::Reference(Reference { identifier, pos: 0, .. })) = uguisu_parser::expression("z") {
         assert_eq!(identifier, "z");
     } else {
         panic!("incorrect result 2");
     }
 
-    if let Ok(Node { inner: NodeInner::Reference(Reference { identifier, .. }), location: Some(0) }) = uguisu_parser::expression("_") {
+    if let Ok(Node::Reference(Reference { identifier, pos: 0, .. })) = uguisu_parser::expression("_") {
         assert_eq!(identifier, "_");
     } else {
         panic!("incorrect result 3");
@@ -162,7 +184,7 @@ fn test_identifier_single_ascii() {
 
 #[test]
 fn test_identifier_multi_ascii() {
-    if let Ok(Node { inner: NodeInner::Reference(Reference { identifier, .. }), location: Some(0) }) = uguisu_parser::expression("abc") {
+    if let Ok(Node::Reference(Reference { identifier, pos: 0, .. })) = uguisu_parser::expression("abc") {
         assert_eq!(identifier, "abc");
     } else {
         panic!("incorrect result");
@@ -175,15 +197,166 @@ fn test_identifier_multi_ascii() {
 
 #[test]
 fn test_identifier_multi_byte() {
-    if let Ok(Node { inner: NodeInner::Reference(Reference { identifier, .. }), location: Some(0) }) = uguisu_parser::expression("あ") {
+    if let Ok(Node::Reference(Reference { identifier, pos: 0, .. })) = uguisu_parser::expression("あ") {
         assert_eq!(identifier, "あ");
     } else {
         panic!("incorrect result");
     }
 
-    if let Ok(Node { inner: NodeInner::Reference(Reference { identifier, .. }), location: Some(0) }) = uguisu_parser::expression("変数1") {
+    if let Ok(Node::Reference(Reference { identifier, pos: 0, .. })) = uguisu_parser::expression("変数1") {
         assert_eq!(identifier, "変数1");
     } else {
         panic!("incorrect result");
+    }
+}
+
+#[test]
+fn test_location_single_line() {
+    let input = "";
+    match calc_location(0, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 1);
+            assert_eq!(column, 1);
+        }
+        Err(_) => panic!(),
+    }
+    let input = "a";
+    match calc_location(0, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 1);
+            assert_eq!(column, 1);
+        }
+        Err(_) => panic!(),
+    }
+    match calc_location(1, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 1);
+            assert_eq!(column, 2);
+        }
+        Err(_) => panic!(),
+    }
+    match calc_location(1, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 1);
+            assert_eq!(column, 2);
+        }
+        Err(_) => panic!(),
+    }
+    let input = "ab";
+    match calc_location(1, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 1);
+            assert_eq!(column, 2);
+        }
+        Err(_) => panic!(),
+    }
+    match calc_location(2, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 1);
+            assert_eq!(column, 3);
+        }
+        Err(_) => panic!(),
+    }
+}
+
+#[test]
+fn test_location_multiline_lf() {
+    let input = "a\nb";
+    match calc_location(1, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 1);
+            assert_eq!(column, 2);
+        }
+        Err(_) => panic!(),
+    }
+    match calc_location(2, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 2);
+            assert_eq!(column, 1);
+        }
+        Err(_) => panic!(),
+    }
+    match calc_location(3, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 2);
+            assert_eq!(column, 2);
+        }
+        Err(_) => panic!(),
+    }
+    let input = "a\n\nb";
+    match calc_location(3, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 3);
+            assert_eq!(column, 1);
+        }
+        Err(_) => panic!(),
+    }
+}
+
+#[test]
+fn test_location_multiline_crlf() {
+    let input = "a\r\nb";
+    match calc_location(1, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 1);
+            assert_eq!(column, 2);
+        }
+        Err(_) => panic!(),
+    }
+    match calc_location(3, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 2);
+            assert_eq!(column, 1);
+        }
+        Err(_) => panic!(),
+    }
+    match calc_location(4, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 2);
+            assert_eq!(column, 2);
+        }
+        Err(_) => panic!(),
+    }
+    let input = "a\r\n\r\nb";
+    match calc_location(5, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 3);
+            assert_eq!(column, 1);
+        }
+        Err(_) => panic!(),
+    }
+}
+
+#[test]
+fn test_location_multiline_cr() {
+    let input = "a\rb";
+    match calc_location(1, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 1);
+            assert_eq!(column, 2);
+        }
+        Err(_) => panic!(),
+    }
+    match calc_location(2, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 2);
+            assert_eq!(column, 1);
+        }
+        Err(_) => panic!(),
+    }
+    match calc_location(3, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 2);
+            assert_eq!(column, 2);
+        }
+        Err(_) => panic!(),
+    }
+    let input = "a\r\rb";
+    match calc_location(3, input) {
+        Ok((line, column)) => {
+            assert_eq!(line, 3);
+            assert_eq!(column, 1);
+        }
+        Err(_) => panic!(),
     }
 }

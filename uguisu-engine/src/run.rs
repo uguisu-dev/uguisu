@@ -1,16 +1,32 @@
-use crate::analyze::{LiteralValue, Node, NodeId, NodeRef, Operator, Type, FunctionBody};
+use crate::ast::AssignmentMode;
+use crate::graph::{self, LiteralValue, ArithmeticOperator, RelationalOperator, LogicalBinaryOperator, LogicalUnaryOperator};
+use crate::types::Type;
 use crate::RuntimeError;
-use crate::parse::AssignmentMode;
 use std::collections::HashMap;
 
+// TODO: improve builtin
 mod builtin {
-    pub fn print_num(value: i64) {
-        println!("{}", value);
+    use crate::RuntimeError;
+    use crate::run::Value;
+
+    pub(crate) fn print_num(args: &Vec<Value>) -> Result<(), RuntimeError> {
+        let value = args[0].as_number(); // value: number
+        print!("{}", value);
+        Ok(())
     }
-    pub fn assert_eq(actual: i64, expected: i64) {
+
+    pub(crate) fn print_lf(_args: &Vec<Value>) -> Result<(), RuntimeError> {
+        print!("\n");
+        Ok(())
+    }
+
+    pub(crate) fn assert_eq(args: &Vec<Value>) -> Result<(), RuntimeError> {
+        let actual = args[0].as_number(); // actual: number
+        let expected = args[1].as_number(); // expected: number
         if actual != expected {
-            panic!("assertion error");
+            return Err(RuntimeError::new(format!("assertion error. expected `{}`, actual `{}`.", expected, actual).as_str()));
         }
+        Ok(())
     }
 }
 
@@ -18,77 +34,78 @@ enum StatementResult {
     None,
     Break,
     Return,
-    ReturnWith(Symbol),
+    ReturnWith(Value),
 }
 
-#[derive(Debug, Clone)]
-pub enum Symbol {
+pub(crate) type SymbolAddress = usize;
+
+#[derive(Clone)]
+pub(crate) enum Value {
     NoneValue,
     Number(i64),
     Bool(bool),
-    Function(NodeRef),
+    Function(SymbolAddress),
 }
 
-impl Symbol {
-    pub fn get_type_name(&self) -> &str {
+impl Value {
+    pub(crate) fn get_type(&self) -> Type {
         match self {
-            Symbol::Number(_) => "number",
-            Symbol::Bool(_) => "bool",
-            Symbol::Function(_) => panic!("get type error"),
-            Symbol::NoneValue => panic!("get type error"),
+            Value::Number(_) => Type::Number,
+            Value::Bool(_) => Type::Bool,
+            Value::Function(_) => panic!("get type error"),
+            Value::NoneValue => panic!("get type error"),
         }
     }
 
-    pub fn as_number(&self) -> i64 {
+    pub(crate) fn as_number(&self) -> i64 {
         match self {
-            &Symbol::Number(value) => value,
-            _ => panic!("type mismatch: expected `number`, found `{}`", self.get_type_name()),
+            &Value::Number(value) => value,
+            _ => panic!("type mismatched. expected `number`, found `{}`", self.get_type().get_name()),
         }
     }
 
-    pub fn as_bool(&self) -> bool {
+    pub(crate) fn as_bool(&self) -> bool {
         match self {
-            &Symbol::Bool(value) => value,
-            _ => panic!("type mismatch: expected `bool`, found `{}`", self.get_type_name()),
+            &Value::Bool(value) => value,
+            _ => panic!("type mismatched. expected `bool`, found `{}`", self.get_type().get_name()),
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct SymbolTable {
-    layers: Vec<SymbolTableLayer>,
+pub(crate) struct RuningStack {
+    frames: Vec<StackFrame>,
 }
 
-impl SymbolTable {
-    pub fn new() -> Self {
+impl RuningStack {
+    pub(crate) fn new() -> Self {
         Self {
-            layers: vec![SymbolTableLayer::new()],
+            frames: vec![StackFrame::new()],
         }
     }
 
-    pub fn push_layer(&mut self) {
-        self.layers.insert(0, SymbolTableLayer::new());
+    pub(crate) fn push_frame(&mut self) {
+        self.frames.insert(0, StackFrame::new());
     }
 
-    pub fn pop_layer(&mut self) {
-        if self.layers.len() == 1 {
-            panic!("Left the root layer.");
+    pub(crate) fn pop_frame(&mut self) {
+        if self.frames.len() == 1 {
+            panic!("Left the root frame.");
         }
-        self.layers.remove(0);
+        self.frames.remove(0);
     }
 
-    pub fn set(&mut self, node_ref: NodeRef, symbol: Symbol) {
-        match self.layers.get_mut(0) {
-            Some(layer) => {
-                layer.symbols.insert(node_ref.id, symbol);
+    pub(crate) fn set_symbol(&mut self, address: SymbolAddress, value: Value) {
+        match self.frames.get_mut(0) {
+            Some(frame) => {
+                frame.table.insert(address, value);
             }
-            None => panic!("layer not found"),
+            None => panic!("frame not found"),
         }
     }
 
-    pub fn lookup(&self, node_ref: NodeRef) -> Option<&Symbol> {
-        for layer in self.layers.iter() {
-            match layer.symbols.get(&node_ref.id) {
+    pub(crate) fn get_symbol(&self, address: SymbolAddress) -> Option<&Value> {
+        for frame in self.frames.iter() {
+            match frame.table.get(&address) {
                 Some(x) => return Some(x),
                 None => {}
             }
@@ -97,39 +114,62 @@ impl SymbolTable {
     }
 }
 
-#[derive(Debug, Clone)]
-struct SymbolTableLayer {
-    symbols: HashMap<NodeId, Symbol>,
+struct StackFrame {
+    table: HashMap<graph::NodeId, Value>,
 }
 
-impl SymbolTableLayer {
-    pub fn new() -> Self {
+impl StackFrame {
+    fn new() -> Self {
         Self {
-            symbols: HashMap::new(),
+            table: HashMap::new(),
         }
     }
 }
 
-pub struct Runner<'a> {
-    graph_source: &'a HashMap<NodeId, Node>,
+pub(crate) struct Runner<'a> {
+    source: &'a HashMap<graph::NodeId, graph::Node>,
 }
 
 impl<'a> Runner<'a> {
-    pub fn new(graph_source: &'a HashMap<NodeId, Node>) -> Self {
-        Self { graph_source }
+    pub(crate) fn new(source: &'a HashMap<graph::NodeId, graph::Node>) -> Self {
+        Self {
+            source,
+        }
     }
 
-    pub fn run(&self, graph: &Vec<NodeRef>, symbols: &mut SymbolTable) -> Result<(), RuntimeError> {
+    fn resolve_address(&self, node_ref: graph::NodeRef) -> SymbolAddress {
+        match node_ref.get(self.source) {
+            graph::Node::FunctionDeclaration(_) => node_ref.id,
+            graph::Node::VariableDeclaration(_) => node_ref.id,
+            graph::Node::Reference(reference) => self.resolve_address(reference.dest),
+            graph::Node::Literal(_) => node_ref.id,
+            graph::Node::RelationalOp(_) => node_ref.id,
+            graph::Node::LogicalBinaryOp(_) => node_ref.id,
+            graph::Node::ArithmeticOp(_) => node_ref.id,
+            graph::Node::LogicalUnaryOp(_) => node_ref.id,
+            graph::Node::CallExpr(_) => node_ref.id,
+            graph::Node::FuncParam(_) => node_ref.id,
+            graph::Node::BreakStatement(_)
+            | graph::Node::ReturnStatement(_)
+            | graph::Node::Assignment(_)
+            | graph::Node::IfStatement(_)
+            | graph::Node::LoopStatement(_) => {
+                panic!("unexpected (node_id={})", node_ref.id);
+            }
+        }
+    }
+
+    pub(crate) fn run(&self, graph: &Vec<graph::NodeRef>, stack: &mut RuningStack) -> Result<(), RuntimeError> {
         for &node_ref in graph.iter() {
-            self.exec_statement(node_ref, symbols)?;
+            self.exec_statement(node_ref, stack)?;
         }
         Ok(())
     }
 
-    fn exec_block(&self, statements: &Vec<NodeRef>, symbols: &mut SymbolTable) -> Result<StatementResult, RuntimeError> {
+    fn exec_block(&self, statements: &Vec<graph::NodeRef>, stack: &mut RuningStack) -> Result<StatementResult, RuntimeError> {
         let mut result = StatementResult::None;
         for &node_ref in statements.iter() {
-            result = self.exec_statement(node_ref, symbols)?;
+            result = self.exec_statement(node_ref, stack)?;
             match result {
                 StatementResult::None => {}
                 StatementResult::Break
@@ -144,91 +184,111 @@ impl<'a> Runner<'a> {
 
     fn exec_statement(
         &self,
-        node_ref: NodeRef,
-        symbols: &mut SymbolTable,
+        node_ref: graph::NodeRef,
+        stack: &mut RuningStack,
     ) -> Result<StatementResult, RuntimeError> {
-        match node_ref.get(self.graph_source) {
-            Node::FunctionDeclaration(_) => {
+        match node_ref.get(self.source) {
+            graph::Node::FunctionDeclaration(_) => {
                 // TODO: check duplicate
-                symbols.set(node_ref, Symbol::Function(node_ref));
+                stack.set_symbol(node_ref.id, Value::Function(node_ref.id));
                 Ok(StatementResult::None)
             }
-            Node::VariableDeclaration(variable) => {
+            graph::Node::VariableDeclaration(variable) => {
                 // TODO: check duplicate
-                let symbol = self.eval_expr(variable.body, symbols)?;
-                symbols.set(node_ref, symbol);
+                let value = self.eval_expr(variable.body, stack)?;
+                stack.set_symbol(node_ref.id, value);
                 Ok(StatementResult::None)
             }
-            Node::ReturnStatement(None) => {
-                Ok(StatementResult::Return)
+            graph::Node::ReturnStatement(statement) => {
+                match &statement.body {
+                    Some(expr) => {
+                        let value = self.eval_expr(*expr, stack)?;
+                        Ok(StatementResult::ReturnWith(value))
+                    }
+                    None => {
+                        Ok(StatementResult::Return)
+                    }
+                }
             }
-            Node::ReturnStatement(Some(expr)) => {
-                let symbol = self.eval_expr(*expr, symbols)?;
-                Ok(StatementResult::ReturnWith(symbol))
-            }
-            Node::BreakStatement => Ok(StatementResult::Break),
-            Node::Assignment(statement) => {
-                let curr_symbol = match symbols.lookup(statement.dest) {
-                    Some(x) => x,
-                    None => panic!("symbol not found (node_id={})", node_ref.id),
-                };
+            graph::Node::BreakStatement(_) => Ok(StatementResult::Break),
+            graph::Node::Assignment(statement) => {
+                let curr_value = self.eval_expr(statement.dest, stack)?;
+                // let curr_symbol = match stack.lookup_symbol(statement.dest) {
+                //     Some(x) => x,
+                //     None => panic!("symbol not found (node_id={})", node_ref.id),
+                // };
                 match statement.mode {
                     AssignmentMode::Assign => {
-                        let symbol = self.eval_expr(statement.body, symbols)?;
-                        symbols.set(statement.dest, symbol);
+                        let address = self.resolve_address(statement.dest);
+                        let value = self.eval_expr(statement.body, stack)?;
+                        stack.set_symbol(address, value);
                     }
                     AssignmentMode::AddAssign => {
-                        let restored_value = curr_symbol.as_number();
-                        let body_value = self.eval_expr(statement.body, symbols)?.as_number();
+                        let address = self.resolve_address(statement.dest);
+                        let restored_value = curr_value.as_number();
+                        let body_value = self.eval_expr(statement.body, stack)?.as_number();
                         let value = match restored_value.checked_add(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("add operation overflowed")),
                         };
-                        symbols.set(statement.dest, Symbol::Number(value));
+                        stack.set_symbol(address, Value::Number(value));
                     }
                     AssignmentMode::SubAssign => {
-                        let restored_value = curr_symbol.as_number();
-                        let body_value = self.eval_expr(statement.body, symbols)?.as_number();
+                        let address = self.resolve_address(statement.dest);
+                        let restored_value = curr_value.as_number();
+                        let body_value = self.eval_expr(statement.body, stack)?.as_number();
                         let value = match restored_value.checked_sub(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("sub operation overflowed")),
                         };
-                        symbols.set(statement.dest, Symbol::Number(value));
+                        stack.set_symbol(address, Value::Number(value));
                     }
                     AssignmentMode::MultAssign => {
-                        let restored_value = curr_symbol.as_number();
-                        let body_value = self.eval_expr(statement.body, symbols)?.as_number();
+                        let address = self.resolve_address(statement.dest);
+                        let restored_value = curr_value.as_number();
+                        let body_value = self.eval_expr(statement.body, stack)?.as_number();
                         let value = match restored_value.checked_mul(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("mult operation overflowed")),
                         };
-                        symbols.set(statement.dest, Symbol::Number(value));
+                        stack.set_symbol(address, Value::Number(value));
                     }
                     AssignmentMode::DivAssign => {
-                        let restored_value = curr_symbol.as_number();
-                        let body_value = self.eval_expr(statement.body, symbols)?.as_number();
+                        let address = self.resolve_address(statement.dest);
+                        let restored_value = curr_value.as_number();
+                        let body_value = self.eval_expr(statement.body, stack)?.as_number();
                         let value = match restored_value.checked_div(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("div operation overflowed")),
                         };
-                        symbols.set(statement.dest, Symbol::Number(value));
+                        stack.set_symbol(address, Value::Number(value));
+                    }
+                    AssignmentMode::ModAssign => {
+                        let address = self.resolve_address(statement.dest);
+                        let restored_value = curr_value.as_number();
+                        let body_value = self.eval_expr(statement.body, stack)?.as_number();
+                        let value = match restored_value.checked_rem(body_value) {
+                            Some(x) => x,
+                            None => return Err(RuntimeError::new("mod operation overflowed")),
+                        };
+                        stack.set_symbol(address, Value::Number(value));
                     }
                 }
                 Ok(StatementResult::None)
             }
-            Node::IfStatement(statement) => {
-                let condition = self.eval_expr(statement.condition, symbols)?.as_bool();
+            graph::Node::IfStatement(statement) => {
+                let condition = self.eval_expr(statement.condition, stack)?.as_bool();
                 let block = if condition {
                     &statement.then_block
                 } else {
                     &statement.else_block
                 };
-                self.exec_block(block, symbols)
+                self.exec_block(block, stack)
             }
-            Node::LoopStatement(body) => {
+            graph::Node::LoopStatement(statement) => {
                 let mut result;
                 loop {
-                    result = self.exec_block(body, symbols)?;
+                    result = self.exec_block(&statement.body, stack)?;
                     match result {
                         StatementResult::None => {}
                         StatementResult::Break => {
@@ -243,11 +303,15 @@ impl<'a> Runner<'a> {
                 }
                 Ok(result)
             }
-            Node::Literal(_)
-            | Node::BinaryExpr(_)
-            | Node::CallExpr(_)
-            | Node::FuncParam(_) => {
-                self.eval_expr(node_ref, symbols)?;
+            graph::Node::Reference(_)
+            | graph::Node::Literal(_)
+            | graph::Node::RelationalOp(_)
+            | graph::Node::LogicalBinaryOp(_)
+            | graph::Node::ArithmeticOp(_)
+            | graph::Node::LogicalUnaryOp(_)
+            | graph::Node::CallExpr(_)
+            | graph::Node::FuncParam(_) => {
+                self.eval_expr(node_ref, stack)?;
                 Ok(StatementResult::None)
             }
         }
@@ -255,163 +319,171 @@ impl<'a> Runner<'a> {
 
     fn eval_expr(
         &self,
-        node_ref: NodeRef,
-        symbols: &mut SymbolTable,
-    ) -> Result<Symbol, RuntimeError> {
-        match node_ref.get(self.graph_source) {
-            Node::VariableDeclaration(_) => {
-                match symbols.lookup(node_ref) {
+        node_ref: graph::NodeRef,
+        stack: &mut RuningStack,
+    ) -> Result<Value, RuntimeError> {
+        match node_ref.get(self.source) {
+            graph::Node::Reference(reference) => {
+                let address = self.resolve_address(reference.dest);
+                match stack.get_symbol(address) {
                     Some(x) => Ok(x.clone()),
-                    None => panic!("symbol not found (node_id={})", node_ref.id),
+                    None => panic!("symbol not found (node_id={}, address={})", node_ref.id, address),
                 }
             }
-            Node::Literal(literal) => {
+            graph::Node::Literal(literal) => {
                 match literal.value {
-                    LiteralValue::Number(n) => Ok(Symbol::Number(n)),
-                    LiteralValue::Bool(value) => Ok(Symbol::Bool(value)),
+                    LiteralValue::Number(n) => Ok(Value::Number(n)),
+                    LiteralValue::Bool(value) => Ok(Value::Bool(value)),
                 }
             }
-            Node::BinaryExpr(binary_expr) => {
-                match binary_expr.ty {
-                    Type::Bool => { // relational operation
-                        let left = self.eval_expr(binary_expr.left, symbols)?;
-                        let right = self.eval_expr(binary_expr.right, symbols)?;
-                        match left {
-                            Symbol::Number(l) => {
-                                let r = right.as_number();
-                                match binary_expr.operator {
-                                    Operator::Equal => Ok(Symbol::Bool(l == r)),
-                                    Operator::NotEqual => Ok(Symbol::Bool(l != r)),
-                                    Operator::LessThan => Ok(Symbol::Bool(l < r)),
-                                    Operator::LessThanEqual => Ok(Symbol::Bool(l <= r)),
-                                    Operator::GreaterThan => Ok(Symbol::Bool(l > r)),
-                                    Operator::GreaterThanEqual => Ok(Symbol::Bool(l >= r)),
-                                    _ => panic!("unsupported operation (node_id={})", node_ref.id),
-                                }
-                            }
-                            Symbol::Bool(l) => {
-                                let r = right.as_bool();
-                                match binary_expr.operator {
-                                    Operator::Equal => Ok(Symbol::Bool(l == r)),
-                                    Operator::NotEqual => Ok(Symbol::Bool(l != r)),
-                                    Operator::LessThan => Ok(Symbol::Bool(l < r)),
-                                    Operator::LessThanEqual => Ok(Symbol::Bool(l <= r)),
-                                    Operator::GreaterThan => Ok(Symbol::Bool(l > r)),
-                                    Operator::GreaterThanEqual => Ok(Symbol::Bool(l >= r)),
-                                    _ => panic!("unsupported operation (node_id={})", node_ref.id),
-                                }
-                            }
-                            Symbol::NoneValue => {
-                                panic!("invalid operation (node_id={})", node_ref.id)
-                            }
-                            Symbol::Function(_) => {
-                                Err(RuntimeError::new(
-                                    format!("function comparison is not supported (node_id={})", node_ref.id).as_str()
-                                ))
-                            }
+            graph::Node::RelationalOp(expr) => {
+                let left = self.eval_expr(expr.left, stack)?;
+                let right = self.eval_expr(expr.right, stack)?;
+                match expr.relation_type {
+                    Type::Number => {
+                        let l = left.as_number();
+                        let r = right.as_number();
+                        match expr.operator {
+                            RelationalOperator::Equal => Ok(Value::Bool(l == r)),
+                            RelationalOperator::NotEqual => Ok(Value::Bool(l != r)),
+                            RelationalOperator::LessThan => Ok(Value::Bool(l < r)),
+                            RelationalOperator::LessThanEqual => Ok(Value::Bool(l <= r)),
+                            RelationalOperator::GreaterThan => Ok(Value::Bool(l > r)),
+                            RelationalOperator::GreaterThanEqual => Ok(Value::Bool(l >= r)),
                         }
                     }
-                    Type::Number => { // arithmetic operation
-                        let left = self.eval_expr(binary_expr.left, symbols)?.as_number();
-                        let right = self.eval_expr(binary_expr.right, symbols)?.as_number();
-                        match binary_expr.operator {
-                            Operator::Add => match left.checked_add(right) {
-                                Some(x) => Ok(Symbol::Number(x)),
-                                None => Err(RuntimeError::new("add operation overflowed")),
-                            }
-                            Operator::Sub => match left.checked_sub(right) {
-                                Some(x) => Ok(Symbol::Number(x)),
-                                None => Err(RuntimeError::new("sub operation overflowed")),
-                            }
-                            Operator::Mult => match left.checked_mul(right) {
-                                Some(x) => Ok(Symbol::Number(x)),
-                                None => Err(RuntimeError::new("mult operation overflowed")),
-                            }
-                            Operator::Div => match left.checked_div(right) {
-                                Some(x) => Ok(Symbol::Number(x)),
-                                None => Err(RuntimeError::new("div operation overflowed")),
-                            }
-                            _ => panic!("unsupported operation"),
+                    Type::Bool => {
+                        let l = left.as_bool();
+                        let r = right.as_bool();
+                        match expr.operator {
+                            RelationalOperator::Equal => Ok(Value::Bool(l == r)),
+                            RelationalOperator::NotEqual => Ok(Value::Bool(l != r)),
+                            RelationalOperator::LessThan => Ok(Value::Bool(l < r)),
+                            RelationalOperator::LessThanEqual => Ok(Value::Bool(l <= r)),
+                            RelationalOperator::GreaterThan => Ok(Value::Bool(l > r)),
+                            RelationalOperator::GreaterThanEqual => Ok(Value::Bool(l >= r)),
                         }
                     }
-                    Type::Void => panic!("unexpected type: void"),
+                    Type::Function
+                    | Type::Void => {
+                        panic!("unsupported operation (node_id={})", node_ref.id);
+                    }
                 }
             }
-            Node::CallExpr(call_expr) => {
-                let symbol = match call_expr.callee.get(self.graph_source) {
-                    Node::FunctionDeclaration(func) => {
-                        symbols.push_layer();
-                        let mut result = None;
-                        match &func.body {
-                            Some(FunctionBody::Statements(body)) => {
-                                for i in 0..func.params.len() {
-                                    let param_node = &func.params[i];
-                                    let arg_node = &call_expr.args[i];
-                                    let arg_symbol = self.eval_expr(*arg_node, symbols)?;
-                                    symbols.set(*param_node, arg_symbol);
-                                }
-                                match self.exec_block(body, symbols)? {
-                                    StatementResult::Break => {
-                                        return Err(RuntimeError::new(
-                                            "break target is missing",
-                                        ));
-                                    }
-                                    StatementResult::ReturnWith(symbol) => {
-                                        result = Some(symbol);
-                                    }
-                                    _ => {}
-                                }
-                            }
-                            Some(FunctionBody::NativeCode) => {
-                                let mut args = Vec::new();
-                                for i in 0..func.params.len() {
-                                    let arg_node = &call_expr.args[i];
-                                    let arg_symbol = self.eval_expr(*arg_node, symbols)?;
-                                    args.push(arg_symbol);
-                                }
-                                // TODO: improve builtin
-                                if &func.identifier == "print_num" {
-                                    if args.len() != 1 {
-                                        panic!("parameters count error");
-                                    }
-                                    let value = args[0].as_number();
-                                    builtin::print_num(value);
-                                } else if &func.identifier == "assert_eq" {
-                                    if args.len() != 2 {
-                                        panic!("parameters count error");
-                                    }
-                                    let actual = args[0].as_number();
-                                    let expected = args[0].as_number();
-                                    builtin::assert_eq(actual, expected);
-                                } else {
-                                    return Err(RuntimeError::new("unknown function"));
-                                }
-                            }
-                            None => panic!("function `{}` is not defined (callee={})", func.identifier, call_expr.callee.id),
-                        }
-                        symbols.pop_layer();
-                        match result {
-                            Some(x) => x,
-                            None => Symbol::NoneValue,
-                        }
+            graph::Node::LogicalBinaryOp(expr) => {
+                let left = self.eval_expr(expr.left, stack)?.as_bool();
+                let right = self.eval_expr(expr.right, stack)?.as_bool();
+                match expr.operator {
+                    LogicalBinaryOperator::And => Ok(Value::Bool(left && right)),
+                    LogicalBinaryOperator::Or => Ok(Value::Bool(left || right)),
+                }
+            }
+            graph::Node::ArithmeticOp(expr) => {
+                let left = self.eval_expr(expr.left, stack)?.as_number();
+                let right = self.eval_expr(expr.right, stack)?.as_number();
+                match expr.operator {
+                    ArithmeticOperator::Add => match left.checked_add(right) {
+                        Some(x) => Ok(Value::Number(x)),
+                        None => Err(RuntimeError::new("add operation overflowed")),
                     }
-                    _ => panic!("callee is not function (callee={})", call_expr.callee.id),
+                    ArithmeticOperator::Sub => match left.checked_sub(right) {
+                        Some(x) => Ok(Value::Number(x)),
+                        None => Err(RuntimeError::new("sub operation overflowed")),
+                    }
+                    ArithmeticOperator::Mult => match left.checked_mul(right) {
+                        Some(x) => Ok(Value::Number(x)),
+                        None => Err(RuntimeError::new("mult operation overflowed")),
+                    }
+                    ArithmeticOperator::Div => match left.checked_div(right) {
+                        Some(x) => Ok(Value::Number(x)),
+                        None => Err(RuntimeError::new("div operation overflowed")),
+                    }
+                    ArithmeticOperator::Mod => match left.checked_rem(right) {
+                        Some(x) => Ok(Value::Number(x)),
+                        None => Err(RuntimeError::new("mod operation overflowed")),
+                    }
+                }
+            }
+            graph::Node::LogicalUnaryOp(op) => {
+                let expr = self.eval_expr(op.expr, stack)?.as_bool();
+                match op.operator {
+                    LogicalUnaryOperator::Not => Ok(Value::Bool(!expr)),
+                }
+            }
+            graph::Node::CallExpr(call_expr) => {
+                let callee_node = match call_expr.callee.get(self.source) {
+                    graph::Node::Reference(reference) => reference.dest,
+                    _ => panic!("callee is invalid (id={})", call_expr.callee.id),
                 };
-                Ok(symbol)
+                let callee = match callee_node.get(self.source) {
+                    graph::Node::FunctionDeclaration(func) => func,
+                    _ => panic!("callee is invalid (id={})", callee_node.id),
+                };
+                stack.push_frame();
+                let mut result = None;
+                match &callee.body {
+                    Some(graph::FunctionBody::Statements(body)) => {
+                        for i in 0..callee.params.len() {
+                            let param_node = &callee.params[i];
+                            let arg_node = &call_expr.args[i];
+                            let arg_symbol = self.eval_expr(*arg_node, stack)?;
+                            stack.set_symbol(param_node.id, arg_symbol);
+                        }
+                        match self.exec_block(body, stack)? {
+                            StatementResult::Break => {
+                                return Err(RuntimeError::new(
+                                    "break target is missing",
+                                ));
+                            }
+                            StatementResult::ReturnWith(value) => {
+                                result = Some(value);
+                            }
+                            _ => {}
+                        }
+                    }
+                    Some(graph::FunctionBody::NativeCode) => {
+                        let mut args = Vec::new();
+                        for i in 0..callee.params.len() {
+                            let arg_node = &call_expr.args[i];
+                            let arg_symbol = self.eval_expr(*arg_node, stack)?;
+                            args.push(arg_symbol);
+                        }
+                        if call_expr.args.len() != callee.params.len() {
+                            return Err(RuntimeError::new("parameters count error"));
+                        }
+                        // TODO: improve builtin
+                        if &callee.identifier == "print_num" {
+                            builtin::print_num(&args)?;
+                        } else if &callee.identifier == "print_lf" {
+                            builtin::print_lf(&args)?;
+                        } else if &callee.identifier == "assert_eq" {
+                            builtin::assert_eq(&args)?;
+                        } else {
+                            return Err(RuntimeError::new("unknown native function"));
+                        }
+                    }
+                    None => panic!("function `{}` is not defined (node_id={})", callee.identifier, call_expr.callee.id),
+                }
+                stack.pop_frame();
+                let value = match result {
+                    Some(x) => x,
+                    None => Value::NoneValue,
+                };
+                Ok(value)
             }
-            Node::FuncParam(_) => {
-                match symbols.lookup(node_ref) {
+            graph::Node::FuncParam(_) => {
+                match stack.get_symbol(node_ref.id) { // TODO: check
                     Some(x) => Ok(x.clone()),
                     None => panic!("symbol not found (node_id={})", node_ref.id),
                 }
             }
-            Node::FunctionDeclaration(_)
-            | Node::ReturnStatement(None)
-            | Node::ReturnStatement(Some(_))
-            | Node::BreakStatement
-            | Node::Assignment(_)
-            | Node::IfStatement(_)
-            | Node::LoopStatement(_) => {
+            graph::Node::FunctionDeclaration(_)
+            | graph::Node::VariableDeclaration(_)
+            | graph::Node::ReturnStatement(_)
+            | graph::Node::BreakStatement(_)
+            | graph::Node::Assignment(_)
+            | graph::Node::IfStatement(_)
+            | graph::Node::LoopStatement(_) => {
                 panic!("Failed to evaluate the expression: unsupported node (node_id={})", node_ref.id);
             }
         }

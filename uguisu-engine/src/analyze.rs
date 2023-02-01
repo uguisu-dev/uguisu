@@ -1,68 +1,73 @@
-use crate::{parse::{self, AssignmentMode}, SyntaxError};
+use crate::ast;
+use crate::ast::{
+    AssignmentMode,
+    VariableAttribute,
+};
+use crate::graph::{
+    self,
+    ArithmeticOp,
+    ArithmeticOperator,
+    Assignment,
+    BreakStatement,
+    CallExpr,
+    FuncParam,
+    FunctionBody,
+    FunctionDeclaration,
+    IfStatement,
+    Literal,
+    LiteralValue,
+    LogicalBinaryOp,
+    LogicalBinaryOperator,
+    LoopStatement,
+    Reference,
+    RelationalOp,
+    RelationalOperator,
+    ReturnStatement,
+    VariableDeclaration,
+    LogicalUnaryOperator,
+    LogicalUnaryOp,
+};
+use crate::types::Type;
+use crate::SyntaxError;
 use std::collections::HashMap;
 
 #[cfg(test)]
 mod test;
 
-pub type NodeId = usize;
-
-#[derive(Debug, Clone, Copy)]
-pub struct NodeRef {
-    pub id: NodeId,
+struct AnalyzeStack {
+    frames: Vec<StackFrame>,
 }
 
-impl NodeRef {
-    pub fn new(node_id: NodeId) -> Self {
-        Self { id: node_id }
-    }
-
-    pub fn get<'a>(&self, source: &'a HashMap<NodeId, Node>) -> &'a Node {
-        &source[&self.id]
-    }
-
-    pub fn get_mut<'a>(&self, source: &'a mut HashMap<NodeId, Node>) -> &'a mut Node {
-        match source.get_mut(&self.id) {
-            Some(x) => x,
-            None => panic!(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Scope {
-    layers: Vec<ScopeLayer>,
-}
-
-impl Scope {
-    pub fn new() -> Self {
+impl AnalyzeStack {
+    fn new() -> Self {
         Self {
-            layers: vec![ScopeLayer::new()],
+            frames: vec![StackFrame::new()],
         }
     }
 
-    pub fn enter_scope(&mut self) {
-        self.layers.insert(0, ScopeLayer::new());
+    fn push_frame(&mut self) {
+        self.frames.insert(0, StackFrame::new());
     }
 
-    pub fn leave_scope(&mut self) {
-        if self.layers.len() == 1 {
-            panic!("Left the root layer.");
+    fn pop_frame(&mut self) {
+        if self.frames.len() == 1 {
+            panic!("Left the root frame.");
         }
-        self.layers.remove(0);
+        self.frames.remove(0);
     }
 
-    pub fn add_node(&mut self, identifier: &str, node: NodeRef) {
-        match self.layers.get_mut(0) {
-            Some(layer) => {
-                layer.nodes.insert(identifier.to_string(), node);
+    fn set_record(&mut self, identifier: &str, node: graph::NodeRef) {
+        match self.frames.get_mut(0) {
+            Some(frame) => {
+                frame.table.insert(identifier.to_string(), node);
             }
-            None => panic!("layer not found"),
+            None => panic!("frame not found"),
         }
     }
 
-    fn lookup(&self, identifier: &str) -> Option<NodeRef> {
-        for layer in self.layers.iter() {
-            match layer.nodes.get(identifier) {
+    fn get_record(&self, identifier: &str) -> Option<graph::NodeRef> {
+        for frame in self.frames.iter() {
+            match frame.table.get(identifier) {
                 Some(&x) => return Some(x),
                 None => {}
             }
@@ -71,254 +76,52 @@ impl Scope {
     }
 }
 
-#[derive(Debug, Clone)]
-struct ScopeLayer {
-    nodes: HashMap<String, NodeRef>,
+struct StackFrame {
+    table: HashMap<String, graph::NodeRef>,
 }
 
-impl ScopeLayer {
-    pub fn new() -> Self {
+impl StackFrame {
+    fn new() -> Self {
         Self {
-            nodes: HashMap::new(),
+            table: HashMap::new(),
         }
     }
 }
 
-#[derive(Debug)]
-pub enum Node {
-    // statement
-    FunctionDeclaration(FunctionDeclaration),
-    VariableDeclaration(VariableDeclaration),
-    BreakStatement,
-    ReturnStatement(Option<NodeRef>),
-    Assignment(Assignment),
-    IfStatement(IfStatement),
-    LoopStatement(Vec<NodeRef>),
-    // expression
-    Literal(Literal),
-    BinaryExpr(BinaryExpr),
-    CallExpr(CallExpr),
-    FuncParam(FuncParam),
-}
-
-impl Node {
-    fn get_ty(&self) -> Type {
-        match self {
-            Node::Literal(literal) => {
-                literal.ty
-            }
-            Node::BinaryExpr(binary_expr) => {
-                binary_expr.ty
-            }
-            Node::CallExpr(call_expr) => {
-                call_expr.ty
-            }
-            Node::FuncParam(func_param) => {
-                func_param.ty
-            }
-            Node::VariableDeclaration(variable) => {
-                variable.ty
-            }
-            Node::FunctionDeclaration(_)
-            | Node::BreakStatement
-            | Node::ReturnStatement(_)
-            | Node::Assignment(_)
-            | Node::IfStatement(_)
-            | Node::LoopStatement(_) => {
-                panic!("unexpected node");
-            }
-        }
-    }
-
-    fn as_function(&self) -> Result<&FunctionDeclaration, SyntaxError> {
-        match self {
-            Node::FunctionDeclaration(decl) => Ok(decl),
-            _ => return Err(SyntaxError::new("function expected")),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Type {
-    Void,
-    Number,
-    Bool,
-}
-
-impl Type {
-    fn get_name(&self) -> &str {
-        match self {
-            Type::Void => "void",
-            Type::Number => "number",
-            Type::Bool => "bool",
-        }
-    }
-
-    fn lookup(ty_identifier: &str, input: &str, location: Option<usize>) -> Result<Type, SyntaxError> {
-        match ty_identifier {
-            "void" => Err(SyntaxError::new_with_location("type `void` is invalid", input, location)),
-            "number" => Ok(Type::Number),
-            "bool" => Ok(Type::Bool),
-            _ => Err(SyntaxError::new_with_location("unknown type name", input, location)),
-        }
-    }
-
-    fn assert(actual: Type, expected: Type, input: &str, location: Option<usize>) -> Result<Type, SyntaxError> {
-        if actual == expected {
-            Ok(actual)
-        } else {
-            let message = format!("type mismatched. expected `{}`, found `{}`", expected.get_name(), actual.get_name());
-            Err(SyntaxError::new_with_location(message.as_str(), input, location))
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum FunctionBody {
-    Statements(Vec<NodeRef>),
-    NativeCode,
-}
-
-#[derive(Debug)]
-pub struct FunctionDeclaration {
-    pub identifier: String,
-    pub body: Option<FunctionBody>,
-    pub params: Vec<NodeRef>,
-    pub ret_ty: Type,
-}
-
-#[derive(Debug)]
-pub struct FuncParam {
-    pub identifier: String,
-    pub param_index: usize,
-    pub ty: Type,
-}
-
-#[derive(Debug)]
-pub struct VariableDeclaration {
-    pub identifier: String,
-    pub body: NodeRef,
-    pub is_mutable: bool,
-    pub ty: Type,
-}
-
-#[derive(Debug)]
-pub struct Assignment {
-    pub dest: NodeRef,
-    pub body: NodeRef,
-    pub mode: AssignmentMode,
-}
-
-#[derive(Debug)]
-pub struct IfStatement {
-    pub condition: NodeRef,
-    pub then_block: Vec<NodeRef>,
-    pub else_block: Vec<NodeRef>,
-}
-
-#[derive(Debug)]
-pub struct Literal {
-    pub value: LiteralValue,
-    pub ty: Type,
-}
-
-#[derive(Debug)]
-pub enum LiteralValue {
-    Number(i64),
-    Bool(bool),
-}
-
-#[derive(Debug)]
-pub struct BinaryExpr {
-    pub operator: Operator,
-    pub left: NodeRef,
-    pub right: NodeRef,
-    pub ty: Type,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Operator {
-    Add,
-    Sub,
-    Mult,
-    Div,
-    Equal,
-    NotEqual,
-    GreaterThan,
-    GreaterThanEqual,
-    LessThan,
-    LessThanEqual,
-}
-
-#[derive(Debug)]
-pub struct CallExpr {
-    pub callee: NodeRef,
-    pub args: Vec<NodeRef>,
-    pub ty: Type,
-}
-
-pub struct Analyzer<'a> {
+pub(crate) struct Analyzer<'a> {
     input: &'a str,
-    source: &'a mut HashMap<NodeId, Node>,
-    scope: Scope,
+    source: &'a mut HashMap<graph::NodeId, graph::Node>,
+    stack: AnalyzeStack,
 }
 
 impl<'a> Analyzer<'a> {
-    pub fn new(input: &'a str, source: &'a mut HashMap<NodeId, Node>) -> Self {
+    pub(crate) fn new(input: &'a str, source: &'a mut HashMap<graph::NodeId, graph::Node>) -> Self {
         Self {
             input,
             source,
-            scope: Scope::new(),
+            stack: AnalyzeStack::new(),
         }
     }
 
-    /// supported newline characters: CR, CR+LF, LF
-    pub fn calc_location(input: &str, index: usize) -> Result<(usize, usize), String> {
-        let mut pos = 0;
-        let mut line = 1;
-        let mut column = 1;
-        let mut cr_flag = false;
-        let mut iter = input.char_indices();
-        loop {
-            if pos == index {
-                return Ok((line, column));
-            }
-            // prepare next location
-            let (i, c) = match iter.next() {
-                Some((i, c)) => (i + c.len_utf8(), c),
-                None => return Err("invalid location".to_string()),
-            };
-            pos = i;
-            match c {
-                '\r' => { // CR
-                    line += 1;
-                    column = 1;
-                    cr_flag = true;
-                }
-                '\n' => { // LF
-                    if cr_flag {
-                        cr_flag = false;
-                    } else {
-                        line += 1;
-                        column = 1;
-                    }
-                }
-                _ => {
-                    if cr_flag {
-                        cr_flag = false;
-                        column += 1;
-                    } else {
-                        column += 1;
-                    }
-                }
-            }
-        }
-    }
-
-    fn register_node(&mut self, node: Node) -> NodeRef {
+    fn register_node(&mut self, node: graph::Node) -> graph::NodeRef {
         let node_id = self.source.len();
         self.source.insert(node_id, node);
-        NodeRef::new(node_id)
+        graph::NodeRef::new(node_id)
+    }
+
+    fn calc_location(&self, node: &ast::Node) -> Result<(usize, usize), SyntaxError> {
+        node.calc_location(self.input)
+            .map_err(|e| SyntaxError::new(&e))
+    }
+
+    fn make_low_error(&self, message: &str, node: &ast::Node) -> SyntaxError {
+        let (line, column) = node.calc_location(self.input).unwrap();
+        SyntaxError::new(&format!("{} ({}:{})", message, line, column))
+    }
+
+    fn make_error(&self, message: &str, node: &graph::Node) -> SyntaxError {
+        let (line, column) = node.get_pos();
+        SyntaxError::new(&format!("{} ({}:{})", message, line, column))
     }
 
     fn register_builtin(
@@ -326,39 +129,46 @@ impl<'a> Analyzer<'a> {
         name: &str,
         params: Vec<(&str, Type)>,
         ret_ty: Type,
-    ) -> NodeRef {
+    ) -> graph::NodeRef {
         let mut param_nodes = Vec::new();
-        for (i, &(param_name, param_ty)) in params.iter().enumerate() {
+        for (_i, &(param_name, param_ty)) in params.iter().enumerate() {
             // make param node
-            let node = Node::FuncParam(FuncParam {
+            let node = graph::Node::FuncParam(FuncParam {
                 identifier: String::from(param_name),
-                param_index: i,
+                // param_index: i,
                 ty: param_ty,
+                pos: (1, 1),
             });
             let node_ref = self.register_node(node);
             param_nodes.push(node_ref);
         }
         // make function node
-        let decl_node = Node::FunctionDeclaration(FunctionDeclaration {
+        let decl_node = graph::Node::FunctionDeclaration(FunctionDeclaration {
             identifier: String::from(name),
             params: param_nodes,
             ret_ty,
             body: Some(FunctionBody::NativeCode),
+            pos: (1, 1),
         });
         let node_ref = self.register_node(decl_node);
-        // add to scope
-        self.scope.add_node(name, node_ref);
+        // add to stack
+        self.stack.set_record(name, node_ref);
         node_ref
     }
 
     /// Generate a resolved graph from a AST.
-    pub fn translate(&mut self, ast: &Vec<parse::Node>) -> Result<Vec<NodeRef>, SyntaxError> {
+    pub(crate) fn translate(&mut self, ast: &Vec<ast::Node>) -> Result<Vec<graph::NodeRef>, SyntaxError> {
         let mut ids = Vec::new();
 
         // register builtin declarations
         ids.push(self.register_builtin(
             "print_num",
             vec![("value", Type::Number)],
+            Type::Void,
+        ));
+        ids.push(self.register_builtin(
+            "print_lf",
+            vec![],
             Type::Void,
         ));
         ids.push(self.register_builtin(
@@ -370,7 +180,11 @@ impl<'a> Analyzer<'a> {
         ids.extend(self.translate_statements(ast)?);
 
         // make call main function
-        let call_main = parse::call_expr(parse::reference("main").as_node_internal(), Vec::new()).as_node_internal();
+        let call_main = ast::Node::new_call_expr(
+            ast::Node::new_reference("main", 0),
+            vec![],
+            0,
+        );
         ids.push(self.translate_expr(&call_main)?);
 
         Ok(ids)
@@ -378,8 +192,8 @@ impl<'a> Analyzer<'a> {
 
     fn translate_statements(
         &mut self,
-        parser_nodes: &Vec<parse::Node>,
-    ) -> Result<Vec<NodeRef>, SyntaxError> {
+        parser_nodes: &Vec<ast::Node>,
+    ) -> Result<Vec<graph::NodeRef>, SyntaxError> {
         let mut ids = Vec::new();
         for parser_node in parser_nodes.iter() {
             ids.push(self.translate_statement(parser_node)?);
@@ -390,195 +204,219 @@ impl<'a> Analyzer<'a> {
     /// Generate a graph node from a statement AST node.
     /// - check if the statement is available in the global or local
     /// - check type compatibility for inner expression
-    fn translate_statement(&mut self, parser_node: &parse::Node) -> Result<NodeRef, SyntaxError> {
-        match &parser_node.inner {
-            parse::NodeInner::FunctionDeclaration(parser_decl) => {
-                let mut params = Vec::new();
-                for (i, n) in parser_decl.params.iter().enumerate() {
-                    let param = n.inner.as_func_param();
-                    let param_type = match &param.type_identifier {
-                        Some(x) => Type::lookup(x, self.input, n.location)?, // TODO: improve error location
-                        None => return Err(SyntaxError::new_with_location("parameter type missing", self.input, n.location)),
-                    };
-                    // make param node
-                    let node = Node::FuncParam(FuncParam {
-                        identifier: param.identifier.clone(),
-                        param_index: i,
-                        ty: param_type,
-                    });
-                    let node_ref = self.register_node(node);
-                    params.push(node_ref);
-                }
-                let ret_ty = match &parser_decl.ret {
-                    Some(x) => Type::lookup(x, self.input, parser_node.location)?, // TODO: improve error location
-                    None => Type::Void,
-                };
-                let is_external = parser_decl
-                    .attributes
-                    .iter()
-                    .any(|x| *x == parse::FunctionAttribute::External);
-                if is_external {
-                    return Err(SyntaxError::new_with_location(
-                        "External function declarations are obsoleted",
-                        self.input,
-                        parser_node.location,
-                    ));
-                }
-                // make function node
-                let decl_node = Node::FunctionDeclaration(FunctionDeclaration {
-                    identifier: parser_decl.identifier.clone(),
-                    params,
-                    ret_ty,
-                    body: None,
-                });
-                let node_ref = self.register_node(decl_node);
-                // add to scope
-                self.scope.add_node(&parser_decl.identifier, node_ref);
+    fn translate_statement(&mut self, parser_node: &ast::Node) -> Result<graph::NodeRef, SyntaxError> {
+        match &parser_node {
+            ast::Node::Declaration(parser_decl) => {
+                match parser_decl.body.as_ref() {
+                    ast::Node::Function(func_decl) => {
+                        let mut params = Vec::new();
+                        for (_i, n) in func_decl.params.iter().enumerate() {
+                            let param = n.as_func_param();
+                            let param_type = match &param.type_identifier {
+                                Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, n))?, // TODO: improve error location
+                                None => return Err(self.make_low_error("parameter type missing", n)),
+                            };
+                            // make param node
+                            let node = graph::Node::FuncParam(FuncParam {
+                                identifier: param.identifier.clone(),
+                                // param_index: i,
+                                ty: param_type,
+                                pos: self.calc_location(n)?,
+                            });
+                            let node_ref = self.register_node(node);
+                            params.push(node_ref);
+                        }
+                        let ret_ty = match &func_decl.ret {
+                            Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
+                            None => Type::Void,
+                        };
+                        // make function node
+                        let decl_node = graph::Node::FunctionDeclaration(FunctionDeclaration {
+                            identifier: func_decl.identifier.clone(),
+                            params,
+                            ret_ty,
+                            body: None,
+                            pos: self.calc_location(parser_node)?,
+                        });
+                        let node_ref = self.register_node(decl_node);
+                        // add to stack
+                        self.stack.set_record(&func_decl.identifier, node_ref);
 
-                // define body
-                self.scope.enter_scope();
-                let mut i = 0;
-                loop {
-                    let decl = match node_ref.get(self.source) {
-                        Node::FunctionDeclaration(x) => x,
-                        _ => panic!("function expected"),
-                    };
-                    let param = match decl.params.get(i) {
-                        Some(&x) => x,
-                        None => break,
-                    };
-                    let param_node = match param.get(self.source) {
-                        Node::FuncParam(x) => x,
-                        _ => panic!("function parameter expected"),
-                    };
-                    // add to scope
-                    self.scope.add_node(&param_node.identifier, param);
-                    i += 1;
-                }
-                let body = match &parser_decl.body {
-                    Some(body_nodes) => Some(FunctionBody::Statements(self.translate_statements(body_nodes)?)),
-                    None => None,
-                };
-                let decl = match node_ref.get_mut(self.source) {
-                    Node::FunctionDeclaration(x) => x,
-                    _ => panic!("function expected"),
-                };
-                decl.body = body;
-                self.scope.leave_scope();
+                        // define body
+                        self.stack.push_frame();
+                        let mut i = 0;
+                        loop {
+                            let decl = match node_ref.get(self.source) {
+                                graph::Node::FunctionDeclaration(x) => x,
+                                _ => panic!("function expected"),
+                            };
+                            let param = match decl.params.get(i) {
+                                Some(&x) => x,
+                                None => break,
+                            };
+                            let param_node = match param.get(self.source) {
+                                graph::Node::FuncParam(x) => x,
+                                _ => panic!("function parameter expected"),
+                            };
+                            // add to stack
+                            self.stack.set_record(&param_node.identifier, param);
+                            i += 1;
+                        }
+                        let body = match &func_decl.body {
+                            Some(body_nodes) => Some(FunctionBody::Statements(self.translate_statements(body_nodes)?)),
+                            None => None,
+                        };
+                        let decl = match node_ref.get_mut(self.source) {
+                            graph::Node::FunctionDeclaration(x) => x,
+                            _ => panic!("function expected"),
+                        };
+                        decl.body = body;
+                        self.stack.pop_frame();
 
-                Ok(node_ref)
+                        Ok(node_ref)
+                    }
+                    ast::Node::Variable(var_decl) => {
+                        let body_ref = self.translate_expr(&var_decl.body)?;
+                        let body = body_ref.get(self.source);
+                        let is_mutable = var_decl
+                            .attributes
+                            .iter()
+                            .any(|x| *x == VariableAttribute::Let);
+                        let body_ty = body.get_ty()
+                            .map_err(|e| self.make_error(&e, body))?;
+                        if body_ty == Type::Function {
+                            return Err(self.make_error("type `function` is not supported", body));
+                        }
+                        // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
+                        let ty = match &var_decl.type_identifier {
+                            Some(ident) => {
+                                let specified_ty = Type::lookup_user_type(ident)
+                                    .map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error location
+                                Type::assert(body_ty, specified_ty)
+                                    .map_err(|e| self.make_error(&e, body))?
+                            }
+                            None => body_ty,
+                        };
+                        // make node
+                        let node = graph::Node::VariableDeclaration(VariableDeclaration {
+                            identifier: var_decl.identifier.clone(),
+                            body: body_ref,
+                            is_mutable,
+                            ty,
+                            pos: self.calc_location(parser_node)?,
+                        });
+                        let node_ref = self.register_node(node);
+                        // add to stack
+                        self.stack.set_record(&var_decl.identifier, node_ref);
+                        Ok(node_ref)
+                    }
+                    _ => panic!("unexpected declaration"),
+                }
             }
-            parse::NodeInner::VariableDeclaration(decl) => {
-                let body = self.translate_expr(&decl.body)?;
-                let is_mutable = decl
-                    .attributes
-                    .iter()
-                    .any(|x| *x == parse::VariableAttribute::Let);
-                let infer_ty = body.get(self.source).get_ty();
-                // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
-                let ty = match &decl.type_identifier {
-                    Some(ident) => Type::assert(infer_ty, Type::lookup(ident, self.input, parser_node.location)?, self.input, parser_node.location)?, // TODO: improve error location
-                    None => infer_ty,
-                };
-                // make node
-                let node = Node::VariableDeclaration(VariableDeclaration {
-                    identifier: decl.identifier.clone(),
-                    body,
-                    is_mutable,
-                    ty,
-                });
-                let node_ref = self.register_node(node);
-                // add to scope
-                self.scope.add_node(&decl.identifier, node_ref);
-                Ok(node_ref)
-            }
-            parse::NodeInner::BreakStatement => {
-                if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new_with_location(
-                        "A break statement cannot be used in global space",
-                        self.input,
-                        parser_node.location,
-                    ));
+            ast::Node::BreakStatement(_) => {
+                if self.stack.frames.len() == 1 {
+                    return Err(self.make_low_error("A break statement cannot be used in global space", parser_node));
                 }
                 // TODO: check target
-                let node = Node::BreakStatement;
+                let node = graph::Node::BreakStatement(BreakStatement {
+                    pos: self.calc_location(parser_node)?,
+                });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeInner::ReturnStatement(expr) => {
+            ast::Node::ReturnStatement(node) => {
                 // TODO: consider type check
                 // when global scope
-                if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new_with_location(
-                        "A return statement cannot be used in global space",
-                        self.input,
-                        parser_node.location,
-                    ));
+                if self.stack.frames.len() == 1 {
+                    return Err(self.make_low_error("A return statement cannot be used in global space", parser_node));
                 }
-                let inner = match expr {
+                let body = match node.body.as_ref() {
                     Some(x) => Some(self.translate_expr(x)?),
                     None => None,
                 };
-                let node = Node::ReturnStatement(inner);
+                let node = graph::Node::ReturnStatement(ReturnStatement {
+                    body,
+                    pos: self.calc_location(parser_node)?,
+                });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeInner::Assignment(statement) => {
+            ast::Node::Assignment(statement) => {
                 // when global scope
-                if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new_with_location(
-                        "An assignment statement cannot be used in global space",
-                        self.input,
-                        parser_node.location,
-                    ));
+                if self.stack.frames.len() == 1 {
+                    return Err(self.make_low_error("An assignment statement cannot be used in global space", parser_node));
                 }
                 let dest = self.translate_expr(&statement.dest)?;
                 let body = self.translate_expr(&statement.body)?;
                 match statement.mode {
                     AssignmentMode::Assign => {
                         let dest_node = dest.get(self.source);
-                        if let Ok(_) = dest_node.as_function() {
-                            return Err(SyntaxError::new_with_location("function is not assignable", self.input, statement.dest.location));
+                        let body_node = body.get(self.source);
+                        let dest_ty = dest_node.get_ty()
+                            .map_err(|e| self.make_low_error(&e, parser_node))?;
+                        let body_ty = body_node.get_ty()
+                            .map_err(|e| self.make_error(&e, body_node))?;
+                        if dest_ty == Type::Function {
+                            return Err(self.make_error("type `function` is not supported", dest_node));
                         }
-                        let dest_ty = dest_node.get_ty();
-                        let body_ty = body.get(self.source).get_ty();
-                        Type::assert(body_ty, dest_ty, self.input, parser_node.location)?;
+                        if body_ty == Type::Function {
+                            return Err(self.make_error("type `function` is not supported", body_node));
+                        }
+                        Type::assert(body_ty, dest_ty)
+                            .map_err(|e| self.make_error(&e, body_node))?;
                     },
                     AssignmentMode::AddAssign
                     | AssignmentMode::SubAssign
                     | AssignmentMode::MultAssign
-                    | AssignmentMode::DivAssign => {
-                        let dest_ty = dest.get(self.source).get_ty();
-                        Type::assert(dest_ty, Type::Number, self.input, parser_node.location)?; // TODO: improve error message
-                        let body_ty = body.get(self.source).get_ty();
-                        Type::assert(body_ty, Type::Number, self.input, statement.body.location)?;
+                    | AssignmentMode::DivAssign
+                    | AssignmentMode::ModAssign => {
+                        let dest_node = dest.get(self.source);
+                        let body_node = body.get(self.source);
+                        let dest_ty = dest_node.get_ty()
+                            .map_err(|e| self.make_low_error(&e, parser_node))?;
+                        Type::assert(dest_ty, Type::Number)
+                            .map_err(|e| self.make_error(&e, dest_node))?; // TODO: improve error message
+                        let body_ty = body_node.get_ty()
+                            .map_err(|e| self.make_error(&e, body_node))?;
+                        Type::assert(body_ty, Type::Number)
+                            .map_err(|e| self.make_error(&e, body_node))?;
                     }
                 }
-                let node = Node::Assignment(Assignment { dest, body, mode: statement.mode });
+                let node = graph::Node::Assignment(Assignment {
+                    dest,
+                    body,
+                    mode: statement.mode,
+                    pos: self.calc_location(parser_node)?,
+                });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeInner::IfStatement(if_statement) => {
+            ast::Node::IfStatement(if_statement) => {
                 fn transform(
                     index: usize,
                     analyzer: &mut Analyzer,
-                    items: &Vec<(Box<parse::Node>, Vec<parse::Node>)>,
-                    else_block: &Option<Vec<parse::Node>>,
-                ) -> Result<Option<NodeRef>, SyntaxError> {
+                    parser_node: &ast::Node,
+                    items: &Vec<(Box<ast::Node>, Vec<ast::Node>)>,
+                    else_block: &Option<Vec<ast::Node>>,
+                ) -> Result<Option<graph::NodeRef>, SyntaxError> {
                     match items.get(index) {
                         Some((cond, then_block)) => {
-                            let cond_node = analyzer.translate_expr(cond)?;
-                            let cond_ty = cond_node.get(analyzer.source).get_ty();
-                            Type::assert(cond_ty, Type::Bool, analyzer.input, cond.location)?;
+                            let cond_ref = analyzer.translate_expr(cond)?;
+                            let cond_node = cond_ref.get(analyzer.source);
+                            let cond_ty = cond_node.get_ty()
+                                .map_err(|e| analyzer.make_error(&e, cond_node))?;
+                            Type::assert(cond_ty, Type::Bool)
+                                .map_err(|e| analyzer.make_error(&e, cond_node))?;
                             let then_nodes = analyzer.translate_statements(then_block)?;
                             // next else if part
-                            let elif = transform(index + 1, analyzer, items, else_block)?;
+                            let elif = transform(index + 1, analyzer, parser_node, items, else_block)?;
                             match elif {
                                 Some(x) => {
-                                    let node = Node::IfStatement(IfStatement {
-                                        condition: cond_node,
+                                    let node = graph::Node::IfStatement(IfStatement {
+                                        condition: cond_ref,
                                         then_block: then_nodes,
                                         else_block: vec![x],
+                                        pos: analyzer.calc_location(parser_node)?,
                                     });
                                     let node_ref = analyzer.register_node(node);
                                     Ok(Some(node_ref))
@@ -588,10 +426,11 @@ impl<'a> Analyzer<'a> {
                                         Some(x) => analyzer.translate_statements(x)?,
                                         None => vec![],
                                     };
-                                    let node = Node::IfStatement(IfStatement {
-                                        condition: cond_node,
+                                    let node = graph::Node::IfStatement(IfStatement {
+                                        condition: cond_ref,
                                         then_block: then_nodes,
                                         else_block: else_nodes,
+                                        pos: analyzer.calc_location(parser_node)?,
                                     });
                                     let node_ref = analyzer.register_node(node);
                                     Ok(Some(node_ref))
@@ -605,6 +444,7 @@ impl<'a> Analyzer<'a> {
                 let node_ref = match transform(
                     0,
                     self,
+                    parser_node,
                     &if_statement.cond_blocks,
                     &if_statement.else_block,
                 )? {
@@ -613,176 +453,280 @@ impl<'a> Analyzer<'a> {
                 };
                 Ok(node_ref)
             }
-            parse::NodeInner::LoopStatement(statement) => {
-                if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new_with_location(
-                        "A loop statement cannot be used in global space",
-                        self.input,
-                        parser_node.location,
-                    ));
+            ast::Node::LoopStatement(statement) => {
+                if self.stack.frames.len() == 1 {
+                    return Err(self.make_low_error("A loop statement cannot be used in global space", parser_node));
                 }
                 let body = self.translate_statements(&statement.body)?;
-                let node = Node::LoopStatement(body);
+                let node = graph::Node::LoopStatement(LoopStatement {
+                    body,
+                    pos: self.calc_location(parser_node)?,
+                });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeInner::Reference(_)
-            | parse::NodeInner::Literal(_)
-            | parse::NodeInner::BinaryExpr(_)
-            | parse::NodeInner::CallExpr(_) => {
+            ast::Node::Reference(_)
+            | ast::Node::NumberLiteral(_)
+            | ast::Node::BoolLiteral(_)
+            | ast::Node::BinaryExpr(_)
+            | ast::Node::UnaryOp(_)
+            | ast::Node::CallExpr(_) => {
                 // when global scope
-                if self.scope.layers.len() == 1 {
-                    return Err(SyntaxError::new_with_location(
-                        "An expression cannot be used in global space",
-                        self.input,
-                        parser_node.location,
-                    ));
+                if self.stack.frames.len() == 1 {
+                    return Err(self.make_low_error("An expression cannot be used in global space", parser_node));
                 }
                 self.translate_expr(parser_node)
             }
-            parse::NodeInner::FuncParam(_) => panic!("unexpected node"),
+            ast::Node::Function(_)
+            | ast::Node::FuncParam(_)
+            | ast::Node::Variable(_) => panic!("unexpected node"),
         }
     }
 
     /// Generate a graph node from a expression AST node.
     /// - infer type for the expression
     /// - check type compatibility for inner expression
-    fn translate_expr(&mut self, parser_node: &parse::Node) -> Result<NodeRef, SyntaxError> {
-        match &parser_node.inner {
-            parse::NodeInner::Reference(reference) => {
-                match self.scope.lookup(&reference.identifier) {
-                    Some(node_ref) => Ok(node_ref),
-                    None => Err(SyntaxError::new_with_location("unknown identifier", self.input, parser_node.location)),
-                }
+    fn translate_expr(&mut self, parser_node: &ast::Node) -> Result<graph::NodeRef, SyntaxError> {
+        match parser_node {
+            ast::Node::Reference(reference) => {
+                let dest_ref = match self.stack.get_record(&reference.identifier) {
+                    Some(x) => x,
+                    None => return Err(self.make_low_error("unknown identifier", parser_node)),
+                };
+                let dest_node = dest_ref.get(self.source);
+                let dest_ty = dest_node.get_ty()
+                    .map_err(|e| self.make_error(&e, dest_node))?;
+                let node = graph::Node::Reference(Reference {
+                    dest: dest_ref,
+                    ty: dest_ty,
+                    pos: self.calc_location(parser_node)?,
+                });
+                let node_ref = self.register_node(node);
+                Ok(node_ref)
             }
-            parse::NodeInner::Literal(parse::Literal::Number(n)) => {
-                let node = Node::Literal(Literal {
-                    value: LiteralValue::Number(*n),
+            ast::Node::NumberLiteral(node) => {
+                let node = graph::Node::Literal(Literal {
+                    value: LiteralValue::Number(node.value),
                     ty: Type::Number,
+                    pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeInner::Literal(parse::Literal::Bool(value)) => {
-                let node = Node::Literal(Literal {
-                    value: LiteralValue::Bool(*value),
+            ast::Node::BoolLiteral(node) => {
+                let node = graph::Node::Literal(Literal {
+                    value: LiteralValue::Bool(node.value),
                     ty: Type::Bool,
+                    pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeInner::BinaryExpr(binary_expr) => {
-                let left = self.translate_expr(&binary_expr.left)?;
-                let right = self.translate_expr(&binary_expr.right)?;
-                let left_ty = left.get(self.source).get_ty();
-                let right_ty = right.get(self.source).get_ty();
-                let op = match binary_expr.operator.as_str() {
-                    "+" => Operator::Add,
-                    "-" => Operator::Sub,
-                    "*" => Operator::Mult,
-                    "/" => Operator::Div,
-                    "==" => Operator::Equal,
-                    "!=" => Operator::NotEqual,
-                    "<" => Operator::LessThan,
-                    "<=" => Operator::LessThanEqual,
-                    ">" => Operator::GreaterThan,
-                    ">=" => Operator::GreaterThanEqual,
-                    _ => panic!("unexpected operator"),
+            ast::Node::UnaryOp(unary_op) => {
+                let expr_ref = self.translate_expr(&unary_op.expr)?;
+                let expr_node = expr_ref.get(self.source);
+                let expr_ty = expr_node.get_ty()
+                    .map_err(|e| self.make_error(&e, expr_node))?;
+                if expr_ty == Type::Function {
+                    return Err(self.make_error("type `function` is not supported", expr_node));
+                }
+                let op_str = unary_op.operator.as_str();
+                let op = match op_str {
+                    "!" => LogicalUnaryOperator::Not,
+                    _ => return Err(self.make_low_error("unexpected operation", parser_node)),
                 };
-                let node = match op {
-                    Operator::Add
-                    | Operator::Sub
-                    | Operator::Mult
-                    | Operator::Div => {
-                        Type::assert(left_ty, Type::Number, self.input, binary_expr.left.location)?;
-                        Type::assert(right_ty, Type::Number, self.input, binary_expr.right.location)?;
-                        Node::BinaryExpr(BinaryExpr {
-                            operator: op,
-                            left,
-                            right,
-                            ty: Type::Number,
-                        })
-                    }
-                    Operator::Equal
-                    | Operator::NotEqual
-                    | Operator::LessThan
-                    | Operator::LessThanEqual
-                    | Operator::GreaterThan
-                    | Operator::GreaterThanEqual => {
-                        Type::assert(right_ty, left_ty, self.input, parser_node.location)?; // TODO: improve error message
-                        Node::BinaryExpr(BinaryExpr {
-                            operator: op,
-                            left,
-                            right,
-                            ty: Type::Bool,
-                        })
-                    }
-                };
+                Type::assert(expr_ty, Type::Bool)
+                    .map_err(|e| self.make_error(&e, expr_node))?;
+                let node = graph::Node::LogicalUnaryOp(LogicalUnaryOp {
+                    operator: op,
+                    expr: expr_ref,
+                    ty: Type::Bool,
+                    pos: self.calc_location(parser_node)?,
+                });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeInner::CallExpr(call_expr) => {
-                let callee_node = self.translate_expr(&call_expr.callee)?;
-                let callee = callee_node.get(self.source).as_function()?;
+            ast::Node::BinaryExpr(binary_expr) => {
+                let left_ref = self.translate_expr(&binary_expr.left)?;
+                let right_ref = self.translate_expr(&binary_expr.right)?;
+                let left_node = left_ref.get(self.source);
+                let right_node = right_ref.get(self.source);
+                let left_ty = left_node.get_ty()
+                    .map_err(|e| self.make_error(&e, left_node))?;
+                let right_ty = right_node.get_ty()
+                    .map_err(|e| self.make_error(&e, right_node))?;
+                if left_ty == Type::Function {
+                    return Err(self.make_error("type `function` is not supported", left_node));
+                }
+                if right_ty == Type::Function {
+                    return Err(self.make_error("type `function` is not supported", right_node));
+                }
+                let op_str = binary_expr.operator.as_str();
+                // Arithmetic Operation
+                {
+                    let op = match op_str {
+                        "+" => Some(ArithmeticOperator::Add),
+                        "-" => Some(ArithmeticOperator::Sub),
+                        "*" => Some(ArithmeticOperator::Mult),
+                        "/" => Some(ArithmeticOperator::Div),
+                        "%" => Some(ArithmeticOperator::Mod),
+                        _ => None,
+                    };
+                    if let Some(op) = op {
+                        Type::assert(left_ty, Type::Number)
+                            .map_err(|e| self.make_error(&e, left_node))?;
+                        Type::assert(right_ty, Type::Number)
+                            .map_err(|e| self.make_error(&e, right_node))?;
+                        let node = graph::Node::ArithmeticOp(ArithmeticOp {
+                            operator: op,
+                            left: left_ref,
+                            right: right_ref,
+                            ty: Type::Number,
+                            pos: self.calc_location(parser_node)?,
+                        });
+                        let node_ref = self.register_node(node);
+                        return Ok(node_ref);
+                    }
+                }
+                // Relational Operation
+                {
+                    let op = match op_str {
+                        "==" => Some(RelationalOperator::Equal),
+                        "!=" => Some(RelationalOperator::NotEqual),
+                        "<" => Some(RelationalOperator::LessThan),
+                        "<=" => Some(RelationalOperator::LessThanEqual),
+                        ">" => Some(RelationalOperator::GreaterThan),
+                        ">=" => Some(RelationalOperator::GreaterThanEqual),
+                        _ => None,
+                    };
+                    if let Some(op) = op {
+                        Type::assert(right_ty, left_ty)
+                            .map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error message
+                        let node = graph::Node::RelationalOp(RelationalOp {
+                            operator: op,
+                            relation_type: left_ty,
+                            left: left_ref,
+                            right: right_ref,
+                            ty: Type::Bool,
+                            pos: self.calc_location(parser_node)?,
+                        });
+                        let node_ref = self.register_node(node);
+                        return Ok(node_ref);
+                    }
+                }
+                // Logical Operation
+                {
+                    let op = match op_str {
+                        "&&" => Some(LogicalBinaryOperator::And),
+                        "||" => Some(LogicalBinaryOperator::Or),
+                        _ => None,
+                    };
+                    if let Some(op) = op {
+                        Type::assert(left_ty, Type::Bool)
+                            .map_err(|e| self.make_error(&e, left_node))?;
+                        Type::assert(right_ty, Type::Bool)
+                            .map_err(|e| self.make_error(&e, right_node))?;
+                        let node = graph::Node::LogicalBinaryOp(LogicalBinaryOp {
+                            operator: op,
+                            left: left_ref,
+                            right: right_ref,
+                            ty: Type::Bool,
+                            pos: self.calc_location(parser_node)?,
+                        });
+                        let node_ref = self.register_node(node);
+                        return Ok(node_ref);
+                    }
+                }
+                Err(self.make_low_error("unexpected operation", parser_node))
+            }
+            ast::Node::CallExpr(call_expr) => {
+                let callee_container_ref = self.translate_expr(&call_expr.callee)?;
+                let callee_container_node = callee_container_ref.get(self.source); // node: reference -> declaration -> function
+                let callee_node = match callee_container_node.as_reference() {
+                    Some(x) => x.dest.get(self.source),
+                    None => return Err(self.make_error("reference expected", callee_container_node)),
+                };
+                let callee = match callee_node.as_function() {
+                    Some(x) => x,
+                    None => return Err(self.make_error("function expected", callee_container_node)),
+                };
                 let ret_ty = callee.ret_ty;
                 let params = callee.params.clone();
                 if params.len() != call_expr.args.len() {
-                    return Err(SyntaxError::new_with_location("argument count incorrect", self.input, parser_node.location));
+                    return Err(self.make_low_error("argument count incorrect", parser_node));
                 }
                 let mut args = Vec::new();
-                for (i, &param) in params.iter().enumerate() {
-                    let arg = self.translate_expr(&call_expr.args[i])?;
-                    let param_ty = param.get(self.source).get_ty();
-                    let arg_ty = arg.get(self.source).get_ty();
-                    Type::assert(arg_ty, param_ty, self.input, call_expr.args[i].location)?;
-                    args.push(arg);
+                for (i, &param_ref) in params.iter().enumerate() {
+                    let arg_ref = self.translate_expr(&call_expr.args[i])?;
+                    let arg_node = arg_ref.get(self.source);
+                    let param_node = param_ref.get(self.source);
+                    let param_ty = param_node.get_ty()
+                        .map_err(|e| self.make_error(&e, param_node))?;
+                    let arg_ty = arg_node.get_ty()
+                        .map_err(|e| self.make_error(&e, arg_node))?;
+                    if param_ty == Type::Function {
+                        return Err(self.make_error("type `function` is not supported", param_node));
+                    }
+                    if arg_ty == Type::Function {
+                        return Err(self.make_error("type `function` is not supported", arg_node));
+                    }
+                    Type::assert(arg_ty, param_ty)
+                        .map_err(|e| self.make_error(&e, arg_node))?;
+                    args.push(arg_ref);
                 }
-                let node = Node::CallExpr(CallExpr {
-                    callee: callee_node,
+                let node = graph::Node::CallExpr(CallExpr {
+                    callee: callee_container_ref,
                     args,
                     ty: ret_ty,
+                    pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            parse::NodeInner::FunctionDeclaration(_)
-            | parse::NodeInner::VariableDeclaration(_)
-            | parse::NodeInner::BreakStatement
-            | parse::NodeInner::ReturnStatement(_)
-            | parse::NodeInner::Assignment(_)
-            | parse::NodeInner::IfStatement(_)
-            | parse::NodeInner::LoopStatement(_)
-            | parse::NodeInner::FuncParam(_) => {
+            ast::Node::Declaration(_)
+            | ast::Node::Function(_)
+            | ast::Node::Variable(_)
+            | ast::Node::BreakStatement(_)
+            | ast::Node::ReturnStatement(_)
+            | ast::Node::Assignment(_)
+            | ast::Node::IfStatement(_)
+            | ast::Node::LoopStatement(_)
+            | ast::Node::FuncParam(_) => {
                 panic!("unexpected expr node");
             }
         }
     }
 
     /// Show the resolved graph
-    pub fn show_graph(&self) {
+    pub(crate) fn show_graph(&self) {
         for i in 0..self.source.len() {
-            self.show_node(NodeRef::new(i));
+            self.show_node(graph::NodeRef::new(i));
         }
     }
 
-    fn show_node(&self, node_ref: NodeRef) {
-        let name = match node_ref.get(self.source) {
-            Node::FunctionDeclaration(_) => "FunctionDeclaration",
-            Node::VariableDeclaration(_) => "VariableDeclaration",
-            Node::BreakStatement => "BreakStatement",
-            Node::ReturnStatement(_) => "ReturnStatement",
-            Node::Assignment(_) => "Assignment",
-            Node::IfStatement(_) => "IfStatement",
-            Node::LoopStatement(_) => "LoopStatement",
-            Node::Literal(_) => "Literal",
-            Node::BinaryExpr(_) => "BinaryExpr",
-            Node::CallExpr(_) => "CallExpr",
-            Node::FuncParam(_) => "FuncParam",
+    fn show_node(&self, node_ref: graph::NodeRef) {
+        let node = node_ref.get(self.source);
+        let name = match node {
+            graph::Node::FunctionDeclaration(_) => "FunctionDeclaration",
+            graph::Node::VariableDeclaration(_) => "VariableDeclaration",
+            graph::Node::BreakStatement(_) => "BreakStatement",
+            graph::Node::ReturnStatement(_) => "ReturnStatement",
+            graph::Node::Assignment(_) => "Assignment",
+            graph::Node::IfStatement(_) => "IfStatement",
+            graph::Node::LoopStatement(_) => "LoopStatement",
+            graph::Node::Reference(_) => "Reference",
+            graph::Node::Literal(_) => "Literal",
+            graph::Node::RelationalOp(_) => "RelationalOp",
+            graph::Node::LogicalBinaryOp(_) => "LogicalBinaryOp",
+            graph::Node::ArithmeticOp(_) => "ArithmeticOp",
+            graph::Node::LogicalUnaryOp(_) => "LogicalUnaryOp",
+            graph::Node::CallExpr(_) => "CallExpr",
+            graph::Node::FuncParam(_) => "FuncParam",
         };
-        println!("[{}] {}", node_ref.id, name);
-
-        match node_ref.get(self.source) {
-            Node::FunctionDeclaration(func) => {
+        let (line, column) = node.get_pos();
+        println!("[{}] {} ({}:{})", node_ref.id, name, line, column);
+        match node {
+            graph::Node::FunctionDeclaration(func) => {
                 println!("  name: {}", func.identifier);
                 println!("  params: {{");
                 for param in func.params.iter() {
@@ -805,16 +749,16 @@ impl<'a> Analyzer<'a> {
                     }
                 }
             }
-            Node::VariableDeclaration(variable) => {
+            graph::Node::VariableDeclaration(variable) => {
                 println!("  name: {}", variable.identifier);
                 println!("  body: {{");
                 println!("    [{}]", variable.body.id);
                 println!("  }}");
                 println!("  is_mutable: {}", variable.is_mutable);
             }
-            Node::BreakStatement => {}
-            Node::ReturnStatement(expr) => {
-                match expr {
+            graph::Node::BreakStatement(_) => {}
+            graph::Node::ReturnStatement(node) => {
+                match node.body {
                     Some(x) => {
                         println!("  expr: {{");
                         println!("    [{}]", x.id);
@@ -825,7 +769,7 @@ impl<'a> Analyzer<'a> {
                     }
                 }
             }
-            Node::Assignment(statement) => {
+            graph::Node::Assignment(statement) => {
                 println!("  dest: {{");
                 println!("    [{}]", statement.dest.id);
                 println!("  }}");
@@ -833,7 +777,7 @@ impl<'a> Analyzer<'a> {
                 println!("    [{}]", statement.body.id);
                 println!("  }}");
             }
-            Node::IfStatement(if_statement) => {
+            graph::Node::IfStatement(if_statement) => {
                 println!("  condition: {{");
                 println!("    [{}]", if_statement.condition.id);
                 println!("  }}");
@@ -848,26 +792,55 @@ impl<'a> Analyzer<'a> {
                 }
                 println!("  }}");
             }
-            Node::LoopStatement(statement) => {
+            graph::Node::LoopStatement(statement) => {
                 println!("  body: {{");
-                for item in statement.iter() {
+                for item in statement.body.iter() {
                     println!("    [{}]", item.id);
                 }
                 println!("  }}");
             }
-            Node::Literal(literal) => {
+            graph::Node::Reference(x) => {
+                println!("  dest: {{");
+                println!("    [{}]", x.dest.id);
+                println!("  }}");
+            }
+            graph::Node::Literal(literal) => {
                 println!("  value: {:?}", literal.value);
             }
-            Node::BinaryExpr(binary_expr) => {
-                println!("  operator: {:?}", binary_expr.operator);
+            graph::Node::RelationalOp(expr) => {
+                println!("  operator: {:?}", expr.operator);
                 println!("  left: {{");
-                println!("    [{}]", binary_expr.left.id);
+                println!("    [{}]", expr.left.id);
                 println!("  }}");
                 println!("  right: {{");
-                println!("    [{}]", binary_expr.right.id);
+                println!("    [{}]", expr.right.id);
                 println!("  }}");
-            }
-            Node::CallExpr(call_expr) => {
+            },
+            graph::Node::LogicalBinaryOp(expr) => {
+                println!("  operator: {:?}", expr.operator);
+                println!("  left: {{");
+                println!("    [{}]", expr.left.id);
+                println!("  }}");
+                println!("  right: {{");
+                println!("    [{}]", expr.right.id);
+                println!("  }}");
+            },
+            graph::Node::ArithmeticOp(expr) => {
+                println!("  operator: {:?}", expr.operator);
+                println!("  left: {{");
+                println!("    [{}]", expr.left.id);
+                println!("  }}");
+                println!("  right: {{");
+                println!("    [{}]", expr.right.id);
+                println!("  }}");
+            },
+            graph::Node::LogicalUnaryOp(op) => {
+                println!("  operator: {:?}", op.operator);
+                println!("  expr: {{");
+                println!("    [{}]", op.expr.id);
+                println!("  }}");
+            },
+            graph::Node::CallExpr(call_expr) => {
                 println!("  callee: {{");
                 println!("    [{}]", call_expr.callee.id);
                 println!("  }}");
@@ -877,7 +850,7 @@ impl<'a> Analyzer<'a> {
                 }
                 println!("  }}");
             }
-            Node::FuncParam(func_param) => {
+            graph::Node::FuncParam(func_param) => {
                 println!("  name: {}", func_param.identifier);
             }
         }
