@@ -1,13 +1,13 @@
 use crate::ast;
-use crate::SyntaxError;
 use crate::ast::{
     AssignmentMode,
-    VariableAttribute
+    VariableAttribute,
 };
 use crate::graph::{
     self,
+    ArithmeticOp,
+    ArithmeticOperator,
     Assignment,
-    BinaryExpr,
     BreakStatement,
     CallExpr,
     FuncParam,
@@ -16,13 +16,17 @@ use crate::graph::{
     IfStatement,
     Literal,
     LiteralValue,
+    LogicalOp,
+    LogicalOperator,
     LoopStatement,
-    Operator,
     Reference,
+    RelationalOp,
+    RelationalOperator,
     ReturnStatement,
-    VariableDeclaration
+    VariableDeclaration,
 };
 use crate::types::Type;
+use crate::SyntaxError;
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -530,57 +534,83 @@ impl<'a> Analyzer<'a> {
                 if right_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", right_node));
                 }
-                let op = match binary_expr.operator.as_str() {
-                    "+" => Operator::Add,
-                    "-" => Operator::Sub,
-                    "*" => Operator::Mult,
-                    "/" => Operator::Div,
-                    "%" => Operator::Mod,
-                    "==" => Operator::Equal,
-                    "!=" => Operator::NotEqual,
-                    "<" => Operator::LessThan,
-                    "<=" => Operator::LessThanEqual,
-                    ">" => Operator::GreaterThan,
-                    ">=" => Operator::GreaterThanEqual,
-                    _ => panic!("unexpected operator"),
-                };
-                let node = match op {
-                    Operator::Add
-                    | Operator::Sub
-                    | Operator::Mult
-                    | Operator::Div
-                    | Operator::Mod => {
+                let op_str = binary_expr.operator.as_str();
+                // Arithmetic Operation
+                {
+                    let op = match op_str {
+                        "+" => Some(ArithmeticOperator::Add),
+                        "-" => Some(ArithmeticOperator::Sub),
+                        "*" => Some(ArithmeticOperator::Mult),
+                        "/" => Some(ArithmeticOperator::Div),
+                        "%" => Some(ArithmeticOperator::Mod),
+                        _ => None,
+                    };
+                    if let Some(op) = op {
                         Type::assert(left_ty, Type::Number)
                             .map_err(|e| self.make_error(&e, left_node))?;
                         Type::assert(right_ty, Type::Number)
                             .map_err(|e| self.make_error(&e, right_node))?;
-                        graph::Node::BinaryExpr(BinaryExpr {
+                        let node = graph::Node::ArithmeticOp(ArithmeticOp {
                             operator: op,
                             left: left_ref,
                             right: right_ref,
                             ty: Type::Number,
                             pos: self.calc_location(parser_node)?,
-                        })
+                        });
+                        let node_ref = self.register_node(node);
+                        return Ok(node_ref);
                     }
-                    Operator::Equal
-                    | Operator::NotEqual
-                    | Operator::LessThan
-                    | Operator::LessThanEqual
-                    | Operator::GreaterThan
-                    | Operator::GreaterThanEqual => {
+                }
+                // Relational Operation
+                {
+                    let op = match op_str {
+                        "==" => Some(RelationalOperator::Equal),
+                        "!=" => Some(RelationalOperator::NotEqual),
+                        "<" => Some(RelationalOperator::LessThan),
+                        "<=" => Some(RelationalOperator::LessThanEqual),
+                        ">" => Some(RelationalOperator::GreaterThan),
+                        ">=" => Some(RelationalOperator::GreaterThanEqual),
+                        _ => None,
+                    };
+                    if let Some(op) = op {
                         Type::assert(right_ty, left_ty)
                             .map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error message
-                        graph::Node::BinaryExpr(BinaryExpr {
+                        let node = graph::Node::RelationalOp(RelationalOp {
+                            operator: op,
+                            relation_type: left_ty,
+                            left: left_ref,
+                            right: right_ref,
+                            ty: Type::Bool,
+                            pos: self.calc_location(parser_node)?,
+                        });
+                        let node_ref = self.register_node(node);
+                        return Ok(node_ref);
+                    }
+                }
+                // Logical Operation
+                {
+                    let op = match op_str {
+                        "&&" => Some(LogicalOperator::And),
+                        "||" => Some(LogicalOperator::Or),
+                        _ => None,
+                    };
+                    if let Some(op) = op {
+                        Type::assert(left_ty, Type::Bool)
+                            .map_err(|e| self.make_error(&e, left_node))?;
+                        Type::assert(right_ty, Type::Bool)
+                            .map_err(|e| self.make_error(&e, right_node))?;
+                        let node = graph::Node::LogicalOp(LogicalOp {
                             operator: op,
                             left: left_ref,
                             right: right_ref,
                             ty: Type::Bool,
                             pos: self.calc_location(parser_node)?,
-                        })
+                        });
+                        let node_ref = self.register_node(node);
+                        return Ok(node_ref);
                     }
-                };
-                let node_ref = self.register_node(node);
-                Ok(node_ref)
+                }
+                Err(self.make_low_error("unexpected operation", parser_node))
             }
             ast::Node::CallExpr(call_expr) => {
                 let callee_container_ref = self.translate_expr(&call_expr.callee)?;
@@ -659,7 +689,9 @@ impl<'a> Analyzer<'a> {
             graph::Node::LoopStatement(_) => "LoopStatement",
             graph::Node::Reference(_) => "Reference",
             graph::Node::Literal(_) => "Literal",
-            graph::Node::BinaryExpr(_) => "BinaryExpr",
+            graph::Node::RelationalOp(_) => "RelationalOp",
+            graph::Node::LogicalOp(_) => "LogicalOp",
+            graph::Node::ArithmeticOp(_) => "ArithmeticOp",
             graph::Node::CallExpr(_) => "CallExpr",
             graph::Node::FuncParam(_) => "FuncParam",
         };
@@ -747,15 +779,33 @@ impl<'a> Analyzer<'a> {
             graph::Node::Literal(literal) => {
                 println!("  value: {:?}", literal.value);
             }
-            graph::Node::BinaryExpr(binary_expr) => {
-                println!("  operator: {:?}", binary_expr.operator);
+            graph::Node::RelationalOp(expr) => {
+                println!("  operator: {:?}", expr.operator);
                 println!("  left: {{");
-                println!("    [{}]", binary_expr.left.id);
+                println!("    [{}]", expr.left.id);
                 println!("  }}");
                 println!("  right: {{");
-                println!("    [{}]", binary_expr.right.id);
+                println!("    [{}]", expr.right.id);
                 println!("  }}");
-            }
+            },
+            graph::Node::LogicalOp(expr) => {
+                println!("  operator: {:?}", expr.operator);
+                println!("  left: {{");
+                println!("    [{}]", expr.left.id);
+                println!("  }}");
+                println!("  right: {{");
+                println!("    [{}]", expr.right.id);
+                println!("  }}");
+            },
+            graph::Node::ArithmeticOp(expr) => {
+                println!("  operator: {:?}", expr.operator);
+                println!("  left: {{");
+                println!("    [{}]", expr.left.id);
+                println!("  }}");
+                println!("  right: {{");
+                println!("    [{}]", expr.right.id);
+                println!("  }}");
+            },
             graph::Node::CallExpr(call_expr) => {
                 println!("  callee: {{");
                 println!("    [{}]", call_expr.callee.id);

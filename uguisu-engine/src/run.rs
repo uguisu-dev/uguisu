@@ -1,5 +1,5 @@
 use crate::ast::AssignmentMode;
-use crate::graph::{self, LiteralValue, Operator};
+use crate::graph::{self, LiteralValue, ArithmeticOperator, RelationalOperator, LogicalOperator};
 use crate::types::Type;
 use crate::RuntimeError;
 use std::collections::HashMap;
@@ -48,10 +48,10 @@ pub(crate) enum Value {
 }
 
 impl Value {
-    pub(crate) fn get_type_name(&self) -> &str {
+    pub(crate) fn get_type(&self) -> Type {
         match self {
-            Value::Number(_) => "number",
-            Value::Bool(_) => "bool",
+            Value::Number(_) => Type::Number,
+            Value::Bool(_) => Type::Bool,
             Value::Function(_) => panic!("get type error"),
             Value::NoneValue => panic!("get type error"),
         }
@@ -60,14 +60,14 @@ impl Value {
     pub(crate) fn as_number(&self) -> i64 {
         match self {
             &Value::Number(value) => value,
-            _ => panic!("type mismatched. expected `number`, found `{}`", self.get_type_name()),
+            _ => panic!("type mismatched. expected `number`, found `{}`", self.get_type().get_name()),
         }
     }
 
     pub(crate) fn as_bool(&self) -> bool {
         match self {
             &Value::Bool(value) => value,
-            _ => panic!("type mismatched. expected `bool`, found `{}`", self.get_type_name()),
+            _ => panic!("type mismatched. expected `bool`, found `{}`", self.get_type().get_name()),
         }
     }
 }
@@ -143,7 +143,9 @@ impl<'a> Runner<'a> {
             graph::Node::VariableDeclaration(_) => node_ref.id,
             graph::Node::Reference(reference) => self.resolve_address(reference.dest),
             graph::Node::Literal(_) => node_ref.id,
-            graph::Node::BinaryExpr(_) => node_ref.id,
+            graph::Node::RelationalOp(_) => node_ref.id,
+            graph::Node::LogicalOp(_) => node_ref.id,
+            graph::Node::ArithmeticOp(_) => node_ref.id,
             graph::Node::CallExpr(_) => node_ref.id,
             graph::Node::FuncParam(_) => node_ref.id,
             graph::Node::BreakStatement(_)
@@ -302,7 +304,9 @@ impl<'a> Runner<'a> {
             }
             graph::Node::Reference(_)
             | graph::Node::Literal(_)
-            | graph::Node::BinaryExpr(_)
+            | graph::Node::RelationalOp(_)
+            | graph::Node::LogicalOp(_)
+            | graph::Node::ArithmeticOp(_)
             | graph::Node::CallExpr(_)
             | graph::Node::FuncParam(_) => {
                 self.eval_expr(node_ref, stack)?;
@@ -330,75 +334,72 @@ impl<'a> Runner<'a> {
                     LiteralValue::Bool(value) => Ok(Value::Bool(value)),
                 }
             }
-            graph::Node::BinaryExpr(binary_expr) => {
-                match binary_expr.ty {
-                    Type::Bool => { // relational operation
-                        let left = self.eval_expr(binary_expr.left, stack)?;
-                        let right = self.eval_expr(binary_expr.right, stack)?;
-                        match left {
-                            Value::Number(l) => {
-                                let r = right.as_number();
-                                match binary_expr.operator {
-                                    Operator::Equal => Ok(Value::Bool(l == r)),
-                                    Operator::NotEqual => Ok(Value::Bool(l != r)),
-                                    Operator::LessThan => Ok(Value::Bool(l < r)),
-                                    Operator::LessThanEqual => Ok(Value::Bool(l <= r)),
-                                    Operator::GreaterThan => Ok(Value::Bool(l > r)),
-                                    Operator::GreaterThanEqual => Ok(Value::Bool(l >= r)),
-                                    _ => panic!("unsupported operation (node_id={})", node_ref.id),
-                                }
-                            }
-                            Value::Bool(l) => {
-                                let r = right.as_bool();
-                                match binary_expr.operator {
-                                    Operator::Equal => Ok(Value::Bool(l == r)),
-                                    Operator::NotEqual => Ok(Value::Bool(l != r)),
-                                    Operator::LessThan => Ok(Value::Bool(l < r)),
-                                    Operator::LessThanEqual => Ok(Value::Bool(l <= r)),
-                                    Operator::GreaterThan => Ok(Value::Bool(l > r)),
-                                    Operator::GreaterThanEqual => Ok(Value::Bool(l >= r)),
-                                    _ => panic!("unsupported operation (node_id={})", node_ref.id),
-                                }
-                            }
-                            Value::NoneValue => {
-                                panic!("invalid operation (node_id={})", node_ref.id)
-                            }
-                            Value::Function(_) => {
-                                Err(RuntimeError::new(
-                                    format!("function is not comparable").as_str()
-                                ))
-                            }
+            graph::Node::RelationalOp(expr) => {
+                let left = self.eval_expr(expr.left, stack)?;
+                let right = self.eval_expr(expr.right, stack)?;
+                match expr.relation_type {
+                    Type::Number => {
+                        let l = left.as_number();
+                        let r = right.as_number();
+                        match expr.operator {
+                            RelationalOperator::Equal => Ok(Value::Bool(l == r)),
+                            RelationalOperator::NotEqual => Ok(Value::Bool(l != r)),
+                            RelationalOperator::LessThan => Ok(Value::Bool(l < r)),
+                            RelationalOperator::LessThanEqual => Ok(Value::Bool(l <= r)),
+                            RelationalOperator::GreaterThan => Ok(Value::Bool(l > r)),
+                            RelationalOperator::GreaterThanEqual => Ok(Value::Bool(l >= r)),
                         }
                     }
-                    Type::Number => { // arithmetic operation
-                        let left = self.eval_expr(binary_expr.left, stack)?.as_number();
-                        let right = self.eval_expr(binary_expr.right, stack)?.as_number();
-                        match binary_expr.operator {
-                            Operator::Add => match left.checked_add(right) {
-                                Some(x) => Ok(Value::Number(x)),
-                                None => Err(RuntimeError::new("add operation overflowed")),
-                            }
-                            Operator::Sub => match left.checked_sub(right) {
-                                Some(x) => Ok(Value::Number(x)),
-                                None => Err(RuntimeError::new("sub operation overflowed")),
-                            }
-                            Operator::Mult => match left.checked_mul(right) {
-                                Some(x) => Ok(Value::Number(x)),
-                                None => Err(RuntimeError::new("mult operation overflowed")),
-                            }
-                            Operator::Div => match left.checked_div(right) {
-                                Some(x) => Ok(Value::Number(x)),
-                                None => Err(RuntimeError::new("div operation overflowed")),
-                            }
-                            Operator::Mod => match left.checked_rem(right) {
-                                Some(x) => Ok(Value::Number(x)),
-                                None => Err(RuntimeError::new("mod operation overflowed")),
-                            }
-                            _ => panic!("unsupported operation"),
+                    Type::Bool => {
+                        let l = left.as_bool();
+                        let r = right.as_bool();
+                        match expr.operator {
+                            RelationalOperator::Equal => Ok(Value::Bool(l == r)),
+                            RelationalOperator::NotEqual => Ok(Value::Bool(l != r)),
+                            RelationalOperator::LessThan => Ok(Value::Bool(l < r)),
+                            RelationalOperator::LessThanEqual => Ok(Value::Bool(l <= r)),
+                            RelationalOperator::GreaterThan => Ok(Value::Bool(l > r)),
+                            RelationalOperator::GreaterThanEqual => Ok(Value::Bool(l >= r)),
                         }
                     }
-                    Type::Void => panic!("unexpected type: void"),
-                    Type::Function => panic!("unexpected type: function"),
+                    Type::Function
+                    | Type::Void => {
+                        panic!("unsupported operation (node_id={})", node_ref.id);
+                    }
+                }
+            }
+            graph::Node::LogicalOp(expr) => {
+                let left = self.eval_expr(expr.left, stack)?.as_bool();
+                let right = self.eval_expr(expr.right, stack)?.as_bool();
+                match expr.operator {
+                    LogicalOperator::And => Ok(Value::Bool(left && right)),
+                    LogicalOperator::Or => Ok(Value::Bool(left || right)),
+                }
+            }
+            graph::Node::ArithmeticOp(expr) => {
+                let left = self.eval_expr(expr.left, stack)?.as_number();
+                let right = self.eval_expr(expr.right, stack)?.as_number();
+                match expr.operator {
+                    ArithmeticOperator::Add => match left.checked_add(right) {
+                        Some(x) => Ok(Value::Number(x)),
+                        None => Err(RuntimeError::new("add operation overflowed")),
+                    }
+                    ArithmeticOperator::Sub => match left.checked_sub(right) {
+                        Some(x) => Ok(Value::Number(x)),
+                        None => Err(RuntimeError::new("sub operation overflowed")),
+                    }
+                    ArithmeticOperator::Mult => match left.checked_mul(right) {
+                        Some(x) => Ok(Value::Number(x)),
+                        None => Err(RuntimeError::new("mult operation overflowed")),
+                    }
+                    ArithmeticOperator::Div => match left.checked_div(right) {
+                        Some(x) => Ok(Value::Number(x)),
+                        None => Err(RuntimeError::new("div operation overflowed")),
+                    }
+                    ArithmeticOperator::Mod => match left.checked_rem(right) {
+                        Some(x) => Ok(Value::Number(x)),
+                        None => Err(RuntimeError::new("mod operation overflowed")),
+                    }
                 }
             }
             graph::Node::CallExpr(call_expr) => {

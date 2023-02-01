@@ -68,6 +68,10 @@ peg::parser! {
             / e:expression() __* ";" { e }
 
         pub(crate) rule expression() -> Node = precedence! {
+            left:(@) __* p:pos() "||" __* right:@ { Node::new_binary_expr("||", left, right, p) }
+            --
+            left:(@) __* p:pos() "&&" __* right:@ { Node::new_binary_expr("&&", left, right, p) }
+            --
             left:(@) __* p:pos() "==" __* right:@ { Node::new_binary_expr("==", left, right, p) }
             left:(@) __* p:pos() "!=" __* right:@ { Node::new_binary_expr("!=", left, right, p) }
             --

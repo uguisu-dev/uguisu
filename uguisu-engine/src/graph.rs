@@ -38,7 +38,9 @@ pub(crate) enum Node {
     // expression
     Reference(Reference),
     Literal(Literal),
-    BinaryExpr(BinaryExpr),
+    RelationalOp(RelationalOp),
+    LogicalOp(LogicalOp),
+    ArithmeticOp(ArithmeticOp),
     CallExpr(CallExpr),
     FuncParam(FuncParam),
 }
@@ -48,7 +50,9 @@ impl Node {
         match self {
             Node::Reference(node) => Ok(node.ty),
             Node::Literal(node) => Ok(node.ty),
-            Node::BinaryExpr(node) => Ok(node.ty),
+            Node::RelationalOp(node) => Ok(node.ty),
+            Node::LogicalOp(node) => Ok(node.ty),
+            Node::ArithmeticOp(node) => Ok(node.ty),
             Node::CallExpr(node) => Ok(node.ty),
             Node::FuncParam(node) => Ok(node.ty),
             Node::VariableDeclaration(node) => Ok(node.ty),
@@ -74,7 +78,9 @@ impl Node {
             Self::LoopStatement(node) => node.pos,
             Self::Reference(node) => node.pos,
             Self::Literal(node) => node.pos,
-            Self::BinaryExpr(node) => node.pos,
+            Self::RelationalOp(node) => node.pos,
+            Self::LogicalOp(node) => node.pos,
+            Self::ArithmeticOp(node) => node.pos,
             Self::CallExpr(node) => node.pos,
             Self::FuncParam(node) => node.pos,
         }
@@ -169,8 +175,9 @@ pub(crate) enum LiteralValue {
     Bool(bool),
 }
 
-pub(crate) struct BinaryExpr {
-    pub operator: Operator,
+pub(crate) struct RelationalOp {
+    pub operator: RelationalOperator,
+    pub relation_type: Type,
     pub left: NodeRef,
     pub right: NodeRef,
     pub ty: Type,
@@ -178,18 +185,44 @@ pub(crate) struct BinaryExpr {
 }
 
 #[derive(Debug)]
-pub(crate) enum Operator {
-    Add,
-    Sub,
-    Mult,
-    Div,
-    Mod,
+pub(crate) enum RelationalOperator {
     Equal,
     NotEqual,
     GreaterThan,
     GreaterThanEqual,
     LessThan,
     LessThanEqual,
+}
+
+pub(crate) struct LogicalOp {
+    pub operator: LogicalOperator,
+    pub left: NodeRef,
+    pub right: NodeRef,
+    pub ty: Type,
+    pub pos: (usize, usize),
+}
+
+#[derive(Debug)]
+pub(crate) enum LogicalOperator {
+    And,
+    Or,
+}
+
+pub(crate) struct ArithmeticOp {
+    pub operator: ArithmeticOperator,
+    pub left: NodeRef,
+    pub right: NodeRef,
+    pub ty: Type,
+    pub pos: (usize, usize),
+}
+
+#[derive(Debug)]
+pub(crate) enum ArithmeticOperator {
+    Add,
+    Sub,
+    Mult,
+    Div,
+    Mod,
 }
 
 pub(crate) struct CallExpr {
