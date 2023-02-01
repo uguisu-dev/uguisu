@@ -1,3 +1,5 @@
+**NOTE: This document may be outdated.**
+
 言語仕様を考える
 
 ## 演算子の優先度
