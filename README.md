@@ -26,7 +26,7 @@ See [syntaxes (日本語)](https://github.com/uguisu-dev/uguisu/tree/master/docs
 ## Usage
 `uguisu` command:
 ```
-Usage: uguisu <Commands> [Options]
+Usage: uguisu [Options] [Commands]
 
 Commands:
     run                 Run a script file.

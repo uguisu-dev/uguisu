@@ -4,7 +4,7 @@ pub(crate) mod run;
 
 fn show_help(opts: Options) {
     let lines = [
-        "Usage: uguisu <Commands> [Options]",
+        "Usage: uguisu [Options] [Commands]",
         "",
         "Commands:",
         "    run                 Run a script file.",
