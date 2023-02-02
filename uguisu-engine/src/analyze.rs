@@ -345,7 +345,7 @@ impl<'a> Analyzer<'a> {
                 let body = match node.body.as_ref() {
                     Some(x) => {
                         let body_ref = self.translate_expr(x)?;
-                        let body_node = body_ref.get(&self.source);
+                        let body_node = body_ref.get(self.source);
                         let body_ty = body_node.get_ty()
                             .map_err(|e| self.make_error(&e, body_node))?;
                         if body_ty == Type::Function {
@@ -497,7 +497,7 @@ impl<'a> Analyzer<'a> {
                     return Err(self.make_low_error("An expression cannot be used in global space", parser_node));
                 }
                 let expr_ref = self.translate_expr(parser_node)?;
-                let expr_node = expr_ref.get(&self.source);
+                let expr_node = expr_ref.get(self.source);
                 let expr_ty = expr_node.get_ty()
                     .map_err(|e| self.make_error(&e, expr_node))?;
                 if expr_ty == Type::Function {
@@ -669,7 +669,7 @@ impl<'a> Analyzer<'a> {
             }
             ast::Node::CallExpr(call_expr) => {
                 let callee_ref = self.translate_expr(&call_expr.callee)?;
-                let callee = callee_ref.get(&self.source);
+                let callee = callee_ref.get(self.source);
                 let callee_func_ref = self.refer_node(callee_ref);
                 let callee_func_node = callee_func_ref.get(self.source);
                 let callee_func = callee_func_node.as_function_decl()
