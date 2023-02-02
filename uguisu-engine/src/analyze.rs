@@ -300,7 +300,7 @@ impl<'a> Analyzer<'a> {
                             identifier: var_decl.identifier.clone(),
                             body: None,
                             specified_ty,
-                            ty: specified_ty,
+                            ty: None,
                             pos: self.calc_location(parser_node)?,
                         });
                         let node_ref = self.register_node(node);
