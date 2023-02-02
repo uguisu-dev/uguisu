@@ -3,7 +3,8 @@ use crate::parse;
 #[derive(PartialEq)]
 pub enum Node {
     // statement
-    Declaration(Declaration),
+    FunctionDeclaration(FunctionDeclaration),
+    VariableDeclaration(VariableDeclaration),
     BreakStatement(BreakStatement),
     ReturnStatement(ReturnStatement),
     Assignment(Assignment),
@@ -17,16 +18,14 @@ pub enum Node {
     UnaryOp(UnaryOp),
     CallExpr(CallExpr),
     // function declaration
-    Function(Function),
     FuncParam(FuncParam),
-    // variable declaration
-    Variable(Variable),
 }
 
 impl Node {
     pub(crate) fn calc_location(&self, code: &str) -> Result<(usize, usize), String> {
         let pos = match self {
-            Node::Declaration(node) => node.pos,
+            Node::FunctionDeclaration(node) => node.pos,
+            Node::VariableDeclaration(node) => node.pos,
             Node::BreakStatement(node) => node.pos,
             Node::ReturnStatement(node) => node.pos,
             Node::Assignment(node) => node.pos,
@@ -38,16 +37,53 @@ impl Node {
             Node::BinaryExpr(node) => node.pos,
             Node::UnaryOp(node) => node.pos,
             Node::CallExpr(node) => node.pos,
-            Node::Function(node) => node.pos,
             Node::FuncParam(node) => node.pos,
-            Node::Variable(node) => node.pos,
         };
         parse::calc_location(pos, code)
     }
 
-    pub(crate) fn new_declaration(body: Node, pos: usize) -> Self {
-        Node::Declaration(Declaration {
-            body: Box::new(body),
+    pub(crate) fn new_function_declaration(
+        identifier: String,
+        body: Option<Vec<Node>>,
+        params: Vec<Node>,
+        ret: Option<String>,
+        attributes: Vec<FunctionAttribute>,
+        pos: usize,
+    ) -> Self {
+        Node::FunctionDeclaration(FunctionDeclaration {
+            identifier,
+            body,
+            params,
+            ret,
+            attributes,
+            pos,
+        })
+    }
+
+    pub(crate) fn new_func_param(identifier: String, type_identifier: Option<String>, pos: usize) -> Self {
+        Node::FuncParam(FuncParam {
+            identifier,
+            type_identifier,
+            pos,
+        })
+    }
+
+    pub(crate) fn new_variable_declaration(
+        identifier: String,
+        body: Option<Node>,
+        type_identifier: Option<String>,
+        attributes: Vec<VariableAttribute>,
+        pos: usize,
+    ) -> Self {
+        let body = match body {
+            Some(x) => Some(Box::new(x)),
+            None => None,
+        };
+        Node::VariableDeclaration(VariableDeclaration {
+            identifier,
+            body,
+            type_identifier,
+            attributes,
             pos,
         })
     }
@@ -130,48 +166,6 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_function(
-        identifier: String,
-        body: Option<Vec<Node>>,
-        params: Vec<Node>,
-        ret: Option<String>,
-        attributes: Vec<FunctionAttribute>,
-        pos: usize,
-    ) -> Self {
-        Node::Function(Function {
-            identifier,
-            body,
-            params,
-            ret,
-            attributes,
-            pos,
-        })
-    }
-
-    pub(crate) fn new_func_param(identifier: String, type_identifier: Option<String>, pos: usize) -> Self {
-        Node::FuncParam(FuncParam {
-            identifier,
-            type_identifier,
-            pos,
-        })
-    }
-
-    pub(crate) fn new_variable(
-        identifier: String,
-        body: Node,
-        type_identifier: Option<String>,
-        attributes: Vec<VariableAttribute>,
-        pos: usize,
-    ) -> Self {
-        Node::Variable(Variable {
-            identifier,
-            body: Box::new(body),
-            type_identifier,
-            attributes,
-            pos,
-        })
-    }
-
     pub(crate) fn as_func_param(&self) -> &FuncParam {
         match self {
             Node::FuncParam(x) => x,
@@ -181,9 +175,40 @@ impl Node {
 }
 
 #[derive(PartialEq)]
-pub struct Declaration {
-    pub body: Box<Node>,
+pub struct FunctionDeclaration {
+    pub identifier: String,
+    pub body: Option<Vec<Node>>,
+    pub params: Vec<Node>,
+    pub ret: Option<String>,
+    pub attributes: Vec<FunctionAttribute>,
     pub pos: usize,
+}
+
+#[derive(PartialEq)]
+pub enum FunctionAttribute {
+}
+
+#[derive(PartialEq)]
+pub struct FuncParam {
+    pub identifier: String,
+    pub type_identifier: Option<String>,
+    pub pos: usize,
+}
+
+#[derive(PartialEq)]
+pub struct VariableDeclaration {
+    pub identifier: String,
+    pub type_identifier: Option<String>,
+    pub attributes: Vec<VariableAttribute>,
+    pub body: Option<Box<Node>>,
+    pub pos: usize,
+}
+
+#[derive(PartialEq)]
+pub enum VariableAttribute {
+    Const,
+    Var,
+    Let, // NOTE: compatibility
 }
 
 #[derive(PartialEq)]
@@ -266,41 +291,4 @@ pub struct CallExpr {
     pub callee: Box<Node>,
     pub args: Vec<Node>,
     pub pos: usize,
-}
-
-#[derive(PartialEq)]
-pub struct Function {
-    pub identifier: String,
-    pub body: Option<Vec<Node>>,
-    pub params: Vec<Node>,
-    pub ret: Option<String>,
-    pub attributes: Vec<FunctionAttribute>,
-    pub pos: usize,
-}
-
-#[derive(PartialEq)]
-pub enum FunctionAttribute {
-}
-
-#[derive(PartialEq)]
-pub struct FuncParam {
-    pub identifier: String,
-    pub type_identifier: Option<String>,
-    pub pos: usize,
-}
-
-#[derive(PartialEq)]
-pub struct Variable {
-    pub identifier: String,
-    pub body: Box<Node>,
-    pub type_identifier: Option<String>,
-    pub attributes: Vec<VariableAttribute>,
-    pub pos: usize,
-}
-
-#[derive(PartialEq)]
-pub enum VariableAttribute {
-    Const,
-    Var,
-    Let, // NOTE: compatibility
 }

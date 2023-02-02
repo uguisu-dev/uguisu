@@ -212,125 +212,122 @@ impl<'a> Analyzer<'a> {
     /// - check type compatibility for inner expression
     fn translate_statement(&mut self, parser_node: &ast::Node) -> Result<graph::NodeRef, SyntaxError> {
         match &parser_node {
-            ast::Node::Declaration(parser_decl) => {
-                match parser_decl.body.as_ref() {
-                    ast::Node::Function(func) => {
-                        let mut params = Vec::new();
-                        for (_i, n) in func.params.iter().enumerate() {
-                            let param = n.as_func_param();
-                            let param_type = match &param.type_identifier {
-                                Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, n))?, // TODO: improve error location
-                                None => return Err(self.make_low_error("parameter type missing", n)),
-                            };
-                            // make param node
-                            let node = graph::Node::FuncParam(FuncParam {
-                                identifier: param.identifier.clone(),
-                                // param_index: i,
-                                ty: param_type,
-                                pos: self.calc_location(n)?,
-                            });
-                            let node_ref = self.register_node(node);
-                            params.push(node_ref);
-                        }
-                        let ret_ty = match &func.ret {
-                            Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
-                            None => Type::Void,
-                        };
-                        // make function node
-                        let node = graph::Node::FunctionDeclaration(FunctionDeclaration {
-                            identifier: func.identifier.clone(),
-                            params,
-                            ret_ty,
-                            body: None,
-                            pos: self.calc_location(parser_node)?,
-                        });
-                        let node_ref = self.register_node(node);
-                        // add to stack
-                        self.stack.set_record(&func.identifier, node_ref);
-
-                        // define body
-                        self.stack.push_frame();
-                        let node = node_ref.get(self.source);
-                        let graph_func = node.as_function_decl().unwrap();
-                        let mut i = 0;
-                        loop {
-                            let param_ref = match graph_func.params.get(i) {
-                                Some(&x) => x,
-                                None => break,
-                            };
-                            let param_node = param_ref.get(self.source);
-                            let param = param_node.as_func_param().unwrap();
-                            // add to stack
-                            self.stack.set_record(&param.identifier, param_ref);
-                            i += 1;
-                        }
-                        let body = match &func.body {
-                            Some(body_nodes) => Some(FunctionBody::Statements(self.translate_statements(body_nodes)?)),
-                            None => None,
-                        };
-                        let node = node_ref.get_mut(self.source);
-                        let graph_func = node.as_function_decl_mut().unwrap();
-                        graph_func.body = body;
-                        self.stack.pop_frame();
-
-                        Ok(node_ref)
-                    }
-                    ast::Node::Variable(var_decl) => {
-                        let has_const_attr = var_decl
-                            .attributes
-                            .iter()
-                            .any(|x| *x == VariableAttribute::Const);
-                        if has_const_attr {
-                            return Err(self.make_low_error("A variable with `const` is no longer supported. Use the `var` keyword instead. \nThis keyword may also be used as a constant values in the future.", parser_node));
-                        }
-                        let has_let_attr = var_decl
-                            .attributes
-                            .iter()
-                            .any(|x| *x == VariableAttribute::Let);
-                        if has_let_attr {
-                            return Err(self.make_low_error("A variable with `let` is no longer supported. Use the `var` keyword instead.", parser_node));
-                        }
-                        // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
-                        let specified_ty = match &var_decl.type_identifier {
-                            Some(ident) => Some(Type::lookup_user_type(ident).map_err(|e| self.make_low_error(&e, parser_node))?), // TODO: improve error location
-                            None => None,
-                        };
-                        // make node
-                        let node = graph::Node::VariableDeclaration(VariableDeclaration {
-                            identifier: var_decl.identifier.clone(),
-                            body: None,
-                            specified_ty,
-                            ty: None,
-                            pos: self.calc_location(parser_node)?,
-                        });
-                        let node_ref = self.register_node(node);
-                        // add to stack
-                        self.stack.set_record(&var_decl.identifier, node_ref);
-
-                        // define body
-                        let body_ref = self.translate_expr(&var_decl.body)?;
-                        let body = body_ref.get(self.source);
-                        let body_ty = body.get_ty().map_err(|e| self.make_error(&e, body))?;
-                        if body_ty == Type::Function {
-                           return Err(self.make_error("type `function` is not supported", body));
-                        }
-                        let node = node_ref.get(self.source);
-                        let graph_var = node.as_variable_decl().unwrap();
-                        let ty = match graph_var.specified_ty {
-                            Some(specified_ty) => {
-                                Type::assert(body_ty, specified_ty).map_err(|e| self.make_error(&e, body))?
-                            }
-                            None => body_ty,
-                        };
-                        let node = node_ref.get_mut(self.source);
-                        let graph_var = node.as_variable_decl_mut().unwrap();
-                        graph_var.body = Some(body_ref);
-                        graph_var.ty = Some(ty);
-
-                        Ok(node_ref)
-                    }
-                    _ => panic!("unexpected declaration"),
+            ast::Node::FunctionDeclaration(func) => {
+                let mut params = Vec::new();
+                for (_i, n) in func.params.iter().enumerate() {
+                    let param = n.as_func_param();
+                    let param_type = match &param.type_identifier {
+                        Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, n))?, // TODO: improve error location
+                        None => return Err(self.make_low_error("parameter type missing", n)),
+                    };
+                    // make param node
+                    let node = graph::Node::FuncParam(FuncParam {
+                        identifier: param.identifier.clone(),
+                        // param_index: i,
+                        ty: param_type,
+                        pos: self.calc_location(n)?,
+                    });
+                    let node_ref = self.register_node(node);
+                    params.push(node_ref);
                 }
+                let ret_ty = match &func.ret {
+                    Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
+                    None => Type::Void,
+                };
+                // make function node
+                let node = graph::Node::FunctionDeclaration(FunctionDeclaration {
+                    identifier: func.identifier.clone(),
+                    params,
+                    ret_ty,
+                    body: None,
+                    pos: self.calc_location(parser_node)?,
+                });
+                let node_ref = self.register_node(node);
+                // add to stack
+                self.stack.set_record(&func.identifier, node_ref);
+
+                // define body
+                self.stack.push_frame();
+                let node = node_ref.get(self.source);
+                let graph_func = node.as_function_decl().unwrap();
+                let mut i = 0;
+                loop {
+                    let param_ref = match graph_func.params.get(i) {
+                        Some(&x) => x,
+                        None => break,
+                    };
+                    let param_node = param_ref.get(self.source);
+                    let param = param_node.as_func_param().unwrap();
+                    // add to stack
+                    self.stack.set_record(&param.identifier, param_ref);
+                    i += 1;
+                }
+                let body = match &func.body {
+                    Some(body_nodes) => Some(FunctionBody::Statements(self.translate_statements(body_nodes)?)),
+                    None => None,
+                };
+                let node = node_ref.get_mut(self.source);
+                let graph_func = node.as_function_decl_mut().unwrap();
+                graph_func.body = body;
+                self.stack.pop_frame();
+
+                Ok(node_ref)
+            }
+            ast::Node::VariableDeclaration(var_decl) => {
+                let has_const_attr = var_decl
+                    .attributes
+                    .iter()
+                    .any(|x| *x == VariableAttribute::Const);
+                if has_const_attr {
+                    return Err(self.make_low_error("A variable with `const` is no longer supported. Use the `var` keyword instead. \nThis keyword may also be used as a constant values in the future.", parser_node));
+                }
+                let has_let_attr = var_decl
+                    .attributes
+                    .iter()
+                    .any(|x| *x == VariableAttribute::Let);
+                if has_let_attr {
+                    return Err(self.make_low_error("A variable with `let` is no longer supported. Use the `var` keyword instead.", parser_node));
+                }
+                // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
+                let specified_ty = match &var_decl.type_identifier {
+                    Some(ident) => Some(Type::lookup_user_type(ident).map_err(|e| self.make_low_error(&e, parser_node))?), // TODO: improve error location
+                    None => None,
+                };
+                // make node
+                let node = graph::Node::VariableDeclaration(VariableDeclaration {
+                    identifier: var_decl.identifier.clone(),
+                    body: None,
+                    specified_ty,
+                    ty: None,
+                    pos: self.calc_location(parser_node)?,
+                });
+                let node_ref = self.register_node(node);
+                // add to stack
+                self.stack.set_record(&var_decl.identifier, node_ref);
+
+                // define body
+                if let Some(ast_body_node) = &var_decl.body {
+                    let body_ref = self.translate_expr(ast_body_node)?;
+                    let body_node = body_ref.get(self.source);
+                    let body_ty = body_node.get_ty().map_err(|e| self.make_error(&e, body_node))?;
+                    if body_ty == Type::Function {
+                        return Err(self.make_error("type `function` is not supported", body_node));
+                    }
+                    let node = node_ref.get(self.source);
+                    let graph_var = node.as_variable_decl().unwrap();
+                    let ty = match graph_var.specified_ty {
+                        Some(specified_ty) => {
+                            Some(Type::assert(body_ty, specified_ty).map_err(|e| self.make_error(&e, body_node))?)
+                        }
+                        None => Some(body_ty),
+                    };
+                    let node = node_ref.get_mut(self.source);
+                    let graph_var = node.as_variable_decl_mut().unwrap();
+                    graph_var.body = Some(body_ref);
+                    graph_var.ty = ty;
+                }
+
+                Ok(node_ref)
             }
             ast::Node::BreakStatement(_) => {
                 if self.stack.frames.len() == 1 {
@@ -501,9 +498,7 @@ impl<'a> Analyzer<'a> {
                 }
                 Ok(expr_ref)
             }
-            ast::Node::Function(_)
-            | ast::Node::FuncParam(_)
-            | ast::Node::Variable(_) => panic!("unexpected node"),
+            ast::Node::FuncParam(_) => panic!("unexpected node"),
         }
     }
 
@@ -690,9 +685,8 @@ impl<'a> Analyzer<'a> {
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
             }
-            ast::Node::Declaration(_)
-            | ast::Node::Function(_)
-            | ast::Node::Variable(_)
+            ast::Node::FunctionDeclaration(_)
+            | ast::Node::VariableDeclaration(_)
             | ast::Node::BreakStatement(_)
             | ast::Node::ReturnStatement(_)
             | ast::Node::Assignment(_)

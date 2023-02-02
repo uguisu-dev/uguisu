@@ -104,8 +104,7 @@ peg::parser! {
         {
             let params = if let Some(v) = params { v } else { vec![] };
             let attrs = if let Some(v) = attrs { v } else { vec![] };
-            let body = Node::new_function(name.to_string(), body, params, ret, attrs, p);
-            Node::new_declaration(body, p)
+            Node::new_function_declaration(name.to_string(), body, params, ret, attrs, p)
         }
 
         rule func_dec_params() -> Vec<Node>
@@ -140,8 +139,7 @@ peg::parser! {
                 "var" {VariableAttribute::Var} / "const" {VariableAttribute::Const} / "let" {VariableAttribute::Let}
             ) __+ id:idenfitier() ty:(__* ":" __* x:idenfitier() {x.to_string()})? __* "=" __* e:expression() __* ";"
         {
-            let body = Node::new_variable(id.to_string(), e, ty, vec![kind], p);
-            Node::new_declaration(body, p)
+            Node::new_variable_declaration(id.to_string(), Some(e), ty, vec![kind], p)
         }
 
         rule assignment() -> Node
