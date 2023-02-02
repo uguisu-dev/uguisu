@@ -497,6 +497,7 @@ impl<'a> Analyzer<'a> {
     /// Generate a graph node from a expression AST node.
     /// - infer type for the expression
     /// - check type compatibility for inner expression
+    /// - generate syntax errors
     fn translate_expr(&mut self, parser_node: &ast::Node) -> Result<graph::NodeRef, SyntaxError> {
         match parser_node {
             ast::Node::Reference(reference) => {
