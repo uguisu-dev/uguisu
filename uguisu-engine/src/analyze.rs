@@ -278,10 +278,20 @@ impl<'a> Analyzer<'a> {
                     ast::Node::Variable(var_decl) => {
                         let body_ref = self.translate_expr(&var_decl.body)?;
                         let body = body_ref.get(self.source);
-                        let is_mutable = var_decl
+                        let has_const_attr = var_decl
+                            .attributes
+                            .iter()
+                            .any(|x| *x == VariableAttribute::Const);
+                        if has_const_attr {
+                            return Err(self.make_low_error("A variable with `const` is no longer supported. Use the `var` keyword instead. Also, This keyword may also be used as a constant values in the future.", parser_node));
+                        }
+                        let has_let_attr = var_decl
                             .attributes
                             .iter()
                             .any(|x| *x == VariableAttribute::Let);
+                        if has_let_attr {
+                            return Err(self.make_low_error("A variable with `let` is no longer supported. Use the `var` keyword instead.", parser_node));
+                        }
                         let body_ty = body.get_ty()
                             .map_err(|e| self.make_error(&e, body))?;
                         if body_ty == Type::Function {
@@ -301,7 +311,6 @@ impl<'a> Analyzer<'a> {
                         let node = graph::Node::VariableDeclaration(VariableDeclaration {
                             identifier: var_decl.identifier.clone(),
                             body: body_ref,
-                            is_mutable,
                             ty,
                             pos: self.calc_location(parser_node)?,
                         });
@@ -754,7 +763,6 @@ impl<'a> Analyzer<'a> {
                 println!("  body: {{");
                 println!("    [{}]", variable.body.id);
                 println!("  }}");
-                println!("  is_mutable: {}", variable.is_mutable);
             }
             graph::Node::BreakStatement(_) => {}
             graph::Node::ReturnStatement(node) => {

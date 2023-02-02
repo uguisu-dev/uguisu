@@ -82,11 +82,7 @@ expression + expression
 
 ### 変数の宣言
 ```
-const variable_name: type = expression;
-```
-or
-```
-let variable_name: type = expression;
+var variable_name: type = expression;
 ```
 型は省略することもできます。その場合は与えられた式から変数の型が推論されます。
 

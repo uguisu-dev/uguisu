@@ -105,7 +105,7 @@ fn test_variable_basic() {
     run_test(
         "
         fn main() {
-            const x = 1 + 2;
+            var x = 1 + 2;
             assert_eq(x, 3);
         }
         ",
@@ -117,11 +117,11 @@ fn test_calc_with_variable() {
     run_test(
         "
         fn calc(x: number, y: number): number {
-            const temp = x + y;
+            var temp = x + y;
             return temp * temp;
         }
         fn main() {
-            const a = 2;
+            var a = 2;
             assert_eq(calc(a, 3), 25);
         }
         ",
@@ -133,8 +133,8 @@ fn test_loop_statement() {
     run_test(
         "
         fn main() {
-            let i = 0;
-            let x = 1;
+            var i = 0;
+            var x = 1;
             loop {
                 if i == 10 { break; }
                 x = x * 2;
@@ -154,9 +154,9 @@ fn test_bool() {
             return value;
         }
         fn main() {
-            const a = true;
-            const b = false;
-            const c = f(true);
+            var a = true;
+            var b = false;
+            var c = f(true);
         }
         ",
     );
@@ -181,7 +181,7 @@ fn test_relational_op() {
     run_test(
         "
         fn main() {
-            let x = 0;
+            var x = 0;
             if 1 + 2 == 3 {
                 x = 1;
             }
@@ -208,7 +208,7 @@ fn test_break_no_target_nested() {
     let result = try_run_test(
         "
         fn main() {
-            let x = true;
+            var x = true;
             if x {
                 break;
             }
@@ -223,7 +223,7 @@ fn test_assignment() {
     run_test(
         "
         fn main() {
-            let x = 0;
+            var x = 0;
             assert_eq(x, 0);
             x = 1;
             assert_eq(x, 1);
@@ -239,7 +239,7 @@ fn test_assignment_modes() {
     run_test(
         "
         fn main() {
-            let x = 0;
+            var x = 0;
             assert_eq(x, 0);
             x += 10;
             assert_eq(x, 10);

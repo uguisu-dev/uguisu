@@ -15,7 +15,7 @@ fn calc(x: number): number {
 }
 
 fn main() {
-    const value = 10;
+    var value = 10;
     print_num(calc(value));
 }
 ```

@@ -127,7 +127,6 @@ pub(crate) struct FuncParam {
 pub(crate) struct VariableDeclaration {
     pub identifier: String,
     pub body: NodeRef,
-    pub is_mutable: bool,
     pub ty: Type,
     pub pos: (usize, usize),
 }

@@ -304,5 +304,6 @@ pub struct Variable {
 #[derive(PartialEq)]
 pub enum VariableAttribute {
     Const,
-    Let,
+    Var,
+    Let, // NOTE: compatibility
 }
