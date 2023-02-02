@@ -255,11 +255,137 @@ fn test_assignment_modes() {
 }
 
 #[test]
-fn test_assign_function() {
+fn should_generate_error_with_function_name_1() {
     let result = try_run_test(
         "
         fn main() {
             main = 1;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_2() {
+    let result = try_run_test(
+        "
+        fn main() {
+            var x = 1;
+            x = main;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_3() {
+    let result = try_run_test(
+        "
+        fn main() {
+            var x = main;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_4() {
+    let result = try_run_test(
+        "
+        fn f(): number {
+            return f;
+        }
+        fn main() {
+            f();
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_5() {
+    let result = try_run_test(
+        "
+        fn main() {
+            if main == main { }
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_6() {
+    let result = try_run_test(
+        "
+        fn main() {
+            main;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_7() {
+    let result = try_run_test(
+        "
+        fn main() {
+            const x = !main;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_8() {
+    let result = try_run_test(
+        "
+        fn main() {
+            const x = main + main;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_9() {
+    let result = try_run_test(
+        "
+        fn main() {
+            const x = main == main;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_10() {
+    let result = try_run_test(
+        "
+        fn main() {
+            const x = main && main;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_11() {
+    let result = try_run_test(
+        "
+        fn f() {
+        }
+        fn main() {
+            var x = f(main);
         }
         ",
     );
