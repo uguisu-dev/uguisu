@@ -17,10 +17,9 @@ pub fn parse_command() {
     } else {
         None
     };
-    let (command, args) = if let Some(x) = command {
-        (x, &args_source[2..])
-    } else {
-        (Command::Root, &args_source[1..])
+    let (command, args) = match command {
+        Some(x) => (x, &args_source[2..]),
+        None => (Command::Root, &args_source[1..]),
     };
     match command {
         Command::Root => commands::root_command(args),
