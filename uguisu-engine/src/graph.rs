@@ -89,17 +89,31 @@ impl Node {
         }
     }
 
-    pub(crate) fn as_reference(&self) -> Option<&Reference> {
+    pub(crate) fn as_function_decl(&self) -> Result<&FunctionDeclaration, String> {
         match self {
-            Node::Reference(reference) => Some(reference),
-            _ => None,
+            Node::FunctionDeclaration(x) => Ok(x),
+            _ => Err("function declaration expected".to_owned()),
         }
     }
 
-    pub(crate) fn as_function(&self) -> Option<&FunctionDeclaration> {
+    pub(crate) fn as_function_decl_mut(&mut self) -> Result<&mut FunctionDeclaration, String> {
         match self {
-            Node::FunctionDeclaration(decl) => Some(decl),
-            _ => None,
+            Node::FunctionDeclaration(x) => Ok(x),
+            _ => Err("function declaration expected".to_owned()),
+        }
+    }
+
+    pub(crate) fn as_reference(&self) -> Result<&Reference, String> {
+        match self {
+            Node::Reference(x) => Ok(x),
+            _ => Err("reference expected".to_owned()),
+        }
+    }
+
+    pub(crate) fn as_func_param(&self) -> Result<&FuncParam, String> {
+        match self {
+            Node::FuncParam(x) => Ok(x),
+            _ => Err("function parameter expected".to_owned()),
         }
     }
 }

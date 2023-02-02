@@ -210,9 +210,9 @@ impl<'a> Analyzer<'a> {
         match &parser_node {
             ast::Node::Declaration(parser_decl) => {
                 match parser_decl.body.as_ref() {
-                    ast::Node::Function(func_decl) => {
+                    ast::Node::Function(func) => {
                         let mut params = Vec::new();
-                        for (_i, n) in func_decl.params.iter().enumerate() {
+                        for (_i, n) in func.params.iter().enumerate() {
                             let param = n.as_func_param();
                             let param_type = match &param.type_identifier {
                                 Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, n))?, // TODO: improve error location
@@ -228,51 +228,45 @@ impl<'a> Analyzer<'a> {
                             let node_ref = self.register_node(node);
                             params.push(node_ref);
                         }
-                        let ret_ty = match &func_decl.ret {
+                        let ret_ty = match &func.ret {
                             Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
                             None => Type::Void,
                         };
                         // make function node
-                        let decl_node = graph::Node::FunctionDeclaration(FunctionDeclaration {
-                            identifier: func_decl.identifier.clone(),
+                        let node = graph::Node::FunctionDeclaration(FunctionDeclaration {
+                            identifier: func.identifier.clone(),
                             params,
                             ret_ty,
                             body: None,
                             pos: self.calc_location(parser_node)?,
                         });
-                        let node_ref = self.register_node(decl_node);
+                        let node_ref = self.register_node(node);
                         // add to stack
-                        self.stack.set_record(&func_decl.identifier, node_ref);
+                        self.stack.set_record(&func.identifier, node_ref);
 
                         // define body
                         self.stack.push_frame();
+                        let node = node_ref.get(self.source);
+                        let graph_func = node.as_function_decl().unwrap();
                         let mut i = 0;
                         loop {
-                            let decl = match node_ref.get(self.source) {
-                                graph::Node::FunctionDeclaration(x) => x,
-                                _ => panic!("function expected"),
-                            };
-                            let param = match decl.params.get(i) {
+                            let param_ref = match graph_func.params.get(i) {
                                 Some(&x) => x,
                                 None => break,
                             };
-                            let param_node = match param.get(self.source) {
-                                graph::Node::FuncParam(x) => x,
-                                _ => panic!("function parameter expected"),
-                            };
+                            let param_node = param_ref.get(self.source);
+                            let param = param_node.as_func_param().unwrap();
                             // add to stack
-                            self.stack.set_record(&param_node.identifier, param);
+                            self.stack.set_record(&param.identifier, param_ref);
                             i += 1;
                         }
-                        let body = match &func_decl.body {
+                        let body = match &func.body {
                             Some(body_nodes) => Some(FunctionBody::Statements(self.translate_statements(body_nodes)?)),
                             None => None,
                         };
-                        let decl = match node_ref.get_mut(self.source) {
-                            graph::Node::FunctionDeclaration(x) => x,
-                            _ => panic!("function expected"),
-                        };
-                        decl.body = body;
+                        let node = node_ref.get_mut(self.source);
+                        let graph_func = node.as_function_decl_mut().unwrap();
+                        graph_func.body = body;
                         self.stack.pop_frame();
 
                         Ok(node_ref)
@@ -342,7 +336,16 @@ impl<'a> Analyzer<'a> {
                     return Err(self.make_low_error("A return statement cannot be used in global space", parser_node));
                 }
                 let body = match node.body.as_ref() {
-                    Some(x) => Some(self.translate_expr(x)?),
+                    Some(x) => {
+                        let body_ref = self.translate_expr(x)?;
+                        let body_node = body_ref.get(&self.source);
+                        let body_ty = body_node.get_ty()
+                            .map_err(|e| self.make_error(&e, body_node))?;
+                        if body_ty == Type::Function {
+                            return Err(self.make_error("type `function` is not supported", body_node));
+                        }
+                        Some(body_ref)
+                    }
                     None => None,
                 };
                 let node = graph::Node::ReturnStatement(ReturnStatement {
@@ -486,7 +489,14 @@ impl<'a> Analyzer<'a> {
                 if self.stack.frames.len() == 1 {
                     return Err(self.make_low_error("An expression cannot be used in global space", parser_node));
                 }
-                self.translate_expr(parser_node)
+                let expr_ref = self.translate_expr(parser_node)?;
+                let expr_node = expr_ref.get(&self.source);
+                let expr_ty = expr_node.get_ty()
+                    .map_err(|e| self.make_error(&e, expr_node))?;
+                if expr_ty == Type::Function {
+                    return Err(self.make_error("type `function` is not supported", expr_node));
+                }
+                Ok(expr_ref)
             }
             ast::Node::Function(_)
             | ast::Node::FuncParam(_)
@@ -651,16 +661,13 @@ impl<'a> Analyzer<'a> {
                 Err(self.make_low_error("unexpected operation", parser_node))
             }
             ast::Node::CallExpr(call_expr) => {
-                let callee_container_ref = self.translate_expr(&call_expr.callee)?;
-                let callee_container_node = callee_container_ref.get(self.source); // node: reference -> declaration -> function
-                let callee_node = match callee_container_node.as_reference() {
-                    Some(x) => x.dest.get(self.source),
-                    None => return Err(self.make_error("reference expected", callee_container_node)),
-                };
-                let callee = match callee_node.as_function() {
-                    Some(x) => x,
-                    None => return Err(self.make_error("function expected", callee_container_node)),
-                };
+                let reference_ref = self.translate_expr(&call_expr.callee)?;
+                let reference_node = reference_ref.get(self.source); // node: reference -> declaration -> function
+                let reference = reference_node.as_reference()
+                    .map_err(|e| self.make_error(&e, reference_node))?;
+                let callee_node = reference.dest.get(self.source);
+                let callee = callee_node.as_function_decl()
+                    .map_err(|e| self.make_error(&e, reference_node))?;
                 let ret_ty = callee.ret_ty;
                 let params = callee.params.clone();
                 if params.len() != call_expr.args.len() {
@@ -686,7 +693,7 @@ impl<'a> Analyzer<'a> {
                     args.push(arg_ref);
                 }
                 let node = graph::Node::CallExpr(CallExpr {
-                    callee: callee_container_ref,
+                    callee: reference_ref,
                     args,
                     ty: ret_ty,
                     pos: self.calc_location(parser_node)?,

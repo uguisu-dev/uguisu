@@ -411,14 +411,10 @@ impl<'a> Runner<'a> {
                 }
             }
             graph::Node::CallExpr(call_expr) => {
-                let callee_node = match call_expr.callee.get(self.source) {
-                    graph::Node::Reference(reference) => reference.dest,
-                    _ => panic!("callee is invalid (id={})", call_expr.callee.id),
-                };
-                let callee = match callee_node.get(self.source) {
-                    graph::Node::FunctionDeclaration(func) => func,
-                    _ => panic!("callee is invalid (id={})", callee_node.id),
-                };
+                let reference_node = call_expr.callee.get(self.source);
+                let reference = reference_node.as_reference().unwrap();
+                let callee_node = reference.dest.get(self.source);
+                let callee = callee_node.as_function_decl().unwrap();
                 stack.push_frame();
                 let mut result = None;
                 match &callee.body {
