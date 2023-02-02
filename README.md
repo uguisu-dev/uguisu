@@ -24,12 +24,26 @@ fn main() {
 See [syntaxes (日本語)](https://github.com/uguisu-dev/uguisu/tree/master/docs/syntaxes_ja.md)
 
 ## Usage
+`uguisu` command:
 ```
-Usage: uguisu [OPTIONS] INPUT
+Usage: uguisu <Commands> [Options]
+
+Commands:
+    run                 Run a script file.
 
 Options:
-    -h, --help          Print this message.
+    -h, --help          Print help message.
     -v, --version       Print Uguisu version.
+
+```
+
+`uguisu run` command:
+```
+Usage: uguisu run [Options] INPUT
+
+Options:
+    -h, --help          Print help message.
+
 ```
 
 ## License
