@@ -283,7 +283,7 @@ impl<'a> Analyzer<'a> {
                             .iter()
                             .any(|x| *x == VariableAttribute::Const);
                         if has_const_attr {
-                            return Err(self.make_low_error("A variable with `const` is no longer supported. Use the `var` keyword instead. Also, This keyword may also be used as a constant values in the future.", parser_node));
+                            return Err(self.make_low_error("A variable with `const` is no longer supported. Use the `var` keyword instead. \nThis keyword may also be used as a constant values in the future.", parser_node));
                         }
                         let has_let_attr = var_decl
                             .attributes
