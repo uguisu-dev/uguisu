@@ -4,13 +4,22 @@ pub(crate) mod run;
 
 fn show_help(opts: Options) {
     let lines = [
-        "Usage: uguisu [Options] [Commands]",
+        "Usage: uguisu [options] [commands]",
         "",
-        "Commands:",
-        "    run                 Run a script file.",
+        "Examples:",
+        "    uguisu run <filename>",
+        "    uguisu <command> -h",
+        "    uguisu -v",
     ];
     let brief = lines.join("\n");
     print!("{}", opts.usage(brief.as_str()));
+    let lines = [
+        "",
+        "Commands:",
+        "    run                 Run a script file.",
+        "",
+    ];
+    print!("{}", lines.join("\n"));
 }
 
 fn show_version() {

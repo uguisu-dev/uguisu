@@ -5,13 +5,16 @@ use uguisu_engine::Engine;
 
 fn show_help(opts: Options) {
     let lines = [
-        "Usage: uguisu run [Options] INPUT",
+        "Usage: uguisu run [options] [filename]",
+        "",
+        "Examples:",
+        "    uguisu run <filename>",
     ];
     let brief = lines.join("\n");
     print!("{}", opts.usage(brief.as_str()));
 }
 
-fn run_script(filename: &str) {
+fn run_script(filename: &str, graph_map: bool) {
     let mut file = match File::open(filename) {
         Ok(x) => x,
         Err(_) => return println!("Error: Failed to open the file."),
@@ -35,6 +38,10 @@ fn run_script(filename: &str) {
         Err(e) => return println!("SyntaxError: {}", e.message),
     };
 
+    if graph_map {
+        engine.show_graph_map();
+    }
+
     match engine.run(graph) {
         Ok(_) => {}
         Err(e) => return println!("RuntimeError: {}", e.message),
@@ -44,6 +51,7 @@ fn run_script(filename: &str) {
 pub(crate) fn command(args: &[String]) {
     let mut opts = Options::new();
     opts.optflag("h", "help", "Print help message.");
+    opts.optflag("", "graph", "Display a graph map when a script file is analyzed. (debug option)");
     let matches = match opts.parse(args) {
         Ok(x) => x,
         Err(e) => {
@@ -59,6 +67,7 @@ pub(crate) fn command(args: &[String]) {
         show_help(opts);
         return;
     }
+    let graph_map = matches.opt_present("graph");
     let input = &matches.free[0];
-    run_script(input);
+    run_script(input, graph_map);
 }
