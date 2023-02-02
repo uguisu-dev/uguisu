@@ -31,8 +31,6 @@ use crate::types::Type;
 use crate::SyntaxError;
 use std::collections::HashMap;
 
-mod graph_util;
-
 #[cfg(test)]
 mod test;
 
@@ -700,6 +698,6 @@ impl<'a> Analyzer<'a> {
     }
 
     fn show_node(&self, node_ref: graph::NodeRef) {
-        graph_util::show_node(self, node_ref)
+        graph::show_node(node_ref, self.source);
     }
 }
