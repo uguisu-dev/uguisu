@@ -195,8 +195,15 @@ impl<'a> Runner<'a> {
             }
             graph::Node::VariableDeclaration(variable) => {
                 // TODO: check duplicate
-                let value = self.eval_expr(variable.body, stack)?;
-                stack.set_symbol(node_ref.id, value);
+                match variable.body {
+                    Some(body) => {
+                        let value = self.eval_expr(body, stack)?;
+                        stack.set_symbol(node_ref.id, value);
+                    }
+                    None => {
+                        panic!("variable is not defined");
+                    }
+                }
                 Ok(StatementResult::None)
             }
             graph::Node::ReturnStatement(statement) => {

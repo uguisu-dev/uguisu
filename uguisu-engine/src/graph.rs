@@ -57,7 +57,12 @@ impl Node {
             Node::LogicalUnaryOp(node) => Ok(node.ty),
             Node::CallExpr(node) => Ok(node.ty),
             Node::FuncParam(node) => Ok(node.ty),
-            Node::VariableDeclaration(node) => Ok(node.ty),
+            Node::VariableDeclaration(node) => {
+                match node.ty {
+                    Some(ty) => Ok(ty),
+                    None => panic!("variable is not defined"),
+                }
+            }
             Node::FunctionDeclaration(_) => Ok(Type::Function),
             Node::BreakStatement(_)
             | Node::ReturnStatement(_)
@@ -86,6 +91,20 @@ impl Node {
             Self::LogicalUnaryOp(node) => node.pos,
             Self::CallExpr(node) => node.pos,
             Self::FuncParam(node) => node.pos,
+        }
+    }
+
+    pub(crate) fn as_variable_decl(&self) -> Result<&VariableDeclaration, String> {
+        match self {
+            Node::VariableDeclaration(x) => Ok(x),
+            _ => Err("variable declaration expected".to_owned()),
+        }
+    }
+
+    pub(crate) fn as_variable_decl_mut(&mut self) -> Result<&mut VariableDeclaration, String> {
+        match self {
+            Node::VariableDeclaration(x) => Ok(x),
+            _ => Err("variable declaration expected".to_owned()),
         }
     }
 
@@ -140,8 +159,9 @@ pub(crate) struct FuncParam {
 
 pub(crate) struct VariableDeclaration {
     pub identifier: String,
-    pub body: NodeRef,
-    pub ty: Type,
+    pub body: Option<NodeRef>,
+    pub specified_ty: Option<Type>,
+    pub ty: Option<Type>,
     pub pos: (usize, usize),
 }
 
@@ -307,9 +327,24 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
         }
         Node::VariableDeclaration(variable) => {
             println!("  name: {}", variable.identifier);
-            println!("  body: {{");
-            println!("    [{}]", variable.body.id);
-            println!("  }}");
+            match &variable.body {
+                Some(body) => {
+                    println!("  body: {{");
+                    println!("    [{}]", body.id);
+                    println!("  }}");
+                }
+                None => {
+                    println!("  body: (None)");
+                }
+            }
+            match &variable.specified_ty {
+                Some(specified_ty) => {
+                    println!("  specified_ty: {:?}", specified_ty);
+                }
+                None => {
+                    println!("  specified_ty: (None)");
+                }
+            }
         }
         Node::BreakStatement(_) => {}
         Node::ReturnStatement(node) => {

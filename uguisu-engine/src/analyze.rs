@@ -276,8 +276,6 @@ impl<'a> Analyzer<'a> {
                         Ok(node_ref)
                     }
                     ast::Node::Variable(var_decl) => {
-                        let body_ref = self.translate_expr(&var_decl.body)?;
-                        let body = body_ref.get(self.source);
                         let has_const_attr = var_decl
                             .attributes
                             .iter()
@@ -292,28 +290,43 @@ impl<'a> Analyzer<'a> {
                         if has_let_attr {
                             return Err(self.make_low_error("A variable with `let` is no longer supported. Use the `var` keyword instead.", parser_node));
                         }
-                        let body_ty = body.get_ty().map_err(|e| self.make_error(&e, body))?;
-                        if body_ty == Type::Function {
-                            return Err(self.make_error("type `function` is not supported", body));
-                        }
                         // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
-                        let ty = match &var_decl.type_identifier {
-                            Some(ident) => {
-                                let specified_ty = Type::lookup_user_type(ident).map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error location
-                                Type::assert(body_ty, specified_ty).map_err(|e| self.make_error(&e, body))?
-                            }
-                            None => body_ty,
+                        let specified_ty = match &var_decl.type_identifier {
+                            Some(ident) => Some(Type::lookup_user_type(ident).map_err(|e| self.make_low_error(&e, parser_node))?), // TODO: improve error location
+                            None => None,
                         };
                         // make node
                         let node = graph::Node::VariableDeclaration(VariableDeclaration {
                             identifier: var_decl.identifier.clone(),
-                            body: body_ref,
-                            ty,
+                            body: None,
+                            specified_ty,
+                            ty: specified_ty,
                             pos: self.calc_location(parser_node)?,
                         });
                         let node_ref = self.register_node(node);
                         // add to stack
                         self.stack.set_record(&var_decl.identifier, node_ref);
+
+                        // define body
+                        let body_ref = self.translate_expr(&var_decl.body)?;
+                        let body = body_ref.get(self.source);
+                        let body_ty = body.get_ty().map_err(|e| self.make_error(&e, body))?;
+                        if body_ty == Type::Function {
+                           return Err(self.make_error("type `function` is not supported", body));
+                        }
+                        let node = node_ref.get(self.source);
+                        let graph_var = node.as_variable_decl().unwrap();
+                        let ty = match graph_var.specified_ty {
+                            Some(specified_ty) => {
+                                Type::assert(body_ty, specified_ty).map_err(|e| self.make_error(&e, body))?
+                            }
+                            None => body_ty,
+                        };
+                        let node = node_ref.get_mut(self.source);
+                        let graph_var = node.as_variable_decl_mut().unwrap();
+                        graph_var.body = Some(body_ref);
+                        graph_var.ty = Some(ty);
+
                         Ok(node_ref)
                     }
                     _ => panic!("unexpected declaration"),
