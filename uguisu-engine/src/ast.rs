@@ -24,28 +24,49 @@ pub enum Node {
 }
 
 impl Node {
+    pub(crate) fn calc_location(&self, code: &str) -> Result<(usize, usize), String> {
+        let pos = match self {
+            Node::Declaration(node) => node.pos,
+            Node::BreakStatement(node) => node.pos,
+            Node::ReturnStatement(node) => node.pos,
+            Node::Assignment(node) => node.pos,
+            Node::IfStatement(node) => node.pos,
+            Node::LoopStatement(node) => node.pos,
+            Node::Reference(node) => node.pos,
+            Node::NumberLiteral(node) => node.pos,
+            Node::BoolLiteral(node) => node.pos,
+            Node::BinaryExpr(node) => node.pos,
+            Node::UnaryOp(node) => node.pos,
+            Node::CallExpr(node) => node.pos,
+            Node::Function(node) => node.pos,
+            Node::FuncParam(node) => node.pos,
+            Node::Variable(node) => node.pos,
+        };
+        parse::calc_location(pos, code)
+    }
+
     pub(crate) fn new_declaration(body: Node, pos: usize) -> Self {
-        Self::Declaration(Declaration {
+        Node::Declaration(Declaration {
             body: Box::new(body),
             pos,
         })
     }
 
     pub(crate) fn new_break_statement(pos: usize) -> Self {
-        Self::BreakStatement(BreakStatement {
+        Node::BreakStatement(BreakStatement {
             pos,
         })
     }
 
     pub(crate) fn new_return_statement(expr: Option<Node>, pos: usize) -> Self {
         match expr {
-            Some(x) => Self::ReturnStatement(ReturnStatement { body: Some(Box::new(x)), pos }),
-            None => Self::ReturnStatement(ReturnStatement { body: None, pos }),
+            Some(x) => Node::ReturnStatement(ReturnStatement { body: Some(Box::new(x)), pos }),
+            None => Node::ReturnStatement(ReturnStatement { body: None, pos }),
         }
     }
 
     pub(crate) fn new_assignment(dest: Node, body: Node, mode: AssignmentMode, pos: usize) -> Self {
-        Self::Assignment(Assignment {
+        Node::Assignment(Assignment {
             dest: Box::new(dest),
             body: Box::new(body),
             mode,
@@ -58,7 +79,7 @@ impl Node {
         for (cond, block) in cond_blocks {
             items.push((Box::new(cond), block))
         }
-        Self::IfStatement(IfStatement {
+        Node::IfStatement(IfStatement {
             cond_blocks: items,
             else_block,
             pos,
@@ -66,26 +87,26 @@ impl Node {
     }
 
     pub(crate) fn new_loop_statement(body: Vec<Node>, pos: usize) -> Self {
-        Self::LoopStatement(LoopStatement { body, pos })
+        Node::LoopStatement(LoopStatement { body, pos })
     }
 
     pub(crate) fn new_reference(identifier: &str, pos: usize) -> Self {
-        Self::Reference(Reference {
+        Node::Reference(Reference {
             identifier: identifier.to_string(),
             pos,
         })
     }
 
     pub(crate) fn new_number(value: i64, pos: usize) -> Self {
-        Self::NumberLiteral(NumberLiteral { value, pos })
+        Node::NumberLiteral(NumberLiteral { value, pos })
     }
 
     pub(crate) fn new_bool(value: bool, pos: usize) -> Self {
-        Self::BoolLiteral(BoolLiteral { value, pos })
+        Node::BoolLiteral(BoolLiteral { value, pos })
     }
 
     pub(crate) fn new_binary_expr(op: &str, left: Node, right: Node, pos: usize) -> Self {
-        Self::BinaryExpr(BinaryExpr {
+        Node::BinaryExpr(BinaryExpr {
             operator: op.to_string(),
             left: Box::new(left),
             right: Box::new(right),
@@ -94,7 +115,7 @@ impl Node {
     }
 
     pub(crate) fn new_unary_op(op: &str, expr: Node, pos: usize) -> Self {
-        Self::UnaryOp(UnaryOp {
+        Node::UnaryOp(UnaryOp {
             operator: op.to_string(),
             expr: Box::new(expr),
             pos,
@@ -102,7 +123,7 @@ impl Node {
     }
 
     pub(crate) fn new_call_expr(callee: Node, args: Vec<Node>, pos: usize) -> Self {
-        Self::CallExpr(CallExpr {
+        Node::CallExpr(CallExpr {
             callee: Box::new(callee),
             args,
             pos,
@@ -117,7 +138,7 @@ impl Node {
         attributes: Vec<FunctionAttribute>,
         pos: usize,
     ) -> Self {
-        Self::Function(Function {
+        Node::Function(Function {
             identifier,
             body,
             params,
@@ -128,18 +149,11 @@ impl Node {
     }
 
     pub(crate) fn new_func_param(identifier: String, type_identifier: Option<String>, pos: usize) -> Self {
-        Self::FuncParam(FuncParam {
+        Node::FuncParam(FuncParam {
             identifier,
             type_identifier,
             pos,
         })
-    }
-
-    pub(crate) fn as_func_param(&self) -> &FuncParam {
-        match self {
-            Self::FuncParam(x) => x,
-            _ => panic!("function parameter expected"),
-        }
     }
 
     pub(crate) fn new_variable(
@@ -149,7 +163,7 @@ impl Node {
         attributes: Vec<VariableAttribute>,
         pos: usize,
     ) -> Self {
-        Self::Variable(Variable {
+        Node::Variable(Variable {
             identifier,
             body: Box::new(body),
             type_identifier,
@@ -158,28 +172,11 @@ impl Node {
         })
     }
 
-    pub(crate) fn get_pos(&self) -> usize {
+    pub(crate) fn as_func_param(&self) -> &FuncParam {
         match self {
-            Self::Declaration(node) => node.pos,
-            Self::BreakStatement(node) => node.pos,
-            Self::ReturnStatement(node) => node.pos,
-            Self::Assignment(node) => node.pos,
-            Self::IfStatement(node) => node.pos,
-            Self::LoopStatement(node) => node.pos,
-            Self::Reference(node) => node.pos,
-            Self::NumberLiteral(node) => node.pos,
-            Self::BoolLiteral(node) => node.pos,
-            Self::BinaryExpr(node) => node.pos,
-            Self::UnaryOp(node) => node.pos,
-            Self::CallExpr(node) => node.pos,
-            Self::Function(node) => node.pos,
-            Self::FuncParam(node) => node.pos,
-            Self::Variable(node) => node.pos,
+            Node::FuncParam(x) => x,
+            _ => panic!("function parameter expected"),
         }
-    }
-
-    pub(crate) fn calc_location(&self, code: &str) -> Result<(usize, usize), String> {
-        parse::calc_location(self.get_pos(), code)
     }
 }
 
