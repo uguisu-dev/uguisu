@@ -158,6 +158,13 @@ impl<'a> Analyzer<'a> {
         node_ref
     }
 
+    fn refer_node(&self, node_ref: graph::NodeRef) -> graph::NodeRef {
+        match node_ref.get(self.source) {
+            graph::Node::Reference(reference) => self.refer_node(reference.dest),
+            _ => node_ref,
+        }
+    }
+
     /// Generate a resolved graph from a AST.
     pub(crate) fn translate(&mut self, ast: &Vec<ast::Node>) -> Result<Vec<graph::NodeRef>, SyntaxError> {
         let mut ids = Vec::new();
@@ -661,15 +668,14 @@ impl<'a> Analyzer<'a> {
                 Err(self.make_low_error("unexpected operation", parser_node))
             }
             ast::Node::CallExpr(call_expr) => {
-                let reference_ref = self.translate_expr(&call_expr.callee)?;
-                let reference_node = reference_ref.get(self.source); // node: reference -> declaration -> function
-                let reference = reference_node.as_reference()
-                    .map_err(|e| self.make_error(&e, reference_node))?;
-                let callee_node = reference.dest.get(self.source);
-                let callee = callee_node.as_function_decl()
-                    .map_err(|e| self.make_error(&e, reference_node))?;
-                let ret_ty = callee.ret_ty;
-                let params = callee.params.clone();
+                let callee_ref = self.translate_expr(&call_expr.callee)?;
+                let callee = callee_ref.get(&self.source);
+                let callee_func_ref = self.refer_node(callee_ref);
+                let callee_func_node = callee_func_ref.get(self.source);
+                let callee_func = callee_func_node.as_function_decl()
+                    .map_err(|e| self.make_error(&e, callee))?;
+                let ret_ty = callee_func.ret_ty;
+                let params = callee_func.params.clone();
                 if params.len() != call_expr.args.len() {
                     return Err(self.make_low_error("argument count incorrect", parser_node));
                 }
@@ -693,7 +699,7 @@ impl<'a> Analyzer<'a> {
                     args.push(arg_ref);
                 }
                 let node = graph::Node::CallExpr(CallExpr {
-                    callee: reference_ref,
+                    callee: callee_ref,
                     args,
                     ty: ret_ty,
                     pos: self.calc_location(parser_node)?,
