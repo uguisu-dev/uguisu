@@ -330,15 +330,6 @@ fn show_node(node: &Node, code: &str, level: usize) {
         Node::FunctionDeclaration(node) => {
             println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
 
-            match &node.ret {
-                Some(x) => {
-                    println!("{}ret: \"{}\"", indent(level + 1), x);
-                }
-                None => {
-                    println!("{}ret: (None)", indent(level + 1));
-                }
-            }
-
             println!("{}attributes: {{", indent(level + 1));
             for attr in node.attributes.iter() {
                 println!("{}{:?}", indent(level + 2), attr);
@@ -348,6 +339,15 @@ fn show_node(node: &Node, code: &str, level: usize) {
             println!("{}params: {{", indent(level + 1));
             show_tree(&node.params, code, level + 2);
             println!("{}}}", indent(level + 1));
+
+            match &node.ret {
+                Some(x) => {
+                    println!("{}ret: \"{}\"", indent(level + 1), x);
+                }
+                None => {
+                    println!("{}ret: (None)", indent(level + 1));
+                }
+            }
 
             println!("{}body: {{", indent(level + 1));
             match &node.body {
@@ -363,6 +363,12 @@ fn show_node(node: &Node, code: &str, level: usize) {
         Node::VariableDeclaration(node) => {
             println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
 
+            println!("{}attributes: {{", indent(level + 1));
+            for attr in node.attributes.iter() {
+                println!("{}{:?}", indent(level + 2), attr);
+            }
+            println!("{}}}", indent(level + 1));
+
             match &node.type_identifier {
                 Some(x) => {
                     println!("{}type_identifier: \"{}\"", indent(level + 1), x);
@@ -371,12 +377,6 @@ fn show_node(node: &Node, code: &str, level: usize) {
                     println!("{}type_identifier: (None)", indent(level + 1));
                 }
             }
-
-            println!("{}attributes: {{", indent(level + 1));
-            for attr in node.attributes.iter() {
-                println!("{}{:?}", indent(level + 2), attr);
-            }
-            println!("{}}}", indent(level + 1));
 
             println!("{}body: {{", indent(level + 1));
             match &node.body {
