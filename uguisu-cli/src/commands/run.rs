@@ -14,7 +14,7 @@ fn show_help(opts: Options) {
     print!("{}", opts.usage(brief.as_str()));
 }
 
-fn run_script(filename: &str, graph_map: bool) {
+fn run_script(filename: &str, debug_mode: bool) {
     let mut file = match File::open(filename) {
         Ok(x) => x,
         Err(_) => return println!("Error: Failed to open the file."),
@@ -33,12 +33,18 @@ fn run_script(filename: &str, graph_map: bool) {
         Err(e) => return println!("SyntaxError: {}", e.message),
     };
 
+    if debug_mode {
+        println!("================================= AST =================================");
+        engine.show_ast(&ast, &code);
+    }
+
     let graph = match engine.analyze(&code, ast) {
         Ok(x) => x,
         Err(e) => return println!("SyntaxError: {}", e.message),
     };
 
-    if graph_map {
+    if debug_mode {
+        println!("============================== Graph Map ==============================");
         engine.show_graph_map();
     }
 
@@ -51,7 +57,7 @@ fn run_script(filename: &str, graph_map: bool) {
 pub(crate) fn command(args: &[String]) {
     let mut opts = Options::new();
     opts.optflag("h", "help", "Print help message.");
-    opts.optflag("", "graph", "Display a graph map when a script file is analyzed. (debug option)");
+    opts.optflag("", "debug", "Display a debug log.");
     let matches = match opts.parse(args) {
         Ok(x) => x,
         Err(e) => {
@@ -67,7 +73,7 @@ pub(crate) fn command(args: &[String]) {
         show_help(opts);
         return;
     }
-    let graph_map = matches.opt_present("graph");
+    let debug_mode = matches.opt_present("debug");
     let input = &matches.free[0];
-    run_script(input, graph_map);
+    run_script(input, debug_mode);
 }

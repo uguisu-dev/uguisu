@@ -50,6 +50,10 @@ impl Engine {
         parse::parse(code)
     }
 
+    pub fn show_ast(&self, ast: &Vec<ast::Node>, code: &str) {
+        ast::show_tree(ast, code, 0);
+    }
+
     pub fn analyze(&mut self, code: &str, ast: Vec<ast::Node>) -> Result<Vec<graph::NodeRef>, SyntaxError> {
         let mut analyzer = analyze::Analyzer::new(code, &mut self.graph_source);
         analyzer.translate(&ast)

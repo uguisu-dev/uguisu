@@ -184,7 +184,7 @@ pub struct FunctionDeclaration {
     pub pos: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum FunctionAttribute {
 }
 
@@ -204,7 +204,7 @@ pub struct VariableDeclaration {
     pub pos: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum VariableAttribute {
     Const,
     Var,
@@ -291,4 +291,207 @@ pub struct CallExpr {
     pub callee: Box<Node>,
     pub args: Vec<Node>,
     pub pos: usize,
+}
+
+fn indent(indent: usize) -> String {
+    let mut buf = String::new();
+    for _ in 0..indent*2 {
+        buf.push(' ');
+    }
+    buf
+}
+
+pub fn show_tree(nodes: &Vec<Node>, code: &str, level: usize) {
+    for node in nodes.iter() {
+        show_node(node, code, level);
+    }
+}
+
+fn show_node(node: &Node, code: &str, level: usize) {
+    let name = match node {
+        Node::FunctionDeclaration(_) => "FunctionDeclaration",
+        Node::VariableDeclaration(_) => "VariableDeclaration",
+        Node::BreakStatement(_) => "BreakStatement",
+        Node::ReturnStatement(_) => "ReturnStatement",
+        Node::Assignment(_) => "Assignment",
+        Node::IfStatement(_) => "IfStatement",
+        Node::LoopStatement(_) => "LoopStatement",
+        Node::Reference(_) => "Reference",
+        Node::NumberLiteral(_) => "NumberLiteral",
+        Node::BoolLiteral(_) => "BoolLiteral",
+        Node::BinaryExpr(_) => "BinaryExpr",
+        Node::UnaryOp(_) => "UnaryOp",
+        Node::CallExpr(_) => "CallExpr",
+        Node::FuncParam(_) => "FuncParam",
+    };
+    let (line, column) = node.calc_location(code).unwrap();
+    println!("{}{}: ({}:{}) {{", indent(level), name, line, column);
+    match node {
+        Node::FunctionDeclaration(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+
+            match &node.ret {
+                Some(x) => {
+                    println!("{}ret: \"{}\"", indent(level + 1), x);
+                }
+                None => {
+                    println!("{}ret: (None)", indent(level + 1));
+                }
+            }
+
+            println!("{}attributes: {{", indent(level + 1));
+            for attr in node.attributes.iter() {
+                println!("{}{:?}", indent(level + 2), attr);
+            }
+            println!("{}}}", indent(level + 1));
+
+            println!("{}params: {{", indent(level + 1));
+            show_tree(&node.params, code, level + 2);
+            println!("{}}}", indent(level + 1));
+
+            println!("{}body: {{", indent(level + 1));
+            match &node.body {
+                Some(x) => {
+                    show_tree(x, code, level + 2);
+                }
+                None => {
+                    println!("{}(None)", indent(level + 2));
+                }
+            }
+            println!("{}}}", indent(level + 1));
+        }
+        Node::VariableDeclaration(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+
+            match &node.type_identifier {
+                Some(x) => {
+                    println!("{}type_identifier: \"{}\"", indent(level + 1), x);
+                }
+                None => {
+                    println!("{}type_identifier: (None)", indent(level + 1));
+                }
+            }
+
+            println!("{}attributes: {{", indent(level + 1));
+            for attr in node.attributes.iter() {
+                println!("{}{:?}", indent(level + 2), attr);
+            }
+            println!("{}}}", indent(level + 1));
+
+            println!("{}body: {{", indent(level + 1));
+            match &node.body {
+                Some(x) => {
+                    show_node(x, code, level + 2);
+                }
+                None => {
+                    println!("{}(None)", indent(level + 2));
+                }
+            }
+            println!("{}}}", indent(level + 1));
+        }
+        Node::BreakStatement(_) => {}
+        Node::ReturnStatement(node) => {
+            println!("{}body: {{", indent(level + 1));
+            match &node.body {
+                Some(x) => {
+                    show_node(x, code, level + 2);
+                }
+                None => {
+                    println!("{}(None)", indent(level + 2));
+                }
+            }
+            println!("{}}}", indent(level + 1));
+        }
+        Node::Assignment(node) => {
+            println!("{}node: {:?}", indent(level + 1), node.mode);
+
+            println!("{}dest: {{", indent(level + 1));
+            show_node(&node.dest, code, level + 2);
+            println!("{}}}", indent(level + 1));
+
+            println!("{}body: {{", indent(level + 1));
+            show_node(&node.body, code, level + 2);
+            println!("{}}}", indent(level + 1));
+        }
+        Node::IfStatement(node) => {
+            println!("{}cond_blocks: {{", indent(level + 1));
+            for (cond, body) in node.cond_blocks.iter() {
+                println!("{}cond_block: {{", indent(level + 2));
+                println!("{}cond: {{", indent(level + 3));
+                show_node(cond, code, level + 4);
+                println!("{}}}", indent(level + 3));
+
+                println!("{}body: {{", indent(level + 3));
+                show_tree(body, code, level + 4);
+                println!("{}}}", indent(level + 3));
+                println!("{}}}", indent(level + 2));
+            }
+            println!("{}}}", indent(level + 1));
+
+            println!("{}else_block: {{", indent(level + 1));
+            match &node.else_block {
+                Some(x) => {
+                    show_tree(x, code, level + 2);
+                }
+                None => {
+                    println!("{}(None)", indent(level + 2));
+                }
+            }
+            println!("{}}}", indent(level + 1));
+        }
+        Node::LoopStatement(node) => {
+            println!("{}body: {{", indent(level + 1));
+            show_tree(&node.body, code, level + 2);
+            println!("{}}}", indent(level + 1));
+        }
+        Node::Reference(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+        }
+        Node::NumberLiteral(node) => {
+            println!("{}value: {:?}", indent(level + 1), node.value);
+        }
+        Node::BoolLiteral(node) => {
+            println!("{}value: {:?}", indent(level + 1), node.value);
+        }
+        Node::BinaryExpr(node) => {
+            println!("{}operator: \"{}\"", indent(level + 1), node.operator);
+
+            println!("{}left: {{", indent(level + 1));
+            show_node(&node.left, code, level + 2);
+            println!("{}}}", indent(level + 1));
+
+            println!("{}right: {{", indent(level + 1));
+            show_node(&node.right, code, level + 2);
+            println!("{}}}", indent(level + 1));
+        }
+        Node::UnaryOp(node) => {
+            println!("{}operator: \"{}\"", indent(level + 1), node.operator);
+
+            println!("{}expr: {{", indent(level + 1));
+            show_node(&node.expr, code, level + 2);
+            println!("{}}}", indent(level + 1));
+        }
+        Node::CallExpr(node) => {
+            println!("{}callee: {{", indent(level + 1));
+            show_node(&node.callee, code, level + 2);
+            println!("{}}}", indent(level + 1));
+
+            println!("{}args: {{", indent(level + 1));
+            show_tree(&node.args, code, level + 2);
+            println!("{}}}", indent(level + 1));
+        }
+        Node::FuncParam(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+
+            match &node.type_identifier {
+                Some(x) => {
+                    println!("{}type_identifier: \"{}\"", indent(level + 1), x);
+                }
+                None => {
+                    println!("{}type_identifier: (None)", indent(level + 1));
+                }
+            }
+        }
+    }
+    println!("{}}}", indent(level));
 }
