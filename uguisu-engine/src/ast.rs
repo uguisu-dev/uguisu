@@ -230,7 +230,7 @@ pub struct Assignment {
     pub pos: usize,
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum AssignmentMode {
     Assign,
     AddAssign,

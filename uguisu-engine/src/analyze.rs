@@ -25,7 +25,7 @@ use crate::graph::{
     ReturnStatement,
     VariableDeclaration,
     LogicalUnaryOperator,
-    LogicalUnaryOp,
+    LogicalUnaryOp, Function, Variable,
 };
 use crate::types::Type;
 use crate::SyntaxError;
@@ -141,15 +141,24 @@ impl<'a> Analyzer<'a> {
             let node_ref = self.register_node(node);
             param_nodes.push(node_ref);
         }
-        // make function node
+
+        let func_node = graph::Node::Function(Function {
+            params: param_nodes.clone(),
+            ret_ty,
+            content: FunctionBody::NativeCode,
+            pos: (1, 1),
+        });
+        let func_node_ref = self.register_node(func_node);
+
         let decl_node = graph::Node::FunctionDeclaration(FunctionDeclaration {
             identifier: String::from(name),
-            params: param_nodes,
+            params: param_nodes.clone(),
             ret_ty,
-            body: Some(FunctionBody::NativeCode),
+            body: Some(func_node_ref),
             pos: (1, 1),
         });
         let node_ref = self.register_node(decl_node);
+
         // add to stack
         self.stack.set_record(name, node_ref);
         node_ref
@@ -213,121 +222,151 @@ impl<'a> Analyzer<'a> {
     fn translate_statement(&mut self, parser_node: &ast::Node) -> Result<graph::NodeRef, SyntaxError> {
         match &parser_node {
             ast::Node::FunctionDeclaration(func) => {
-                let mut params = Vec::new();
-                for (_i, n) in func.params.iter().enumerate() {
-                    let param = n.as_func_param();
-                    let param_type = match &param.type_identifier {
-                        Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, n))?, // TODO: improve error location
-                        None => return Err(self.make_low_error("parameter type missing", n)),
+                // function declaration
+                let decl_node_ref = {
+                    let mut params = Vec::new();
+                    for (_i, n) in func.params.iter().enumerate() {
+                        let param = n.as_func_param();
+                        let param_type = match &param.type_identifier {
+                            Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, n))?, // TODO: improve error location
+                            None => return Err(self.make_low_error("parameter type missing", n)),
+                        };
+                        let node = graph::Node::FuncParam(FuncParam {
+                            identifier: param.identifier.clone(),
+                            // param_index: i,
+                            ty: param_type,
+                            pos: self.calc_location(n)?,
+                        });
+                        let node_ref = self.register_node(node);
+                        params.push(node_ref);
+                    }
+
+                    let ret_ty = match &func.ret {
+                        Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
+                        None => Type::Void,
                     };
-                    // make param node
-                    let node = graph::Node::FuncParam(FuncParam {
-                        identifier: param.identifier.clone(),
-                        // param_index: i,
-                        ty: param_type,
-                        pos: self.calc_location(n)?,
+
+                    let node = graph::Node::FunctionDeclaration(FunctionDeclaration {
+                        identifier: func.identifier.clone(),
+                        params,
+                        ret_ty,
+                        body: None,
+                        pos: self.calc_location(parser_node)?,
                     });
                     let node_ref = self.register_node(node);
-                    params.push(node_ref);
-                }
-                let ret_ty = match &func.ret {
-                    Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
-                    None => Type::Void,
-                };
-                // make function node
-                let node = graph::Node::FunctionDeclaration(FunctionDeclaration {
-                    identifier: func.identifier.clone(),
-                    params,
-                    ret_ty,
-                    body: None,
-                    pos: self.calc_location(parser_node)?,
-                });
-                let node_ref = self.register_node(node);
-                // add to stack
-                self.stack.set_record(&func.identifier, node_ref);
+                    self.stack.set_record(&func.identifier, node_ref);
 
-                // define body
-                self.stack.push_frame();
-                let node = node_ref.get(self.source);
-                let graph_func = node.as_function_decl().unwrap();
-                let mut i = 0;
-                loop {
-                    let param_ref = match graph_func.params.get(i) {
-                        Some(&x) => x,
-                        None => break,
+                    node_ref
+                };
+
+                // function
+                {
+                    let content = {
+                        self.stack.push_frame();
+                        let decl_node = decl_node_ref.get(self.source);
+                        let decl = decl_node.as_function_decl().unwrap();
+
+                        let mut i = 0;
+                        loop {
+                            let param_ref = match decl.params.get(i) {
+                                Some(&x) => x,
+                                None => break,
+                            };
+                            let param_node = param_ref.get(self.source);
+                            let param = param_node.as_func_param().unwrap();
+                            self.stack.set_record(&param.identifier, param_ref);
+                            i += 1;
+                        }
+
+                        let func_body = match &func.body {
+                            Some(x) => x,
+                            None => return Err(self.make_low_error("function declaration cannot be undefined.", parser_node)),
+                        };
+                        let content = FunctionBody::Statements(self.translate_statements(func_body)?);
+
+                        self.stack.pop_frame();
+                        content
                     };
-                    let param_node = param_ref.get(self.source);
-                    let param = param_node.as_func_param().unwrap();
-                    // add to stack
-                    self.stack.set_record(&param.identifier, param_ref);
-                    i += 1;
-                }
-                let body = match &func.body {
-                    Some(body_nodes) => Some(FunctionBody::Statements(self.translate_statements(body_nodes)?)),
-                    None => None,
-                };
-                let node = node_ref.get_mut(self.source);
-                let graph_func = node.as_function_decl_mut().unwrap();
-                graph_func.body = body;
-                self.stack.pop_frame();
 
-                Ok(node_ref)
+                    let decl_node = decl_node_ref.get(self.source);
+                    let decl = decl_node.as_function_decl().unwrap();
+
+                    let node = graph::Node::Function(Function {
+                        params: decl.params.clone(),
+                        ret_ty: decl.ret_ty,
+                        content,
+                        pos: self.calc_location(parser_node)?,
+                    });
+                    let func_node_ref = self.register_node(node);
+
+                    // bind declaration
+                    let decl_node = decl_node_ref.get_mut(self.source);
+                    let decl = decl_node.as_function_decl_mut().unwrap();
+                    decl.body = Some(func_node_ref);
+                }
+
+                Ok(decl_node_ref)
             }
-            ast::Node::VariableDeclaration(var_decl) => {
-                let has_const_attr = var_decl
-                    .attributes
-                    .iter()
-                    .any(|x| *x == VariableAttribute::Const);
-                if has_const_attr {
-                    return Err(self.make_low_error("A variable with `const` is no longer supported. Use the `var` keyword instead. \nThis keyword may also be used as a constant values in the future.", parser_node));
-                }
-                let has_let_attr = var_decl
-                    .attributes
-                    .iter()
-                    .any(|x| *x == VariableAttribute::Let);
-                if has_let_attr {
-                    return Err(self.make_low_error("A variable with `let` is no longer supported. Use the `var` keyword instead.", parser_node));
-                }
-                // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
-                let specified_ty = match &var_decl.type_identifier {
-                    Some(ident) => Some(Type::lookup_user_type(ident).map_err(|e| self.make_low_error(&e, parser_node))?), // TODO: improve error location
-                    None => None,
-                };
-                // make node
-                let node = graph::Node::VariableDeclaration(VariableDeclaration {
-                    identifier: var_decl.identifier.clone(),
-                    body: None,
-                    specified_ty,
-                    ty: None,
-                    pos: self.calc_location(parser_node)?,
-                });
-                let node_ref = self.register_node(node);
-                // add to stack
-                self.stack.set_record(&var_decl.identifier, node_ref);
+            ast::Node::VariableDeclaration(variable) => {
+                let decl_node_ref = {
+                    let has_const_attr = variable.attributes.iter().any(|x| *x == VariableAttribute::Const);
+                    if has_const_attr {
+                        return Err(self.make_low_error("A variable with `const` is no longer supported. Use the `var` keyword instead. \nThis keyword may also be used as a constant values in the future.", parser_node));
+                    }
+                    let has_let_attr = variable.attributes.iter().any(|x| *x == VariableAttribute::Let);
+                    if has_let_attr {
+                        return Err(self.make_low_error("A variable with `let` is no longer supported. Use the `var` keyword instead.", parser_node));
+                    }
 
-                // define body
-                if let Some(ast_body_node) = &var_decl.body {
-                    let body_ref = self.translate_expr(ast_body_node)?;
+                    // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
+                    let specified_ty = match &variable.type_identifier {
+                        Some(ident) => Some(Type::lookup_user_type(ident).map_err(|e| self.make_low_error(&e, parser_node))?), // TODO: improve error location
+                        None => None,
+                    };
+
+                    let node = graph::Node::VariableDeclaration(VariableDeclaration {
+                        identifier: variable.identifier.clone(),
+                        specified_ty,
+                        body: None,
+                        pos: self.calc_location(parser_node)?,
+                    });
+                    let node_ref = self.register_node(node);
+                    self.stack.set_record(&variable.identifier, node_ref);
+                    node_ref
+                };
+
+                {
+                    let variable_body = match &variable.body {
+                        Some(x) => x,
+                        None => return Err(self.make_low_error("variable declaration cannot be undefined.", parser_node)),
+                    };
+                    let body_ref = self.translate_expr(variable_body)?;
                     let body_node = body_ref.get(self.source);
-                    let body_ty = body_node.get_ty().map_err(|e| self.make_error(&e, body_node))?;
+                    let body_ty = body_node.get_ty(self.source).map_err(|e| self.make_error(&e, body_node))?;
                     if body_ty == Type::Function {
                         return Err(self.make_error("type `function` is not supported", body_node));
                     }
-                    let node = node_ref.get(self.source);
-                    let graph_var = node.as_variable_decl().unwrap();
-                    let ty = match graph_var.specified_ty {
-                        Some(specified_ty) => {
-                            Some(Type::assert(body_ty, specified_ty).map_err(|e| self.make_error(&e, body_node))?)
-                        }
-                        None => Some(body_ty),
+                    let decl_node = decl_node_ref.get(self.source);
+                    let decl = decl_node.as_variable_decl().unwrap();
+                    let ty = match decl.specified_ty {
+                        Some(x) => Type::assert(body_ty, x).map_err(|e| self.make_error(&e, body_node))?,
+                        None => body_ty,
                     };
-                    let node = node_ref.get_mut(self.source);
-                    let graph_var = node.as_variable_decl_mut().unwrap();
-                    graph_var.body = Some(body_ref);
-                    graph_var.ty = ty;
+
+                    let var_node = graph::Node::Variable(Variable {
+                        content: body_ref,
+                        ty,
+                        pos: self.calc_location(parser_node)?,
+                    });
+                    let var_node_ref = self.register_node(var_node);
+
+                    // bind declaration
+                    let decl_node = decl_node_ref.get_mut(self.source);
+                    let decl = decl_node.as_variable_decl_mut().unwrap();
+                    decl.body = Some(var_node_ref);
                 }
 
-                Ok(node_ref)
+                Ok(decl_node_ref)
             }
             ast::Node::BreakStatement(_) => {
                 if self.stack.frames.len() == 1 {
@@ -350,7 +389,7 @@ impl<'a> Analyzer<'a> {
                     Some(x) => {
                         let body_ref = self.translate_expr(x)?;
                         let body_node = body_ref.get(self.source);
-                        let body_ty = body_node.get_ty().map_err(|e| self.make_error(&e, body_node))?;
+                        let body_ty = body_node.get_ty(self.source).map_err(|e| self.make_error(&e, body_node))?;
                         if body_ty == Type::Function {
                             return Err(self.make_error("type `function` is not supported", body_node));
                         }
@@ -376,8 +415,8 @@ impl<'a> Analyzer<'a> {
                     AssignmentMode::Assign => {
                         let dest_node = dest.get(self.source);
                         let body_node = body.get(self.source);
-                        let dest_ty = dest_node.get_ty().map_err(|e| self.make_low_error(&e, parser_node))?;
-                        let body_ty = body_node.get_ty().map_err(|e| self.make_error(&e, body_node))?;
+                        let dest_ty = dest_node.get_ty(self.source).map_err(|e| self.make_low_error(&e, parser_node))?;
+                        let body_ty = body_node.get_ty(self.source).map_err(|e| self.make_error(&e, body_node))?;
                         if dest_ty == Type::Function {
                             return Err(self.make_error("type `function` is not supported", dest_node));
                         }
@@ -393,9 +432,9 @@ impl<'a> Analyzer<'a> {
                     | AssignmentMode::ModAssign => {
                         let dest_node = dest.get(self.source);
                         let body_node = body.get(self.source);
-                        let dest_ty = dest_node.get_ty().map_err(|e| self.make_low_error(&e, parser_node))?;
+                        let dest_ty = dest_node.get_ty(self.source).map_err(|e| self.make_low_error(&e, parser_node))?;
                         Type::assert(dest_ty, Type::Number).map_err(|e| self.make_error(&e, dest_node))?; // TODO: improve error message
-                        let body_ty = body_node.get_ty().map_err(|e| self.make_error(&e, body_node))?;
+                        let body_ty = body_node.get_ty(self.source).map_err(|e| self.make_error(&e, body_node))?;
                         Type::assert(body_ty, Type::Number).map_err(|e| self.make_error(&e, body_node))?;
                     }
                 }
@@ -420,7 +459,7 @@ impl<'a> Analyzer<'a> {
                         Some((cond, then_block)) => {
                             let cond_ref = analyzer.translate_expr(cond)?;
                             let cond_node = cond_ref.get(analyzer.source);
-                            let cond_ty = cond_node.get_ty().map_err(|e| analyzer.make_error(&e, cond_node))?;
+                            let cond_ty = cond_node.get_ty(analyzer.source).map_err(|e| analyzer.make_error(&e, cond_node))?;
                             Type::assert(cond_ty, Type::Bool).map_err(|e| analyzer.make_error(&e, cond_node))?;
                             let then_nodes = analyzer.translate_statements(then_block)?;
                             // next else if part
@@ -492,7 +531,7 @@ impl<'a> Analyzer<'a> {
                 }
                 let expr_ref = self.translate_expr(parser_node)?;
                 let expr_node = expr_ref.get(self.source);
-                let expr_ty = expr_node.get_ty().map_err(|e| self.make_error(&e, expr_node))?;
+                let expr_ty = expr_node.get_ty(self.source).map_err(|e| self.make_error(&e, expr_node))?;
                 if expr_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", expr_node));
                 }
@@ -514,7 +553,7 @@ impl<'a> Analyzer<'a> {
                     None => return Err(self.make_low_error("unknown identifier", parser_node)),
                 };
                 let dest_node = dest_ref.get(self.source);
-                let dest_ty = dest_node.get_ty().map_err(|e| self.make_error(&e, dest_node))?;
+                let dest_ty = dest_node.get_ty(self.source).map_err(|e| self.make_error(&e, dest_node))?;
                 let node = graph::Node::Reference(Reference {
                     dest: dest_ref,
                     ty: dest_ty,
@@ -544,7 +583,7 @@ impl<'a> Analyzer<'a> {
             ast::Node::UnaryOp(unary_op) => {
                 let expr_ref = self.translate_expr(&unary_op.expr)?;
                 let expr_node = expr_ref.get(self.source);
-                let expr_ty = expr_node.get_ty().map_err(|e| self.make_error(&e, expr_node))?;
+                let expr_ty = expr_node.get_ty(self.source).map_err(|e| self.make_error(&e, expr_node))?;
                 if expr_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", expr_node));
                 }
@@ -568,8 +607,8 @@ impl<'a> Analyzer<'a> {
                 let right_ref = self.translate_expr(&binary_expr.right)?;
                 let left_node = left_ref.get(self.source);
                 let right_node = right_ref.get(self.source);
-                let left_ty = left_node.get_ty().map_err(|e| self.make_error(&e, left_node))?;
-                let right_ty = right_node.get_ty().map_err(|e| self.make_error(&e, right_node))?;
+                let left_ty = left_node.get_ty(self.source).map_err(|e| self.make_error(&e, left_node))?;
+                let right_ty = right_node.get_ty(self.source).map_err(|e| self.make_error(&e, right_node))?;
                 if left_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", left_node));
                 }
@@ -665,8 +704,8 @@ impl<'a> Analyzer<'a> {
                     let arg_ref = self.translate_expr(&call_expr.args[i])?;
                     let arg_node = arg_ref.get(self.source);
                     let param_node = param_ref.get(self.source);
-                    let param_ty = param_node.get_ty().map_err(|e| self.make_error(&e, param_node))?;
-                    let arg_ty = arg_node.get_ty().map_err(|e| self.make_error(&e, arg_node))?;
+                    let param_ty = param_node.get_ty(self.source).map_err(|e| self.make_error(&e, param_node))?;
+                    let arg_ty = arg_node.get_ty(self.source).map_err(|e| self.make_error(&e, arg_node))?;
                     if param_ty == Type::Function {
                         return Err(self.make_error("type `function` is not supported", param_node));
                     }

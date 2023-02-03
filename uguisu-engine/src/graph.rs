@@ -4,7 +4,7 @@ use crate::types::Type;
 
 pub(crate) type NodeId = usize;
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct NodeRef {
     pub id: NodeId,
 }
@@ -26,6 +26,7 @@ impl NodeRef {
     }
 }
 
+#[derive(Debug)]
 pub(crate) enum Node {
     // statement
     FunctionDeclaration(FunctionDeclaration),
@@ -36,6 +37,8 @@ pub(crate) enum Node {
     IfStatement(IfStatement),
     LoopStatement(LoopStatement),
     // expression
+    Function(Function),
+    Variable(Variable),
     Reference(Reference),
     Literal(Literal),
     RelationalOp(RelationalOp),
@@ -47,8 +50,19 @@ pub(crate) enum Node {
 }
 
 impl Node {
-    pub(crate) fn get_ty(&self) -> Result<Type, String> {
+    pub(crate) fn get_ty(&self, source: &HashMap<NodeId, Node>) -> Result<Type, String> {
         match self {
+            Node::VariableDeclaration(node) => {
+                let body_ref = match node.body {
+                    Some(x) => x,
+                    None => panic!("variable undefined"),
+                };
+                let body_node = body_ref.get(source);
+                let variable = body_node.as_variable()?;
+                Ok(variable.ty)
+            }
+            Node::FunctionDeclaration(_) => Ok(Type::Function),
+            Node::Variable(node) => Ok(node.ty),
             Node::Reference(node) => Ok(node.ty),
             Node::Literal(node) => Ok(node.ty),
             Node::RelationalOp(node) => Ok(node.ty),
@@ -57,40 +71,36 @@ impl Node {
             Node::LogicalUnaryOp(node) => Ok(node.ty),
             Node::CallExpr(node) => Ok(node.ty),
             Node::FuncParam(node) => Ok(node.ty),
-            Node::VariableDeclaration(node) => {
-                match node.ty {
-                    Some(ty) => Ok(ty),
-                    None => panic!("variable is not defined"),
-                }
-            }
-            Node::FunctionDeclaration(_) => Ok(Type::Function),
-            Node::BreakStatement(_)
+            Node::Function(_)
+            | Node::BreakStatement(_)
             | Node::ReturnStatement(_)
             | Node::Assignment(_)
             | Node::IfStatement(_)
             | Node::LoopStatement(_) => {
-                panic!("unexpected node");
+                panic!("unexpected node {:?}", self);
             }
         }
     }
 
     pub(crate) fn get_pos(&self) -> (usize, usize) {
         match self {
-            Self::FunctionDeclaration(node) => node.pos,
-            Self::VariableDeclaration(node) => node.pos,
-            Self::BreakStatement(node) => node.pos,
-            Self::ReturnStatement(node) => node.pos,
-            Self::Assignment(node) => node.pos,
-            Self::IfStatement(node) => node.pos,
-            Self::LoopStatement(node) => node.pos,
-            Self::Reference(node) => node.pos,
-            Self::Literal(node) => node.pos,
-            Self::RelationalOp(node) => node.pos,
-            Self::LogicalBinaryOp(node) => node.pos,
-            Self::ArithmeticOp(node) => node.pos,
-            Self::LogicalUnaryOp(node) => node.pos,
-            Self::CallExpr(node) => node.pos,
-            Self::FuncParam(node) => node.pos,
+            Node::FunctionDeclaration(node) => node.pos,
+            Node::VariableDeclaration(node) => node.pos,
+            Node::BreakStatement(node) => node.pos,
+            Node::ReturnStatement(node) => node.pos,
+            Node::Assignment(node) => node.pos,
+            Node::IfStatement(node) => node.pos,
+            Node::LoopStatement(node) => node.pos,
+            Node::Function(node) => node.pos,
+            Node::Variable(node) => node.pos,
+            Node::Reference(node) => node.pos,
+            Node::Literal(node) => node.pos,
+            Node::RelationalOp(node) => node.pos,
+            Node::LogicalBinaryOp(node) => node.pos,
+            Node::ArithmeticOp(node) => node.pos,
+            Node::LogicalUnaryOp(node) => node.pos,
+            Node::CallExpr(node) => node.pos,
+            Node::FuncParam(node) => node.pos,
         }
     }
 
@@ -105,6 +115,13 @@ impl Node {
         match self {
             Node::VariableDeclaration(x) => Ok(x),
             _ => Err("variable declaration expected".to_owned()),
+        }
+    }
+
+    pub(crate) fn as_variable(&self) -> Result<&Variable, String> {
+        match self {
+            Node::Variable(x) => Ok(x),
+            _ => Err("variable expected".to_owned()),
         }
     }
 
@@ -137,19 +154,16 @@ impl Node {
     }
 }
 
-pub(crate) enum FunctionBody {
-    Statements(Vec<NodeRef>),
-    NativeCode,
-}
-
+#[derive(Debug)]
 pub(crate) struct FunctionDeclaration {
     pub identifier: String,
-    pub body: Option<FunctionBody>,
-    pub params: Vec<NodeRef>,
+    pub params: Vec<NodeRef>, // FuncParam
     pub ret_ty: Type,
+    pub body: Option<NodeRef>, // Function
     pub pos: (usize, usize),
 }
 
+#[derive(Debug)]
 pub(crate) struct FuncParam {
     pub identifier: String,
     // pub param_index: usize,
@@ -157,23 +171,47 @@ pub(crate) struct FuncParam {
     pub pos: (usize, usize),
 }
 
-pub(crate) struct VariableDeclaration {
-    pub identifier: String,
-    pub body: Option<NodeRef>,
-    pub specified_ty: Option<Type>,
-    pub ty: Option<Type>,
+#[derive(Debug)]
+pub(crate) struct Function {
+    pub params: Vec<NodeRef>,
+    pub ret_ty: Type,
+    pub content: FunctionBody,
     pub pos: (usize, usize),
 }
 
+#[derive(Debug)]
+pub(crate) enum FunctionBody {
+    Statements(Vec<NodeRef>),
+    NativeCode,
+}
+
+#[derive(Debug)]
+pub(crate) struct VariableDeclaration {
+    pub identifier: String,
+    pub specified_ty: Option<Type>,
+    pub body: Option<NodeRef>, // Variable
+    pub pos: (usize, usize),
+}
+
+#[derive(Debug)]
+pub(crate) struct Variable {
+    pub content: NodeRef,
+    pub ty: Type,
+    pub pos: (usize, usize),
+}
+
+#[derive(Debug)]
 pub(crate) struct BreakStatement {
     pub pos: (usize, usize),
 }
 
+#[derive(Debug)]
 pub(crate) struct ReturnStatement {
     pub body: Option<NodeRef>,
     pub pos: (usize, usize),
 }
 
+#[derive(Debug)]
 pub(crate) struct Assignment {
     pub dest: NodeRef,
     pub body: NodeRef,
@@ -181,6 +219,7 @@ pub(crate) struct Assignment {
     pub pos: (usize, usize),
 }
 
+#[derive(Debug)]
 pub(crate) struct IfStatement {
     pub condition: NodeRef,
     pub then_block: Vec<NodeRef>,
@@ -188,17 +227,20 @@ pub(crate) struct IfStatement {
     pub pos: (usize, usize),
 }
 
+#[derive(Debug)]
 pub(crate) struct LoopStatement {
     pub body: Vec<NodeRef>,
     pub pos: (usize, usize),
 }
 
+#[derive(Debug)]
 pub(crate) struct Reference {
     pub dest: NodeRef,
     pub ty: Type,
     pub pos: (usize, usize),
 }
 
+#[derive(Debug)]
 pub(crate) struct Literal {
     pub value: LiteralValue,
     pub ty: Type,
@@ -211,6 +253,7 @@ pub(crate) enum LiteralValue {
     Bool(bool),
 }
 
+#[derive(Debug)]
 pub(crate) struct RelationalOp {
     pub operator: RelationalOperator,
     pub relation_type: Type,
@@ -230,6 +273,7 @@ pub(crate) enum RelationalOperator {
     LessThanEqual,
 }
 
+#[derive(Debug)]
 pub(crate) struct LogicalBinaryOp {
     pub operator: LogicalBinaryOperator,
     pub left: NodeRef,
@@ -244,6 +288,7 @@ pub(crate) enum LogicalBinaryOperator {
     Or,
 }
 
+#[derive(Debug)]
 pub(crate) struct LogicalUnaryOp {
     pub operator: LogicalUnaryOperator,
     pub expr: NodeRef,
@@ -256,6 +301,7 @@ pub(crate) enum LogicalUnaryOperator {
     Not,
 }
 
+#[derive(Debug)]
 pub(crate) struct ArithmeticOp {
     pub operator: ArithmeticOperator,
     pub left: NodeRef,
@@ -273,8 +319,9 @@ pub(crate) enum ArithmeticOperator {
     Mod,
 }
 
+#[derive(Debug)]
 pub(crate) struct CallExpr {
-    pub callee: NodeRef,
+    pub callee: NodeRef, // Reference -> FunctionDeclaration -> Function
     pub args: Vec<NodeRef>,
     pub ty: Type,
     pub pos: (usize, usize),
@@ -290,6 +337,8 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
         Node::Assignment(_) => "Assignment",
         Node::IfStatement(_) => "IfStatement",
         Node::LoopStatement(_) => "LoopStatement",
+        Node::Function(_) => "Function",
+        Node::Variable(_) => "Variable",
         Node::Reference(_) => "Reference",
         Node::Literal(_) => "Literal",
         Node::RelationalOp(_) => "RelationalOp",
@@ -303,30 +352,54 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
     println!("[{}] {} ({}:{})", node_ref.id, name, line, column);
     match node {
         Node::FunctionDeclaration(func) => {
-            println!("  name: {}", func.identifier);
+            println!("  identifier: {}", func.identifier);
             println!("  params: {{");
             for param in func.params.iter() {
                 println!("    [{}]", param.id);
             }
             println!("  }}");
-            match &func.body {
-                Some(FunctionBody::Statements(body)) => {
+            println!("  ret_ty: {:?}", func.ret_ty);
+            match func.body {
+                Some(body) => {
                     println!("  body: {{");
-                    for item in body.iter() {
-                        println!("    [{}]", item.id);
-                    }
+                    println!("    [{}]", body.id);
                     println!("  }}");
-                }
-                Some(FunctionBody::NativeCode) => {
-                    println!("  body: (native code)");
                 }
                 None => {
                     println!("  body: (None)");
                 }
             }
         }
+        Node::Function(func) => {
+            println!("  params: {{");
+            for param in func.params.iter() {
+                println!("    [{}]", param.id);
+            }
+            println!("  }}");
+            println!("  ret_ty: {:?}", func.ret_ty);
+            match &func.content {
+                FunctionBody::Statements(body) => {
+                    println!("  body: (statements) {{");
+                    for item in body.iter() {
+                        println!("    [{}]", item.id);
+                    }
+                    println!("  }}");
+                }
+                FunctionBody::NativeCode => {
+                    println!("  body: (native code)");
+                }
+            }
+        }
         Node::VariableDeclaration(variable) => {
-            println!("  name: {}", variable.identifier);
+            println!("  identifier: {}", variable.identifier);
+            match &variable.specified_ty {
+                Some(specified_ty) => {
+                    println!("  specified_ty: {:?}", specified_ty);
+                }
+                None => {
+                    println!("  specified_ty: (None)");
+                }
+            }
             match &variable.body {
                 Some(body) => {
                     println!("  body: {{");
@@ -337,14 +410,11 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
                     println!("  body: (None)");
                 }
             }
-            match &variable.specified_ty {
-                Some(specified_ty) => {
-                    println!("  specified_ty: {:?}", specified_ty);
-                }
-                None => {
-                    println!("  specified_ty: (None)");
-                }
-            }
+        }
+        Node::Variable(variable) => {
+            println!("  content: {{");
+            println!("    [{}]", variable.content.id);
+            println!("  }}");
         }
         Node::BreakStatement(_) => {}
         Node::ReturnStatement(node) => {
@@ -441,7 +511,7 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
             println!("  }}");
         }
         Node::FuncParam(func_param) => {
-            println!("  name: {}", func_param.identifier);
+            println!("  identifier: {}", func_param.identifier);
         }
     }
 }
