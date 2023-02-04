@@ -152,7 +152,7 @@ impl<'a> Analyzer<'a> {
 
         let decl_node = graph::Node::FunctionDeclaration(FunctionDeclaration {
             identifier: String::from(name),
-            params: param_nodes.clone(),
+            params: param_nodes,
             ret_ty,
             body: Some(func_node_ref),
             pos: (1, 1),
