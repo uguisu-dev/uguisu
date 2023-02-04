@@ -349,7 +349,7 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
         Node::FuncParam(_) => "FuncParam",
     };
     let (line, column) = node.get_pos();
-    println!("[{}] {} ({}:{})", node_ref.id, name, line, column);
+    println!("[{}] {} ({}:{}) {{", node_ref.id, name, line, column);
     match node {
         Node::FunctionDeclaration(func) => {
             println!("  identifier: {}", func.identifier);
@@ -514,4 +514,5 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
             println!("  identifier: {}", func_param.identifier);
         }
     }
+    println!("}}");
 }

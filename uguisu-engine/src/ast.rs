@@ -325,7 +325,7 @@ fn show_node(node: &Node, code: &str, level: usize) {
         Node::FuncParam(_) => "FuncParam",
     };
     let (line, column) = node.calc_location(code).unwrap();
-    println!("{}{}: ({}:{}) {{", indent(level), name, line, column);
+    println!("{}{} ({}:{}) {{", indent(level), name, line, column);
     match node {
         Node::FunctionDeclaration(node) => {
             println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
