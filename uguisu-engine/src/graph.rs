@@ -159,11 +159,11 @@ pub(crate) struct FunctionDeclaration {
     pub identifier: String,
     pub params: Vec<NodeRef>, // FuncParam
     pub ret_ty: Type,
-    pub body: Option<NodeRef>, // Function
+    pub value: Option<NodeRef>, // Function
     pub pos: (usize, usize),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct FuncParam {
     pub identifier: String,
     // pub param_index: usize,
@@ -359,7 +359,7 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
             }
             println!("  }}");
             println!("  ret_ty: {:?}", func.ret_ty);
-            match func.body {
+            match func.value {
                 Some(body) => {
                     println!("  body: {{");
                     println!("    [{}]", body.id);
@@ -512,6 +512,7 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
         }
         Node::FuncParam(func_param) => {
             println!("  identifier: {}", func_param.identifier);
+            println!("  ty: {:?}", func_param.ty);
         }
     }
     println!("}}");

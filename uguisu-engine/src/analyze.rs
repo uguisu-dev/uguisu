@@ -130,7 +130,7 @@ impl<'a> Analyzer<'a> {
         ret_ty: Type,
     ) -> graph::NodeRef {
         let mut param_nodes = Vec::new();
-        for (_i, &(param_name, param_ty)) in params.iter().enumerate() {
+        for &(param_name, param_ty) in params.iter() {
             // make param node
             let node = graph::Node::FuncParam(FuncParam {
                 identifier: String::from(param_name),
@@ -154,7 +154,7 @@ impl<'a> Analyzer<'a> {
             identifier: String::from(name),
             params: param_nodes,
             ret_ty,
-            body: Some(func_node_ref),
+            value: Some(func_node_ref),
             pos: (1, 1),
         });
         let node_ref = self.register_node(decl_node);
@@ -222,35 +222,41 @@ impl<'a> Analyzer<'a> {
     fn translate_statement(&mut self, parser_node: &ast::Node) -> Result<graph::NodeRef, SyntaxError> {
         match &parser_node {
             ast::Node::FunctionDeclaration(func) => {
+                let mut func_params = Vec::new();
+                for n in func.params.iter() {
+                    let param = n.as_func_param();
+                    let param_type = match &param.type_identifier {
+                        Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, n))?, // TODO: improve error location
+                        None => return Err(self.make_low_error("parameter type missing", n)),
+                    };
+                    let func_param = FuncParam {
+                        identifier: param.identifier.clone(),
+                        // param_index: i,
+                        ty: param_type,
+                        pos: self.calc_location(n)?,
+                    };
+                    func_params.push(func_param);
+                }
+                let ret_ty = match &func.ret {
+                    Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
+                    None => Type::Void,
+                };
+
                 // function declaration
                 let decl_node_ref = {
+                    // params
                     let mut params = Vec::new();
-                    for (_i, n) in func.params.iter().enumerate() {
-                        let param = n.as_func_param();
-                        let param_type = match &param.type_identifier {
-                            Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, n))?, // TODO: improve error location
-                            None => return Err(self.make_low_error("parameter type missing", n)),
-                        };
-                        let node = graph::Node::FuncParam(FuncParam {
-                            identifier: param.identifier.clone(),
-                            // param_index: i,
-                            ty: param_type,
-                            pos: self.calc_location(n)?,
-                        });
+                    for func_param in func_params.iter() {
+                        let node = graph::Node::FuncParam(func_param.clone());
                         let node_ref = self.register_node(node);
                         params.push(node_ref);
                     }
-
-                    let ret_ty = match &func.ret {
-                        Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
-                        None => Type::Void,
-                    };
 
                     let node = graph::Node::FunctionDeclaration(FunctionDeclaration {
                         identifier: func.identifier.clone(),
                         params,
                         ret_ty,
-                        body: None,
+                        value: None,
                         pos: self.calc_location(parser_node)?,
                     });
                     let node_ref = self.register_node(node);
@@ -261,48 +267,48 @@ impl<'a> Analyzer<'a> {
 
                 // function
                 {
-                    let content = {
-                        self.stack.push_frame();
-                        let decl_node = decl_node_ref.get(self.source);
-                        let decl = decl_node.as_function_decl().unwrap();
+                    // params
+                    let mut params = Vec::new();
+                    for func_param in func_params {
+                        let node = graph::Node::FuncParam(func_param);
+                        let node_ref = self.register_node(node);
+                        params.push(node_ref);
+                    }
 
-                        let mut i = 0;
-                        loop {
-                            let param_ref = match decl.params.get(i) {
-                                Some(&x) => x,
-                                None => break,
-                            };
-                            let param_node = param_ref.get(self.source);
-                            let param = param_node.as_func_param().unwrap();
-                            self.stack.set_record(&param.identifier, param_ref);
-                            i += 1;
-                        }
-
-                        let func_body = match &func.body {
-                            Some(x) => x,
-                            None => return Err(self.make_low_error("function declaration cannot be undefined.", parser_node)),
-                        };
-                        let content = FunctionBody::Statements(self.translate_statements(func_body)?);
-
-                        self.stack.pop_frame();
-                        content
-                    };
-
+                    // body
+                    self.stack.push_frame();
                     let decl_node = decl_node_ref.get(self.source);
                     let decl = decl_node.as_function_decl().unwrap();
+                    let mut i = 0;
+                    loop {
+                        let param_ref = match decl.params.get(i) {
+                            Some(&x) => x,
+                            None => break,
+                        };
+                        let param_node = param_ref.get(self.source);
+                        let param = param_node.as_func_param().unwrap();
+                        self.stack.set_record(&param.identifier, param_ref);
+                        i += 1;
+                    }
+                    let func_body = match &func.body {
+                        Some(x) => x,
+                        None => return Err(self.make_low_error("function declaration cannot be undefined.", parser_node)),
+                    };
+                    let body = FunctionBody::Statements(self.translate_statements(func_body)?);
+                    self.stack.pop_frame();
 
                     let node = graph::Node::Function(Function {
-                        params: decl.params.clone(),
-                        ret_ty: decl.ret_ty,
-                        content,
+                        params,
+                        ret_ty,
+                        content: body,
                         pos: self.calc_location(parser_node)?,
                     });
                     let func_node_ref = self.register_node(node);
 
-                    // bind declaration
+                    // link declaration
                     let decl_node = decl_node_ref.get_mut(self.source);
                     let decl = decl_node.as_function_decl_mut().unwrap();
-                    decl.body = Some(func_node_ref);
+                    decl.value = Some(func_node_ref);
                 }
 
                 Ok(decl_node_ref)
