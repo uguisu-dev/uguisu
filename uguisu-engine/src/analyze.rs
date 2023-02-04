@@ -10,22 +10,26 @@ use crate::graph::{
     Assignment,
     BreakStatement,
     CallExpr,
+    Declaration,
     FuncParam,
+    Function,
     FunctionBody,
-    FunctionDeclaration,
+    FunctionSignature,
     IfStatement,
     Literal,
     LiteralValue,
     LogicalBinaryOp,
     LogicalBinaryOperator,
+    LogicalUnaryOp,
+    LogicalUnaryOperator,
     LoopStatement,
     Reference,
     RelationalOp,
     RelationalOperator,
     ReturnStatement,
-    VariableDeclaration,
-    LogicalUnaryOperator,
-    LogicalUnaryOp, Function, Variable,
+    Signature,
+    Variable,
+    VariableSignature,
 };
 use crate::types::Type;
 use crate::SyntaxError;
@@ -150,11 +154,14 @@ impl<'a> Analyzer<'a> {
         });
         let func_node_ref = self.register_node(func_node);
 
-        let decl_node = graph::Node::FunctionDeclaration(FunctionDeclaration {
-            identifier: String::from(name),
+        let signature = Signature::FunctionSignature(FunctionSignature {
             params: param_nodes,
             ret_ty,
-            value: Some(func_node_ref),
+        });
+        let decl_node = graph::Node::Declaration(Declaration {
+            identifier: String::from(name),
+            signature,
+            body: Some(func_node_ref),
             pos: (1, 1),
         });
         let node_ref = self.register_node(decl_node);
@@ -252,11 +259,14 @@ impl<'a> Analyzer<'a> {
                         params.push(node_ref);
                     }
 
-                    let node = graph::Node::FunctionDeclaration(FunctionDeclaration {
-                        identifier: func.identifier.clone(),
+                    let signature = Signature::FunctionSignature(FunctionSignature {
                         params,
                         ret_ty,
-                        value: None,
+                    });
+                    let node = graph::Node::Declaration(Declaration {
+                        identifier: func.identifier.clone(),
+                        signature,
+                        body: None,
                         pos: self.calc_location(parser_node)?,
                     });
                     let node_ref = self.register_node(node);
@@ -278,10 +288,11 @@ impl<'a> Analyzer<'a> {
                     // body
                     self.stack.push_frame();
                     let decl_node = decl_node_ref.get(self.source);
-                    let decl = decl_node.as_function_decl().unwrap();
+                    let decl = decl_node.as_decl().unwrap();
+                    let signature = decl.signature.as_function_signature().unwrap();
                     let mut i = 0;
                     loop {
-                        let param_ref = match decl.params.get(i) {
+                        let param_ref = match signature.params.get(i) {
                             Some(&x) => x,
                             None => break,
                         };
@@ -307,8 +318,8 @@ impl<'a> Analyzer<'a> {
 
                     // link declaration
                     let decl_node = decl_node_ref.get_mut(self.source);
-                    let decl = decl_node.as_function_decl_mut().unwrap();
-                    decl.value = Some(func_node_ref);
+                    let decl = decl_node.as_decl_mut().unwrap();
+                    decl.body = Some(func_node_ref);
                 }
 
                 Ok(decl_node_ref)
@@ -330,9 +341,12 @@ impl<'a> Analyzer<'a> {
                         None => None,
                     };
 
-                    let node = graph::Node::VariableDeclaration(VariableDeclaration {
-                        identifier: variable.identifier.clone(),
+                    let signature = Signature::VariableSignature(VariableSignature {
                         specified_ty,
+                    });
+                    let node = graph::Node::Declaration(Declaration {
+                        identifier: variable.identifier.clone(),
+                        signature,
                         body: None,
                         pos: self.calc_location(parser_node)?,
                     });
@@ -353,8 +367,9 @@ impl<'a> Analyzer<'a> {
                         return Err(self.make_error("type `function` is not supported", body_node));
                     }
                     let decl_node = decl_node_ref.get(self.source);
-                    let decl = decl_node.as_variable_decl().unwrap();
-                    let ty = match decl.specified_ty {
+                    let decl = decl_node.as_decl().unwrap();
+                    let signature = decl.signature.as_variable_signature().unwrap();
+                    let ty = match signature.specified_ty {
                         Some(x) => Type::assert(body_ty, x).map_err(|e| self.make_error(&e, body_node))?,
                         None => body_ty,
                     };
@@ -366,9 +381,9 @@ impl<'a> Analyzer<'a> {
                     });
                     let var_node_ref = self.register_node(var_node);
 
-                    // bind declaration
+                    // link declaration
                     let decl_node = decl_node_ref.get_mut(self.source);
-                    let decl = decl_node.as_variable_decl_mut().unwrap();
+                    let decl = decl_node.as_decl_mut().unwrap();
                     decl.body = Some(var_node_ref);
                 }
 
@@ -699,9 +714,10 @@ impl<'a> Analyzer<'a> {
                 let callee = callee_ref.get(self.source);
                 let callee_func_ref = self.refer_node(callee_ref);
                 let callee_func_node = callee_func_ref.get(self.source);
-                let callee_func = callee_func_node.as_function_decl().map_err(|e| self.make_error(&e, callee))?;
-                let ret_ty = callee_func.ret_ty;
-                let params = callee_func.params.clone();
+                let callee_func = callee_func_node.as_decl().map_err(|e| self.make_error(&e, callee))?;
+                let signature = callee_func.signature.as_function_signature().map_err(|e| self.make_error(&e, callee))?;
+                let ret_ty = signature.ret_ty;
+                let params = signature.params.clone();
                 if params.len() != call_expr.args.len() {
                     return Err(self.make_low_error("argument count incorrect", parser_node));
                 }

@@ -29,8 +29,7 @@ impl NodeRef {
 #[derive(Debug)]
 pub(crate) enum Node {
     // statement
-    FunctionDeclaration(FunctionDeclaration),
-    VariableDeclaration(VariableDeclaration),
+    Declaration(Declaration),
     BreakStatement(BreakStatement),
     ReturnStatement(ReturnStatement),
     Assignment(Assignment),
@@ -52,16 +51,22 @@ pub(crate) enum Node {
 impl Node {
     pub(crate) fn get_ty(&self, source: &HashMap<NodeId, Node>) -> Result<Type, String> {
         match self {
-            Node::VariableDeclaration(node) => {
-                let body_ref = match node.body {
-                    Some(x) => x,
-                    None => panic!("variable undefined"),
-                };
-                let body_node = body_ref.get(source);
-                let variable = body_node.as_variable()?;
-                Ok(variable.ty)
+            Node::Declaration(node) => {
+                match &node.signature {
+                    Signature::FunctionSignature(_) => {
+                        Ok(Type::Function)
+                    }
+                    Signature::VariableSignature(_) => {
+                        let body_ref = match node.body {
+                            Some(x) => x,
+                            None => panic!("variable undefined"),
+                        };
+                        let body_node = body_ref.get(source);
+                        let variable = body_node.as_variable()?;
+                        Ok(variable.ty)
+                    }
+                }
             }
-            Node::FunctionDeclaration(_) => Ok(Type::Function),
             Node::Variable(node) => Ok(node.ty),
             Node::Reference(node) => Ok(node.ty),
             Node::Literal(node) => Ok(node.ty),
@@ -84,8 +89,7 @@ impl Node {
 
     pub(crate) fn get_pos(&self) -> (usize, usize) {
         match self {
-            Node::FunctionDeclaration(node) => node.pos,
-            Node::VariableDeclaration(node) => node.pos,
+            Node::Declaration(node) => node.pos,
             Node::BreakStatement(node) => node.pos,
             Node::ReturnStatement(node) => node.pos,
             Node::Assignment(node) => node.pos,
@@ -104,20 +108,6 @@ impl Node {
         }
     }
 
-    pub(crate) fn as_variable_decl(&self) -> Result<&VariableDeclaration, String> {
-        match self {
-            Node::VariableDeclaration(x) => Ok(x),
-            _ => Err("variable declaration expected".to_owned()),
-        }
-    }
-
-    pub(crate) fn as_variable_decl_mut(&mut self) -> Result<&mut VariableDeclaration, String> {
-        match self {
-            Node::VariableDeclaration(x) => Ok(x),
-            _ => Err("variable declaration expected".to_owned()),
-        }
-    }
-
     pub(crate) fn as_variable(&self) -> Result<&Variable, String> {
         match self {
             Node::Variable(x) => Ok(x),
@@ -125,17 +115,17 @@ impl Node {
         }
     }
 
-    pub(crate) fn as_function_decl(&self) -> Result<&FunctionDeclaration, String> {
+    pub(crate) fn as_decl(&self) -> Result<&Declaration, String> {
         match self {
-            Node::FunctionDeclaration(x) => Ok(x),
-            _ => Err("function declaration expected".to_owned()),
+            Node::Declaration(x) => Ok(x),
+            _ => Err("declaration expected".to_owned()),
         }
     }
 
-    pub(crate) fn as_function_decl_mut(&mut self) -> Result<&mut FunctionDeclaration, String> {
+    pub(crate) fn as_decl_mut(&mut self) -> Result<&mut Declaration, String> {
         match self {
-            Node::FunctionDeclaration(x) => Ok(x),
-            _ => Err("function declaration expected".to_owned()),
+            Node::Declaration(x) => Ok(x),
+            _ => Err("declaration expected".to_owned()),
         }
     }
 
@@ -155,12 +145,39 @@ impl Node {
 }
 
 #[derive(Debug)]
-pub(crate) struct FunctionDeclaration {
+pub(crate) struct Declaration {
     pub identifier: String,
+    pub signature: Signature,
+    pub body: Option<NodeRef>, // Function or Variable
+    pub pos: (usize, usize),
+}
+
+#[derive(Debug)]
+pub(crate) enum Signature {
+    FunctionSignature(FunctionSignature),
+    VariableSignature(VariableSignature),
+}
+
+impl Signature {
+    pub(crate) fn as_function_signature(&self) -> Result<&FunctionSignature, String> {
+        match self {
+            Signature::FunctionSignature(x) => Ok(x),
+            _ => Err("function signature expected".to_owned()),
+        }
+    }
+
+    pub(crate) fn as_variable_signature(&self) -> Result<&VariableSignature, String> {
+        match self {
+            Signature::VariableSignature(x) => Ok(x),
+            _ => Err("variable signature expected".to_owned()),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct FunctionSignature {
     pub params: Vec<NodeRef>, // FuncParam
     pub ret_ty: Type,
-    pub value: Option<NodeRef>, // Function
-    pub pos: (usize, usize),
 }
 
 #[derive(Debug, Clone)]
@@ -186,11 +203,8 @@ pub(crate) enum FunctionBody {
 }
 
 #[derive(Debug)]
-pub(crate) struct VariableDeclaration {
-    pub identifier: String,
+pub(crate) struct VariableSignature {
     pub specified_ty: Option<Type>,
-    pub body: Option<NodeRef>, // Variable
-    pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -321,7 +335,7 @@ pub(crate) enum ArithmeticOperator {
 
 #[derive(Debug)]
 pub(crate) struct CallExpr {
-    pub callee: NodeRef, // Reference -> FunctionDeclaration -> Function
+    pub callee: NodeRef, // Reference -> Declaration -> Function
     pub args: Vec<NodeRef>,
     pub ty: Type,
     pub pos: (usize, usize),
@@ -330,8 +344,7 @@ pub(crate) struct CallExpr {
 pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
     let node = node_ref.get(source);
     let name = match node {
-        Node::FunctionDeclaration(_) => "FunctionDeclaration",
-        Node::VariableDeclaration(_) => "VariableDeclaration",
+        Node::Declaration(_) => "Declaration",
         Node::BreakStatement(_) => "BreakStatement",
         Node::ReturnStatement(_) => "ReturnStatement",
         Node::Assignment(_) => "Assignment",
@@ -351,15 +364,33 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
     let (line, column) = node.get_pos();
     println!("[{}] {} ({}:{}) {{", node_ref.id, name, line, column);
     match node {
-        Node::FunctionDeclaration(func) => {
-            println!("  identifier: {}", func.identifier);
-            println!("  params: {{");
-            for param in func.params.iter() {
-                println!("    [{}]", param.id);
+        Node::Declaration(decl) => {
+            println!("  identifier: {}", decl.identifier);
+            match &decl.signature {
+                Signature::FunctionSignature(signature) => {
+                    println!("  signature(FunctionSignature): {{");
+                    println!("    params: {{");
+                    for param in signature.params.iter() {
+                        println!("      [{}]", param.id);
+                    }
+                    println!("    }}");
+                    println!("    ret_ty: {:?}", signature.ret_ty);
+                    println!("  }}");
+                }
+                Signature::VariableSignature(signature) => {
+                    println!("  signature(VariableSignature): {{");
+                    match &signature.specified_ty {
+                        Some(specified_ty) => {
+                            println!("    specified_ty: {:?}", specified_ty);
+                        }
+                        None => {
+                            println!("    specified_ty: (None)");
+                        }
+                    }
+                    println!("  }}");
+                }
             }
-            println!("  }}");
-            println!("  ret_ty: {:?}", func.ret_ty);
-            match func.value {
+            match decl.body {
                 Some(body) => {
                     println!("  body: {{");
                     println!("    [{}]", body.id);
@@ -387,27 +418,6 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
                 }
                 FunctionBody::NativeCode => {
                     println!("  body: (native code)");
-                }
-            }
-        }
-        Node::VariableDeclaration(variable) => {
-            println!("  identifier: {}", variable.identifier);
-            match &variable.specified_ty {
-                Some(specified_ty) => {
-                    println!("  specified_ty: {:?}", specified_ty);
-                }
-                None => {
-                    println!("  specified_ty: (None)");
-                }
-            }
-            match &variable.body {
-                Some(body) => {
-                    println!("  body: {{");
-                    println!("    [{}]", body.id);
-                    println!("  }}");
-                }
-                None => {
-                    println!("  body: (None)");
                 }
             }
         }
