@@ -37,12 +37,16 @@ impl RuntimeError {
 
 pub struct Engine {
     graph_source: HashMap<graph::NodeId, graph::Node>,
+    analyzing_trace: bool,
+    running_trace: bool,
 }
 
 impl Engine {
-    pub fn new() -> Self {
+    pub fn new(analyzing_trace: bool, running_trace: bool) -> Self {
         Self {
             graph_source: HashMap::new(),
+            analyzing_trace,
+            running_trace,
         }
     }
 
@@ -55,18 +59,18 @@ impl Engine {
     }
 
     pub fn analyze(&mut self, code: &str, ast: Vec<ast::Node>) -> Result<Vec<graph::NodeRef>, SyntaxError> {
-        let mut analyzer = analyze::Analyzer::new(code, &mut self.graph_source);
+        let mut analyzer = analyze::Analyzer::new(code, &mut self.graph_source, self.analyzing_trace);
         analyzer.translate(&ast)
     }
 
     pub fn show_graph_map(&mut self) {
-        let analyzer = analyze::Analyzer::new("", &mut self.graph_source);
+        let analyzer = analyze::Analyzer::new("", &mut self.graph_source, false);
         analyzer.show_graph();
     }
 
     pub fn run(&mut self, graph: Vec<graph::NodeRef>) -> Result<(), RuntimeError> {
-        let mut stack = RuningStack::new();
-        let runner = run::Runner::new(&self.graph_source);
+        let mut stack = RuningStack::new(self.running_trace);
+        let runner = run::Runner::new(&self.graph_source, self.running_trace);
         runner.run(&graph, &mut stack)
     }
 }

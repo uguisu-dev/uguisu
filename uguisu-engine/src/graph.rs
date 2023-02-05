@@ -365,7 +365,7 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
     println!("[{}] {} ({}:{}) {{", node_ref.id, name, line, column);
     match node {
         Node::Declaration(decl) => {
-            println!("  identifier: {}", decl.identifier);
+            println!("  identifier: \"{}\"", decl.identifier);
             match &decl.signature {
                 Signature::FunctionSignature(signature) => {
                     println!("  signature(FunctionSignature): {{");
@@ -374,17 +374,17 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
                         println!("      [{}]", param.id);
                     }
                     println!("    }}");
-                    println!("    ret_ty: {:?}", signature.ret_ty);
+                    println!("    return_type: {:?}", signature.ret_ty);
                     println!("  }}");
                 }
                 Signature::VariableSignature(signature) => {
                     println!("  signature(VariableSignature): {{");
                     match &signature.specified_ty {
                         Some(specified_ty) => {
-                            println!("    specified_ty: {:?}", specified_ty);
+                            println!("    specified_type: {:?}", specified_ty);
                         }
                         None => {
-                            println!("    specified_ty: (None)");
+                            println!("    specified_type: (None)");
                         }
                     }
                     println!("  }}");
@@ -407,7 +407,7 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
                 println!("    [{}]", param.id);
             }
             println!("  }}");
-            println!("  ret_ty: {:?}", func.ret_ty);
+            println!("  return_type: {:?}", func.ret_ty);
             match &func.content {
                 FunctionBody::Statements(body) => {
                     println!("  body: (statements) {{");
@@ -521,8 +521,8 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
             println!("  }}");
         }
         Node::FuncParam(func_param) => {
-            println!("  identifier: {}", func_param.identifier);
-            println!("  ty: {:?}", func_param.ty);
+            println!("  identifier: \"{}\"", func_param.identifier);
+            println!("  type: {:?}", func_param.ty);
         }
     }
     println!("}}");

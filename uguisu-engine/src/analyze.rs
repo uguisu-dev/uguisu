@@ -96,14 +96,16 @@ pub(crate) struct Analyzer<'a> {
     input: &'a str,
     source: &'a mut HashMap<graph::NodeId, graph::Node>,
     stack: AnalyzeStack,
+    trace: bool,
 }
 
 impl<'a> Analyzer<'a> {
-    pub(crate) fn new(input: &'a str, source: &'a mut HashMap<graph::NodeId, graph::Node>) -> Self {
+    pub(crate) fn new(input: &'a str, source: &'a mut HashMap<graph::NodeId, graph::Node>, trace: bool) -> Self {
         Self {
             input,
             source,
             stack: AnalyzeStack::new(),
+            trace,
         }
     }
 

@@ -14,7 +14,7 @@ fn show_help(opts: Options) {
     print!("{}", opts.usage(brief.as_str()));
 }
 
-fn run_script(filename: &str, dump_ast: bool, dump_graph_map: bool) {
+fn run_script(filename: &str, dump_ast: bool, dump_graph_map: bool, analyzing_trace: bool, running_trace: bool) {
     let mut file = match File::open(filename) {
         Ok(x) => x,
         Err(_) => return println!("Error: Failed to open the file."),
@@ -26,7 +26,7 @@ fn run_script(filename: &str, dump_ast: bool, dump_graph_map: bool) {
         Err(_) => return println!("Error: Failed to read the file."),
     };
 
-    let mut engine = Engine::new();
+    let mut engine = Engine::new(analyzing_trace, running_trace);
 
     let ast = match engine.parse(&code) {
         Ok(x) => x,
@@ -59,6 +59,8 @@ pub(crate) fn command(args: &[String]) {
     opts.optflag("h", "help", "Print help message.");
     opts.optflag("", "ast-dump", "Display a dump of AST.");
     opts.optflag("", "graph-dump", "Display a dump of graph map.");
+    opts.optflag("", "analyzing-trace", "Display a trace info of analyzing time.");
+    opts.optflag("", "running-trace", "Display a trace info of runing time.");
     let matches = match opts.parse(args) {
         Ok(x) => x,
         Err(e) => {
@@ -76,6 +78,8 @@ pub(crate) fn command(args: &[String]) {
     }
     let dump_ast = matches.opt_present("ast-dump");
     let dump_graph_map = matches.opt_present("graph-dump");
+    let analyzing_trace = matches.opt_present("analyzing-trace");
+    let running_trace = matches.opt_present("running-trace");
     let input = &matches.free[0];
-    run_script(input, dump_ast, dump_graph_map);
+    run_script(input, dump_ast, dump_graph_map, analyzing_trace, running_trace);
 }

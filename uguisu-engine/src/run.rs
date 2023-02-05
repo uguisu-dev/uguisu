@@ -74,20 +74,24 @@ impl Value {
 
 pub(crate) struct RuningStack {
     frames: Vec<StackFrame>,
+    trace: bool,
 }
 
 impl RuningStack {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(trace: bool) -> Self {
         Self {
             frames: vec![StackFrame::new()],
+            trace,
         }
     }
 
     pub(crate) fn push_frame(&mut self) {
+        if self.trace { println!("push_frame"); }
         self.frames.insert(0, StackFrame::new());
     }
 
     pub(crate) fn pop_frame(&mut self) {
+        if self.trace { println!("pop_frame"); }
         if self.frames.len() == 1 {
             panic!("Left the root frame.");
         }
@@ -95,6 +99,7 @@ impl RuningStack {
     }
 
     pub(crate) fn set_symbol(&mut self, address: SymbolAddress, value: Value) {
+        if self.trace { println!("set_symbol"); }
         match self.frames.get_mut(0) {
             Some(frame) => {
                 frame.table.insert(address, value);
@@ -104,6 +109,7 @@ impl RuningStack {
     }
 
     pub(crate) fn get_symbol(&self, address: SymbolAddress) -> Option<&Value> {
+        if self.trace { println!("get_symbol [{}]", address); }
         for frame in self.frames.iter() {
             match frame.table.get(&address) {
                 Some(x) => return Some(x),
@@ -128,12 +134,14 @@ impl StackFrame {
 
 pub(crate) struct Runner<'a> {
     source: &'a HashMap<graph::NodeId, graph::Node>,
+    trace: bool,
 }
 
 impl<'a> Runner<'a> {
-    pub(crate) fn new(source: &'a HashMap<graph::NodeId, graph::Node>) -> Self {
+    pub(crate) fn new(source: &'a HashMap<graph::NodeId, graph::Node>, trace: bool) -> Self {
         Self {
             source,
+            trace,
         }
     }
 
@@ -159,6 +167,7 @@ impl<'a> Runner<'a> {
     }
 
     fn exec_block(&self, statements: &Vec<graph::NodeRef>, stack: &mut RuningStack) -> Result<StatementResult, RuntimeError> {
+        if self.trace { println!("exec_block"); }
         let mut result = StatementResult::None;
         for &node_ref in statements.iter() {
             result = self.exec_statement(node_ref, stack)?;
@@ -179,7 +188,8 @@ impl<'a> Runner<'a> {
         node_ref: graph::NodeRef,
         stack: &mut RuningStack,
     ) -> Result<StatementResult, RuntimeError> {
-        match node_ref.get(self.source) {
+        if self.trace { println!("enter statement [{}]", node_ref.id); }
+        let result = match node_ref.get(self.source) {
             graph::Node::Declaration(decl) => {
                 // TODO: check duplicate
                 match decl.signature {
@@ -313,7 +323,9 @@ impl<'a> Runner<'a> {
                 self.eval_expr(node_ref, stack)?;
                 Ok(StatementResult::None)
             }
-        }
+        };
+        if self.trace { println!("leave statement [{}]", node_ref.id); }
+        result
     }
 
     fn eval_expr(
@@ -321,7 +333,8 @@ impl<'a> Runner<'a> {
         node_ref: graph::NodeRef,
         stack: &mut RuningStack,
     ) -> Result<Value, RuntimeError> {
-        match node_ref.get(self.source) {
+        if self.trace { println!("enter expr [{}]", node_ref.id); }
+        let result = match node_ref.get(self.source) {
             graph::Node::Variable(_) => {
                 match stack.get_symbol(node_ref.id) {
                     Some(x) => Ok(x.clone()),
@@ -434,6 +447,7 @@ impl<'a> Runner<'a> {
                 let mut result = None;
                 match &func.content {
                     FunctionBody::Statements(body) => {
+                        println!("signature.params: {:?}", signature.params);
                         for i in 0..signature.params.len() {
                             let param_node = &signature.params[i];
                             let arg_node = &call_expr.args[i];
@@ -490,6 +504,8 @@ impl<'a> Runner<'a> {
             | graph::Node::LoopStatement(_) => {
                 panic!("Failed to evaluate the expression: unsupported node (node_id={})", node_ref.id);
             }
-        }
+        };
+        if self.trace { println!("leave expr [{}]", node_ref.id); }
+        result
     }
 }
