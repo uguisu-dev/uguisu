@@ -772,15 +772,4 @@ impl<'a> Analyzer<'a> {
         if self.trace { println!("leave expr (name: {})", parser_node.get_name()); }
         result
     }
-
-    /// Show the resolved graph
-    pub(crate) fn show_graph(&self) {
-        for i in 0..self.source.len() {
-            self.show_node(graph::NodeRef::new(i));
-        }
-    }
-
-    fn show_node(&self, node_ref: graph::NodeRef) {
-        graph::show_node(node_ref, self.source);
-    }
 }

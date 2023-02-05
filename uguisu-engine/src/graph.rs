@@ -341,6 +341,12 @@ pub(crate) struct CallExpr {
     pub pos: (usize, usize),
 }
 
+pub(crate) fn show_map(source: &HashMap<NodeId, Node>) {
+    for i in 0..source.len() {
+        show_node(NodeRef::new(i), source);
+    }
+}
+
 pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
     let node = node_ref.get(source);
     let name = match node {

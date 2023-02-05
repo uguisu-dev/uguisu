@@ -64,8 +64,7 @@ impl Engine {
     }
 
     pub fn show_graph_map(&mut self) {
-        let analyzer = analyze::Analyzer::new("", &mut self.graph_source, false);
-        analyzer.show_graph();
+        graph::show_map(&self.graph_source);
     }
 
     pub fn run(&mut self, graph: Vec<graph::NodeRef>) -> Result<(), RuntimeError> {

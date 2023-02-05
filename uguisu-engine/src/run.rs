@@ -39,7 +39,7 @@ enum StatementResult {
 
 pub(crate) type SymbolAddress = usize;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub(crate) enum Value {
     NoneValue,
     Number(i64),
@@ -99,7 +99,7 @@ impl RuningStack {
     }
 
     pub(crate) fn set_symbol(&mut self, address: SymbolAddress, value: Value) {
-        if self.trace { println!("set_symbol"); }
+        if self.trace { println!("set_symbol (address: [{}], value: {:?})", address, value); }
         match self.frames.get_mut(0) {
             Some(frame) => {
                 frame.table.insert(address, value);
