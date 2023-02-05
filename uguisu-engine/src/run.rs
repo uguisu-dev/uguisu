@@ -335,11 +335,8 @@ impl<'a> Runner<'a> {
     ) -> Result<Value, RuntimeError> {
         if self.trace { println!("enter expr [{}]", node_ref.id); }
         let result = match node_ref.get(self.source) {
-            graph::Node::Variable(_) => {
-                match stack.get_symbol(node_ref.id) {
-                    Some(x) => Ok(x.clone()),
-                    None => panic!("symbol not found (node_id={})", node_ref.id),
-                }
+            graph::Node::Variable(variable) => { // variable of initial value
+                Ok(self.eval_expr(variable.content, stack)?)
             }
             graph::Node::FuncParam(_) => {
                 match stack.get_symbol(node_ref.id) { // TODO: check
