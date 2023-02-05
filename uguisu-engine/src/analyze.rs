@@ -40,20 +40,24 @@ mod test;
 
 struct AnalyzeStack {
     frames: Vec<StackFrame>,
+    trace: bool,
 }
 
 impl AnalyzeStack {
-    fn new() -> Self {
+    fn new(trace: bool) -> Self {
         Self {
             frames: vec![StackFrame::new()],
+            trace,
         }
     }
 
     fn push_frame(&mut self) {
+        if self.trace { println!("push_frame"); }
         self.frames.insert(0, StackFrame::new());
     }
 
     fn pop_frame(&mut self) {
+        if self.trace { println!("pop_frame"); }
         if self.frames.len() == 1 {
             panic!("Left the root frame.");
         }
@@ -61,6 +65,7 @@ impl AnalyzeStack {
     }
 
     fn set_record(&mut self, identifier: &str, node: graph::NodeRef) {
+        if self.trace { println!("set_record (identifier: \"{}\", node_id: [{}])", identifier, node.id); }
         match self.frames.get_mut(0) {
             Some(frame) => {
                 frame.table.insert(identifier.to_string(), node);
@@ -70,6 +75,7 @@ impl AnalyzeStack {
     }
 
     fn get_record(&self, identifier: &str) -> Option<graph::NodeRef> {
+        if self.trace { println!("get_record (identifier: \"{}\")", identifier); }
         for frame in self.frames.iter() {
             match frame.table.get(identifier) {
                 Some(&x) => return Some(x),
@@ -104,7 +110,7 @@ impl<'a> Analyzer<'a> {
         Self {
             input,
             source,
-            stack: AnalyzeStack::new(),
+            stack: AnalyzeStack::new(trace),
             trace,
         }
     }
@@ -229,7 +235,8 @@ impl<'a> Analyzer<'a> {
     /// - check if the statement is available in the global or local
     /// - check type compatibility for inner expression
     fn translate_statement(&mut self, parser_node: &ast::Node) -> Result<graph::NodeRef, SyntaxError> {
-        match &parser_node {
+        if self.trace { println!("enter statement (name: {})", parser_node.get_name()); }
+        let result = match &parser_node {
             ast::Node::FunctionDeclaration(func) => {
                 let mut func_params = Vec::new();
                 for n in func.params.iter() {
@@ -561,7 +568,9 @@ impl<'a> Analyzer<'a> {
                 Ok(expr_ref)
             }
             ast::Node::FuncParam(_) => panic!("unexpected node"),
-        }
+        };
+        if self.trace { println!("leave statement (name: {})", parser_node.get_name()); }
+        result
     }
 
     /// Generate a graph node from a expression AST node.
@@ -569,7 +578,8 @@ impl<'a> Analyzer<'a> {
     /// - check type compatibility for inner expression
     /// - generate syntax errors
     fn translate_expr(&mut self, parser_node: &ast::Node) -> Result<graph::NodeRef, SyntaxError> {
-        match parser_node {
+        if self.trace { println!("enter expr (name: {})", parser_node.get_name()); }
+        let result = match parser_node {
             ast::Node::Reference(reference) => {
                 let dest_ref = match self.stack.get_record(&reference.identifier) {
                     Some(x) => x,
@@ -758,7 +768,9 @@ impl<'a> Analyzer<'a> {
             | ast::Node::FuncParam(_) => {
                 panic!("unexpected expr node");
             }
-        }
+        };
+        if self.trace { println!("leave expr (name: {})", parser_node.get_name()); }
+        result
     }
 
     /// Show the resolved graph

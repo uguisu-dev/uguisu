@@ -22,6 +22,25 @@ pub enum Node {
 }
 
 impl Node {
+    pub(crate) fn get_name(&self) -> &str {
+        match self {
+            Node::FunctionDeclaration(_) => "FunctionDeclaration",
+            Node::VariableDeclaration(_) => "VariableDeclaration",
+            Node::BreakStatement(_) => "BreakStatement",
+            Node::ReturnStatement(_) => "ReturnStatement",
+            Node::Assignment(_) => "Assignment",
+            Node::IfStatement(_) => "IfStatement",
+            Node::LoopStatement(_) => "LoopStatement",
+            Node::Reference(_) => "Reference",
+            Node::NumberLiteral(_) => "NumberLiteral",
+            Node::BoolLiteral(_) => "BoolLiteral",
+            Node::BinaryExpr(_) => "BinaryExpr",
+            Node::UnaryOp(_) => "UnaryOp",
+            Node::CallExpr(_) => "CallExpr",
+            Node::FuncParam(_) => "FuncParam",
+        }
+    }
+
     pub(crate) fn calc_location(&self, code: &str) -> Result<(usize, usize), String> {
         let pos = match self {
             Node::FunctionDeclaration(node) => node.pos,
@@ -308,22 +327,7 @@ pub fn show_tree(nodes: &Vec<Node>, code: &str, level: usize) {
 }
 
 fn show_node(node: &Node, code: &str, level: usize) {
-    let name = match node {
-        Node::FunctionDeclaration(_) => "FunctionDeclaration",
-        Node::VariableDeclaration(_) => "VariableDeclaration",
-        Node::BreakStatement(_) => "BreakStatement",
-        Node::ReturnStatement(_) => "ReturnStatement",
-        Node::Assignment(_) => "Assignment",
-        Node::IfStatement(_) => "IfStatement",
-        Node::LoopStatement(_) => "LoopStatement",
-        Node::Reference(_) => "Reference",
-        Node::NumberLiteral(_) => "NumberLiteral",
-        Node::BoolLiteral(_) => "BoolLiteral",
-        Node::BinaryExpr(_) => "BinaryExpr",
-        Node::UnaryOp(_) => "UnaryOp",
-        Node::CallExpr(_) => "CallExpr",
-        Node::FuncParam(_) => "FuncParam",
-    };
+    let name = node.get_name();
     let (line, column) = node.calc_location(code).unwrap();
     println!("{}{} ({}:{}) {{", indent(level), name, line, column);
     match node {

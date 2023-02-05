@@ -447,7 +447,7 @@ impl<'a> Runner<'a> {
                 let mut result = None;
                 match &func.content {
                     FunctionBody::Statements(body) => {
-                        println!("signature.params: {:?}", signature.params);
+                        //println!("signature.params: {:?}", signature.params);
                         for i in 0..signature.params.len() {
                             let param_node = &signature.params[i];
                             let arg_node = &call_expr.args[i];
