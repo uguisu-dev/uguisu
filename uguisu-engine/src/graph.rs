@@ -108,6 +108,13 @@ impl Node {
         }
     }
 
+    pub(crate) fn as_function(&self) -> Result<&Function, String> {
+        match self {
+            Node::Function(x) => Ok(x),
+            _ => Err("function expected".to_owned()),
+        }
+    }
+
     pub(crate) fn as_variable(&self) -> Result<&Variable, String> {
         match self {
             Node::Variable(x) => Ok(x),
@@ -126,13 +133,6 @@ impl Node {
         match self {
             Node::Declaration(x) => Ok(x),
             _ => Err("declaration expected".to_owned()),
-        }
-    }
-
-    pub(crate) fn as_reference(&self) -> Result<&Reference, String> {
-        match self {
-            Node::Reference(x) => Ok(x),
-            _ => Err("reference expected".to_owned()),
         }
     }
 

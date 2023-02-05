@@ -1,5 +1,5 @@
 use crate::ast::AssignmentMode;
-use crate::graph::{self, LiteralValue, ArithmeticOperator, RelationalOperator, LogicalBinaryOperator, LogicalUnaryOperator};
+use crate::graph::{self, LiteralValue, ArithmeticOperator, RelationalOperator, LogicalBinaryOperator, LogicalUnaryOperator, Signature, FunctionBody};
 use crate::types::Type;
 use crate::RuntimeError;
 use std::collections::HashMap;
@@ -137,25 +137,17 @@ impl<'a> Runner<'a> {
         }
     }
 
+    fn resolve_node(&self, node_ref: graph::NodeRef) -> graph::NodeRef {
+        match node_ref.get(self.source) {
+            graph::Node::Reference(reference) => self.resolve_node(reference.dest),
+            _ => node_ref,
+        }
+    }
+
     fn resolve_address(&self, node_ref: graph::NodeRef) -> SymbolAddress {
         match node_ref.get(self.source) {
-            graph::Node::FunctionDeclaration(_) => node_ref.id,
-            graph::Node::VariableDeclaration(_) => node_ref.id,
             graph::Node::Reference(reference) => self.resolve_address(reference.dest),
-            graph::Node::Literal(_) => node_ref.id,
-            graph::Node::RelationalOp(_) => node_ref.id,
-            graph::Node::LogicalBinaryOp(_) => node_ref.id,
-            graph::Node::ArithmeticOp(_) => node_ref.id,
-            graph::Node::LogicalUnaryOp(_) => node_ref.id,
-            graph::Node::CallExpr(_) => node_ref.id,
-            graph::Node::FuncParam(_) => node_ref.id,
-            graph::Node::BreakStatement(_)
-            | graph::Node::ReturnStatement(_)
-            | graph::Node::Assignment(_)
-            | graph::Node::IfStatement(_)
-            | graph::Node::LoopStatement(_) => {
-                panic!("unexpected (node_id={})", node_ref.id);
-            }
+            _ => node_ref.id,
         }
     }
 
@@ -188,20 +180,22 @@ impl<'a> Runner<'a> {
         stack: &mut RuningStack,
     ) -> Result<StatementResult, RuntimeError> {
         match node_ref.get(self.source) {
-            graph::Node::FunctionDeclaration(_) => {
+            graph::Node::Declaration(decl) => {
                 // TODO: check duplicate
-                stack.set_symbol(node_ref.id, Value::Function(node_ref.id));
-                Ok(StatementResult::None)
-            }
-            graph::Node::VariableDeclaration(variable) => {
-                // TODO: check duplicate
-                match variable.body {
-                    Some(body) => {
-                        let value = self.eval_expr(body, stack)?;
-                        stack.set_symbol(node_ref.id, value);
+                match decl.signature {
+                    Signature::FunctionSignature(_) => {
+                        stack.set_symbol(node_ref.id, Value::Function(node_ref.id));
                     }
-                    None => {
-                        panic!("variable is not defined");
+                    Signature::VariableSignature(_) => {
+                        match decl.body {
+                            Some(body) => {
+                                let value = self.eval_expr(body, stack)?;
+                                stack.set_symbol(node_ref.id, value);
+                            }
+                            None => {
+                                panic!("variable is not defined (node_id={})", node_ref.id);
+                            }
+                        }
                     }
                 }
                 Ok(StatementResult::None)
@@ -220,10 +214,6 @@ impl<'a> Runner<'a> {
             graph::Node::BreakStatement(_) => Ok(StatementResult::Break),
             graph::Node::Assignment(statement) => {
                 let curr_value = self.eval_expr(statement.dest, stack)?;
-                // let curr_symbol = match stack.lookup_symbol(statement.dest) {
-                //     Some(x) => x,
-                //     None => panic!("symbol not found (node_id={})", node_ref.id),
-                // };
                 match statement.mode {
                     AssignmentMode::Assign => {
                         let address = self.resolve_address(statement.dest);
@@ -311,6 +301,8 @@ impl<'a> Runner<'a> {
                 Ok(result)
             }
             graph::Node::Reference(_)
+            | graph::Node::Function(_)
+            | graph::Node::Variable(_)
             | graph::Node::Literal(_)
             | graph::Node::RelationalOp(_)
             | graph::Node::LogicalBinaryOp(_)
@@ -330,6 +322,18 @@ impl<'a> Runner<'a> {
         stack: &mut RuningStack,
     ) -> Result<Value, RuntimeError> {
         match node_ref.get(self.source) {
+            graph::Node::Variable(_) => {
+                match stack.get_symbol(node_ref.id) {
+                    Some(x) => Ok(x.clone()),
+                    None => panic!("symbol not found (node_id={})", node_ref.id),
+                }
+            }
+            graph::Node::FuncParam(_) => {
+                match stack.get_symbol(node_ref.id) { // TODO: check
+                    Some(x) => Ok(x.clone()),
+                    None => panic!("symbol not found (node_id={})", node_ref.id),
+                }
+            }
             graph::Node::Reference(reference) => {
                 let address = self.resolve_address(reference.dest);
                 match stack.get_symbol(address) {
@@ -418,21 +422,25 @@ impl<'a> Runner<'a> {
                 }
             }
             graph::Node::CallExpr(call_expr) => {
-                let reference_node = call_expr.callee.get(self.source);
-                let reference = reference_node.as_reference().unwrap();
-                let callee_node = reference.dest.get(self.source);
-                let callee = callee_node.as_function_decl().unwrap();
+                let callee_ref = self.resolve_node(call_expr.callee);
+                let callee_node = callee_ref.get(self.source);
+                let decl = callee_node.as_decl().unwrap();
+                let signature = decl.signature.as_function_signature().unwrap();
+                let func = match decl.body {
+                    Some(x) => x.get(self.source).as_function().unwrap(),
+                    None => panic!("function `{}` is not defined (node_id={})", decl.identifier, call_expr.callee.id),
+                };
                 stack.push_frame();
                 let mut result = None;
-                match &callee.body {
-                    Some(graph::FunctionBody::Statements(body)) => {
-                        for i in 0..callee.params.len() {
-                            let param_node = &callee.params[i];
+                match &func.content {
+                    FunctionBody::Statements(body) => {
+                        for i in 0..signature.params.len() {
+                            let param_node = &signature.params[i];
                             let arg_node = &call_expr.args[i];
                             let arg_symbol = self.eval_expr(*arg_node, stack)?;
                             stack.set_symbol(param_node.id, arg_symbol);
                         }
-                        match self.exec_block(body, stack)? {
+                        match self.exec_block(&body, stack)? {
                             StatementResult::Break => {
                                 return Err(RuntimeError::new(
                                     "break target is missing",
@@ -444,28 +452,27 @@ impl<'a> Runner<'a> {
                             _ => {}
                         }
                     }
-                    Some(graph::FunctionBody::NativeCode) => {
+                    FunctionBody::NativeCode => {
                         let mut args = Vec::new();
-                        for i in 0..callee.params.len() {
+                        for i in 0..signature.params.len() {
                             let arg_node = &call_expr.args[i];
                             let arg_symbol = self.eval_expr(*arg_node, stack)?;
                             args.push(arg_symbol);
                         }
-                        if call_expr.args.len() != callee.params.len() {
+                        if call_expr.args.len() != signature.params.len() {
                             return Err(RuntimeError::new("parameters count error"));
                         }
                         // TODO: improve builtin
-                        if &callee.identifier == "print_num" {
+                        if &decl.identifier == "print_num" {
                             builtin::print_num(&args)?;
-                        } else if &callee.identifier == "print_lf" {
+                        } else if &decl.identifier == "print_lf" {
                             builtin::print_lf(&args)?;
-                        } else if &callee.identifier == "assert_eq" {
+                        } else if &decl.identifier == "assert_eq" {
                             builtin::assert_eq(&args)?;
                         } else {
                             return Err(RuntimeError::new("unknown native function"));
                         }
                     }
-                    None => panic!("function `{}` is not defined (node_id={})", callee.identifier, call_expr.callee.id),
                 }
                 stack.pop_frame();
                 let value = match result {
@@ -474,14 +481,8 @@ impl<'a> Runner<'a> {
                 };
                 Ok(value)
             }
-            graph::Node::FuncParam(_) => {
-                match stack.get_symbol(node_ref.id) { // TODO: check
-                    Some(x) => Ok(x.clone()),
-                    None => panic!("symbol not found (node_id={})", node_ref.id),
-                }
-            }
-            graph::Node::FunctionDeclaration(_)
-            | graph::Node::VariableDeclaration(_)
+            graph::Node::Function(_) => panic!("function object unsupported (node_id={})", node_ref.id),
+            graph::Node::Declaration(_)
             | graph::Node::ReturnStatement(_)
             | graph::Node::BreakStatement(_)
             | graph::Node::Assignment(_)
