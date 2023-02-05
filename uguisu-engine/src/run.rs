@@ -311,17 +311,19 @@ impl<'a> Runner<'a> {
                 Ok(result)
             }
             graph::Node::Reference(_)
-            | graph::Node::Function(_)
-            | graph::Node::Variable(_)
             | graph::Node::Literal(_)
             | graph::Node::RelationalOp(_)
             | graph::Node::LogicalBinaryOp(_)
             | graph::Node::ArithmeticOp(_)
             | graph::Node::LogicalUnaryOp(_)
-            | graph::Node::CallExpr(_)
-            | graph::Node::FuncParam(_) => {
+            | graph::Node::CallExpr(_) => {
                 self.eval_expr(node_ref, stack)?;
                 Ok(StatementResult::None)
+            }
+            graph::Node::Function(_)
+            | graph::Node::Variable(_)
+            | graph::Node::FuncParam(_) => {
+                panic!("Failed to execute the statement: unsupported node (node_id={})", node_ref.id);
             }
         };
         if self.trace { println!("leave statement [{}]", node_ref.id); }
@@ -337,12 +339,6 @@ impl<'a> Runner<'a> {
         let result = match node_ref.get(self.source) {
             graph::Node::Variable(variable) => { // variable of initial value
                 Ok(self.eval_expr(variable.content, stack)?)
-            }
-            graph::Node::FuncParam(_) => {
-                match stack.get_symbol(node_ref.id) { // TODO: check
-                    Some(x) => Ok(x.clone()),
-                    None => panic!("symbol not found (node_id={})", node_ref.id),
-                }
             }
             graph::Node::Reference(reference) => {
                 let address = self.resolve_address(reference.dest);
@@ -493,7 +489,8 @@ impl<'a> Runner<'a> {
                 Ok(value)
             }
             graph::Node::Function(_) => panic!("function object unsupported (node_id={})", node_ref.id),
-            graph::Node::Declaration(_)
+            graph::Node::FuncParam(_)
+            | graph::Node::Declaration(_)
             | graph::Node::ReturnStatement(_)
             | graph::Node::BreakStatement(_)
             | graph::Node::Assignment(_)

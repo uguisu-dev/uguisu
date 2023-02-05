@@ -75,11 +75,15 @@ impl AnalyzeStack {
     }
 
     fn get_record(&self, identifier: &str) -> Option<graph::NodeRef> {
-        if self.trace { println!("get_record (identifier: \"{}\")", identifier); }
         for frame in self.frames.iter() {
             match frame.table.get(identifier) {
-                Some(&x) => return Some(x),
-                None => {}
+                Some(&x) => {
+                    if self.trace { println!("get_record success (identifier: \"{}\", node_id: {:?})", identifier, x); }
+                    return Some(x)
+                }
+                None => {
+                    if self.trace { println!("get_record failure (identifier: \"{}\")", identifier); }
+                }
             }
         }
         None
@@ -235,9 +239,9 @@ impl<'a> Analyzer<'a> {
     /// - check if the statement is available in the global or local
     /// - check type compatibility for inner expression
     fn translate_statement(&mut self, parser_node: &ast::Node) -> Result<graph::NodeRef, SyntaxError> {
-        if self.trace { println!("enter statement (name: {})", parser_node.get_name()); }
         let result = match &parser_node {
             ast::Node::FunctionDeclaration(func) => {
+                if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 let mut func_params = Vec::new();
                 for n in func.params.iter() {
                     let param = n.as_func_param();
@@ -334,6 +338,7 @@ impl<'a> Analyzer<'a> {
                 Ok(decl_node_ref)
             }
             ast::Node::VariableDeclaration(variable) => {
+                if self.trace { println!("enter statement (node: {}, identifier: {})", parser_node.get_name(), variable.identifier); }
                 let decl_node_ref = {
                     let has_const_attr = variable.attributes.iter().any(|x| *x == VariableAttribute::Const);
                     if has_const_attr {
@@ -399,6 +404,7 @@ impl<'a> Analyzer<'a> {
                 Ok(decl_node_ref)
             }
             ast::Node::BreakStatement(_) => {
+                if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 if self.stack.frames.len() == 1 {
                     return Err(self.make_low_error("A break statement cannot be used in global space", parser_node));
                 }
@@ -410,6 +416,7 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             ast::Node::ReturnStatement(node) => {
+                if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 // TODO: consider type check
                 // when global scope
                 if self.stack.frames.len() == 1 {
@@ -435,6 +442,7 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             ast::Node::Assignment(statement) => {
+                if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 // when global scope
                 if self.stack.frames.len() == 1 {
                     return Err(self.make_low_error("An assignment statement cannot be used in global space", parser_node));
@@ -478,6 +486,7 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             ast::Node::IfStatement(if_statement) => {
+                if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 fn transform(
                     index: usize,
                     analyzer: &mut Analyzer,
@@ -538,6 +547,7 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             ast::Node::LoopStatement(statement) => {
+                if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 if self.stack.frames.len() == 1 {
                     return Err(self.make_low_error("A loop statement cannot be used in global space", parser_node));
                 }
@@ -555,6 +565,7 @@ impl<'a> Analyzer<'a> {
             | ast::Node::BinaryExpr(_)
             | ast::Node::UnaryOp(_)
             | ast::Node::CallExpr(_) => {
+                if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 // when global scope
                 if self.stack.frames.len() == 1 {
                     return Err(self.make_low_error("An expression cannot be used in global space", parser_node));
@@ -567,9 +578,12 @@ impl<'a> Analyzer<'a> {
                 }
                 Ok(expr_ref)
             }
-            ast::Node::FuncParam(_) => panic!("unexpected node"),
+            ast::Node::FuncParam(_) => {
+                if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
+                panic!("unexpected node");
+            }
         };
-        if self.trace { println!("leave statement (name: {})", parser_node.get_name()); }
+        if self.trace { println!("leave statement (node: {})", parser_node.get_name()); }
         result
     }
 
@@ -578,9 +592,9 @@ impl<'a> Analyzer<'a> {
     /// - check type compatibility for inner expression
     /// - generate syntax errors
     fn translate_expr(&mut self, parser_node: &ast::Node) -> Result<graph::NodeRef, SyntaxError> {
-        if self.trace { println!("enter expr (name: {})", parser_node.get_name()); }
         let result = match parser_node {
             ast::Node::Reference(reference) => {
+                if self.trace { println!("enter expr (node: {}, identifier: {})", parser_node.get_name(), reference.identifier); }
                 let dest_ref = match self.stack.get_record(&reference.identifier) {
                     Some(x) => x,
                     None => return Err(self.make_low_error("unknown identifier", parser_node)),
@@ -596,6 +610,7 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             ast::Node::NumberLiteral(node) => {
+                if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let node = graph::Node::Literal(Literal {
                     value: LiteralValue::Number(node.value),
                     ty: Type::Number,
@@ -605,6 +620,7 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             ast::Node::BoolLiteral(node) => {
+                if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let node = graph::Node::Literal(Literal {
                     value: LiteralValue::Bool(node.value),
                     ty: Type::Bool,
@@ -614,6 +630,7 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             ast::Node::UnaryOp(unary_op) => {
+                if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let expr_ref = self.translate_expr(&unary_op.expr)?;
                 let expr_node = expr_ref.get(self.source);
                 let expr_ty = expr_node.get_ty(self.source).map_err(|e| self.make_error(&e, expr_node))?;
@@ -636,6 +653,7 @@ impl<'a> Analyzer<'a> {
                 Ok(node_ref)
             }
             ast::Node::BinaryExpr(binary_expr) => {
+                if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let left_ref = self.translate_expr(&binary_expr.left)?;
                 let right_ref = self.translate_expr(&binary_expr.right)?;
                 let left_node = left_ref.get(self.source);
@@ -722,6 +740,7 @@ impl<'a> Analyzer<'a> {
                 Err(self.make_low_error("unexpected operation", parser_node))
             }
             ast::Node::CallExpr(call_expr) => {
+                if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let callee_ref = self.translate_expr(&call_expr.callee)?;
                 let callee = callee_ref.get(self.source);
                 let callee_func_ref = self.resolve_node(callee_ref);
@@ -766,10 +785,11 @@ impl<'a> Analyzer<'a> {
             | ast::Node::IfStatement(_)
             | ast::Node::LoopStatement(_)
             | ast::Node::FuncParam(_) => {
+                if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 panic!("unexpected expr node");
             }
         };
-        if self.trace { println!("leave expr (name: {})", parser_node.get_name()); }
+        if self.trace { println!("leave expr (node: {})", parser_node.get_name()); }
         result
     }
 }
