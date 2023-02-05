@@ -171,9 +171,9 @@ impl<'a> Analyzer<'a> {
         node_ref
     }
 
-    fn refer_node(&self, node_ref: graph::NodeRef) -> graph::NodeRef {
+    fn resolve_node(&self, node_ref: graph::NodeRef) -> graph::NodeRef {
         match node_ref.get(self.source) {
-            graph::Node::Reference(reference) => self.refer_node(reference.dest),
+            graph::Node::Reference(reference) => self.resolve_node(reference.dest),
             _ => node_ref,
         }
     }
@@ -712,7 +712,7 @@ impl<'a> Analyzer<'a> {
             ast::Node::CallExpr(call_expr) => {
                 let callee_ref = self.translate_expr(&call_expr.callee)?;
                 let callee = callee_ref.get(self.source);
-                let callee_func_ref = self.refer_node(callee_ref);
+                let callee_func_ref = self.resolve_node(callee_ref);
                 let callee_func_node = callee_func_ref.get(self.source);
                 let callee_func = callee_func_node.as_decl().map_err(|e| self.make_error(&e, callee))?;
                 let signature = callee_func.signature.as_function_signature().map_err(|e| self.make_error(&e, callee))?;
