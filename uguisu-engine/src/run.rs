@@ -202,9 +202,7 @@ impl<'a> Runner<'a> {
                                 let value = self.eval_expr(body, stack)?;
                                 stack.set_symbol(node_ref.id, value);
                             }
-                            None => {
-                                panic!("variable is not defined (node_id={})", node_ref.id);
-                            }
+                            None => {} // variable is not defined yet
                         }
                     }
                 }
@@ -440,7 +438,6 @@ impl<'a> Runner<'a> {
                 let mut result = None;
                 match &func.content {
                     FunctionBody::Statements(body) => {
-                        //println!("signature.params: {:?}", signature.params);
                         for i in 0..signature.params.len() {
                             let param_node = &signature.params[i];
                             let arg_node = &call_expr.args[i];

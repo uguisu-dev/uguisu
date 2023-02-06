@@ -191,6 +191,13 @@ impl Node {
             _ => panic!("function parameter expected"),
         }
     }
+
+    pub(crate) fn as_reference(&self) -> &Reference {
+        match self {
+            Node::Reference(x) => x,
+            _ => panic!("reference expected"),
+        }
+    }
 }
 
 #[derive(PartialEq)]
