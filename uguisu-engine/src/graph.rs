@@ -25,6 +25,27 @@ pub(crate) enum Node {
 }
 
 impl Node {
+    pub(crate) fn get_name(&self) -> &str {
+        match self {
+            Node::Declaration(_) => "Declaration",
+            Node::BreakStatement(_) => "BreakStatement",
+            Node::ReturnStatement(_) => "ReturnStatement",
+            Node::Assignment(_) => "Assignment",
+            Node::IfStatement(_) => "IfStatement",
+            Node::LoopStatement(_) => "LoopStatement",
+            Node::Function(_) => "Function",
+            Node::Variable(_) => "Variable",
+            Node::Reference(_) => "Reference",
+            Node::Literal(_) => "Literal",
+            Node::RelationalOp(_) => "RelationalOp",
+            Node::LogicalBinaryOp(_) => "LogicalBinaryOp",
+            Node::ArithmeticOp(_) => "ArithmeticOp",
+            Node::LogicalUnaryOp(_) => "LogicalUnaryOp",
+            Node::CallExpr(_) => "CallExpr",
+            Node::FuncParam(_) => "FuncParam",
+        }
+    }
+
     pub(crate) fn as_function(&self) -> Result<&Function, String> {
         match self {
             Node::Function(x) => Ok(x),
@@ -85,7 +106,6 @@ pub(crate) struct Declaration {
     /// Variable or Function
     pub body: Option<NodeRef>,
     //pub ty: Option<Type>,
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -121,8 +141,6 @@ pub(crate) struct FunctionSignature {
 pub(crate) struct FuncParam {
     pub identifier: String,
     // pub param_index: usize,
-    //pub ty: Type,
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -131,7 +149,6 @@ pub(crate) struct Function {
     pub params: Vec<NodeRef>,
     pub ret_ty: Type,
     pub content: FunctionBody,
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -277,13 +294,6 @@ pub(crate) struct CallExpr {
     pub args: Vec<NodeRef>,
 }
 
-// fn get_pos(table: &SymbolTable, node_ref: NodeRef) -> (usize, usize) {
-//     match table.get(node_ref).pos {
-//         Some(x) => x,
-//         None => panic!("pos"),
-//     }
-// }
-
 pub(crate) fn show_map(source: &HashMap<NodeId, Node>, table: &SymbolTable) {
     for i in 0..source.len() {
         show_node(NodeRef::new(i), source, table);
@@ -292,28 +302,10 @@ pub(crate) fn show_map(source: &HashMap<NodeId, Node>, table: &SymbolTable) {
 
 pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>, table: &SymbolTable) {
     let node = node_ref.get(source);
-    let name = match node {
-        Node::Declaration(_) => "Declaration",
-        Node::BreakStatement(_) => "BreakStatement",
-        Node::ReturnStatement(_) => "ReturnStatement",
-        Node::Assignment(_) => "Assignment",
-        Node::IfStatement(_) => "IfStatement",
-        Node::LoopStatement(_) => "LoopStatement",
-        Node::Function(_) => "Function",
-        Node::Variable(_) => "Variable",
-        Node::Reference(_) => "Reference",
-        Node::Literal(_) => "Literal",
-        Node::RelationalOp(_) => "RelationalOp",
-        Node::LogicalBinaryOp(_) => "LogicalBinaryOp",
-        Node::ArithmeticOp(_) => "ArithmeticOp",
-        Node::LogicalUnaryOp(_) => "LogicalUnaryOp",
-        Node::CallExpr(_) => "CallExpr",
-        Node::FuncParam(_) => "FuncParam",
-    };
-
+    let name = node.get_name();
     match table.get(node_ref).pos {
         Some((line, column)) => println!("[{}] {} ({}:{}) {{", node_ref.id, name, line, column),
-        None => println!("[{}] {} (none position) {{", node_ref.id, name),
+        None => println!("[{}] {} (no position) {{", node_ref.id, name),
     }
     match node {
         Node::Declaration(decl) => {

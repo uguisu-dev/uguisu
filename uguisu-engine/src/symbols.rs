@@ -142,7 +142,7 @@ impl Type {
         }
     }
 
-    pub(crate) fn lookup_user_type(ty_identifier: &str) -> Result<Type, String> {
+    pub(crate) fn from_identifier(ty_identifier: &str) -> Result<Type, String> {
         match ty_identifier {
             "void" => Err("type `void` is invalid".to_owned()),
             "number" => Ok(Type::Number),
