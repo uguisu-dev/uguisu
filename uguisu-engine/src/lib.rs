@@ -65,11 +65,12 @@ impl Engine {
     pub fn analyze(&mut self, code: &str, ast: Vec<ast::Node>) -> Result<Vec<graph::NodeRef>, SyntaxError> {
         self.symbol_table.set_trace(self.analyzing_trace);
         let mut analyzer = analyze::Analyzer::new(code, &mut self.graph_source, &mut self.symbol_table, self.analyzing_trace);
-        analyzer.translate(&ast)
+        let result = analyzer.translate(&ast);
+        self.symbol_table.set_trace(false);
+        result
     }
 
     pub fn show_graph_map(&mut self) {
-        self.symbol_table.set_trace(false);
         graph::show_map(&self.graph_source, &self.symbol_table);
     }
 
