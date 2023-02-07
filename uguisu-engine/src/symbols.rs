@@ -32,7 +32,7 @@ impl ResolverStack {
     }
 
     pub(crate) fn set_identifier(&mut self, identifier: &str, node: graph::NodeRef) {
-        if self.trace { println!("set_record (identifier: \"{}\", node_id: [{}])", identifier, node.id); }
+        if self.trace { println!("set_identifier (identifier: \"{}\", node_id: [{}])", identifier, node.id); }
         match self.frames.get_mut(0) {
             Some(frame) => {
                 frame.table.insert(identifier.to_string(), node);
@@ -45,11 +45,11 @@ impl ResolverStack {
         for frame in self.frames.iter() {
             match frame.table.get(identifier) {
                 Some(&node) => {
-                    if self.trace { println!("get_record success (identifier: \"{}\", node_id: {})", identifier, node.id); }
+                    if self.trace { println!("lookup_identifier success (identifier: \"{}\", node_id: {})", identifier, node.id); }
                     return Some(node)
                 }
                 None => {
-                    if self.trace { println!("get_record failure (identifier: \"{}\")", identifier); }
+                    if self.trace { println!("lookup_identifier failure (identifier: \"{}\")", identifier); }
                 }
             }
         }
@@ -83,7 +83,7 @@ impl SymbolTable {
     }
 
     pub(crate) fn new_record(&mut self, node: graph::NodeRef) {
-        if self.trace { println!("new symbol (node_id: [{}])", node.id); }
+        if self.trace { println!("new_record (node_id: [{}])", node.id); }
         let record = SymbolRecord {
             ty: None,
             pos: None,
@@ -95,7 +95,7 @@ impl SymbolTable {
         if self.trace { println!("set_ty (node_id: [{}], ty: {:?})", node.id, ty); }
         let record = match self.table.get_mut(&node.id) {
             Some(x) => x,
-            None => panic!("record not found"),
+            None => panic!("symbol not found"),
         };
         record.ty = Some(ty);
     }
@@ -104,20 +104,21 @@ impl SymbolTable {
         if self.trace { println!("set_pos (node_id: [{}], pos: {:?})", node.id, pos); }
         let record = match self.table.get_mut(&node.id) {
             Some(x) => x,
-            None => panic!("record not found"),
+            None => panic!("symbol not found"),
         };
         record.pos = Some(pos);
     }
 
     pub(crate) fn get(&self, node: graph::NodeRef) -> &SymbolRecord {
-        if self.trace { println!("get_ty (node_id: [{}])", node.id); }
+        if self.trace { println!("get (node_id: [{}])", node.id); }
         match self.table.get(&node.id) {
             Some(x) => x,
-            None => panic!("record not found"),
+            None => panic!("symbol not found"),
         }
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct SymbolRecord {
     pub ty: Option<Type>,
     pub pos: Option<(usize, usize)>,

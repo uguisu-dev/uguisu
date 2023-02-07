@@ -100,9 +100,10 @@ impl<'a> Analyzer<'a> {
             let node = graph::Node::FuncParam(FuncParam {
                 identifier: String::from(param_name),
                 // param_index: i,
-                //ty: param_ty,
             });
             let node_ref = self.register_node(node);
+            self.symbol_table.new_record(node_ref);
+            self.symbol_table.set_ty(node_ref, param_ty);
             param_nodes.push(node_ref);
         }
 
@@ -121,9 +122,10 @@ impl<'a> Analyzer<'a> {
             identifier: String::from(name),
             signature,
             body: Some(func_node_ref),
-            //ty: Some(Type::Function),
         });
         let node_ref = self.register_node(decl_node);
+        self.symbol_table.new_record(node_ref);
+        self.symbol_table.set_ty(node_ref, Type::Function);
 
         // add to stack
         self.resolver.set_identifier(name, node_ref);
@@ -139,21 +141,22 @@ impl<'a> Analyzer<'a> {
 
     fn define_variable_decl(&mut self, parser_node: &ast::Node, body: &ast::Node, decl_node_ref: graph::NodeRef) -> Result<(), SyntaxError> {
 
-        // translate body expression
-        let reference = body.as_reference();
-        let dest_ref = match self.resolver.lookup_identifier(&reference.identifier) {
-            Some(x) => x,
-            None => return Err(self.make_low_error("unknown identifier", parser_node)),
-        };
-        let body_node = graph::Node::Reference(Reference {
-            dest: dest_ref,
-            //ty: dest_ty,
-        });
-        let body_ref = self.register_node(body_node);
-        self.symbol_table.new_record(body_ref);
-        self.symbol_table.set_pos(body_ref, self.calc_location(parser_node)?);
+        //println!("{:?}", body);
 
-        //let body_ref = self.translate_expr(body)?;
+        // // translate body expression
+        // let reference = body.as_reference();
+        // let dest_ref = match self.resolver.lookup_identifier(&reference.identifier) {
+        //     Some(x) => x,
+        //     None => return Err(self.make_low_error("unknown identifier", parser_node)),
+        // };
+        // let body_node = graph::Node::Reference(Reference {
+        //     dest: dest_ref,
+        //     //ty: dest_ty,
+        // });
+        // let body_ref = self.register_node(body_node);
+        // self.symbol_table.new_record(body_ref);
+        // self.symbol_table.set_pos(body_ref, self.calc_location(parser_node)?);
+        let body_ref = self.translate_expr(body)?;
 
         let body_ty = self.symbol_table.get(body_ref).ty.map_or(Err(self.make_error("type not resolved", body_ref)), |x| Ok(x))?;
         if body_ty == Type::Function {
@@ -621,12 +624,15 @@ impl<'a> Analyzer<'a> {
                     Some(x) => x,
                     None => return Err(self.make_low_error("unknown identifier", parser_node)),
                 };
+
                 let node = graph::Node::Reference(Reference {
                     dest: dest_ref,
                 });
                 let node_ref = self.register_node(node);
+                let node_ty = self.symbol_table.get(dest_ref).ty.map_or(Err(self.make_error("type not resolved", dest_ref)), |x| Ok(x))?;
                 self.symbol_table.new_record(node_ref);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
+                self.symbol_table.set_ty(node_ref, node_ty);
                 let dest_ty = self.symbol_table.get(dest_ref).ty.map_or(Err(self.make_error("type not resolved", dest_ref)), |x| Ok(x))?;
                 self.symbol_table.set_ty(dest_ref, dest_ty);
                 Ok(node_ref)

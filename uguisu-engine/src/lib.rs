@@ -48,7 +48,7 @@ impl Engine {
     pub fn new(analyzing_trace: bool, running_trace: bool) -> Self {
         Self {
             graph_source: HashMap::new(),
-            symbol_table: SymbolTable::new(false),
+            symbol_table: SymbolTable::new(analyzing_trace),
             analyzing_trace,
             running_trace,
         }
