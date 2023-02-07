@@ -305,7 +305,7 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>, table
     let name = node.get_name();
     match table.get(node_ref).pos {
         Some((line, column)) => println!("[{}] {} ({}:{}) {{", node_ref.id, name, line, column),
-        None => println!("[{}] {} (no position) {{", node_ref.id, name),
+        None => println!("[{}] {} (no location) {{", node_ref.id, name),
     }
     match node {
         Node::Declaration(decl) => {

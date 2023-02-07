@@ -304,6 +304,7 @@ impl<'a> Analyzer<'a> {
                     for func_param in func_params {
                         let node = graph::Node::FuncParam(func_param);
                         let node_ref = self.register_node(node);
+                        self.symbol_table.new_record(node_ref);
                         params.push(node_ref);
                     }
 
