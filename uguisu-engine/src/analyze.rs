@@ -81,9 +81,11 @@ impl<'a> Analyzer<'a> {
         SyntaxError::new(&format!("{} ({}:{})", message, line, column))
     }
 
-    fn make_error(&self, message: &str, node: &graph::Node) -> SyntaxError {
-        let (line, column) = node.get_pos();
-        SyntaxError::new(&format!("{} ({}:{})", message, line, column))
+    fn make_error(&self, message: &str, node: graph::NodeRef) -> SyntaxError {
+        match self.symbol_table.get(node).pos {
+            Some((line, column)) => SyntaxError::new(&format!("{} ({}:{})", message, line, column)),
+            None => SyntaxError::new(&format!("{}", message)),
+        }
     }
 
     fn register_builtin(
@@ -99,7 +101,6 @@ impl<'a> Analyzer<'a> {
                 identifier: String::from(param_name),
                 // param_index: i,
                 //ty: param_ty,
-                //pos: (1, 1),
             });
             let node_ref = self.register_node(node);
             param_nodes.push(node_ref);
@@ -109,7 +110,6 @@ impl<'a> Analyzer<'a> {
             params: param_nodes.clone(),
             ret_ty,
             content: FunctionBody::NativeCode,
-            //pos: (1, 1),
         });
         let func_node_ref = self.register_node(func_node);
 
@@ -122,7 +122,6 @@ impl<'a> Analyzer<'a> {
             signature,
             body: Some(func_node_ref),
             //ty: Some(Type::Function),
-            //pos: (1, 1),
         });
         let node_ref = self.register_node(decl_node);
 
@@ -150,9 +149,9 @@ impl<'a> Analyzer<'a> {
         let body_node = graph::Node::Reference(Reference {
             dest: dest_ref,
             //ty: dest_ty,
-            //pos: self.calc_location(parser_node)?,
         });
         let body_ref = self.register_node(body_node);
+        self.symbol_table.set_pos(body_ref, self.calc_location(parser_node)?);
 
         //let body_ref = self.translate_expr(body)?;
 
@@ -172,9 +171,9 @@ impl<'a> Analyzer<'a> {
         let variable_node = graph::Node::Variable(Variable {
             content: body_ref,
             //ty,
-            //pos: self.calc_location(parser_node)?,
         });
         let variable_ref = self.register_node(variable_node);
+        self.symbol_table.set_pos(variable_ref, self.calc_location(parser_node)?);
 
         // link declaration
         let decl_node = decl_node_ref.get_mut(self.source);
@@ -247,7 +246,6 @@ impl<'a> Analyzer<'a> {
                         identifier: param.identifier.clone(),
                         // param_index: i,
                         //ty: param_type,
-                        //pos: self.calc_location(n)?,
                     };
                     func_params.push(func_param);
                 }
@@ -260,9 +258,10 @@ impl<'a> Analyzer<'a> {
                 let decl_node_ref = {
                     // params
                     let mut params = Vec::new();
-                    for func_param in func_params.iter() {
+                    for (i, func_param) in func_params.iter().enumerate() {
                         let node = graph::Node::FuncParam(func_param.clone());
                         let node_ref = self.register_node(node);
+                        self.symbol_table.set_pos(node_ref, self.calc_location(&func.params[i])?);
                         params.push(node_ref);
                     }
 
@@ -275,9 +274,9 @@ impl<'a> Analyzer<'a> {
                         signature,
                         body: None,
                         //ty: None,
-                        //pos: self.calc_location(parser_node)?,
                     });
                     let node_ref = self.register_node(node);
+                    self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                     self.resolver.set_identifier(&func.identifier, node_ref);
 
                     node_ref
@@ -320,9 +319,9 @@ impl<'a> Analyzer<'a> {
                         params,
                         ret_ty,
                         content: body,
-                        //pos: self.calc_location(parser_node)?,
                     });
                     let func_node_ref = self.register_node(node);
+                    self.symbol_table.set_pos(func_node_ref, self.calc_location(parser_node)?);
 
                     // link declaration
                     let decl_node = decl_node_ref.get_mut(self.source);
@@ -362,9 +361,9 @@ impl<'a> Analyzer<'a> {
                     signature,
                     body: None,
                     //ty: None,
-                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 self.resolver.set_identifier(&variable.identifier, node_ref);
 
                 if let Some(var_body) = &variable.body {
@@ -386,9 +385,9 @@ impl<'a> Analyzer<'a> {
                     // let var_node = graph::Node::Variable(Variable {
                     //     content: body_ref,
                     //     ty,
-                    //     pos: self.calc_location(parser_node)?,
                     // });
                     // let var_node_ref = self.register_node(var_node);
+                    // self.symbol_table.set_pos(var_node_ref, self.calc_location(parser_node)?);
 
                     // // link declaration
                     // let decl_node = decl_node_ref.get_mut(self.source);
@@ -404,10 +403,9 @@ impl<'a> Analyzer<'a> {
                     return Err(self.make_low_error("A break statement cannot be used in global space", parser_node));
                 }
                 // TODO: check target
-                let node = graph::Node::BreakStatement(BreakStatement {
-                    pos: self.calc_location(parser_node)?,
-                });
+                let node = graph::Node::BreakStatement(BreakStatement {});
                 let node_ref = self.register_node(node);
+                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
             }
             ast::Node::ReturnStatement(node) => {
@@ -431,9 +429,9 @@ impl<'a> Analyzer<'a> {
                 };
                 let node = graph::Node::ReturnStatement(ReturnStatement {
                     body,
-                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
             }
             ast::Node::Assignment(statement) => {
@@ -461,9 +459,9 @@ impl<'a> Analyzer<'a> {
                 let target_node = graph::Node::Reference(Reference {
                     dest: declaration_ref,
                     //ty: declaration_ty,
-                    //pos: self.calc_location(parser_node)?,
                 });
                 let target_ref = self.register_node(target_node);
+                self.symbol_table.set_pos(target_ref, self.calc_location(parser_node)?);
 
                 let expr_ref = self.translate_expr(&statement.body)?;
 
@@ -500,9 +498,9 @@ impl<'a> Analyzer<'a> {
                     dest: target_ref,
                     body: expr_ref,
                     mode: statement.mode,
-                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
             }
             ast::Node::IfStatement(if_statement) => {
@@ -529,9 +527,9 @@ impl<'a> Analyzer<'a> {
                                         condition: cond_ref,
                                         then_block: then_nodes,
                                         else_block: vec![x],
-                                        //pos: analyzer.calc_location(parser_node)?,
                                     });
                                     let node_ref = analyzer.register_node(node);
+                                    analyzer.symbol_table.set_pos(node_ref, analyzer.calc_location(parser_node)?);
                                     Ok(Some(node_ref))
                                 }
                                 None => {
@@ -543,9 +541,9 @@ impl<'a> Analyzer<'a> {
                                         condition: cond_ref,
                                         then_block: then_nodes,
                                         else_block: else_nodes,
-                                        //pos: analyzer.calc_location(parser_node)?,
                                     });
                                     let node_ref = analyzer.register_node(node);
+                                    analyzer.symbol_table.set_pos(node_ref, analyzer.calc_location(parser_node)?);
                                     Ok(Some(node_ref))
                                 }
                             }
@@ -574,9 +572,9 @@ impl<'a> Analyzer<'a> {
                 let body = self.translate_statements(&statement.body)?;
                 let node = graph::Node::LoopStatement(LoopStatement {
                     body,
-                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
             }
             ast::Node::Reference(_)
@@ -625,9 +623,9 @@ impl<'a> Analyzer<'a> {
                 let node = graph::Node::Reference(Reference {
                     dest: dest_ref,
                     //ty: dest_ty,
-                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
             }
             ast::Node::NumberLiteral(node) => {
@@ -635,9 +633,9 @@ impl<'a> Analyzer<'a> {
                 let node = graph::Node::Literal(Literal {
                     value: LiteralValue::Number(node.value),
                     //ty: Type::Number,
-                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
             }
             ast::Node::BoolLiteral(node) => {
@@ -645,9 +643,9 @@ impl<'a> Analyzer<'a> {
                 let node = graph::Node::Literal(Literal {
                     value: LiteralValue::Bool(node.value),
                     //ty: Type::Bool,
-                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
             }
             ast::Node::UnaryOp(unary_op) => {
@@ -668,9 +666,9 @@ impl<'a> Analyzer<'a> {
                     operator: op,
                     expr: expr_ref,
                     //ty: Type::Bool,
-                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
             }
             ast::Node::BinaryExpr(binary_expr) => {
@@ -706,9 +704,9 @@ impl<'a> Analyzer<'a> {
                             left: left_ref,
                             right: right_ref,
                             //ty: Type::Number,
-                            //pos: self.calc_location(parser_node)?,
                         });
                         let node_ref = self.register_node(node);
+                        self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                         return Ok(node_ref);
                     }
                 }
@@ -731,9 +729,9 @@ impl<'a> Analyzer<'a> {
                             left: left_ref,
                             right: right_ref,
                             //ty: Type::Bool,
-                            //pos: self.calc_location(parser_node)?,
                         });
                         let node_ref = self.register_node(node);
+                        self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                         return Ok(node_ref);
                     }
                 }
@@ -752,9 +750,9 @@ impl<'a> Analyzer<'a> {
                             left: left_ref,
                             right: right_ref,
                             //ty: Type::Bool,
-                            //pos: self.calc_location(parser_node)?,
                         });
                         let node_ref = self.register_node(node);
+                        self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                         return Ok(node_ref);
                     }
                 }
@@ -793,9 +791,9 @@ impl<'a> Analyzer<'a> {
                     callee: callee_ref,
                     args,
                     //ty: ret_ty,
-                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
             }
             ast::Node::FunctionDeclaration(_)
