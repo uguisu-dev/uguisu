@@ -14,7 +14,7 @@ fn show_help(opts: Options) {
     print!("{}", opts.usage(brief.as_str()));
 }
 
-fn run_script(filename: &str, ast_dump: bool, graph_dump: bool, analyzing_trace: bool, running_trace: bool) {
+fn run_script(filename: &str, dump_ast: bool, dump_hir: bool, trace_gen: bool, trace_run: bool) {
     let mut file = match File::open(filename) {
         Ok(x) => x,
         Err(_) => return println!("Error: Failed to open the file."),
@@ -26,35 +26,35 @@ fn run_script(filename: &str, ast_dump: bool, graph_dump: bool, analyzing_trace:
         Err(_) => return println!("Error: Failed to read the file."),
     };
 
-    let mut engine = Engine::new(analyzing_trace, running_trace);
+    let mut engine = Engine::new(trace_gen, trace_run);
 
     let ast = match engine.parse(&code) {
         Ok(x) => x,
         Err(e) => return println!("SyntaxError: {}", e.message),
     };
 
-    if ast_dump {
-        println!("== AST dump ===========================================================");
+    if dump_ast {
+        println!("== AST ================================================================");
         engine.show_ast(&ast, &code);
     }
 
-    if analyzing_trace {
-        println!("== Analyzing trace ====================================================");
+    if trace_gen {
+        println!("== HIR-gen tracing ====================================================");
     }
-    let graph = match engine.analyze(&code, ast) {
+    let hir_code = match engine.generate_hir(&code, ast) {
         Ok(x) => x,
         Err(e) => return println!("SyntaxError: {}", e.message),
     };
 
-    if graph_dump {
-        println!("== Graph dump =========================================================");
-        engine.show_graph_map();
+    if dump_hir {
+        println!("== HIR map ============================================================");
+        engine.show_hir_map();
     }
 
-    if running_trace {
-        println!("== Running trace ======================================================");
+    if trace_run {
+        println!("== Runtime tracing ====================================================");
     }
-    match engine.run(graph) {
+    match engine.run(hir_code) {
         Ok(_) => {}
         Err(e) => return println!("RuntimeError: {}", e.message),
     };
@@ -63,10 +63,10 @@ fn run_script(filename: &str, ast_dump: bool, graph_dump: bool, analyzing_trace:
 pub(crate) fn command(args: &[String]) {
     let mut opts = Options::new();
     opts.optflag("h", "help", "Print help message.");
-    opts.optflag("", "ast-dump", "Display a dump of AST.");
-    opts.optflag("", "graph-dump", "Display a dump of graph map.");
-    opts.optflag("", "analyzing-trace", "Display a trace info of analyzing time.");
-    opts.optflag("", "running-trace", "Display a trace info of runing time.");
+    opts.optflag("", "dump-ast", "Display a dump of AST.");
+    opts.optflag("", "dump-hir", "Display a dump of HIR map.");
+    opts.optflag("", "trace-gen", "Display a trace info of the HIR genaration.");
+    opts.optflag("", "trace-run", "Display a trace info of the runtime.");
     let matches = match opts.parse(args) {
         Ok(x) => x,
         Err(e) => {
@@ -82,10 +82,10 @@ pub(crate) fn command(args: &[String]) {
         show_help(opts);
         return;
     }
-    let ast_dump = matches.opt_present("ast-dump");
-    let graph_dump = matches.opt_present("graph-dump");
-    let analyzing_trace = matches.opt_present("analyzing-trace");
-    let running_trace = matches.opt_present("running-trace");
+    let dump_ast = matches.opt_present("dump-ast");
+    let dump_hir = matches.opt_present("dump-hir");
+    let trace_gen = matches.opt_present("trace-gen");
+    let trace_run = matches.opt_present("trace-run");
     let input = &matches.free[0];
-    run_script(input, ast_dump, graph_dump, analyzing_trace, running_trace);
+    run_script(input, dump_ast, dump_hir, trace_gen, trace_run);
 }

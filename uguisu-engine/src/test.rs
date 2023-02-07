@@ -1,23 +1,21 @@
-use crate::engine::Engine;
+use crate::Engine;
 
 fn try_run_test(code: &str) -> Result<(), String> {
     let mut engine = Engine::new(false, false);
 
     let ast = match engine.parse(code) {
         Ok(x) => x,
-        Err(e) => return Err(format!("Parser Error: {}", e.message)),
+        Err(e) => return Err(format!("Parsing Error: {}", e.message)),
     };
 
-    let graph = match engine.analyze(code, ast) {
+    let hir_code = match engine.generate_hir(code, ast) {
         Ok(x) => x,
-        Err(e) => return Err(format!("Analyzer Error: {}", e.message)),
+        Err(e) => return Err(format!("Analysis Error: {}", e.message)),
     };
 
-    // engine.show_graph_map();
-
-    match engine.run(graph) {
+    match engine.run(hir_code) {
         Ok(x) => Ok(x),
-        Err(e) => return Err(format!("Runner Error: {}", e.message)),
+        Err(e) => return Err(format!("Runtime Error: {}", e.message)),
     }
 }
 

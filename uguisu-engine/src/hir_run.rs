@@ -1,13 +1,12 @@
 use crate::ast::AssignmentMode;
-use crate::graph::{self, LiteralValue, ArithmeticOperator, RelationalOperator, LogicalBinaryOperator, LogicalUnaryOperator, Signature, FunctionBody};
-use crate::symbols::Type;
-use crate::engine::RuntimeError;
+use crate::hir::{self, LiteralValue, ArithmeticOperator, RelationalOperator, LogicalBinaryOperator, LogicalUnaryOperator, Signature, FunctionBody, Type, SymbolTable};
+use crate::RuntimeError;
 use std::collections::HashMap;
 
 // TODO: improve builtin
 mod builtin {
-    use crate::engine::RuntimeError;
-    use crate::run::Value;
+    use crate::RuntimeError;
+    use crate::hir_run::Value;
 
     pub(crate) fn print_num(args: &Vec<Value>) -> Result<(), RuntimeError> {
         let value = args[0].as_number(); // value: number
@@ -121,7 +120,7 @@ impl RuningStack {
 }
 
 struct StackFrame {
-    table: HashMap<graph::NodeId, Value>,
+    table: HashMap<hir::NodeId, Value>,
 }
 
 impl StackFrame {
@@ -133,40 +132,42 @@ impl StackFrame {
 }
 
 pub(crate) struct Runner<'a> {
-    source: &'a HashMap<graph::NodeId, graph::Node>,
+    source: &'a HashMap<hir::NodeId, hir::Node>,
+    symbol_table: &'a SymbolTable,
     trace: bool,
 }
 
 impl<'a> Runner<'a> {
-    pub(crate) fn new(source: &'a HashMap<graph::NodeId, graph::Node>, trace: bool) -> Self {
+    pub(crate) fn new(source: &'a HashMap<hir::NodeId, hir::Node>, symbol_table: &'a SymbolTable, trace: bool) -> Self {
         Self {
             source,
+            symbol_table,
             trace,
         }
     }
 
-    fn resolve_node(&self, node_ref: graph::NodeRef) -> graph::NodeRef {
+    fn resolve_node(&self, node_ref: hir::NodeRef) -> hir::NodeRef {
         match node_ref.get(self.source) {
-            graph::Node::Reference(reference) => self.resolve_node(reference.dest),
+            hir::Node::Reference(reference) => self.resolve_node(reference.dest),
             _ => node_ref,
         }
     }
 
-    fn resolve_address(&self, node_ref: graph::NodeRef) -> SymbolAddress {
+    fn resolve_address(&self, node_ref: hir::NodeRef) -> SymbolAddress {
         match node_ref.get(self.source) {
-            graph::Node::Reference(reference) => self.resolve_address(reference.dest),
+            hir::Node::Reference(reference) => self.resolve_address(reference.dest),
             _ => node_ref.id,
         }
     }
 
-    pub(crate) fn run(&self, graph: &Vec<graph::NodeRef>, stack: &mut RuningStack) -> Result<(), RuntimeError> {
-        for &node_ref in graph.iter() {
+    pub(crate) fn run(&self, hir_code: &Vec<hir::NodeRef>, stack: &mut RuningStack) -> Result<(), RuntimeError> {
+        for &node_ref in hir_code.iter() {
             self.exec_statement(node_ref, stack)?;
         }
         Ok(())
     }
 
-    fn exec_block(&self, statements: &Vec<graph::NodeRef>, stack: &mut RuningStack) -> Result<StatementResult, RuntimeError> {
+    fn exec_block(&self, statements: &Vec<hir::NodeRef>, stack: &mut RuningStack) -> Result<StatementResult, RuntimeError> {
         if self.trace { println!("enter block"); }
         let mut result = StatementResult::None;
         for &node_ref in statements.iter() {
@@ -186,19 +187,19 @@ impl<'a> Runner<'a> {
 
     fn exec_statement(
         &self,
-        node_ref: graph::NodeRef,
+        node_ref: hir::NodeRef,
         stack: &mut RuningStack,
     ) -> Result<StatementResult, RuntimeError> {
         if self.trace { println!("enter statement [{}]", node_ref.id); }
         let result = match node_ref.get(self.source) {
-            graph::Node::Declaration(decl) => {
+            hir::Node::Declaration(decl) => {
                 // TODO: check duplicate
                 match decl.signature {
                     Signature::FunctionSignature(_) => {
                         stack.set_symbol(node_ref.id, Value::Function(node_ref.id));
                     }
                     Signature::VariableSignature(_) => {
-                        match decl.body {
+                        match self.symbol_table.get(node_ref).body {
                             Some(body) => {
                                 let value = self.eval_expr(body, stack)?;
                                 stack.set_symbol(node_ref.id, value);
@@ -209,7 +210,7 @@ impl<'a> Runner<'a> {
                 }
                 Ok(StatementResult::None)
             }
-            graph::Node::ReturnStatement(statement) => {
+            hir::Node::ReturnStatement(statement) => {
                 match &statement.body {
                     Some(expr) => {
                         let value = self.eval_expr(*expr, stack)?;
@@ -220,8 +221,8 @@ impl<'a> Runner<'a> {
                     }
                 }
             }
-            graph::Node::BreakStatement(_) => Ok(StatementResult::Break),
-            graph::Node::Assignment(statement) => {
+            hir::Node::BreakStatement(_) => Ok(StatementResult::Break),
+            hir::Node::Assignment(statement) => {
                 let curr_value = self.eval_expr(statement.dest, stack)?;
                 match statement.mode {
                     AssignmentMode::Assign => {
@@ -282,7 +283,7 @@ impl<'a> Runner<'a> {
                 }
                 Ok(StatementResult::None)
             }
-            graph::Node::IfStatement(statement) => {
+            hir::Node::IfStatement(statement) => {
                 let condition = self.eval_expr(statement.condition, stack)?.as_bool();
                 let block = if condition {
                     &statement.then_block
@@ -291,7 +292,7 @@ impl<'a> Runner<'a> {
                 };
                 self.exec_block(block, stack)
             }
-            graph::Node::LoopStatement(statement) => {
+            hir::Node::LoopStatement(statement) => {
                 let mut result;
                 loop {
                     result = self.exec_block(&statement.body, stack)?;
@@ -309,19 +310,19 @@ impl<'a> Runner<'a> {
                 }
                 Ok(result)
             }
-            graph::Node::Reference(_)
-            | graph::Node::Literal(_)
-            | graph::Node::RelationalOp(_)
-            | graph::Node::LogicalBinaryOp(_)
-            | graph::Node::ArithmeticOp(_)
-            | graph::Node::LogicalUnaryOp(_)
-            | graph::Node::CallExpr(_) => {
+            hir::Node::Reference(_)
+            | hir::Node::Literal(_)
+            | hir::Node::RelationalOp(_)
+            | hir::Node::LogicalBinaryOp(_)
+            | hir::Node::ArithmeticOp(_)
+            | hir::Node::LogicalUnaryOp(_)
+            | hir::Node::CallExpr(_) => {
                 self.eval_expr(node_ref, stack)?;
                 Ok(StatementResult::None)
             }
-            graph::Node::Function(_)
-            | graph::Node::Variable(_)
-            | graph::Node::FuncParam(_) => {
+            hir::Node::Function(_)
+            | hir::Node::Variable(_)
+            | hir::Node::FuncParam(_) => {
                 panic!("Failed to execute the statement: unsupported node (node_id={})", node_ref.id);
             }
         };
@@ -331,28 +332,28 @@ impl<'a> Runner<'a> {
 
     fn eval_expr(
         &self,
-        node_ref: graph::NodeRef,
+        node_ref: hir::NodeRef,
         stack: &mut RuningStack,
     ) -> Result<Value, RuntimeError> {
         if self.trace { println!("enter expression [{}]", node_ref.id); }
         let result = match node_ref.get(self.source) {
-            graph::Node::Variable(variable) => { // variable of initial value
+            hir::Node::Variable(variable) => { // variable of initial value
                 Ok(self.eval_expr(variable.content, stack)?)
             }
-            graph::Node::Reference(reference) => {
+            hir::Node::Reference(reference) => {
                 let address = self.resolve_address(reference.dest);
                 match stack.get_symbol(address) {
                     Some(x) => Ok(x.clone()),
                     None => panic!("symbol not found (node_id={}, address={})", node_ref.id, address),
                 }
             }
-            graph::Node::Literal(literal) => {
+            hir::Node::Literal(literal) => {
                 match literal.value {
                     LiteralValue::Number(n) => Ok(Value::Number(n)),
                     LiteralValue::Bool(value) => Ok(Value::Bool(value)),
                 }
             }
-            graph::Node::RelationalOp(expr) => {
+            hir::Node::RelationalOp(expr) => {
                 let left = self.eval_expr(expr.left, stack)?;
                 let right = self.eval_expr(expr.right, stack)?;
                 match expr.relation_type {
@@ -386,7 +387,7 @@ impl<'a> Runner<'a> {
                     }
                 }
             }
-            graph::Node::LogicalBinaryOp(expr) => {
+            hir::Node::LogicalBinaryOp(expr) => {
                 let left = self.eval_expr(expr.left, stack)?.as_bool();
                 let right = self.eval_expr(expr.right, stack)?.as_bool();
                 match expr.operator {
@@ -394,7 +395,7 @@ impl<'a> Runner<'a> {
                     LogicalBinaryOperator::Or => Ok(Value::Bool(left || right)),
                 }
             }
-            graph::Node::ArithmeticOp(expr) => {
+            hir::Node::ArithmeticOp(expr) => {
                 let left = self.eval_expr(expr.left, stack)?.as_number();
                 let right = self.eval_expr(expr.right, stack)?.as_number();
                 match expr.operator {
@@ -420,18 +421,18 @@ impl<'a> Runner<'a> {
                     }
                 }
             }
-            graph::Node::LogicalUnaryOp(op) => {
+            hir::Node::LogicalUnaryOp(op) => {
                 let expr = self.eval_expr(op.expr, stack)?.as_bool();
                 match op.operator {
                     LogicalUnaryOperator::Not => Ok(Value::Bool(!expr)),
                 }
             }
-            graph::Node::CallExpr(call_expr) => {
+            hir::Node::CallExpr(call_expr) => {
                 let callee_ref = self.resolve_node(call_expr.callee);
                 let callee_node = callee_ref.get(self.source);
                 let decl = callee_node.as_decl().unwrap();
                 let signature = decl.signature.as_function_signature().unwrap();
-                let func = match decl.body {
+                let func = match self.symbol_table.get(callee_ref).body {
                     Some(x) => x.get(self.source).as_function().unwrap(),
                     None => panic!("function `{}` is not defined (node_id={})", decl.identifier, call_expr.callee.id),
                 };
@@ -486,14 +487,14 @@ impl<'a> Runner<'a> {
                 };
                 Ok(value)
             }
-            graph::Node::Function(_) => panic!("function object unsupported (node_id={})", node_ref.id),
-            graph::Node::FuncParam(_)
-            | graph::Node::Declaration(_)
-            | graph::Node::ReturnStatement(_)
-            | graph::Node::BreakStatement(_)
-            | graph::Node::Assignment(_)
-            | graph::Node::IfStatement(_)
-            | graph::Node::LoopStatement(_) => {
+            hir::Node::Function(_) => panic!("function object unsupported (node_id={})", node_ref.id),
+            hir::Node::FuncParam(_)
+            | hir::Node::Declaration(_)
+            | hir::Node::ReturnStatement(_)
+            | hir::Node::BreakStatement(_)
+            | hir::Node::Assignment(_)
+            | hir::Node::IfStatement(_)
+            | hir::Node::LoopStatement(_) => {
                 panic!("Failed to evaluate the expression: unsupported node (node_id={})", node_ref.id);
             }
         };

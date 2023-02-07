@@ -1,4 +1,4 @@
-use crate::engine::SyntaxError;
+use crate::SyntaxError;
 use crate::ast::*;
 
 #[cfg(test)]
