@@ -193,17 +193,17 @@ impl<'a> Analyzer<'a> {
 
         // register builtin declarations
         ids.push(self.register_builtin(
-            "print_num",
+            "printNum",
             vec![("value", Type::Number)],
             Type::Void,
         ));
         ids.push(self.register_builtin(
-            "print_lf",
+            "printLF",
             vec![],
             Type::Void,
         ));
         ids.push(self.register_builtin(
-            "assert_eq",
+            "assertEq",
             vec![("actual", Type::Number), ("expected", Type::Number)],
             Type::Void,
         ));

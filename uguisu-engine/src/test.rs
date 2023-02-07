@@ -40,7 +40,7 @@ fn test_function_basic() {
             return x + y;
         }
         fn main() {
-            assert_eq(add(1, 2), 3);
+            assertEq(add(1, 2), 3);
         }
         ",
     );
@@ -57,7 +57,7 @@ fn test_calc_with_function_1() {
             return x * x;
         }
         fn main() {
-            assert_eq(add(square(2), 3), 7);
+            assertEq(add(square(2), 3), 7);
         }
         ",
     );
@@ -74,7 +74,7 @@ fn test_calc_with_function_2() {
             return square(x) + y;
         }
         fn main() {
-            assert_eq(calc(2, 3), 7);
+            assertEq(calc(2, 3), 7);
         }
         ",
     );
@@ -92,7 +92,7 @@ fn test_function_recursion() {
             }
         }
         fn main() {
-            assert_eq(calc(8), 256);
+            assertEq(calc(8), 256);
         }
         ",
     );
@@ -104,7 +104,7 @@ fn test_variable_basic() {
         "
         fn main() {
             var x = 1 + 2;
-            assert_eq(x, 3);
+            assertEq(x, 3);
         }
         ",
     );
@@ -120,7 +120,7 @@ fn test_calc_with_variable() {
         }
         fn main() {
             var a = 2;
-            assert_eq(calc(a, 3), 25);
+            assertEq(calc(a, 3), 25);
         }
         ",
     );
@@ -138,7 +138,7 @@ fn test_loop_statement() {
                 x = x * 2;
                 i = i + 1;
             }
-            assert_eq(x, 1024);
+            assertEq(x, 1024);
         }
         ",
     );
@@ -183,7 +183,7 @@ fn test_relational_op() {
             if 1 + 2 == 3 {
                 x = 1;
             }
-            assert_eq(x, 1);
+            assertEq(x, 1);
         }
         ",
     );
@@ -222,11 +222,11 @@ fn test_assignment() {
         "
         fn main() {
             var x = 0;
-            assert_eq(x, 0);
+            assertEq(x, 0);
             x = 1;
-            assert_eq(x, 1);
+            assertEq(x, 1);
             x = 2;
-            assert_eq(x, 2);
+            assertEq(x, 2);
         }
         ",
     );
@@ -238,15 +238,15 @@ fn test_assignment_modes() {
         "
         fn main() {
             var x = 0;
-            assert_eq(x, 0);
+            assertEq(x, 0);
             x += 10;
-            assert_eq(x, 10);
+            assertEq(x, 10);
             x -= 2;
-            assert_eq(x, 8);
+            assertEq(x, 8);
             x *= 2;
-            assert_eq(x, 16);
+            assertEq(x, 16);
             x /= 4;
-            assert_eq(x, 4);
+            assertEq(x, 4);
         }
         ",
     );
@@ -333,7 +333,7 @@ fn should_generate_error_with_function_name_7() {
     let result = try_run_test(
         "
         fn main() {
-            const x = !main;
+            var x = !main;
         }
         ",
     );
@@ -345,7 +345,7 @@ fn should_generate_error_with_function_name_8() {
     let result = try_run_test(
         "
         fn main() {
-            const x = main + main;
+            var x = main + main;
         }
         ",
     );
@@ -357,7 +357,7 @@ fn should_generate_error_with_function_name_9() {
     let result = try_run_test(
         "
         fn main() {
-            const x = main == main;
+            var x = main == main;
         }
         ",
     );
@@ -369,7 +369,7 @@ fn should_generate_error_with_function_name_10() {
     let result = try_run_test(
         "
         fn main() {
-            const x = main && main;
+            var x = main && main;
         }
         ",
     );
@@ -403,7 +403,7 @@ fn test_example() {
         }
         fn main() {
             var value = 10;
-            assert_eq(calc(value), 1024);
+            assertEq(calc(value), 1024);
         }
         ",
     );

@@ -469,11 +469,11 @@ impl<'a> Runner<'a> {
                             return Err(RuntimeError::new("parameters count error"));
                         }
                         // TODO: improve builtin
-                        if &decl.identifier == "print_num" {
+                        if &decl.identifier == "printNum" {
                             builtin::print_num(&args)?;
-                        } else if &decl.identifier == "print_lf" {
+                        } else if &decl.identifier == "printLF" {
                             builtin::print_lf(&args)?;
-                        } else if &decl.identifier == "assert_eq" {
+                        } else if &decl.identifier == "assertEq" {
                             builtin::assert_eq(&args)?;
                         } else {
                             return Err(RuntimeError::new("unknown native function"));

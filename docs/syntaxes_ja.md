@@ -82,13 +82,18 @@ expression + expression
 
 ### 変数の宣言
 ```
-var variable_name: type = expression;
+var variableName: type;
 ```
-型は省略することもできます。その場合は与えられた式から変数の型が推論されます。
+型は省略することもできます。その場合はその変数に代入された式から変数の型が推論されます。  
+
+```
+var variableName: type = expression;
+```
+宣言時に初期値を与えることもできます。
 
 ### 変数の代入
 ```
-variable_name = expression;
+variableName = expression;
 ```
 
 代入演算子の種類:
@@ -98,14 +103,14 @@ variable_name = expression;
 
 ### 変数の参照
 ```
-variable_name
+variableName
 ```
 
 ## 関数
 
 ### 関数の宣言
 ```
-fn function_name(parameter_name: type, parameter_name: type): type {
+fn functionName(parameterName: type, parameterName: type): type {
     statement
     statement
 }
@@ -115,7 +120,7 @@ fn function_name(parameter_name: type, parameter_name: type): type {
 
 ### 関数の呼び出し
 ```
-function_name(argument_name, argument_name)
+functionName(argumentName, argumentName)
 ```
 
 ## if文
@@ -169,24 +174,24 @@ comment
 
 ## ビルトイン関数
 
-### print_num
+### printNum
 関数シグネチャ:
 ```
-fn print_num(value: number);
+fn printNum(value: number);
 ```
 数値を標準出力に出力します。  
 改行されません。
 
-### print_lf
+### printLF
 関数シグネチャ:
 ```
-fn print_lf();
+fn printLF();
 ```
 改行コード(LF)を標準出力に出力します。
 
-### assert_eq
+### assertEq
 関数シグネチャ:
 ```
-fn assert_eq(actual: number, expected: number);
+fn assertEq(actual: number, expected: number);
 ```
 与えられた数値と期待する数値を比較して、値が異なる場合にランタイムエラーを発生させます。
