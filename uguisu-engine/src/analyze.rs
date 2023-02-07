@@ -145,7 +145,6 @@ impl<'a> Analyzer<'a> {
             Some(x) => x,
             None => return Err(self.make_low_error("unknown identifier", parser_node)),
         };
-        let dest_node = dest_ref.get(self.source);
         let body_node = graph::Node::Reference(Reference {
             dest: dest_ref,
             //ty: dest_ty,
@@ -154,8 +153,6 @@ impl<'a> Analyzer<'a> {
         self.symbol_table.set_pos(body_ref, self.calc_location(parser_node)?);
 
         //let body_ref = self.translate_expr(body)?;
-
-        let body_node = body_ref.get(self.source);
 
         let body_ty = self.symbol_table.get(body_ref).ty.map_or(Err(self.make_error("type not resolved", body_ref)), |x| Ok(x))?;
         if body_ty == Type::Function {
@@ -180,7 +177,7 @@ impl<'a> Analyzer<'a> {
         let decl_node = decl_node_ref.get_mut(self.source);
         let decl = decl_node.as_decl_mut().unwrap();
         decl.body = Some(variable_ref);
-        decl.ty = Some(ty);
+        self.symbol_table.set_ty(decl_node_ref, ty);
         Ok(())
     }
 
@@ -466,13 +463,11 @@ impl<'a> Analyzer<'a> {
 
                 match statement.mode {
                     AssignmentMode::Assign => {
-                        let target_node = target_ref.get(self.source);
-                        let expr_node = expr_ref.get(self.source);
-                        let target_ty = target_node.get_ty(self.source).map_err(|e| self.make_error(&e, target_ref))?;
+                        let target_ty = self.symbol_table.get(target_ref).ty.map_or(Err(self.make_error("type not resolved", target_ref)), |x| Ok(x))?;
                         if target_ty == Type::Function {
                             return Err(self.make_error("type `function` is not supported", target_ref));
                         }
-                        let expr_ty = expr_node.get_ty(self.source).map_err(|e| self.make_error(&e, expr_ref))?;
+                        let expr_ty = self.symbol_table.get(expr_ref).ty.map_or(Err(self.make_error("type not resolved", expr_ref)), |x| Ok(x))?;
                         if expr_ty == Type::Function {
                             return Err(self.make_error("type `function` is not supported", expr_ref));
                         }
@@ -483,11 +478,9 @@ impl<'a> Analyzer<'a> {
                     | AssignmentMode::MultAssign
                     | AssignmentMode::DivAssign
                     | AssignmentMode::ModAssign => {
-                        let target_node = target_ref.get(self.source);
-                        let expr_node = expr_ref.get(self.source);
-                        let target_ty = target_node.get_ty(self.source).map_err(|e| self.make_low_error(&e, parser_node))?;
+                        let target_ty = self.symbol_table.get(target_ref).ty.map_or(Err(self.make_low_error("type not resolved", parser_node)), |x| Ok(x))?;
                         Type::assert(target_ty, Type::Number).map_err(|e| self.make_error(&e, target_ref))?; // TODO: improve error message
-                        let expr_ty = expr_node.get_ty(self.source).map_err(|e| self.make_error(&e, expr_ref))?;
+                        let expr_ty = self.symbol_table.get(expr_ref).ty.map_or(Err(self.make_error("type not resolved", expr_ref)), |x| Ok(x))?;
                         Type::assert(expr_ty, Type::Number).map_err(|e| self.make_error(&e, expr_ref))?;
                     }
                 }
@@ -514,8 +507,7 @@ impl<'a> Analyzer<'a> {
                     match items.get(index) {
                         Some((cond, then_block)) => {
                             let cond_ref = analyzer.translate_expr(cond)?;
-                            let cond_node = cond_ref.get(analyzer.source);
-                            let cond_ty = cond_node.get_ty(analyzer.source).map_err(|e| analyzer.make_error(&e, cond_ref))?;
+                            let cond_ty = analyzer.symbol_table.get(cond_ref).ty.map_or(Err(analyzer.make_error("type not resolved", cond_ref)), |x| Ok(x))?;
                             Type::assert(cond_ty, Type::Bool).map_err(|e| analyzer.make_error(&e, cond_ref))?;
                             let then_nodes = analyzer.translate_statements(then_block)?;
                             // next else if part
@@ -588,8 +580,7 @@ impl<'a> Analyzer<'a> {
                     return Err(self.make_low_error("An expression cannot be used in global space", parser_node));
                 }
                 let expr_ref = self.translate_expr(parser_node)?;
-                let expr_node = expr_ref.get(self.source);
-                let expr_ty = expr_node.get_ty(self.source).map_err(|e| self.make_error(&e, expr_ref))?;
+                let expr_ty = self.symbol_table.get(expr_ref).ty.map_or(Err(self.make_error("type not resolved", expr_ref)), |x| Ok(x))?;
                 if expr_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", expr_ref));
                 }
@@ -648,8 +639,7 @@ impl<'a> Analyzer<'a> {
             ast::Node::UnaryOp(unary_op) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let expr_ref = self.translate_expr(&unary_op.expr)?;
-                let expr_node = expr_ref.get(self.source);
-                let expr_ty = expr_node.get_ty(self.source).map_err(|e| self.make_error(&e, expr_ref))?;
+                let expr_ty = self.symbol_table.get(expr_ref).ty.map_or(Err(self.make_error("type not resolved", expr_ref)), |x| Ok(x))?;
                 if expr_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", expr_ref));
                 }
@@ -672,10 +662,8 @@ impl<'a> Analyzer<'a> {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let left_ref = self.translate_expr(&binary_expr.left)?;
                 let right_ref = self.translate_expr(&binary_expr.right)?;
-                let left_node = left_ref.get(self.source);
-                let right_node = right_ref.get(self.source);
-                let left_ty = left_node.get_ty(self.source).map_err(|e| self.make_error(&e, left_ref))?;
-                let right_ty = right_node.get_ty(self.source).map_err(|e| self.make_error(&e, right_ref))?;
+                let left_ty = self.symbol_table.get(left_ref).ty.map_or(Err(self.make_error("type not resolved", left_ref)), |x| Ok(x))?;
+                let right_ty = self.symbol_table.get(right_ref).ty.map_or(Err(self.make_error("type not resolved", right_ref)), |x| Ok(x))?;
                 if left_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", left_ref));
                 }
@@ -758,7 +746,6 @@ impl<'a> Analyzer<'a> {
             ast::Node::CallExpr(call_expr) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let callee_ref = self.translate_expr(&call_expr.callee)?;
-                let callee = callee_ref.get(self.source);
                 let callee_func_ref = self.resolve_node(callee_ref);
                 let callee_func_node = callee_func_ref.get(self.source);
                 let callee_func = callee_func_node.as_decl().map_err(|e| self.make_error(&e, callee_ref))?;
@@ -771,10 +758,8 @@ impl<'a> Analyzer<'a> {
                 let mut args = Vec::new();
                 for (i, &param_ref) in params.iter().enumerate() {
                     let arg_ref = self.translate_expr(&call_expr.args[i])?;
-                    let arg_node = arg_ref.get(self.source);
-                    let param_node = param_ref.get(self.source);
-                    let param_ty = param_node.get_ty(self.source).map_err(|e| self.make_error(&e, param_ref))?;
-                    let arg_ty = arg_node.get_ty(self.source).map_err(|e| self.make_error(&e, arg_ref))?;
+                    let param_ty = self.symbol_table.get(param_ref).ty.map_or(Err(self.make_error("type not resolved", param_ref)), |x| Ok(x))?;
+                    let arg_ty = self.symbol_table.get(arg_ref).ty.map_or(Err(self.make_error("type not resolved", arg_ref)), |x| Ok(x))?;
                     if param_ty == Type::Function {
                         return Err(self.make_error("type `function` is not supported", param_ref));
                     }
