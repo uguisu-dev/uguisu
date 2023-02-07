@@ -241,14 +241,9 @@ impl<'a> Analyzer<'a> {
                 let mut func_params = Vec::new();
                 for n in func.params.iter() {
                     let param = n.as_func_param();
-                    let param_type = match &param.type_identifier {
-                        Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_low_error(&e, n))?, // TODO: improve error location
-                        None => return Err(self.make_low_error("parameter type missing", n)),
-                    };
                     let func_param = FuncParam {
                         identifier: param.identifier.clone(),
                         // param_index: i,
-                        //ty: param_type,
                     };
                     func_params.push(func_param);
                 }
@@ -287,6 +282,7 @@ impl<'a> Analyzer<'a> {
                     let node_ref = self.register_node(node);
                     self.symbol_table.new_record(node_ref);
                     self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
+                    self.symbol_table.set_ty(node_ref, Type::Function);
                     self.resolver.set_identifier(&func.identifier, node_ref);
 
                     node_ref
@@ -338,7 +334,6 @@ impl<'a> Analyzer<'a> {
                     let decl_node = decl_node_ref.get_mut(self.source);
                     let decl = decl_node.as_decl_mut().unwrap();
                     decl.body = Some(func_node_ref);
-                    self.symbol_table.set_ty(decl_node_ref, Type::Function);
                 }
 
                 Ok(decl_node_ref)
