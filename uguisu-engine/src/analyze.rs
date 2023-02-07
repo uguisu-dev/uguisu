@@ -127,8 +127,6 @@ impl<'a> Analyzer<'a> {
         });
         let node_ref = self.register_node(decl_node);
         self.symbol_table.set_ty(node_ref, Type::Function);
-
-        // add to stack
         self.resolver.set_identifier(name, node_ref);
         node_ref
     }
@@ -280,7 +278,6 @@ impl<'a> Analyzer<'a> {
                         identifier: func.identifier.clone(),
                         signature,
                         body: None,
-                        //ty: None,
                     });
                     let node_ref = self.register_node(node);
                     self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
@@ -367,7 +364,6 @@ impl<'a> Analyzer<'a> {
                     identifier: variable.identifier.clone(),
                     signature,
                     body: None,
-                    //ty: None,
                 });
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
