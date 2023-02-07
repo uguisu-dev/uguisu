@@ -266,6 +266,11 @@ impl<'a> Analyzer<'a> {
                         let node_ref = self.register_node(node);
                         self.symbol_table.new_record(node_ref);
                         self.symbol_table.set_pos(node_ref, self.calc_location(&func.params[i])?);
+                        let param_type = match &func.params[i].as_func_param().type_identifier {
+                            Some(x) => Type::lookup_user_type(x).map_err(|e| self.make_error(&e, node_ref))?, // TODO: improve error location
+                            None => return Err(self.make_error("parameter type missing", node_ref)),
+                        };
+                        self.symbol_table.set_ty(node_ref, param_type);
                         params.push(node_ref);
                     }
 
