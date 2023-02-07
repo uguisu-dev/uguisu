@@ -31,90 +31,37 @@ use crate::graph::{
     Variable,
     VariableSignature,
 };
-use crate::types::Type;
+use crate::symbols::{
+    Type,
+    SymbolTable,
+    ResolverStack,
+};
 use crate::SyntaxError;
 use std::collections::HashMap;
 
 #[cfg(test)]
 mod test;
 
-struct AnalyzeStack {
-    frames: Vec<StackFrame>,
-    trace: bool,
-}
-
-impl AnalyzeStack {
-    fn new(trace: bool) -> Self {
-        Self {
-            frames: vec![StackFrame::new()],
-            trace,
-        }
-    }
-
-    fn push_frame(&mut self) {
-        if self.trace { println!("push_frame"); }
-        self.frames.insert(0, StackFrame::new());
-    }
-
-    fn pop_frame(&mut self) {
-        if self.trace { println!("pop_frame"); }
-        if self.frames.len() == 1 {
-            panic!("Left the root frame.");
-        }
-        self.frames.remove(0);
-    }
-
-    fn set_record(&mut self, identifier: &str, node: graph::NodeRef) {
-        if self.trace { println!("set_record (identifier: \"{}\", node_id: [{}])", identifier, node.id); }
-        match self.frames.get_mut(0) {
-            Some(frame) => {
-                frame.table.insert(identifier.to_string(), node);
-            }
-            None => panic!("frame not found"),
-        }
-    }
-
-    fn get_record(&self, identifier: &str) -> Option<graph::NodeRef> {
-        for frame in self.frames.iter() {
-            match frame.table.get(identifier) {
-                Some(&x) => {
-                    if self.trace { println!("get_record success (identifier: \"{}\", node_id: {:?})", identifier, x); }
-                    return Some(x)
-                }
-                None => {
-                    if self.trace { println!("get_record failure (identifier: \"{}\")", identifier); }
-                }
-            }
-        }
-        None
-    }
-}
-
-struct StackFrame {
-    table: HashMap<String, graph::NodeRef>,
-}
-
-impl StackFrame {
-    fn new() -> Self {
-        Self {
-            table: HashMap::new(),
-        }
-    }
-}
-
 pub(crate) struct Analyzer<'a> {
     input: &'a str,
     source: &'a mut HashMap<graph::NodeId, graph::Node>,
-    stack: AnalyzeStack,
+    symbol_table: &'a mut SymbolTable,
+    resolver: ResolverStack,
     trace: bool,
 }
 
 impl<'a> Analyzer<'a> {
-    pub(crate) fn new(input: &'a str, source: &'a mut HashMap<graph::NodeId, graph::Node>, trace: bool) -> Self {
+    pub(crate) fn new(
+        input: &'a str,
+        source: &'a mut HashMap<graph::NodeId, graph::Node>,
+        symbol_table: &'a mut SymbolTable,
+        trace: bool,
+    ) -> Self {
         Self {
             input,
             source,
-            stack: AnalyzeStack::new(trace),
+            symbol_table,
+            resolver: ResolverStack::new(trace),
             trace,
         }
     }
@@ -151,8 +98,8 @@ impl<'a> Analyzer<'a> {
             let node = graph::Node::FuncParam(FuncParam {
                 identifier: String::from(param_name),
                 // param_index: i,
-                ty: param_ty,
-                pos: (1, 1),
+                //ty: param_ty,
+                //pos: (1, 1),
             });
             let node_ref = self.register_node(node);
             param_nodes.push(node_ref);
@@ -162,7 +109,7 @@ impl<'a> Analyzer<'a> {
             params: param_nodes.clone(),
             ret_ty,
             content: FunctionBody::NativeCode,
-            pos: (1, 1),
+            //pos: (1, 1),
         });
         let func_node_ref = self.register_node(func_node);
 
@@ -174,12 +121,13 @@ impl<'a> Analyzer<'a> {
             identifier: String::from(name),
             signature,
             body: Some(func_node_ref),
-            pos: (1, 1),
+            //ty: Some(Type::Function),
+            //pos: (1, 1),
         });
         let node_ref = self.register_node(decl_node);
 
         // add to stack
-        self.stack.set_record(name, node_ref);
+        self.resolver.set_identifier(name, node_ref);
         node_ref
     }
 
@@ -188,6 +136,52 @@ impl<'a> Analyzer<'a> {
             graph::Node::Reference(reference) => self.resolve_node(reference.dest),
             _ => node_ref,
         }
+    }
+
+    fn define_variable_decl(&mut self, parser_node: &ast::Node, body: &ast::Node, decl_node_ref: graph::NodeRef) -> Result<(), SyntaxError> {
+
+        // translate body expression
+        let reference = body.as_reference();
+        let dest_ref = match self.resolver.lookup_identifier(&reference.identifier) {
+            Some(x) => x,
+            None => return Err(self.make_low_error("unknown identifier", parser_node)),
+        };
+        let dest_node = dest_ref.get(self.source);
+        let body_node = graph::Node::Reference(Reference {
+            dest: dest_ref,
+            //ty: dest_ty,
+            //pos: self.calc_location(parser_node)?,
+        });
+        let body_ref = self.register_node(body_node);
+
+        //let body_ref = self.translate_expr(body)?;
+
+        let body_node = body_ref.get(self.source);
+        let body_ty = body_node.get_ty(self.source).map_err(|e| self.make_error(&e, body_node))?;
+        if body_ty == Type::Function {
+            return Err(self.make_error("type `function` is not supported", body_node));
+        }
+        let decl_node = decl_node_ref.get(self.source);
+        let decl = decl_node.as_decl().unwrap();
+        let signature = decl.signature.as_variable_signature().unwrap();
+        let ty = match signature.specified_ty {
+            Some(x) => Type::assert(body_ty, x).map_err(|e| self.make_error(&e, body_node))?,
+            None => body_ty,
+        };
+
+        let variable_node = graph::Node::Variable(Variable {
+            content: body_ref,
+            //ty,
+            //pos: self.calc_location(parser_node)?,
+        });
+        let variable_ref = self.register_node(variable_node);
+
+        // link declaration
+        let decl_node = decl_node_ref.get_mut(self.source);
+        let decl = decl_node.as_decl_mut().unwrap();
+        decl.body = Some(variable_ref);
+        decl.ty = Some(ty);
+        Ok(())
     }
 
     /// Generate a resolved graph from a AST.
@@ -252,8 +246,8 @@ impl<'a> Analyzer<'a> {
                     let func_param = FuncParam {
                         identifier: param.identifier.clone(),
                         // param_index: i,
-                        ty: param_type,
-                        pos: self.calc_location(n)?,
+                        //ty: param_type,
+                        //pos: self.calc_location(n)?,
                     };
                     func_params.push(func_param);
                 }
@@ -280,10 +274,11 @@ impl<'a> Analyzer<'a> {
                         identifier: func.identifier.clone(),
                         signature,
                         body: None,
-                        pos: self.calc_location(parser_node)?,
+                        //ty: None,
+                        //pos: self.calc_location(parser_node)?,
                     });
                     let node_ref = self.register_node(node);
-                    self.stack.set_record(&func.identifier, node_ref);
+                    self.resolver.set_identifier(&func.identifier, node_ref);
 
                     node_ref
                 };
@@ -299,7 +294,7 @@ impl<'a> Analyzer<'a> {
                     }
 
                     // body
-                    self.stack.push_frame();
+                    self.resolver.push_frame();
                     let decl_node = decl_node_ref.get(self.source);
                     let decl = decl_node.as_decl().unwrap();
                     let signature = decl.signature.as_function_signature().unwrap();
@@ -311,7 +306,7 @@ impl<'a> Analyzer<'a> {
                         };
                         let param_node = param_ref.get(self.source);
                         let param = param_node.as_func_param().unwrap();
-                        self.stack.set_record(&param.identifier, param_ref);
+                        self.resolver.set_identifier(&param.identifier, param_ref);
                         i += 1;
                     }
                     let func_body = match &func.body {
@@ -319,13 +314,13 @@ impl<'a> Analyzer<'a> {
                         None => return Err(self.make_low_error("function declaration cannot be undefined.", parser_node)),
                     };
                     let body = FunctionBody::Statements(self.translate_statements(func_body)?);
-                    self.stack.pop_frame();
+                    self.resolver.pop_frame();
 
                     let node = graph::Node::Function(Function {
                         params,
                         ret_ty,
                         content: body,
-                        pos: self.calc_location(parser_node)?,
+                        //pos: self.calc_location(parser_node)?,
                     });
                     let func_node_ref = self.register_node(node);
 
@@ -333,79 +328,79 @@ impl<'a> Analyzer<'a> {
                     let decl_node = decl_node_ref.get_mut(self.source);
                     let decl = decl_node.as_decl_mut().unwrap();
                     decl.body = Some(func_node_ref);
+                    decl.ty = Some(Type::Function);
                 }
 
                 Ok(decl_node_ref)
             }
             ast::Node::VariableDeclaration(variable) => {
                 if self.trace { println!("enter statement (node: {}, identifier: {})", parser_node.get_name(), variable.identifier); }
-                let decl_node_ref = {
-                    let has_const_attr = variable.attributes.iter().any(|x| *x == VariableAttribute::Const);
-                    if has_const_attr {
-                        return Err(self.make_low_error("A variable with `const` is no longer supported. Use the `var` keyword instead. \nThis keyword may also be used as a constant values in the future.", parser_node));
-                    }
-                    let has_let_attr = variable.attributes.iter().any(|x| *x == VariableAttribute::Let);
-                    if has_let_attr {
-                        return Err(self.make_low_error("A variable with `let` is no longer supported. Use the `var` keyword instead.", parser_node));
-                    }
 
-                    // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
-                    let specified_ty = match &variable.type_identifier {
-                        Some(ident) => Some(Type::lookup_user_type(ident).map_err(|e| self.make_low_error(&e, parser_node))?), // TODO: improve error location
-                        None => None,
-                    };
-
-                    let signature = Signature::VariableSignature(VariableSignature {
-                        specified_ty,
-                    });
-                    let node = graph::Node::Declaration(Declaration {
-                        identifier: variable.identifier.clone(),
-                        signature,
-                        body: None,
-                        pos: self.calc_location(parser_node)?,
-                    });
-                    let node_ref = self.register_node(node);
-                    self.stack.set_record(&variable.identifier, node_ref);
-                    node_ref
-                };
-
-                {
-                    let variable_body = match &variable.body {
-                        Some(x) => x,
-                        None => return Err(self.make_low_error("variable declaration cannot be undefined.", parser_node)),
-                    };
-                    let body_ref = self.translate_expr(variable_body)?;
-                    let body_node = body_ref.get(self.source);
-                    let body_ty = body_node.get_ty(self.source).map_err(|e| self.make_error(&e, body_node))?;
-                    if body_ty == Type::Function {
-                        return Err(self.make_error("type `function` is not supported", body_node));
-                    }
-                    let decl_node = decl_node_ref.get(self.source);
-                    let decl = decl_node.as_decl().unwrap();
-                    let signature = decl.signature.as_variable_signature().unwrap();
-                    let ty = match signature.specified_ty {
-                        Some(x) => Type::assert(body_ty, x).map_err(|e| self.make_error(&e, body_node))?,
-                        None => body_ty,
-                    };
-
-                    let var_node = graph::Node::Variable(Variable {
-                        content: body_ref,
-                        ty,
-                        pos: self.calc_location(parser_node)?,
-                    });
-                    let var_node_ref = self.register_node(var_node);
-
-                    // link declaration
-                    let decl_node = decl_node_ref.get_mut(self.source);
-                    let decl = decl_node.as_decl_mut().unwrap();
-                    decl.body = Some(var_node_ref);
+                let has_const_attr = variable.attributes.iter().any(|x| *x == VariableAttribute::Const);
+                if has_const_attr {
+                    return Err(self.make_low_error("A variable with `const` is no longer supported. Use the `var` keyword instead. \nThis keyword may also be used as a constant values in the future.", parser_node));
+                }
+                let has_let_attr = variable.attributes.iter().any(|x| *x == VariableAttribute::Let);
+                if has_let_attr {
+                    return Err(self.make_low_error("A variable with `let` is no longer supported. Use the `var` keyword instead.", parser_node));
                 }
 
-                Ok(decl_node_ref)
+                // fetch specified type
+                // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
+                let specified_ty = match &variable.type_identifier {
+                    Some(ident) => Some(Type::lookup_user_type(ident).map_err(|e| self.make_low_error(&e, parser_node))?), // TODO: improve error location
+                    None => None,
+                };
+
+                // make signature
+                let signature = Signature::VariableSignature(VariableSignature {
+                    specified_ty,
+                });
+                // make node
+                let node = graph::Node::Declaration(Declaration {
+                    identifier: variable.identifier.clone(),
+                    signature,
+                    body: None,
+                    //ty: None,
+                    //pos: self.calc_location(parser_node)?,
+                });
+                let node_ref = self.register_node(node);
+                self.resolver.set_identifier(&variable.identifier, node_ref);
+
+                if let Some(var_body) = &variable.body {
+                    self.define_variable_decl(parser_node, var_body, node_ref)?;
+                    // let body_ref = self.translate_expr(variable_body)?;
+                    // let body_node = body_ref.get(self.source);
+                    // let body_ty = body_node.get_ty(self.source).map_err(|e| self.make_error(&e, body_node))?;
+                    // if body_ty == Type::Function {
+                    //     return Err(self.make_error("type `function` is not supported", body_node));
+                    // }
+                    // let decl_node = decl_node_ref.get(self.source);
+                    // let decl = decl_node.as_decl().unwrap();
+                    // let signature = decl.signature.as_variable_signature().unwrap();
+                    // let ty = match signature.specified_ty {
+                    //     Some(x) => Type::assert(body_ty, x).map_err(|e| self.make_error(&e, body_node))?,
+                    //     None => body_ty,
+                    // };
+
+                    // let var_node = graph::Node::Variable(Variable {
+                    //     content: body_ref,
+                    //     ty,
+                    //     pos: self.calc_location(parser_node)?,
+                    // });
+                    // let var_node_ref = self.register_node(var_node);
+
+                    // // link declaration
+                    // let decl_node = decl_node_ref.get_mut(self.source);
+                    // let decl = decl_node.as_decl_mut().unwrap();
+                    // decl.body = Some(var_node_ref);
+                }
+
+                Ok(node_ref)
             }
             ast::Node::BreakStatement(_) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
-                if self.stack.frames.len() == 1 {
+                if self.resolver.frames.len() == 1 {
                     return Err(self.make_low_error("A break statement cannot be used in global space", parser_node));
                 }
                 // TODO: check target
@@ -419,7 +414,7 @@ impl<'a> Analyzer<'a> {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 // TODO: consider type check
                 // when global scope
-                if self.stack.frames.len() == 1 {
+                if self.resolver.frames.len() == 1 {
                     return Err(self.make_low_error("A return statement cannot be used in global space", parser_node));
                 }
                 let body = match node.body.as_ref() {
@@ -436,7 +431,7 @@ impl<'a> Analyzer<'a> {
                 };
                 let node = graph::Node::ReturnStatement(ReturnStatement {
                     body,
-                    pos: self.calc_location(parser_node)?,
+                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
@@ -444,43 +439,68 @@ impl<'a> Analyzer<'a> {
             ast::Node::Assignment(statement) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 // when global scope
-                if self.stack.frames.len() == 1 {
+                if self.resolver.frames.len() == 1 {
                     return Err(self.make_low_error("An assignment statement cannot be used in global space", parser_node));
                 }
-                let dest = self.translate_expr(&statement.dest)?;
-                let body = self.translate_expr(&statement.body)?;
+
+                let reference = statement.dest.as_reference();
+                let declaration_ref = match self.resolver.lookup_identifier(&reference.identifier) {
+                    Some(x) => x,
+                    None => return Err(self.make_low_error("unknown identifier", parser_node)),
+                };
+                let declaration = declaration_ref.get(self.source).as_decl().map_err(|e| self.make_low_error(&e, parser_node))?;
+
+                // if the declaration is not defined, define it.
+                if let None = declaration.body {
+                    self.define_variable_decl(parser_node, &statement.dest, declaration_ref)?;
+                }
+
+                let declaration_ty = declaration_ref.get(self.source).get_ty(self.source).map_err(|e| self.make_low_error(&e, parser_node))?;
+
+                // make target node
+                let target_node = graph::Node::Reference(Reference {
+                    dest: declaration_ref,
+                    //ty: declaration_ty,
+                    //pos: self.calc_location(parser_node)?,
+                });
+                let target_ref = self.register_node(target_node);
+
+                let expr_ref = self.translate_expr(&statement.body)?;
+
                 match statement.mode {
                     AssignmentMode::Assign => {
-                        let dest_node = dest.get(self.source);
-                        let body_node = body.get(self.source);
-                        let dest_ty = dest_node.get_ty(self.source).map_err(|e| self.make_low_error(&e, parser_node))?;
-                        let body_ty = body_node.get_ty(self.source).map_err(|e| self.make_error(&e, body_node))?;
-                        if dest_ty == Type::Function {
-                            return Err(self.make_error("type `function` is not supported", dest_node));
+                        let target_node = target_ref.get(self.source);
+                        let expr_node = expr_ref.get(self.source);
+                        let target_ty = target_node.get_ty(self.source).map_err(|e| self.make_error(&e, target_node))?;
+                        if target_ty == Type::Function {
+                            return Err(self.make_error("type `function` is not supported", target_node));
                         }
-                        if body_ty == Type::Function {
-                            return Err(self.make_error("type `function` is not supported", body_node));
+                        let expr_ty = expr_node.get_ty(self.source).map_err(|e| self.make_error(&e, expr_node))?;
+                        if expr_ty == Type::Function {
+                            return Err(self.make_error("type `function` is not supported", expr_node));
                         }
-                        Type::assert(body_ty, dest_ty).map_err(|e| self.make_error(&e, body_node))?;
-                    },
+                        Type::assert(expr_ty, target_ty).map_err(|e| self.make_low_error(&e, parser_node))?;
+                    }
                     AssignmentMode::AddAssign
                     | AssignmentMode::SubAssign
                     | AssignmentMode::MultAssign
                     | AssignmentMode::DivAssign
                     | AssignmentMode::ModAssign => {
-                        let dest_node = dest.get(self.source);
-                        let body_node = body.get(self.source);
-                        let dest_ty = dest_node.get_ty(self.source).map_err(|e| self.make_low_error(&e, parser_node))?;
-                        Type::assert(dest_ty, Type::Number).map_err(|e| self.make_error(&e, dest_node))?; // TODO: improve error message
-                        let body_ty = body_node.get_ty(self.source).map_err(|e| self.make_error(&e, body_node))?;
-                        Type::assert(body_ty, Type::Number).map_err(|e| self.make_error(&e, body_node))?;
+                        let target_node = target_ref.get(self.source);
+                        let expr_node = expr_ref.get(self.source);
+                        let target_ty = target_node.get_ty(self.source).map_err(|e| self.make_low_error(&e, parser_node))?;
+                        Type::assert(target_ty, Type::Number).map_err(|e| self.make_error(&e, target_node))?; // TODO: improve error message
+                        let expr_ty = expr_node.get_ty(self.source).map_err(|e| self.make_error(&e, expr_node))?;
+                        Type::assert(expr_ty, Type::Number).map_err(|e| self.make_error(&e, expr_node))?;
                     }
                 }
+
+                // make node
                 let node = graph::Node::Assignment(Assignment {
-                    dest,
-                    body,
+                    dest: target_ref,
+                    body: expr_ref,
                     mode: statement.mode,
-                    pos: self.calc_location(parser_node)?,
+                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
@@ -509,7 +529,7 @@ impl<'a> Analyzer<'a> {
                                         condition: cond_ref,
                                         then_block: then_nodes,
                                         else_block: vec![x],
-                                        pos: analyzer.calc_location(parser_node)?,
+                                        //pos: analyzer.calc_location(parser_node)?,
                                     });
                                     let node_ref = analyzer.register_node(node);
                                     Ok(Some(node_ref))
@@ -523,7 +543,7 @@ impl<'a> Analyzer<'a> {
                                         condition: cond_ref,
                                         then_block: then_nodes,
                                         else_block: else_nodes,
-                                        pos: analyzer.calc_location(parser_node)?,
+                                        //pos: analyzer.calc_location(parser_node)?,
                                     });
                                     let node_ref = analyzer.register_node(node);
                                     Ok(Some(node_ref))
@@ -548,13 +568,13 @@ impl<'a> Analyzer<'a> {
             }
             ast::Node::LoopStatement(statement) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
-                if self.stack.frames.len() == 1 {
+                if self.resolver.frames.len() == 1 {
                     return Err(self.make_low_error("A loop statement cannot be used in global space", parser_node));
                 }
                 let body = self.translate_statements(&statement.body)?;
                 let node = graph::Node::LoopStatement(LoopStatement {
                     body,
-                    pos: self.calc_location(parser_node)?,
+                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
@@ -567,7 +587,7 @@ impl<'a> Analyzer<'a> {
             | ast::Node::CallExpr(_) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 // when global scope
-                if self.stack.frames.len() == 1 {
+                if self.resolver.frames.len() == 1 {
                     return Err(self.make_low_error("An expression cannot be used in global space", parser_node));
                 }
                 let expr_ref = self.translate_expr(parser_node)?;
@@ -595,16 +615,17 @@ impl<'a> Analyzer<'a> {
         let result = match parser_node {
             ast::Node::Reference(reference) => {
                 if self.trace { println!("enter expr (node: {}, identifier: {})", parser_node.get_name(), reference.identifier); }
-                let dest_ref = match self.stack.get_record(&reference.identifier) {
+                let dest_ref = match self.resolver.lookup_identifier(&reference.identifier) {
                     Some(x) => x,
                     None => return Err(self.make_low_error("unknown identifier", parser_node)),
                 };
                 let dest_node = dest_ref.get(self.source);
+
                 let dest_ty = dest_node.get_ty(self.source).map_err(|e| self.make_error(&e, dest_node))?;
                 let node = graph::Node::Reference(Reference {
                     dest: dest_ref,
-                    ty: dest_ty,
-                    pos: self.calc_location(parser_node)?,
+                    //ty: dest_ty,
+                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
@@ -613,8 +634,8 @@ impl<'a> Analyzer<'a> {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let node = graph::Node::Literal(Literal {
                     value: LiteralValue::Number(node.value),
-                    ty: Type::Number,
-                    pos: self.calc_location(parser_node)?,
+                    //ty: Type::Number,
+                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
@@ -623,8 +644,8 @@ impl<'a> Analyzer<'a> {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let node = graph::Node::Literal(Literal {
                     value: LiteralValue::Bool(node.value),
-                    ty: Type::Bool,
-                    pos: self.calc_location(parser_node)?,
+                    //ty: Type::Bool,
+                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
@@ -646,8 +667,8 @@ impl<'a> Analyzer<'a> {
                 let node = graph::Node::LogicalUnaryOp(LogicalUnaryOp {
                     operator: op,
                     expr: expr_ref,
-                    ty: Type::Bool,
-                    pos: self.calc_location(parser_node)?,
+                    //ty: Type::Bool,
+                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)
@@ -684,8 +705,8 @@ impl<'a> Analyzer<'a> {
                             operator: op,
                             left: left_ref,
                             right: right_ref,
-                            ty: Type::Number,
-                            pos: self.calc_location(parser_node)?,
+                            //ty: Type::Number,
+                            //pos: self.calc_location(parser_node)?,
                         });
                         let node_ref = self.register_node(node);
                         return Ok(node_ref);
@@ -709,8 +730,8 @@ impl<'a> Analyzer<'a> {
                             relation_type: left_ty,
                             left: left_ref,
                             right: right_ref,
-                            ty: Type::Bool,
-                            pos: self.calc_location(parser_node)?,
+                            //ty: Type::Bool,
+                            //pos: self.calc_location(parser_node)?,
                         });
                         let node_ref = self.register_node(node);
                         return Ok(node_ref);
@@ -730,8 +751,8 @@ impl<'a> Analyzer<'a> {
                             operator: op,
                             left: left_ref,
                             right: right_ref,
-                            ty: Type::Bool,
-                            pos: self.calc_location(parser_node)?,
+                            //ty: Type::Bool,
+                            //pos: self.calc_location(parser_node)?,
                         });
                         let node_ref = self.register_node(node);
                         return Ok(node_ref);
@@ -771,8 +792,8 @@ impl<'a> Analyzer<'a> {
                 let node = graph::Node::CallExpr(CallExpr {
                     callee: callee_ref,
                     args,
-                    ty: ret_ty,
-                    pos: self.calc_location(parser_node)?,
+                    //ty: ret_ty,
+                    //pos: self.calc_location(parser_node)?,
                 });
                 let node_ref = self.register_node(node);
                 Ok(node_ref)

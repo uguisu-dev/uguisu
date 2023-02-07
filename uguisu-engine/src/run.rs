@@ -1,6 +1,6 @@
 use crate::ast::AssignmentMode;
 use crate::graph::{self, LiteralValue, ArithmeticOperator, RelationalOperator, LogicalBinaryOperator, LogicalUnaryOperator, Signature, FunctionBody};
-use crate::types::Type;
+use crate::symbols::Type;
 use crate::RuntimeError;
 use std::collections::HashMap;
 

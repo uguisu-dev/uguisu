@@ -1,30 +1,6 @@
 use std::collections::HashMap;
 use crate::ast;
-use crate::types::Type;
-
-pub(crate) type NodeId = usize;
-
-#[derive(Debug, Clone, Copy)]
-pub struct NodeRef {
-    pub id: NodeId,
-}
-
-impl NodeRef {
-    pub(crate) fn new(node_id: NodeId) -> Self {
-        Self { id: node_id }
-    }
-
-    pub(crate) fn get<'a>(&self, source: &'a HashMap<NodeId, Node>) -> &'a Node {
-        &source[&self.id]
-    }
-
-    pub(crate) fn get_mut<'a>(&self, source: &'a mut HashMap<NodeId, Node>) -> &'a mut Node {
-        match source.get_mut(&self.id) {
-            Some(x) => x,
-            None => panic!(),
-        }
-    }
-}
+use crate::symbols::{Type, SymbolTable};
 
 #[derive(Debug)]
 pub(crate) enum Node {
@@ -49,65 +25,6 @@ pub(crate) enum Node {
 }
 
 impl Node {
-    pub(crate) fn get_ty(&self, source: &HashMap<NodeId, Node>) -> Result<Type, String> {
-        match self {
-            Node::Declaration(node) => {
-                match &node.signature {
-                    Signature::FunctionSignature(_) => {
-                        Ok(Type::Function)
-                    }
-                    Signature::VariableSignature(_) => {
-                        let body_ref = match node.body {
-                            Some(x) => x,
-                            None => panic!("variable undefined"),
-                        };
-                        let body_node = body_ref.get(source);
-                        let variable = body_node.as_variable()?;
-                        Ok(variable.ty)
-                    }
-                }
-            }
-            Node::Variable(node) => Ok(node.ty),
-            Node::Reference(node) => Ok(node.ty),
-            Node::Literal(node) => Ok(node.ty),
-            Node::RelationalOp(node) => Ok(node.ty),
-            Node::LogicalBinaryOp(node) => Ok(node.ty),
-            Node::ArithmeticOp(node) => Ok(node.ty),
-            Node::LogicalUnaryOp(node) => Ok(node.ty),
-            Node::CallExpr(node) => Ok(node.ty),
-            Node::FuncParam(node) => Ok(node.ty),
-            Node::Function(_)
-            | Node::BreakStatement(_)
-            | Node::ReturnStatement(_)
-            | Node::Assignment(_)
-            | Node::IfStatement(_)
-            | Node::LoopStatement(_) => {
-                panic!("unexpected node {:?}", self);
-            }
-        }
-    }
-
-    pub(crate) fn get_pos(&self) -> (usize, usize) {
-        match self {
-            Node::Declaration(node) => node.pos,
-            Node::BreakStatement(node) => node.pos,
-            Node::ReturnStatement(node) => node.pos,
-            Node::Assignment(node) => node.pos,
-            Node::IfStatement(node) => node.pos,
-            Node::LoopStatement(node) => node.pos,
-            Node::Function(node) => node.pos,
-            Node::Variable(node) => node.pos,
-            Node::Reference(node) => node.pos,
-            Node::Literal(node) => node.pos,
-            Node::RelationalOp(node) => node.pos,
-            Node::LogicalBinaryOp(node) => node.pos,
-            Node::ArithmeticOp(node) => node.pos,
-            Node::LogicalUnaryOp(node) => node.pos,
-            Node::CallExpr(node) => node.pos,
-            Node::FuncParam(node) => node.pos,
-        }
-    }
-
     pub(crate) fn as_function(&self) -> Result<&Function, String> {
         match self {
             Node::Function(x) => Ok(x),
@@ -144,12 +61,38 @@ impl Node {
     }
 }
 
+pub(crate) type NodeId = usize;
+
+#[derive(Debug, Clone, Copy)]
+pub struct NodeRef {
+    pub id: NodeId,
+}
+
+impl NodeRef {
+    pub(crate) fn new(node_id: NodeId) -> Self {
+        Self { id: node_id }
+    }
+
+    pub(crate) fn get<'a>(&self, source: &'a HashMap<NodeId, Node>) -> &'a Node {
+        &source[&self.id]
+    }
+
+    pub(crate) fn get_mut<'a>(&self, source: &'a mut HashMap<NodeId, Node>) -> &'a mut Node {
+        match source.get_mut(&self.id) {
+            Some(x) => x,
+            None => panic!(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct Declaration {
     pub identifier: String,
     pub signature: Signature,
-    pub body: Option<NodeRef>, // Function or Variable
-    pub pos: (usize, usize),
+    /// Variable or Function
+    pub body: Option<NodeRef>,
+    //pub ty: Option<Type>,
+    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -176,7 +119,8 @@ impl Signature {
 
 #[derive(Debug)]
 pub(crate) struct FunctionSignature {
-    pub params: Vec<NodeRef>, // FuncParam
+    /// FuncParam
+    pub params: Vec<NodeRef>,
     pub ret_ty: Type,
 }
 
@@ -184,20 +128,22 @@ pub(crate) struct FunctionSignature {
 pub(crate) struct FuncParam {
     pub identifier: String,
     // pub param_index: usize,
-    pub ty: Type,
-    pub pos: (usize, usize),
+    //pub ty: Type,
+    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
 pub(crate) struct Function {
+    /// FuncParam
     pub params: Vec<NodeRef>,
     pub ret_ty: Type,
     pub content: FunctionBody,
-    pub pos: (usize, usize),
+    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
 pub(crate) enum FunctionBody {
+    /// Statement
     Statements(Vec<NodeRef>),
     NativeCode,
 }
@@ -209,9 +155,9 @@ pub(crate) struct VariableSignature {
 
 #[derive(Debug)]
 pub(crate) struct Variable {
+    /// Expression
     pub content: NodeRef,
-    pub ty: Type,
-    pub pos: (usize, usize),
+    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -221,44 +167,50 @@ pub(crate) struct BreakStatement {
 
 #[derive(Debug)]
 pub(crate) struct ReturnStatement {
+    /// Expression
     pub body: Option<NodeRef>,
-    pub pos: (usize, usize),
+    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
 pub(crate) struct Assignment {
+    /// Reference
     pub dest: NodeRef,
+    /// Expression
     pub body: NodeRef,
     pub mode: ast::AssignmentMode,
-    pub pos: (usize, usize),
+    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
 pub(crate) struct IfStatement {
+    /// Expression
     pub condition: NodeRef,
+    /// Statement
     pub then_block: Vec<NodeRef>,
+    /// Statement
     pub else_block: Vec<NodeRef>,
-    pub pos: (usize, usize),
+    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
 pub(crate) struct LoopStatement {
+    /// Statement
     pub body: Vec<NodeRef>,
-    pub pos: (usize, usize),
+    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
 pub(crate) struct Reference {
+    /// Declaration
     pub dest: NodeRef,
-    pub ty: Type,
-    pub pos: (usize, usize),
+    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
 pub(crate) struct Literal {
     pub value: LiteralValue,
-    pub ty: Type,
-    pub pos: (usize, usize),
+    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -271,10 +223,11 @@ pub(crate) enum LiteralValue {
 pub(crate) struct RelationalOp {
     pub operator: RelationalOperator,
     pub relation_type: Type,
+    /// Expression
     pub left: NodeRef,
+    /// Expression
     pub right: NodeRef,
-    pub ty: Type,
-    pub pos: (usize, usize),
+    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -290,10 +243,11 @@ pub(crate) enum RelationalOperator {
 #[derive(Debug)]
 pub(crate) struct LogicalBinaryOp {
     pub operator: LogicalBinaryOperator,
+    /// Expression
     pub left: NodeRef,
+    /// Expression
     pub right: NodeRef,
-    pub ty: Type,
-    pub pos: (usize, usize),
+    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -305,9 +259,9 @@ pub(crate) enum LogicalBinaryOperator {
 #[derive(Debug)]
 pub(crate) struct LogicalUnaryOp {
     pub operator: LogicalUnaryOperator,
+    /// Expression
     pub expr: NodeRef,
-    pub ty: Type,
-    pub pos: (usize, usize),
+    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -318,10 +272,11 @@ pub(crate) enum LogicalUnaryOperator {
 #[derive(Debug)]
 pub(crate) struct ArithmeticOp {
     pub operator: ArithmeticOperator,
+    /// Expression
     pub left: NodeRef,
+    /// Expression
     pub right: NodeRef,
-    pub ty: Type,
-    pub pos: (usize, usize),
+    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -335,19 +290,27 @@ pub(crate) enum ArithmeticOperator {
 
 #[derive(Debug)]
 pub(crate) struct CallExpr {
-    pub callee: NodeRef, // Reference -> Declaration -> Function
+    /// Reference (expects: Reference -> Declaration -> Function)
+    pub callee: NodeRef,
+    /// Expression
     pub args: Vec<NodeRef>,
-    pub ty: Type,
-    pub pos: (usize, usize),
+    //pub pos: (usize, usize),
 }
 
-pub(crate) fn show_map(source: &HashMap<NodeId, Node>) {
+// fn get_pos(table: &SymbolTable, node_ref: NodeRef) -> (usize, usize) {
+//     match table.get(node_ref).pos {
+//         Some(x) => x,
+//         None => panic!("pos"),
+//     }
+// }
+
+pub(crate) fn show_map(source: &HashMap<NodeId, Node>, table: &SymbolTable) {
     for i in 0..source.len() {
-        show_node(NodeRef::new(i), source);
+        show_node(NodeRef::new(i), source, table);
     }
 }
 
-pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
+pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>, table: &SymbolTable) {
     let node = node_ref.get(source);
     let name = match node {
         Node::Declaration(_) => "Declaration",
@@ -367,8 +330,11 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
         Node::CallExpr(_) => "CallExpr",
         Node::FuncParam(_) => "FuncParam",
     };
-    let (line, column) = node.get_pos();
-    println!("[{}] {} ({}:{}) {{", node_ref.id, name, line, column);
+
+    match table.get(node_ref).pos {
+        Some((line, column)) => println!("[{}] {} ({}:{}) {{", node_ref.id, name, line, column),
+        None => println!("[{}] {} (none position) {{", node_ref.id, name),
+    }
     match node {
         Node::Declaration(decl) => {
             println!("  identifier: \"{}\"", decl.identifier);
@@ -528,7 +494,7 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>) {
         }
         Node::FuncParam(func_param) => {
             println!("  identifier: \"{}\"", func_param.identifier);
-            println!("  type: {:?}", func_param.ty);
+            //println!("  type: {:?}", func_param.ty);
         }
     }
     println!("}}");
