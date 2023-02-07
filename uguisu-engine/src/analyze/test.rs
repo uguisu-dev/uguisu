@@ -1,5 +1,5 @@
 use crate::graph;
-use crate::Engine;
+use crate::engine::Engine;
 
 fn try_run_test(code: &str) -> Result<Vec<graph::NodeRef>, String> {
     let mut engine = Engine::new(false, false);

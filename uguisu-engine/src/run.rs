@@ -1,12 +1,12 @@
 use crate::ast::AssignmentMode;
 use crate::graph::{self, LiteralValue, ArithmeticOperator, RelationalOperator, LogicalBinaryOperator, LogicalUnaryOperator, Signature, FunctionBody};
 use crate::symbols::Type;
-use crate::RuntimeError;
+use crate::engine::RuntimeError;
 use std::collections::HashMap;
 
 // TODO: improve builtin
 mod builtin {
-    use crate::RuntimeError;
+    use crate::engine::RuntimeError;
     use crate::run::Value;
 
     pub(crate) fn print_num(args: &Vec<Value>) -> Result<(), RuntimeError> {

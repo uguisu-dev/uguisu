@@ -36,7 +36,7 @@ use crate::symbols::{
     SymbolTable,
     ResolverStack,
 };
-use crate::SyntaxError;
+use crate::engine::SyntaxError;
 use std::collections::HashMap;
 
 #[cfg(test)]
