@@ -150,7 +150,12 @@ impl<'a> Analyzer<'a> {
         }
         let decl_node = decl_node_ref.get(self.source);
         let decl = decl_node.as_decl().unwrap();
-        let signature = decl.signature.as_variable_signature().unwrap();
+        let signature = match &decl.signature {
+            Signature::VariableSignature(x) => x,
+            Signature::FunctionSignature(_) => {
+                return Err(self.make_low_error("type `function` is not supported", parser_node));
+            }
+        };
         let ty = match signature.specified_ty {
             Some(x) => Type::assert(body_ty, x).map_err(|e| self.make_error(&e, body_ref))?,
             None => body_ty,
