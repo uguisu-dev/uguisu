@@ -32,13 +32,6 @@ impl Node {
         }
     }
 
-    pub(crate) fn as_variable(&self) -> Result<&Variable, String> {
-        match self {
-            Node::Variable(x) => Ok(x),
-            _ => Err("variable expected".to_owned()),
-        }
-    }
-
     pub(crate) fn as_decl(&self) -> Result<&Declaration, String> {
         match self {
             Node::Declaration(x) => Ok(x),
@@ -157,19 +150,16 @@ pub(crate) struct VariableSignature {
 pub(crate) struct Variable {
     /// Expression
     pub content: NodeRef,
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
 pub(crate) struct BreakStatement {
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
 pub(crate) struct ReturnStatement {
     /// Expression
     pub body: Option<NodeRef>,
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -179,7 +169,6 @@ pub(crate) struct Assignment {
     /// Expression
     pub body: NodeRef,
     pub mode: ast::AssignmentMode,
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -190,27 +179,23 @@ pub(crate) struct IfStatement {
     pub then_block: Vec<NodeRef>,
     /// Statement
     pub else_block: Vec<NodeRef>,
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
 pub(crate) struct LoopStatement {
     /// Statement
     pub body: Vec<NodeRef>,
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
 pub(crate) struct Reference {
     /// Declaration
     pub dest: NodeRef,
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
 pub(crate) struct Literal {
     pub value: LiteralValue,
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -227,7 +212,6 @@ pub(crate) struct RelationalOp {
     pub left: NodeRef,
     /// Expression
     pub right: NodeRef,
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -247,7 +231,6 @@ pub(crate) struct LogicalBinaryOp {
     pub left: NodeRef,
     /// Expression
     pub right: NodeRef,
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -261,7 +244,6 @@ pub(crate) struct LogicalUnaryOp {
     pub operator: LogicalUnaryOperator,
     /// Expression
     pub expr: NodeRef,
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -276,7 +258,6 @@ pub(crate) struct ArithmeticOp {
     pub left: NodeRef,
     /// Expression
     pub right: NodeRef,
-    //pub pos: (usize, usize),
 }
 
 #[derive(Debug)]
@@ -294,7 +275,6 @@ pub(crate) struct CallExpr {
     pub callee: NodeRef,
     /// Expression
     pub args: Vec<NodeRef>,
-    //pub pos: (usize, usize),
 }
 
 // fn get_pos(table: &SymbolTable, node_ref: NodeRef) -> (usize, usize) {

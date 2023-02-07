@@ -150,6 +150,7 @@ impl<'a> Analyzer<'a> {
             //ty: dest_ty,
         });
         let body_ref = self.register_node(body_node);
+        self.symbol_table.new_record(body_ref);
         self.symbol_table.set_pos(body_ref, self.calc_location(parser_node)?);
 
         //let body_ref = self.translate_expr(body)?;
@@ -171,6 +172,7 @@ impl<'a> Analyzer<'a> {
             //ty,
         });
         let variable_ref = self.register_node(variable_node);
+        self.symbol_table.new_record(variable_ref);
         self.symbol_table.set_pos(variable_ref, self.calc_location(parser_node)?);
 
         // link declaration
@@ -259,6 +261,7 @@ impl<'a> Analyzer<'a> {
                     for (i, func_param) in func_params.iter().enumerate() {
                         let node = graph::Node::FuncParam(func_param.clone());
                         let node_ref = self.register_node(node);
+                        self.symbol_table.new_record(node_ref);
                         self.symbol_table.set_pos(node_ref, self.calc_location(&func.params[i])?);
                         params.push(node_ref);
                     }
@@ -274,6 +277,7 @@ impl<'a> Analyzer<'a> {
                         //ty: None,
                     });
                     let node_ref = self.register_node(node);
+                    self.symbol_table.new_record(node_ref);
                     self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                     self.resolver.set_identifier(&func.identifier, node_ref);
 
@@ -319,6 +323,7 @@ impl<'a> Analyzer<'a> {
                         content: body,
                     });
                     let func_node_ref = self.register_node(node);
+                    self.symbol_table.new_record(func_node_ref);
                     self.symbol_table.set_pos(func_node_ref, self.calc_location(parser_node)?);
 
                     // link declaration
@@ -361,6 +366,7 @@ impl<'a> Analyzer<'a> {
                     //ty: None,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.new_record(node_ref);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 self.resolver.set_identifier(&variable.identifier, node_ref);
 
@@ -385,6 +391,7 @@ impl<'a> Analyzer<'a> {
                     //     ty,
                     // });
                     // let var_node_ref = self.register_node(var_node);
+                    // self.symbol_table.new_record(var_node_ref);
                     // self.symbol_table.set_pos(var_node_ref, self.calc_location(parser_node)?);
 
                     // // link declaration
@@ -403,6 +410,7 @@ impl<'a> Analyzer<'a> {
                 // TODO: check target
                 let node = graph::Node::BreakStatement(BreakStatement {});
                 let node_ref = self.register_node(node);
+                self.symbol_table.new_record(node_ref);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
             }
@@ -428,6 +436,7 @@ impl<'a> Analyzer<'a> {
                     body,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.new_record(node_ref);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
             }
@@ -455,6 +464,7 @@ impl<'a> Analyzer<'a> {
                     dest: declaration_ref,
                 });
                 let target_ref = self.register_node(target_node);
+                self.symbol_table.new_record(target_ref);
                 self.symbol_table.set_pos(target_ref, self.calc_location(parser_node)?);
                 let declaration_ty = self.symbol_table.get(declaration_ref).ty.map_or(Err(self.make_low_error("type not resolved", parser_node)), |x| Ok(x))?;
                 self.symbol_table.set_ty(target_ref, declaration_ty);
@@ -492,6 +502,7 @@ impl<'a> Analyzer<'a> {
                     mode: statement.mode,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.new_record(node_ref);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
             }
@@ -520,6 +531,7 @@ impl<'a> Analyzer<'a> {
                                         else_block: vec![x],
                                     });
                                     let node_ref = analyzer.register_node(node);
+                                    analyzer.symbol_table.new_record(node_ref);
                                     analyzer.symbol_table.set_pos(node_ref, analyzer.calc_location(parser_node)?);
                                     Ok(Some(node_ref))
                                 }
@@ -534,6 +546,7 @@ impl<'a> Analyzer<'a> {
                                         else_block: else_nodes,
                                     });
                                     let node_ref = analyzer.register_node(node);
+                                    analyzer.symbol_table.new_record(node_ref);
                                     analyzer.symbol_table.set_pos(node_ref, analyzer.calc_location(parser_node)?);
                                     Ok(Some(node_ref))
                                 }
@@ -565,6 +578,7 @@ impl<'a> Analyzer<'a> {
                     body,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.new_record(node_ref);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
             }
@@ -611,6 +625,7 @@ impl<'a> Analyzer<'a> {
                     dest: dest_ref,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.new_record(node_ref);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 let dest_ty = self.symbol_table.get(dest_ref).ty.map_or(Err(self.make_error("type not resolved", dest_ref)), |x| Ok(x))?;
                 self.symbol_table.set_ty(dest_ref, dest_ty);
@@ -622,6 +637,7 @@ impl<'a> Analyzer<'a> {
                     value: LiteralValue::Number(node.value),
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.new_record(node_ref);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_ref, Type::Number);
                 Ok(node_ref)
@@ -632,6 +648,7 @@ impl<'a> Analyzer<'a> {
                     value: LiteralValue::Bool(node.value),
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.new_record(node_ref);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_ref, Type::Bool);
                 Ok(node_ref)
@@ -654,6 +671,7 @@ impl<'a> Analyzer<'a> {
                     expr: expr_ref,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.new_record(node_ref);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_ref, Type::Bool);
                 Ok(node_ref)
@@ -690,6 +708,7 @@ impl<'a> Analyzer<'a> {
                             right: right_ref,
                         });
                         let node_ref = self.register_node(node);
+                        self.symbol_table.new_record(node_ref);
                         self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                         self.symbol_table.set_ty(node_ref, Type::Number);
                         return Ok(node_ref);
@@ -715,6 +734,7 @@ impl<'a> Analyzer<'a> {
                             right: right_ref,
                         });
                         let node_ref = self.register_node(node);
+                        self.symbol_table.new_record(node_ref);
                         self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                         self.symbol_table.set_ty(node_ref, Type::Bool);
                         return Ok(node_ref);
@@ -736,6 +756,7 @@ impl<'a> Analyzer<'a> {
                             right: right_ref,
                         });
                         let node_ref = self.register_node(node);
+                        self.symbol_table.new_record(node_ref);
                         self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                         self.symbol_table.set_ty(node_ref, Type::Bool);
                         return Ok(node_ref);
@@ -774,6 +795,7 @@ impl<'a> Analyzer<'a> {
                     args,
                 });
                 let node_ref = self.register_node(node);
+                self.symbol_table.new_record(node_ref);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_ref, ret_ty);
                 Ok(node_ref)

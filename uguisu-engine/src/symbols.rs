@@ -82,51 +82,39 @@ impl SymbolTable {
         }
     }
 
-    fn prepare_record(&self, node: graph::NodeRef) -> &SymbolRecord {
-        match self.table.get(&node.id) {
-            Some(record) => record,
-            None => {
-                if self.trace { println!("new symbol (node_id: [{}])", node.id); }
-                let record = SymbolRecord {
-                    ty: None,
-                    pos: None,
-                };
-                self.table.insert(node.id, record);
-                &record
-            }
-        }
-    }
-
-    fn prepare_record_mut(&mut self, node: graph::NodeRef) -> &mut SymbolRecord {
-        match self.table.get_mut(&node.id) {
-            Some(record) => record,
-            None => {
-                if self.trace { println!("new symbol (node_id: [{}])", node.id); }
-                let record = SymbolRecord {
-                    ty: None,
-                    pos: None,
-                };
-                self.table.insert(node.id, record);
-                &mut record
-            }
-        }
-    }
-
-    pub(crate) fn get(&self, node: graph::NodeRef) -> &SymbolRecord {
-        if self.trace { println!("get_ty (node_id: [{}])", node.id); }
-        self.prepare_record(node)
+    pub(crate) fn new_record(&mut self, node: graph::NodeRef) {
+        if self.trace { println!("new symbol (node_id: [{}])", node.id); }
+        let record = SymbolRecord {
+            ty: None,
+            pos: None,
+        };
+        self.table.insert(node.id, record);
     }
 
     pub(crate) fn set_ty(&mut self, node: graph::NodeRef, ty: Type) {
         if self.trace { println!("set_ty (node_id: [{}], ty: {:?})", node.id, ty); }
-        let record = self.prepare_record_mut(node);
+        let record = match self.table.get_mut(&node.id) {
+            Some(x) => x,
+            None => panic!("record not found"),
+        };
         record.ty = Some(ty);
     }
 
     pub(crate) fn set_pos(&mut self, node: graph::NodeRef, pos: (usize, usize)) {
         if self.trace { println!("set_pos (node_id: [{}], pos: {:?})", node.id, pos); }
-        let record = self.prepare_record_mut(node);
+        let record = match self.table.get_mut(&node.id) {
+            Some(x) => x,
+            None => panic!("record not found"),
+        };
         record.pos = Some(pos);
+    }
+
+    pub(crate) fn get(&self, node: graph::NodeRef) -> &SymbolRecord {
+        if self.trace { println!("get_ty (node_id: [{}])", node.id); }
+        match self.table.get(&node.id) {
+            Some(x) => x,
+            None => panic!("record not found"),
+        }
     }
 }
 
