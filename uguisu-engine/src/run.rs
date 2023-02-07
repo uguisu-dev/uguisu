@@ -167,7 +167,7 @@ impl<'a> Runner<'a> {
     }
 
     fn exec_block(&self, statements: &Vec<graph::NodeRef>, stack: &mut RuningStack) -> Result<StatementResult, RuntimeError> {
-        if self.trace { println!("exec_block"); }
+        if self.trace { println!("enter block"); }
         let mut result = StatementResult::None;
         for &node_ref in statements.iter() {
             result = self.exec_statement(node_ref, stack)?;
@@ -180,6 +180,7 @@ impl<'a> Runner<'a> {
                 }
             }
         }
+        if self.trace { println!("leave block"); }
         Ok(result)
     }
 
@@ -333,7 +334,7 @@ impl<'a> Runner<'a> {
         node_ref: graph::NodeRef,
         stack: &mut RuningStack,
     ) -> Result<Value, RuntimeError> {
-        if self.trace { println!("enter expr [{}]", node_ref.id); }
+        if self.trace { println!("enter expression [{}]", node_ref.id); }
         let result = match node_ref.get(self.source) {
             graph::Node::Variable(variable) => { // variable of initial value
                 Ok(self.eval_expr(variable.content, stack)?)
@@ -496,7 +497,7 @@ impl<'a> Runner<'a> {
                 panic!("Failed to evaluate the expression: unsupported node (node_id={})", node_ref.id);
             }
         };
-        if self.trace { println!("leave expr [{}]", node_ref.id); }
+        if self.trace { println!("leave expression [{}]", node_ref.id); }
         result
     }
 }

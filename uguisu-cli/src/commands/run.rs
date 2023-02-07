@@ -14,7 +14,7 @@ fn show_help(opts: Options) {
     print!("{}", opts.usage(brief.as_str()));
 }
 
-fn run_script(filename: &str, dump_ast: bool, dump_graph_map: bool, analyzing_trace: bool, running_trace: bool) {
+fn run_script(filename: &str, ast_dump: bool, graph_dump: bool, analyzing_trace: bool, running_trace: bool) {
     let mut file = match File::open(filename) {
         Ok(x) => x,
         Err(_) => return println!("Error: Failed to open the file."),
@@ -33,21 +33,27 @@ fn run_script(filename: &str, dump_ast: bool, dump_graph_map: bool, analyzing_tr
         Err(e) => return println!("SyntaxError: {}", e.message),
     };
 
-    if dump_ast {
-        println!("================================= AST =================================");
+    if ast_dump {
+        println!("== AST dump ===========================================================");
         engine.show_ast(&ast, &code);
     }
 
+    if analyzing_trace {
+        println!("== Analyzing trace ====================================================");
+    }
     let graph = match engine.analyze(&code, ast) {
         Ok(x) => x,
         Err(e) => return println!("SyntaxError: {}", e.message),
     };
 
-    if dump_graph_map {
-        println!("============================== Graph Map ==============================");
+    if graph_dump {
+        println!("== Graph dump =========================================================");
         engine.show_graph_map();
     }
 
+    if running_trace {
+        println!("== Running trace ======================================================");
+    }
     match engine.run(graph) {
         Ok(_) => {}
         Err(e) => return println!("RuntimeError: {}", e.message),
@@ -76,10 +82,10 @@ pub(crate) fn command(args: &[String]) {
         show_help(opts);
         return;
     }
-    let dump_ast = matches.opt_present("ast-dump");
-    let dump_graph_map = matches.opt_present("graph-dump");
+    let ast_dump = matches.opt_present("ast-dump");
+    let graph_dump = matches.opt_present("graph-dump");
     let analyzing_trace = matches.opt_present("analyzing-trace");
     let running_trace = matches.opt_present("running-trace");
     let input = &matches.free[0];
-    run_script(input, dump_ast, dump_graph_map, analyzing_trace, running_trace);
+    run_script(input, ast_dump, graph_dump, analyzing_trace, running_trace);
 }
