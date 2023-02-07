@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use crate::engine::SyntaxError;
 use crate::ast::{
     self,
     AssignmentMode,
@@ -32,12 +34,10 @@ use crate::graph::{
     VariableSignature,
 };
 use crate::symbols::{
-    Type,
-    SymbolTable,
     ResolverStack,
+    SymbolTable,
+    Type,
 };
-use crate::engine::SyntaxError;
-use std::collections::HashMap;
 
 #[cfg(test)]
 mod test;
@@ -91,46 +91,6 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn register_builtin(
-        &mut self,
-        name: &str,
-        params: Vec<(&str, Type)>,
-        ret_ty: Type,
-    ) -> graph::NodeRef {
-        let mut param_nodes = Vec::new();
-        for &(param_name, param_ty) in params.iter() {
-            // make param node
-            let node = graph::Node::FuncParam(FuncParam {
-                identifier: String::from(param_name),
-                // param_index: i,
-            });
-            let node_ref = self.register_node(node);
-            self.symbol_table.set_ty(node_ref, param_ty);
-            param_nodes.push(node_ref);
-        }
-
-        let func_node = graph::Node::Function(Function {
-            params: param_nodes.clone(),
-            ret_ty,
-            content: FunctionBody::NativeCode,
-        });
-        let func_node_ref = self.register_node(func_node);
-
-        let signature = Signature::FunctionSignature(FunctionSignature {
-            params: param_nodes,
-            ret_ty,
-        });
-        let decl_node = graph::Node::Declaration(Declaration {
-            identifier: String::from(name),
-            signature,
-            body: Some(func_node_ref),
-        });
-        let node_ref = self.register_node(decl_node);
-        self.symbol_table.set_ty(node_ref, Type::Function);
-        self.resolver.set_identifier(name, node_ref);
-        node_ref
-    }
-
     fn resolve_node(&self, node_ref: graph::NodeRef) -> graph::NodeRef {
         match node_ref.get(self.source) {
             graph::Node::Reference(reference) => self.resolve_node(reference.dest),
@@ -170,6 +130,46 @@ impl<'a> Analyzer<'a> {
         decl.body = Some(variable_ref);
         self.symbol_table.set_ty(decl_node_ref, ty);
         Ok(())
+    }
+
+    fn register_builtin(
+        &mut self,
+        name: &str,
+        params: Vec<(&str, Type)>,
+        ret_ty: Type,
+    ) -> graph::NodeRef {
+        let mut param_nodes = Vec::new();
+        for &(param_name, param_ty) in params.iter() {
+            // make param node
+            let node = graph::Node::FuncParam(FuncParam {
+                identifier: String::from(param_name),
+                // param_index: i,
+            });
+            let node_ref = self.register_node(node);
+            self.symbol_table.set_ty(node_ref, param_ty);
+            param_nodes.push(node_ref);
+        }
+
+        let func_node = graph::Node::Function(Function {
+            params: param_nodes.clone(),
+            ret_ty,
+            content: FunctionBody::NativeCode,
+        });
+        let func_node_ref = self.register_node(func_node);
+
+        let signature = Signature::FunctionSignature(FunctionSignature {
+            params: param_nodes,
+            ret_ty,
+        });
+        let decl_node = graph::Node::Declaration(Declaration {
+            identifier: String::from(name),
+            signature,
+            body: Some(func_node_ref),
+        });
+        let node_ref = self.register_node(decl_node);
+        self.symbol_table.set_ty(node_ref, Type::Function);
+        self.resolver.set_identifier(name, node_ref);
+        node_ref
     }
 
     fn add_call_main(&mut self) -> Result<graph::NodeRef, SyntaxError> {
