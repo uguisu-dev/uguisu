@@ -156,6 +156,7 @@ impl<'a> Analyzer<'a> {
         //let body_ref = self.translate_expr(body)?;
 
         let body_node = body_ref.get(self.source);
+
         let body_ty = body_node.get_ty(self.source).map_err(|e| self.make_error(&e, body_node))?;
         if body_ty == Type::Function {
             return Err(self.make_error("type `function` is not supported", body_node));
@@ -327,7 +328,7 @@ impl<'a> Analyzer<'a> {
                     let decl_node = decl_node_ref.get_mut(self.source);
                     let decl = decl_node.as_decl_mut().unwrap();
                     decl.body = Some(func_node_ref);
-                    decl.ty = Some(Type::Function);
+                    self.symbol_table.set_ty(decl_node_ref, Type::Function);
                 }
 
                 Ok(decl_node_ref)
@@ -399,7 +400,7 @@ impl<'a> Analyzer<'a> {
             }
             ast::Node::BreakStatement(_) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
-                if self.resolver.frames.len() == 1 {
+                if self.resolver.is_root_frame() {
                     return Err(self.make_low_error("A break statement cannot be used in global space", parser_node));
                 }
                 // TODO: check target
@@ -412,7 +413,7 @@ impl<'a> Analyzer<'a> {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 // TODO: consider type check
                 // when global scope
-                if self.resolver.frames.len() == 1 {
+                if self.resolver.is_root_frame() {
                     return Err(self.make_low_error("A return statement cannot be used in global space", parser_node));
                 }
                 let body = match node.body.as_ref() {
@@ -437,7 +438,7 @@ impl<'a> Analyzer<'a> {
             ast::Node::Assignment(statement) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 // when global scope
-                if self.resolver.frames.len() == 1 {
+                if self.resolver.is_root_frame() {
                     return Err(self.make_low_error("An assignment statement cannot be used in global space", parser_node));
                 }
 
@@ -566,7 +567,7 @@ impl<'a> Analyzer<'a> {
             }
             ast::Node::LoopStatement(statement) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
-                if self.resolver.frames.len() == 1 {
+                if self.resolver.is_root_frame() {
                     return Err(self.make_low_error("A loop statement cannot be used in global space", parser_node));
                 }
                 let body = self.translate_statements(&statement.body)?;
@@ -585,7 +586,7 @@ impl<'a> Analyzer<'a> {
             | ast::Node::CallExpr(_) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 // when global scope
-                if self.resolver.frames.len() == 1 {
+                if self.resolver.is_root_frame() {
                     return Err(self.make_low_error("An expression cannot be used in global space", parser_node));
                 }
                 let expr_ref = self.translate_expr(parser_node)?;

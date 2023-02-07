@@ -14,6 +14,10 @@ impl ResolverStack {
         }
     }
 
+    pub(crate) fn is_root_frame(&mut self) -> bool {
+        self.frames.len() == 1
+    }
+
     pub(crate) fn push_frame(&mut self) {
         if self.trace { println!("push_frame"); }
         self.frames.insert(0, ResolverFrame::new());
@@ -21,7 +25,7 @@ impl ResolverStack {
 
     pub(crate) fn pop_frame(&mut self) {
         if self.trace { println!("pop_frame"); }
-        if self.frames.len() == 1 {
+        if self.is_root_frame() {
             panic!("Left the root frame.");
         }
         self.frames.remove(0);
