@@ -419,10 +419,9 @@ impl<'a> Analyzer<'a> {
                 let body = match node.body.as_ref() {
                     Some(x) => {
                         let body_ref = self.translate_expr(x)?;
-                        let body_node = body_ref.get(self.source);
-                        let body_ty = body_node.get_ty(self.source).map_err(|e| self.make_error(&e, body_node))?;
+                        let body_ty = self.symbol_table.get(body_ref).ty.map_or(Err(self.make_error("type not resolved", body_ref)), |x| Ok(x))?;
                         if body_ty == Type::Function {
-                            return Err(self.make_error("type `function` is not supported", body_node));
+                            return Err(self.make_error("type `function` is not supported", body_ref));
                         }
                         Some(body_ref)
                     }
@@ -454,15 +453,14 @@ impl<'a> Analyzer<'a> {
                     self.define_variable_decl(parser_node, &statement.dest, declaration_ref)?;
                 }
 
-                let declaration_ty = declaration_ref.get(self.source).get_ty(self.source).map_err(|e| self.make_low_error(&e, parser_node))?;
-
                 // make target node
                 let target_node = graph::Node::Reference(Reference {
                     dest: declaration_ref,
-                    //ty: declaration_ty,
                 });
                 let target_ref = self.register_node(target_node);
                 self.symbol_table.set_pos(target_ref, self.calc_location(parser_node)?);
+                let declaration_ty = self.symbol_table.get(declaration_ref).ty.map_or(Err(self.make_low_error("type not resolved", parser_node)), |x| Ok(x))?;
+                self.symbol_table.set_ty(target_ref, declaration_ty);
 
                 let expr_ref = self.translate_expr(&statement.body)?;
 
@@ -618,35 +616,33 @@ impl<'a> Analyzer<'a> {
                     Some(x) => x,
                     None => return Err(self.make_low_error("unknown identifier", parser_node)),
                 };
-                let dest_node = dest_ref.get(self.source);
-
-                let dest_ty = dest_node.get_ty(self.source).map_err(|e| self.make_error(&e, dest_node))?;
                 let node = graph::Node::Reference(Reference {
                     dest: dest_ref,
-                    //ty: dest_ty,
                 });
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
+                let dest_ty = self.symbol_table.get(dest_ref).ty.map_or(Err(self.make_error("type not resolved", dest_ref)), |x| Ok(x))?;
+                self.symbol_table.set_ty(dest_ref, dest_ty);
                 Ok(node_ref)
             }
             ast::Node::NumberLiteral(node) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let node = graph::Node::Literal(Literal {
                     value: LiteralValue::Number(node.value),
-                    //ty: Type::Number,
                 });
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
+                self.symbol_table.set_ty(node_ref, Type::Number);
                 Ok(node_ref)
             }
             ast::Node::BoolLiteral(node) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let node = graph::Node::Literal(Literal {
                     value: LiteralValue::Bool(node.value),
-                    //ty: Type::Bool,
                 });
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
+                self.symbol_table.set_ty(node_ref, Type::Bool);
                 Ok(node_ref)
             }
             ast::Node::UnaryOp(unary_op) => {
@@ -666,10 +662,10 @@ impl<'a> Analyzer<'a> {
                 let node = graph::Node::LogicalUnaryOp(LogicalUnaryOp {
                     operator: op,
                     expr: expr_ref,
-                    //ty: Type::Bool,
                 });
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
+                self.symbol_table.set_ty(node_ref, Type::Bool);
                 Ok(node_ref)
             }
             ast::Node::BinaryExpr(binary_expr) => {
@@ -704,10 +700,10 @@ impl<'a> Analyzer<'a> {
                             operator: op,
                             left: left_ref,
                             right: right_ref,
-                            //ty: Type::Number,
                         });
                         let node_ref = self.register_node(node);
                         self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
+                        self.symbol_table.set_ty(node_ref, Type::Number);
                         return Ok(node_ref);
                     }
                 }
@@ -729,10 +725,10 @@ impl<'a> Analyzer<'a> {
                             relation_type: left_ty,
                             left: left_ref,
                             right: right_ref,
-                            //ty: Type::Bool,
                         });
                         let node_ref = self.register_node(node);
                         self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
+                        self.symbol_table.set_ty(node_ref, Type::Bool);
                         return Ok(node_ref);
                     }
                 }
@@ -750,10 +746,10 @@ impl<'a> Analyzer<'a> {
                             operator: op,
                             left: left_ref,
                             right: right_ref,
-                            //ty: Type::Bool,
                         });
                         let node_ref = self.register_node(node);
                         self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
+                        self.symbol_table.set_ty(node_ref, Type::Bool);
                         return Ok(node_ref);
                     }
                 }
@@ -791,10 +787,10 @@ impl<'a> Analyzer<'a> {
                 let node = graph::Node::CallExpr(CallExpr {
                     callee: callee_ref,
                     args,
-                    //ty: ret_ty,
                 });
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
+                self.symbol_table.set_ty(node_ref, ret_ty);
                 Ok(node_ref)
             }
             ast::Node::FunctionDeclaration(_)
