@@ -1,7 +1,7 @@
 use crate::Engine;
 
 fn try_run_test(code: &str) -> Result<(), String> {
-    let mut engine = Engine::new();
+    let mut engine = Engine::new(false, false);
 
     let ast = match engine.parse(code) {
         Ok(x) => x,

@@ -1,9 +1,11 @@
+use symbols::SymbolTable;
+
 use crate::run::RuningStack;
 use std::collections::HashMap;
 
 mod analyze;
 mod graph;
-mod types;
+mod symbols;
 mod parse;
 mod ast;
 mod run;
@@ -37,12 +39,18 @@ impl RuntimeError {
 
 pub struct Engine {
     graph_source: HashMap<graph::NodeId, graph::Node>,
+    symbol_table: SymbolTable,
+    analyzing_trace: bool,
+    running_trace: bool,
 }
 
 impl Engine {
-    pub fn new() -> Self {
+    pub fn new(analyzing_trace: bool, running_trace: bool) -> Self {
         Self {
             graph_source: HashMap::new(),
+            symbol_table: SymbolTable::new(analyzing_trace),
+            analyzing_trace,
+            running_trace,
         }
     }
 
@@ -50,19 +58,22 @@ impl Engine {
         parse::parse(code)
     }
 
+    pub fn show_ast(&self, ast: &Vec<ast::Node>, code: &str) {
+        ast::show_tree(ast, code, 0);
+    }
+
     pub fn analyze(&mut self, code: &str, ast: Vec<ast::Node>) -> Result<Vec<graph::NodeRef>, SyntaxError> {
-        let mut analyzer = analyze::Analyzer::new(code, &mut self.graph_source);
+        let mut analyzer = analyze::Analyzer::new(code, &mut self.graph_source, &mut self.symbol_table, self.analyzing_trace);
         analyzer.translate(&ast)
     }
 
     pub fn show_graph_map(&mut self) {
-        let analyzer = analyze::Analyzer::new("", &mut self.graph_source);
-        analyzer.show_graph();
+        graph::show_map(&self.graph_source, &self.symbol_table);
     }
 
     pub fn run(&mut self, graph: Vec<graph::NodeRef>) -> Result<(), RuntimeError> {
-        let mut stack = RuningStack::new();
-        let runner = run::Runner::new(&self.graph_source);
+        let mut stack = RuningStack::new(self.running_trace);
+        let runner = run::Runner::new(&self.graph_source, self.running_trace);
         runner.run(&graph, &mut stack)
     }
 }
