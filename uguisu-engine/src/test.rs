@@ -391,3 +391,22 @@ fn should_generate_error_with_function_name_11() {
     );
     assert!(result.is_err());
 }
+
+#[test]
+fn test_example() {
+    run_test(
+        "
+        fn calc(x: number): number {
+            if x == 0 {
+                return 1;
+            } else {
+                return calc(x - 1) * 2;
+            }
+        }
+        fn main() {
+            var value = 10;
+            assert_eq(calc(value), 1024);
+        }
+        ",
+    );
+}
