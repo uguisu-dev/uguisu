@@ -121,13 +121,6 @@ impl Signature {
             _ => Err("function signature expected".to_owned()),
         }
     }
-
-    pub(crate) fn as_variable_signature(&self) -> Result<&VariableSignature, String> {
-        match self {
-            Signature::VariableSignature(x) => Ok(x),
-            _ => Err("variable signature expected".to_owned()),
-        }
-    }
 }
 
 #[derive(Debug)]

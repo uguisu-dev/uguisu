@@ -75,15 +75,18 @@ pub(crate) struct SymbolTable {
 }
 
 impl SymbolTable {
-    pub(crate) fn new(trace: bool) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             table: HashMap::new(),
-            trace,
+            trace: false,
         }
     }
 
+    pub(crate) fn set_trace(&mut self, enabled: bool) {
+        self.trace = enabled;
+    }
+
     pub(crate) fn new_record(&mut self, node: graph::NodeRef) {
-        if self.trace { println!("new_record (node_id: [{}])", node.id); }
         let record = SymbolRecord {
             ty: None,
             pos: None,

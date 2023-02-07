@@ -48,7 +48,7 @@ impl Engine {
     pub fn new(analyzing_trace: bool, running_trace: bool) -> Self {
         Self {
             graph_source: HashMap::new(),
-            symbol_table: SymbolTable::new(analyzing_trace),
+            symbol_table: SymbolTable::new(),
             analyzing_trace,
             running_trace,
         }
@@ -63,11 +63,13 @@ impl Engine {
     }
 
     pub fn analyze(&mut self, code: &str, ast: Vec<ast::Node>) -> Result<Vec<graph::NodeRef>, SyntaxError> {
+        self.symbol_table.set_trace(self.analyzing_trace);
         let mut analyzer = analyze::Analyzer::new(code, &mut self.graph_source, &mut self.symbol_table, self.analyzing_trace);
         analyzer.translate(&ast)
     }
 
     pub fn show_graph_map(&mut self) {
+        self.symbol_table.set_trace(false);
         graph::show_map(&self.graph_source, &self.symbol_table);
     }
 
