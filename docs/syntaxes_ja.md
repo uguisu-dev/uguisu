@@ -122,6 +122,7 @@ fn functionName(parameterName: type, parameterName: type): type {
 ```
 functionName(argumentName, argumentName)
 ```
+値を返さない関数は式としては使用できません。
 
 ## if文
 ```

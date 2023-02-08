@@ -99,6 +99,9 @@ impl<'a> Analyzer<'a> {
         if body_ty == Type::Function {
             return Err(self.make_error("type `function` is not supported", body_ref));
         }
+        if body_ty == Type::Void {
+            return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", body_ref));
+        }
         let decl_node = decl_node_ref.get(self.source);
         let decl = decl_node.as_decl().unwrap();
         let signature = match &decl.signature {
@@ -373,6 +376,9 @@ impl<'a> Analyzer<'a> {
                         if body_ty == Type::Function {
                             return Err(self.make_error("type `function` is not supported", body_ref));
                         }
+                        if body_ty == Type::Void {
+                            return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", body_ref));
+                        }
                         Some(body_ref)
                     }
                     None => None,
@@ -422,6 +428,9 @@ impl<'a> Analyzer<'a> {
                         let expr_ty = self.symbol_table.get(expr_ref).ty.map_or(Err(self.make_error("type not resolved", expr_ref)), |x| Ok(x))?;
                         if expr_ty == Type::Function {
                             return Err(self.make_error("type `function` is not supported", expr_ref));
+                        }
+                        if expr_ty == Type::Void {
+                            return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", expr_ref));
                         }
                         Type::assert(expr_ty, target_ty).map_err(|e| self.make_low_error(&e, parser_node))?;
                     }
@@ -596,6 +605,9 @@ impl<'a> Analyzer<'a> {
                 if expr_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", expr_ref));
                 }
+                if expr_ty == Type::Void {
+                    return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", expr_ref));
+                }
                 let op_str = unary_op.operator.as_str();
                 let op = match op_str {
                     "!" => LogicalUnaryOperator::Not,
@@ -620,8 +632,14 @@ impl<'a> Analyzer<'a> {
                 if left_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", left_ref));
                 }
+                if left_ty == Type::Void {
+                    return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", left_ref));
+                }
                 if right_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", right_ref));
+                }
+                if right_ty == Type::Void {
+                    return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", right_ref));
                 }
                 let op_str = binary_expr.operator.as_str();
                 // Arithmetic Operation
@@ -718,6 +736,9 @@ impl<'a> Analyzer<'a> {
                     }
                     if arg_ty == Type::Function {
                         return Err(self.make_error("type `function` is not supported", arg_ref));
+                    }
+                    if arg_ty == Type::Void {
+                        return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", arg_ref));
                     }
                     Type::assert(arg_ty, param_ty).map_err(|e| self.make_error(&e, arg_ref))?;
                     args.push(arg_ref);
