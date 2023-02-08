@@ -3,6 +3,7 @@ mod parse;
 mod hir;
 mod hir_generate;
 mod hir_run;
+mod builtin;
 
 #[cfg(test)]
 mod test;

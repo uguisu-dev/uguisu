@@ -1,33 +1,8 @@
 use crate::ast::AssignmentMode;
+use crate::builtin::{BuiltinRuntime, self};
 use crate::hir::{self, LiteralValue, ArithmeticOperator, RelationalOperator, LogicalBinaryOperator, LogicalUnaryOperator, Signature, FunctionBody, Type, SymbolTable};
 use crate::RuntimeError;
 use std::collections::HashMap;
-
-// TODO: improve builtin
-mod builtin {
-    use crate::RuntimeError;
-    use crate::hir_run::Value;
-
-    pub(crate) fn print_num(args: &Vec<Value>) -> Result<(), RuntimeError> {
-        let value = args[0].as_number(); // value: number
-        print!("{}", value);
-        Ok(())
-    }
-
-    pub(crate) fn print_lf(_args: &Vec<Value>) -> Result<(), RuntimeError> {
-        print!("\n");
-        Ok(())
-    }
-
-    pub(crate) fn assert_eq(args: &Vec<Value>) -> Result<(), RuntimeError> {
-        let actual = args[0].as_number(); // actual: number
-        let expected = args[1].as_number(); // expected: number
-        if actual != expected {
-            return Err(RuntimeError::new(format!("assertion error. expected `{}`, actual `{}`.", expected, actual).as_str()));
-        }
-        Ok(())
-    }
-}
 
 enum StatementResult {
     None,
@@ -135,6 +110,7 @@ pub(crate) struct Runner<'a> {
     source: &'a HashMap<hir::NodeId, hir::Node>,
     symbol_table: &'a SymbolTable,
     trace: bool,
+    builtins: BuiltinRuntime,
 }
 
 impl<'a> Runner<'a> {
@@ -143,6 +119,7 @@ impl<'a> Runner<'a> {
             source,
             symbol_table,
             trace,
+            builtins: builtin::make_runtime(),
         }
     }
 
@@ -468,16 +445,7 @@ impl<'a> Runner<'a> {
                         if call_expr.args.len() != signature.params.len() {
                             return Err(RuntimeError::new("parameters count error"));
                         }
-                        // TODO: improve builtin
-                        if &decl.identifier == "printNum" {
-                            builtin::print_num(&args)?;
-                        } else if &decl.identifier == "printLF" {
-                            builtin::print_lf(&args)?;
-                        } else if &decl.identifier == "assertEq" {
-                            builtin::assert_eq(&args)?;
-                        } else {
-                            return Err(RuntimeError::new("unknown native function"));
-                        }
+                        result = Some(self.builtins.call(&decl.identifier, &args)?);
                     }
                 }
                 stack.pop_frame();

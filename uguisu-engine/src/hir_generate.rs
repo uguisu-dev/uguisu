@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use crate::SyntaxError;
+use crate::builtin::BuiltinInfo;
+use crate::{SyntaxError, RuntimeError, hir_run, builtin};
 use crate::ast::{
     self,
     AssignmentMode,
@@ -98,6 +99,9 @@ impl<'a> Analyzer<'a> {
         if body_ty == Type::Function {
             return Err(self.make_error("type `function` is not supported", body_ref));
         }
+        if body_ty == Type::Void {
+            return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", body_ref));
+        }
         let decl_node = decl_node_ref.get(self.source);
         let decl = decl_node.as_decl().unwrap();
         let signature = match &decl.signature {
@@ -124,17 +128,15 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn register_builtin(
+    fn add_builtin_declaration(
         &mut self,
-        name: &str,
-        params: Vec<(&str, Type)>,
-        ret_ty: Type,
+        info: BuiltinInfo,
     ) -> hir::NodeRef {
         let mut param_nodes = Vec::new();
-        for &(param_name, param_ty) in params.iter() {
+        for param_ty in info.params {
             // make param node
             let node = hir::Node::FuncParam(FuncParam {
-                identifier: String::from(param_name),
+                identifier: "".to_owned(),
                 // param_index: i,
             });
             let node_ref = self.register_node(node);
@@ -144,23 +146,23 @@ impl<'a> Analyzer<'a> {
 
         let func_node = hir::Node::Function(Function {
             params: param_nodes.clone(),
-            ret_ty,
+            ret_ty: info.ret_ty,
             content: FunctionBody::NativeCode,
         });
         let func_node_ref = self.register_node(func_node);
 
-        let signature = Signature::FunctionSignature(FunctionSignature {
+        let func_signature = Signature::FunctionSignature(FunctionSignature {
             params: param_nodes,
-            ret_ty,
+            ret_ty: info.ret_ty,
         });
         let decl_node = hir::Node::Declaration(Declaration {
-            identifier: String::from(name),
-            signature,
+            identifier: info.name.clone(),
+            signature: func_signature,
         });
         let node_ref = self.register_node(decl_node);
         self.symbol_table.set_ty(node_ref, Type::Function);
         self.symbol_table.set_body(node_ref, func_node_ref);
-        self.resolver.set_identifier(name, node_ref);
+        self.resolver.set_identifier(&info.name, node_ref);
         node_ref
     }
 
@@ -191,23 +193,9 @@ impl<'a> Analyzer<'a> {
     pub(crate) fn generate(&mut self, ast: &Vec<ast::Node>) -> Result<Vec<hir::NodeRef>, SyntaxError> {
         let mut ids = Vec::new();
 
-        // register builtin declarations
-        ids.push(self.register_builtin(
-            "printNum",
-            vec![("value", Type::Number)],
-            Type::Void,
-        ));
-        ids.push(self.register_builtin(
-            "printLF",
-            vec![],
-            Type::Void,
-        ));
-        ids.push(self.register_builtin(
-            "assertEq",
-            vec![("actual", Type::Number), ("expected", Type::Number)],
-            Type::Void,
-        ));
-
+        for info in builtin::make_infos() {
+            ids.push(self.add_builtin_declaration(info));
+        }
         ids.extend(self.generate_statements(ast)?);
         ids.push(self.add_call_main()?);
 
@@ -388,6 +376,9 @@ impl<'a> Analyzer<'a> {
                         if body_ty == Type::Function {
                             return Err(self.make_error("type `function` is not supported", body_ref));
                         }
+                        if body_ty == Type::Void {
+                            return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", body_ref));
+                        }
                         Some(body_ref)
                     }
                     None => None,
@@ -437,6 +428,9 @@ impl<'a> Analyzer<'a> {
                         let expr_ty = self.symbol_table.get(expr_ref).ty.map_or(Err(self.make_error("type not resolved", expr_ref)), |x| Ok(x))?;
                         if expr_ty == Type::Function {
                             return Err(self.make_error("type `function` is not supported", expr_ref));
+                        }
+                        if expr_ty == Type::Void {
+                            return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", expr_ref));
                         }
                         Type::assert(expr_ty, target_ty).map_err(|e| self.make_low_error(&e, parser_node))?;
                     }
@@ -611,6 +605,9 @@ impl<'a> Analyzer<'a> {
                 if expr_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", expr_ref));
                 }
+                if expr_ty == Type::Void {
+                    return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", expr_ref));
+                }
                 let op_str = unary_op.operator.as_str();
                 let op = match op_str {
                     "!" => LogicalUnaryOperator::Not,
@@ -635,8 +632,14 @@ impl<'a> Analyzer<'a> {
                 if left_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", left_ref));
                 }
+                if left_ty == Type::Void {
+                    return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", left_ref));
+                }
                 if right_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", right_ref));
+                }
+                if right_ty == Type::Void {
+                    return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", right_ref));
                 }
                 let op_str = binary_expr.operator.as_str();
                 // Arithmetic Operation
@@ -733,6 +736,9 @@ impl<'a> Analyzer<'a> {
                     }
                     if arg_ty == Type::Function {
                         return Err(self.make_error("type `function` is not supported", arg_ref));
+                    }
+                    if arg_ty == Type::Void {
+                        return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", arg_ref));
                     }
                     Type::assert(arg_ty, param_ty).map_err(|e| self.make_error(&e, arg_ref))?;
                     args.push(arg_ref);
