@@ -24,11 +24,11 @@ use crate::hir::{
     VariableSignature,
 };
 use crate::SyntaxError;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 pub(crate) struct Analyzer<'a> {
     input: &'a str,
-    source: &'a mut HashMap<NodeId, Node>,
+    source: &'a mut BTreeMap<NodeId, Node>,
     symbol_table: &'a mut SymbolTable,
     resolver: ResolverStack,
     trace: bool,
@@ -37,7 +37,7 @@ pub(crate) struct Analyzer<'a> {
 impl<'a> Analyzer<'a> {
     pub(crate) fn new(
         input: &'a str,
-        source: &'a mut HashMap<NodeId, Node>,
+        source: &'a mut BTreeMap<NodeId, Node>,
         symbol_table: &'a mut SymbolTable,
         trace: bool,
     ) -> Self {

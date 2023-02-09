@@ -18,7 +18,7 @@ use crate::hir::{
     Type,
 };
 use crate::RuntimeError;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 enum StatementResult {
     None,
@@ -110,26 +110,26 @@ impl Env {
 
 #[derive(Debug)]
 struct EnvFrame {
-    table: HashMap<NodeId, Value>,
+    table: BTreeMap<NodeId, Value>,
 }
 
 impl EnvFrame {
     fn new() -> Self {
         Self {
-            table: HashMap::new(),
+            table: BTreeMap::new(),
         }
     }
 }
 
 pub(crate) struct Runner<'a> {
-    source: &'a HashMap<NodeId, Node>,
+    source: &'a BTreeMap<NodeId, Node>,
     symbol_table: &'a SymbolTable,
     trace: bool,
     builtins: BuiltinRuntime,
 }
 
 impl<'a> Runner<'a> {
-    pub(crate) fn new(source: &'a HashMap<NodeId, Node>, symbol_table: &'a SymbolTable, trace: bool) -> Self {
+    pub(crate) fn new(source: &'a BTreeMap<NodeId, Node>, symbol_table: &'a SymbolTable, trace: bool) -> Self {
         Self {
             source,
             symbol_table,

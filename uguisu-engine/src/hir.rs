@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use crate::ast;
 
 #[derive(Debug)]
@@ -224,7 +224,7 @@ impl NodeRef {
         Self { id: node_id }
     }
 
-    pub(crate) fn get<'a>(&self, source: &'a HashMap<NodeId, Node>) -> &'a Node {
+    pub(crate) fn get<'a>(&self, source: &'a BTreeMap<NodeId, Node>) -> &'a Node {
         &source[&self.id]
     }
 }
@@ -415,13 +415,13 @@ pub(crate) struct CallExpr {
     pub args: Vec<NodeRef>,
 }
 
-pub(crate) fn show_map(source: &HashMap<NodeId, Node>, table: &SymbolTable) {
+pub(crate) fn show_map(source: &BTreeMap<NodeId, Node>, table: &SymbolTable) {
     for i in 0..source.len() {
         show_node(NodeRef::new(i), source, table);
     }
 }
 
-pub(crate) fn show_node(node_ref: NodeRef, source: &HashMap<NodeId, Node>, table: &SymbolTable) {
+pub(crate) fn show_node(node_ref: NodeRef, source: &BTreeMap<NodeId, Node>, table: &SymbolTable) {
     let node = node_ref.get(source);
     let name = node.get_name();
     match table.get(node_ref).pos {
@@ -640,26 +640,26 @@ impl ResolverStack {
 }
 
 struct ResolverFrame {
-    table: HashMap<String, NodeRef>,
+    table: BTreeMap<String, NodeRef>,
 }
 
 impl ResolverFrame {
     fn new() -> Self {
         Self {
-            table: HashMap::new(),
+            table: BTreeMap::new(),
         }
     }
 }
 
 pub(crate) struct SymbolTable {
-    table: HashMap<NodeId, SymbolRecord>,
+    table: BTreeMap<NodeId, SymbolRecord>,
     trace: bool,
 }
 
 impl SymbolTable {
     pub(crate) fn new() -> Self {
         Self {
-            table: HashMap::new(),
+            table: BTreeMap::new(),
             trace: false,
         }
     }

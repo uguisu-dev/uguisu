@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use crate::RuntimeError;
 use crate::hir::Type;
 use crate::hir_run::Value;
@@ -26,13 +26,13 @@ impl BuiltinInfo {
 type BuiltinHandler = fn(&Vec<Value>) -> Result<Value, RuntimeError>;
 
 pub(crate) struct BuiltinRuntime {
-    table: HashMap<String, BuiltinHandler>,
+    table: BTreeMap<String, BuiltinHandler>,
 }
 
 impl BuiltinRuntime {
     fn new() -> Self {
         Self {
-            table: HashMap::new(),
+            table: BTreeMap::new(),
         }
     }
 
