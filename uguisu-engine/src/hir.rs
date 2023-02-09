@@ -45,6 +45,151 @@ impl Node {
         }
     }
 
+    pub(crate) fn new_declaration(
+        identifier: String,
+        signature: Signature,
+    ) -> Self {
+        Node::Declaration(Declaration {
+            identifier,
+            signature,
+        })
+    }
+
+    pub(crate) fn new_break_statement() -> Self {
+        Node::BreakStatement(BreakStatement {})
+    }
+
+    pub(crate) fn new_return_statement(body: Option<NodeRef>) -> Self {
+        Node::ReturnStatement(ReturnStatement {
+            body,
+        })
+    }
+
+    pub(crate) fn new_assignment(
+        dest: NodeRef,
+        body: NodeRef,
+        mode: ast::AssignmentMode,
+    ) -> Self {
+        Node::Assignment(Assignment {
+            dest,
+            body,
+            mode,
+        })
+    }
+
+    pub(crate) fn new_if_statement(
+        condition: NodeRef,
+        then_block: Vec<NodeRef>,
+        else_block: Vec<NodeRef>,
+    ) -> Self {
+        Node::IfStatement(IfStatement {
+            condition,
+            then_block,
+            else_block,
+        })
+    }
+
+    pub(crate) fn new_loop_statement(body: Vec<NodeRef>) -> Self {
+        Node::LoopStatement(LoopStatement {
+            body,
+        })
+    }
+
+    pub(crate) fn new_function(
+        params: Vec<NodeRef>,
+        ret_ty: Type,
+        content: FunctionBody,
+    ) -> Self {
+        Node::Function(Function {
+            params,
+            ret_ty,
+            content,
+        })
+    }
+
+    pub(crate) fn new_variable(content: NodeRef) -> Self {
+        Node::Variable(Variable {
+            content,
+        })
+    }
+
+    pub(crate) fn new_reference(dest: NodeRef) -> Self {
+        Node::Reference(Reference {
+            dest,
+        })
+    }
+
+    pub(crate) fn new_literal(value: LiteralValue) -> Self {
+        Node::Literal(Literal {
+            value,
+        })
+    }
+
+    pub(crate) fn new_relational_op(
+        operator: RelationalOperator,
+        relation_type: Type,
+        left: NodeRef,
+        right: NodeRef,
+    ) -> Self {
+        Node::RelationalOp(RelationalOp {
+            operator,
+            relation_type,
+            left,
+            right,
+        })
+    }
+
+    pub(crate) fn new_logical_binary_op(
+        operator: LogicalBinaryOperator,
+        left: NodeRef,
+        right: NodeRef,
+    ) -> Self {
+        Node::LogicalBinaryOp(LogicalBinaryOp {
+            operator,
+            left,
+            right,
+        })
+    }
+
+    pub(crate) fn new_arithmetic_op(
+        operator: ArithmeticOperator,
+        left: NodeRef,
+        right: NodeRef,
+    ) -> Self {
+        Node::ArithmeticOp(ArithmeticOp {
+            operator,
+            left,
+            right,
+        })
+    }
+
+    pub(crate) fn new_logical_unary_op(
+        operator: LogicalUnaryOperator,
+        expr: NodeRef,
+    ) -> Self {
+        Node::LogicalUnaryOp(LogicalUnaryOp {
+            operator,
+            expr,
+        })
+    }
+
+    pub(crate) fn new_call_expr(
+        callee: NodeRef,
+        args: Vec<NodeRef>,
+    ) -> Self {
+        Node::CallExpr(CallExpr {
+            callee,
+            args,
+        })
+    }
+
+    pub(crate) fn new_func_param(identifier: String) -> Self {
+        Node::FuncParam(FuncParam {
+            identifier,
+            // param_index,
+        })
+    }
+
     pub(crate) fn as_function(&self) -> Result<&Function, String> {
         match self {
             Node::Function(x) => Ok(x),
@@ -113,36 +258,9 @@ pub(crate) struct FunctionSignature {
     pub ret_ty: Type,
 }
 
-#[derive(Debug, Clone)]
-pub(crate) struct FuncParam {
-    pub identifier: String,
-    // pub param_index: usize,
-}
-
-#[derive(Debug)]
-pub(crate) struct Function {
-    /// FuncParam
-    pub params: Vec<NodeRef>,
-    pub ret_ty: Type,
-    pub content: FunctionBody,
-}
-
-#[derive(Debug)]
-pub(crate) enum FunctionBody {
-    /// Statement
-    Statements(Vec<NodeRef>),
-    NativeCode,
-}
-
 #[derive(Debug)]
 pub(crate) struct VariableSignature {
     pub specified_ty: Option<Type>,
-}
-
-#[derive(Debug)]
-pub(crate) struct Variable {
-    /// Expression
-    pub content: NodeRef,
 }
 
 #[derive(Debug)]
@@ -178,6 +296,33 @@ pub(crate) struct IfStatement {
 pub(crate) struct LoopStatement {
     /// Statement
     pub body: Vec<NodeRef>,
+}
+
+#[derive(Debug)]
+pub(crate) struct Function {
+    /// FuncParam
+    pub params: Vec<NodeRef>,
+    pub ret_ty: Type,
+    pub content: FunctionBody,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct FuncParam {
+    pub identifier: String,
+    // pub param_index: usize,
+}
+
+#[derive(Debug)]
+pub(crate) enum FunctionBody {
+    /// Statement
+    Statements(Vec<NodeRef>),
+    NativeCode,
+}
+
+#[derive(Debug)]
+pub(crate) struct Variable {
+    /// Expression
+    pub content: NodeRef,
 }
 
 #[derive(Debug)]
@@ -233,18 +378,6 @@ pub(crate) enum LogicalBinaryOperator {
 }
 
 #[derive(Debug)]
-pub(crate) struct LogicalUnaryOp {
-    pub operator: LogicalUnaryOperator,
-    /// Expression
-    pub expr: NodeRef,
-}
-
-#[derive(Debug)]
-pub(crate) enum LogicalUnaryOperator {
-    Not,
-}
-
-#[derive(Debug)]
 pub(crate) struct ArithmeticOp {
     pub operator: ArithmeticOperator,
     /// Expression
@@ -260,6 +393,18 @@ pub(crate) enum ArithmeticOperator {
     Mult,
     Div,
     Mod,
+}
+
+#[derive(Debug)]
+pub(crate) struct LogicalUnaryOp {
+    pub operator: LogicalUnaryOperator,
+    /// Expression
+    pub expr: NodeRef,
+}
+
+#[derive(Debug)]
+pub(crate) enum LogicalUnaryOperator {
+    Not,
 }
 
 #[derive(Debug)]
