@@ -101,13 +101,10 @@ impl Env {
 
     pub(crate) fn get_symbol(&self, address: SymbolAddress) -> Option<&Value> {
         if self.trace { println!("get_symbol [{}]", address); }
-        for frame in self.frames.iter() {
-            match frame.table.get(&address) {
-                Some(x) => return Some(x),
-                None => {}
-            }
+        match self.frames.get(0) {
+            Some(frame) => frame.table.get(&address),
+            None => panic!("frame not found"),
         }
-        None
     }
 }
 
@@ -433,15 +430,19 @@ impl<'a> Runner<'a> {
                     Some(x) => x.get(self.source).as_function().unwrap(),
                     None => panic!("function `{}` is not defined (node_id={})", decl.identifier, call_expr.callee.id),
                 };
+                let mut args = Vec::new();
+                for &arg_ref in call_expr.args.iter() {
+                    let arg_value = self.eval_expr(arg_ref, env)?;
+                    args.push(arg_value);
+                }
                 env.push_frame();
                 let mut result = None;
                 match &func.content {
                     FunctionBody::Statements(body) => {
                         for i in 0..signature.params.len() {
-                            let param_node = &signature.params[i];
-                            let arg_node = &call_expr.args[i];
-                            let arg_symbol = self.eval_expr(*arg_node, env)?;
-                            env.set_symbol(param_node.id, arg_symbol);
+                            let param_addr = &signature.params[i];
+                            let arg_value = args[i].clone();
+                            env.set_symbol(param_addr.id, arg_value);
                         }
                         match self.exec_block(&body, env)? {
                             StatementResult::Break => {
@@ -456,15 +457,6 @@ impl<'a> Runner<'a> {
                         }
                     }
                     FunctionBody::NativeCode => {
-                        let mut args = Vec::new();
-                        for i in 0..signature.params.len() {
-                            let arg_node = &call_expr.args[i];
-                            let arg_symbol = self.eval_expr(*arg_node, env)?;
-                            args.push(arg_symbol);
-                        }
-                        if call_expr.args.len() != signature.params.len() {
-                            return Err(RuntimeError::new("parameters count error"));
-                        }
                         result = Some(self.builtins.call(&decl.identifier, &args)?);
                     }
                 }
