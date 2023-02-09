@@ -1,9 +1,10 @@
 use crate::parse;
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Node {
     // statement
-    Declaration(Declaration),
+    FunctionDeclaration(FunctionDeclaration),
+    VariableDeclaration(VariableDeclaration),
     BreakStatement(BreakStatement),
     ReturnStatement(ReturnStatement),
     Assignment(Assignment),
@@ -17,35 +18,110 @@ pub enum Node {
     UnaryOp(UnaryOp),
     CallExpr(CallExpr),
     // function declaration
-    Function(Function),
     FuncParam(FuncParam),
-    // variable declaration
-    Variable(Variable),
 }
 
 impl Node {
-    pub(crate) fn new_declaration(body: Node, pos: usize) -> Self {
-        Self::Declaration(Declaration {
-            body: Box::new(body),
+    pub(crate) fn get_name(&self) -> &str {
+        match self {
+            Node::FunctionDeclaration(_) => "FunctionDeclaration",
+            Node::VariableDeclaration(_) => "VariableDeclaration",
+            Node::BreakStatement(_) => "BreakStatement",
+            Node::ReturnStatement(_) => "ReturnStatement",
+            Node::Assignment(_) => "Assignment",
+            Node::IfStatement(_) => "IfStatement",
+            Node::LoopStatement(_) => "LoopStatement",
+            Node::Reference(_) => "Reference",
+            Node::NumberLiteral(_) => "NumberLiteral",
+            Node::BoolLiteral(_) => "BoolLiteral",
+            Node::BinaryExpr(_) => "BinaryExpr",
+            Node::UnaryOp(_) => "UnaryOp",
+            Node::CallExpr(_) => "CallExpr",
+            Node::FuncParam(_) => "FuncParam",
+        }
+    }
+
+    pub(crate) fn calc_location(&self, code: &str) -> Result<(usize, usize), String> {
+        let pos = match self {
+            Node::FunctionDeclaration(node) => node.pos,
+            Node::VariableDeclaration(node) => node.pos,
+            Node::BreakStatement(node) => node.pos,
+            Node::ReturnStatement(node) => node.pos,
+            Node::Assignment(node) => node.pos,
+            Node::IfStatement(node) => node.pos,
+            Node::LoopStatement(node) => node.pos,
+            Node::Reference(node) => node.pos,
+            Node::NumberLiteral(node) => node.pos,
+            Node::BoolLiteral(node) => node.pos,
+            Node::BinaryExpr(node) => node.pos,
+            Node::UnaryOp(node) => node.pos,
+            Node::CallExpr(node) => node.pos,
+            Node::FuncParam(node) => node.pos,
+        };
+        parse::calc_location(pos, code)
+    }
+
+    pub(crate) fn new_function_declaration(
+        identifier: String,
+        body: Option<Vec<Node>>,
+        params: Vec<Node>,
+        ret: Option<String>,
+        attributes: Vec<FunctionAttribute>,
+        pos: usize,
+    ) -> Self {
+        Node::FunctionDeclaration(FunctionDeclaration {
+            identifier,
+            body,
+            params,
+            ret,
+            attributes,
+            pos,
+        })
+    }
+
+    pub(crate) fn new_func_param(identifier: String, type_identifier: Option<String>, pos: usize) -> Self {
+        Node::FuncParam(FuncParam {
+            identifier,
+            type_identifier,
+            pos,
+        })
+    }
+
+    pub(crate) fn new_variable_declaration(
+        identifier: String,
+        body: Option<Node>,
+        type_identifier: Option<String>,
+        attributes: Vec<VariableAttribute>,
+        pos: usize,
+    ) -> Self {
+        let body = match body {
+            Some(x) => Some(Box::new(x)),
+            None => None,
+        };
+        Node::VariableDeclaration(VariableDeclaration {
+            identifier,
+            body,
+            type_identifier,
+            attributes,
             pos,
         })
     }
 
     pub(crate) fn new_break_statement(pos: usize) -> Self {
-        Self::BreakStatement(BreakStatement {
+        Node::BreakStatement(BreakStatement {
             pos,
         })
     }
 
     pub(crate) fn new_return_statement(expr: Option<Node>, pos: usize) -> Self {
         match expr {
-            Some(x) => Self::ReturnStatement(ReturnStatement { body: Some(Box::new(x)), pos }),
-            None => Self::ReturnStatement(ReturnStatement { body: None, pos }),
+            Some(x) => Node::ReturnStatement(ReturnStatement { body: Some(Box::new(x)), pos }),
+            None => Node::ReturnStatement(ReturnStatement { body: None, pos }),
         }
     }
 
     pub(crate) fn new_assignment(dest: Node, body: Node, mode: AssignmentMode, pos: usize) -> Self {
-        Self::Assignment(Assignment {
+        Node::Assignment(Assignment {
             dest: Box::new(dest),
             body: Box::new(body),
             mode,
@@ -58,7 +134,7 @@ impl Node {
         for (cond, block) in cond_blocks {
             items.push((Box::new(cond), block))
         }
-        Self::IfStatement(IfStatement {
+        Node::IfStatement(IfStatement {
             cond_blocks: items,
             else_block,
             pos,
@@ -66,26 +142,26 @@ impl Node {
     }
 
     pub(crate) fn new_loop_statement(body: Vec<Node>, pos: usize) -> Self {
-        Self::LoopStatement(LoopStatement { body, pos })
+        Node::LoopStatement(LoopStatement { body, pos })
     }
 
     pub(crate) fn new_reference(identifier: &str, pos: usize) -> Self {
-        Self::Reference(Reference {
+        Node::Reference(Reference {
             identifier: identifier.to_string(),
             pos,
         })
     }
 
     pub(crate) fn new_number(value: i64, pos: usize) -> Self {
-        Self::NumberLiteral(NumberLiteral { value, pos })
+        Node::NumberLiteral(NumberLiteral { value, pos })
     }
 
     pub(crate) fn new_bool(value: bool, pos: usize) -> Self {
-        Self::BoolLiteral(BoolLiteral { value, pos })
+        Node::BoolLiteral(BoolLiteral { value, pos })
     }
 
     pub(crate) fn new_binary_expr(op: &str, left: Node, right: Node, pos: usize) -> Self {
-        Self::BinaryExpr(BinaryExpr {
+        Node::BinaryExpr(BinaryExpr {
             operator: op.to_string(),
             left: Box::new(left),
             right: Box::new(right),
@@ -94,7 +170,7 @@ impl Node {
     }
 
     pub(crate) fn new_unary_op(op: &str, expr: Node, pos: usize) -> Self {
-        Self::UnaryOp(UnaryOp {
+        Node::UnaryOp(UnaryOp {
             operator: op.to_string(),
             expr: Box::new(expr),
             pos,
@@ -102,105 +178,77 @@ impl Node {
     }
 
     pub(crate) fn new_call_expr(callee: Node, args: Vec<Node>, pos: usize) -> Self {
-        Self::CallExpr(CallExpr {
+        Node::CallExpr(CallExpr {
             callee: Box::new(callee),
             args,
             pos,
         })
     }
 
-    pub(crate) fn new_function(
-        identifier: String,
-        body: Option<Vec<Node>>,
-        params: Vec<Node>,
-        ret: Option<String>,
-        attributes: Vec<FunctionAttribute>,
-        pos: usize,
-    ) -> Self {
-        Self::Function(Function {
-            identifier,
-            body,
-            params,
-            ret,
-            attributes,
-            pos,
-        })
-    }
-
-    pub(crate) fn new_func_param(identifier: String, type_identifier: Option<String>, pos: usize) -> Self {
-        Self::FuncParam(FuncParam {
-            identifier,
-            type_identifier,
-            pos,
-        })
-    }
-
     pub(crate) fn as_func_param(&self) -> &FuncParam {
         match self {
-            Self::FuncParam(x) => x,
+            Node::FuncParam(x) => x,
             _ => panic!("function parameter expected"),
         }
     }
 
-    pub(crate) fn new_variable(
-        identifier: String,
-        body: Node,
-        type_identifier: Option<String>,
-        attributes: Vec<VariableAttribute>,
-        pos: usize,
-    ) -> Self {
-        Self::Variable(Variable {
-            identifier,
-            body: Box::new(body),
-            type_identifier,
-            attributes,
-            pos,
-        })
-    }
-
-    pub(crate) fn get_pos(&self) -> usize {
+    pub(crate) fn as_reference(&self) -> &Reference {
         match self {
-            Self::Declaration(node) => node.pos,
-            Self::BreakStatement(node) => node.pos,
-            Self::ReturnStatement(node) => node.pos,
-            Self::Assignment(node) => node.pos,
-            Self::IfStatement(node) => node.pos,
-            Self::LoopStatement(node) => node.pos,
-            Self::Reference(node) => node.pos,
-            Self::NumberLiteral(node) => node.pos,
-            Self::BoolLiteral(node) => node.pos,
-            Self::BinaryExpr(node) => node.pos,
-            Self::UnaryOp(node) => node.pos,
-            Self::CallExpr(node) => node.pos,
-            Self::Function(node) => node.pos,
-            Self::FuncParam(node) => node.pos,
-            Self::Variable(node) => node.pos,
+            Node::Reference(x) => x,
+            _ => panic!("reference expected"),
         }
-    }
-
-    pub(crate) fn calc_location(&self, code: &str) -> Result<(usize, usize), String> {
-        parse::calc_location(self.get_pos(), code)
     }
 }
 
-#[derive(PartialEq)]
-pub struct Declaration {
-    pub body: Box<Node>,
+#[derive(Debug, PartialEq)]
+pub struct FunctionDeclaration {
+    pub identifier: String,
+    pub body: Option<Vec<Node>>,
+    pub params: Vec<Node>,
+    pub ret: Option<String>,
+    pub attributes: Vec<FunctionAttribute>,
     pub pos: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
+pub enum FunctionAttribute {
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FuncParam {
+    pub identifier: String,
+    pub type_identifier: Option<String>,
+    pub pos: usize,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct VariableDeclaration {
+    pub identifier: String,
+    pub type_identifier: Option<String>,
+    pub attributes: Vec<VariableAttribute>,
+    pub body: Option<Box<Node>>,
+    pub pos: usize,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum VariableAttribute {
+    Const,
+    Var,
+    Let, // NOTE: compatibility
+}
+
+#[derive(Debug, PartialEq)]
 pub struct BreakStatement {
     pub pos: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct ReturnStatement {
     pub body: Option<Box<Node>>,
     pub pos: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Assignment {
     pub dest: Box<Node>,
     pub body: Box<Node>,
@@ -208,7 +256,7 @@ pub struct Assignment {
     pub pos: usize,
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum AssignmentMode {
     Assign,
     AddAssign,
@@ -218,38 +266,38 @@ pub enum AssignmentMode {
     ModAssign,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct IfStatement {
     pub cond_blocks: Vec<(Box<Node>, Vec<Node>)>, // if, else if
     pub else_block: Option<Vec<Node>>,            // else
     pub pos: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct LoopStatement {
     pub body: Vec<Node>, // statements
     pub pos: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Reference {
     pub identifier: String,
     pub pos: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct NumberLiteral {
     pub value: i64,
     pub pos: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct BoolLiteral {
     pub value: bool,
     pub pos: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct BinaryExpr {
     pub operator: String,
     pub left: Box<Node>,
@@ -257,52 +305,204 @@ pub struct BinaryExpr {
     pub pos: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct UnaryOp {
     pub operator: String,
     pub expr: Box<Node>,
     pub pos: usize,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct CallExpr {
     pub callee: Box<Node>,
     pub args: Vec<Node>,
     pub pos: usize,
 }
 
-#[derive(PartialEq)]
-pub struct Function {
-    pub identifier: String,
-    pub body: Option<Vec<Node>>,
-    pub params: Vec<Node>,
-    pub ret: Option<String>,
-    pub attributes: Vec<FunctionAttribute>,
-    pub pos: usize,
+fn indent(indent: usize) -> String {
+    let mut buf = String::new();
+    for _ in 0..indent*2 {
+        buf.push(' ');
+    }
+    buf
 }
 
-#[derive(PartialEq)]
-pub enum FunctionAttribute {
+pub fn show_tree(nodes: &Vec<Node>, code: &str, level: usize) {
+    for node in nodes.iter() {
+        show_node(node, code, level);
+    }
 }
 
-#[derive(PartialEq)]
-pub struct FuncParam {
-    pub identifier: String,
-    pub type_identifier: Option<String>,
-    pub pos: usize,
-}
+fn show_node(node: &Node, code: &str, level: usize) {
+    let name = node.get_name();
+    let (line, column) = node.calc_location(code).unwrap();
+    println!("{}{} ({}:{}) {{", indent(level), name, line, column);
+    match node {
+        Node::FunctionDeclaration(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
 
-#[derive(PartialEq)]
-pub struct Variable {
-    pub identifier: String,
-    pub body: Box<Node>,
-    pub type_identifier: Option<String>,
-    pub attributes: Vec<VariableAttribute>,
-    pub pos: usize,
-}
+            println!("{}attributes: {{", indent(level + 1));
+            for attr in node.attributes.iter() {
+                println!("{}{:?}", indent(level + 2), attr);
+            }
+            println!("{}}}", indent(level + 1));
 
-#[derive(PartialEq)]
-pub enum VariableAttribute {
-    Const,
-    Let,
+            println!("{}params: {{", indent(level + 1));
+            show_tree(&node.params, code, level + 2);
+            println!("{}}}", indent(level + 1));
+
+            match &node.ret {
+                Some(x) => {
+                    println!("{}ret: \"{}\"", indent(level + 1), x);
+                }
+                None => {
+                    println!("{}ret: (None)", indent(level + 1));
+                }
+            }
+
+            println!("{}body: {{", indent(level + 1));
+            match &node.body {
+                Some(x) => {
+                    show_tree(x, code, level + 2);
+                }
+                None => {
+                    println!("{}(None)", indent(level + 2));
+                }
+            }
+            println!("{}}}", indent(level + 1));
+        }
+        Node::VariableDeclaration(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+
+            println!("{}attributes: {{", indent(level + 1));
+            for attr in node.attributes.iter() {
+                println!("{}{:?}", indent(level + 2), attr);
+            }
+            println!("{}}}", indent(level + 1));
+
+            match &node.type_identifier {
+                Some(x) => {
+                    println!("{}type_identifier: \"{}\"", indent(level + 1), x);
+                }
+                None => {
+                    println!("{}type_identifier: (None)", indent(level + 1));
+                }
+            }
+
+            println!("{}body: {{", indent(level + 1));
+            match &node.body {
+                Some(x) => {
+                    show_node(x, code, level + 2);
+                }
+                None => {
+                    println!("{}(None)", indent(level + 2));
+                }
+            }
+            println!("{}}}", indent(level + 1));
+        }
+        Node::BreakStatement(_) => {}
+        Node::ReturnStatement(node) => {
+            println!("{}body: {{", indent(level + 1));
+            match &node.body {
+                Some(x) => {
+                    show_node(x, code, level + 2);
+                }
+                None => {
+                    println!("{}(None)", indent(level + 2));
+                }
+            }
+            println!("{}}}", indent(level + 1));
+        }
+        Node::Assignment(node) => {
+            println!("{}node: {:?}", indent(level + 1), node.mode);
+
+            println!("{}dest: {{", indent(level + 1));
+            show_node(&node.dest, code, level + 2);
+            println!("{}}}", indent(level + 1));
+
+            println!("{}body: {{", indent(level + 1));
+            show_node(&node.body, code, level + 2);
+            println!("{}}}", indent(level + 1));
+        }
+        Node::IfStatement(node) => {
+            println!("{}cond_blocks: {{", indent(level + 1));
+            for (cond, body) in node.cond_blocks.iter() {
+                println!("{}cond_block: {{", indent(level + 2));
+                println!("{}cond: {{", indent(level + 3));
+                show_node(cond, code, level + 4);
+                println!("{}}}", indent(level + 3));
+
+                println!("{}body: {{", indent(level + 3));
+                show_tree(body, code, level + 4);
+                println!("{}}}", indent(level + 3));
+                println!("{}}}", indent(level + 2));
+            }
+            println!("{}}}", indent(level + 1));
+
+            println!("{}else_block: {{", indent(level + 1));
+            match &node.else_block {
+                Some(x) => {
+                    show_tree(x, code, level + 2);
+                }
+                None => {
+                    println!("{}(None)", indent(level + 2));
+                }
+            }
+            println!("{}}}", indent(level + 1));
+        }
+        Node::LoopStatement(node) => {
+            println!("{}body: {{", indent(level + 1));
+            show_tree(&node.body, code, level + 2);
+            println!("{}}}", indent(level + 1));
+        }
+        Node::Reference(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+        }
+        Node::NumberLiteral(node) => {
+            println!("{}value: {:?}", indent(level + 1), node.value);
+        }
+        Node::BoolLiteral(node) => {
+            println!("{}value: {:?}", indent(level + 1), node.value);
+        }
+        Node::BinaryExpr(node) => {
+            println!("{}operator: \"{}\"", indent(level + 1), node.operator);
+
+            println!("{}left: {{", indent(level + 1));
+            show_node(&node.left, code, level + 2);
+            println!("{}}}", indent(level + 1));
+
+            println!("{}right: {{", indent(level + 1));
+            show_node(&node.right, code, level + 2);
+            println!("{}}}", indent(level + 1));
+        }
+        Node::UnaryOp(node) => {
+            println!("{}operator: \"{}\"", indent(level + 1), node.operator);
+
+            println!("{}expr: {{", indent(level + 1));
+            show_node(&node.expr, code, level + 2);
+            println!("{}}}", indent(level + 1));
+        }
+        Node::CallExpr(node) => {
+            println!("{}callee: {{", indent(level + 1));
+            show_node(&node.callee, code, level + 2);
+            println!("{}}}", indent(level + 1));
+
+            println!("{}args: {{", indent(level + 1));
+            show_tree(&node.args, code, level + 2);
+            println!("{}}}", indent(level + 1));
+        }
+        Node::FuncParam(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+
+            match &node.type_identifier {
+                Some(x) => {
+                    println!("{}type_identifier: \"{}\"", indent(level + 1), x);
+                }
+                None => {
+                    println!("{}type_identifier: (None)", indent(level + 1));
+                }
+            }
+        }
+    }
+    println!("{}}}", indent(level));
 }

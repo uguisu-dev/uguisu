@@ -30,7 +30,7 @@ Statement
 	/ ReturnStatement
 
 VarDeclaration
-	= ("let" / "const") IDENTIFIER ":" IDENTIFIER "=" Expr ";"
+	= ("var" / "const") IDENTIFIER ":" IDENTIFIER "=" Expr ";"
 
 Assign
 	= IDENTIFIER "=" Expr ";"

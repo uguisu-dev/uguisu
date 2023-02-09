@@ -1,23 +1,21 @@
 use crate::Engine;
 
 fn try_run_test(code: &str) -> Result<(), String> {
-    let mut engine = Engine::new();
+    let mut engine = Engine::new(false, false);
 
     let ast = match engine.parse(code) {
         Ok(x) => x,
-        Err(e) => return Err(format!("Parser Error: {}", e.message)),
+        Err(e) => return Err(format!("Parsing Error: {}", e.message)),
     };
 
-    let graph = match engine.analyze(code, ast) {
+    let hir_code = match engine.generate_hir(code, ast) {
         Ok(x) => x,
-        Err(e) => return Err(format!("Analyzer Error: {}", e.message)),
+        Err(e) => return Err(format!("Analysis Error: {}", e.message)),
     };
 
-    // engine.show_graph_map();
-
-    match engine.run(graph) {
+    match engine.run(hir_code) {
         Ok(x) => Ok(x),
-        Err(e) => return Err(format!("Runner Error: {}", e.message)),
+        Err(e) => return Err(format!("Runtime Error: {}", e.message)),
     }
 }
 
@@ -25,31 +23,80 @@ fn run_test(code: &str) {
     try_run_test(code).unwrap();
 }
 
+// variable + number literal
+
 #[test]
-fn test_empty_function() {
+fn test_variable_arith_1() {
     run_test(
         "
-        fn main() { }
+        fn main() {
+            var x = 1;
+            assertEq(x, 1);
+        }
         ",
     );
 }
 
 #[test]
-fn test_function_basic() {
+fn test_variable_arith_2() {
+    run_test(
+        "
+        fn main() {
+            var x = 1 + 2;
+            assertEq(x, 3);
+        }
+        ",
+    );
+}
+
+// function declaration
+
+#[test]
+fn test_function_empty() {
+    run_test(
+        "
+        fn main() {
+        }
+        ",
+    );
+}
+
+#[test]
+fn test_function_calc() {
     run_test(
         "
         fn add(x: number, y: number): number {
             return x + y;
         }
         fn main() {
-            assert_eq(add(1, 2), 3);
+            assertEq(add(1, 2), 3);
         }
         ",
     );
 }
 
 #[test]
-fn test_calc_with_function_1() {
+fn test_subrutine() {
+    run_test(
+        "
+        fn subrutine(x: number) {
+            var y = x + x;
+            var z = y + 1;
+            assertEq(z, 7);
+        }
+        fn main() {
+            var x = 1;
+            x += 2;
+            subrutine(x);
+        }
+        ",
+    );
+}
+
+// function call
+
+#[test]
+fn test_call_function_1() {
     run_test(
         "
         fn add(x: number, y: number): number {
@@ -59,14 +106,14 @@ fn test_calc_with_function_1() {
             return x * x;
         }
         fn main() {
-            assert_eq(add(square(2), 3), 7);
+            assertEq(add(square(2), 3), 7);
         }
         ",
     );
 }
 
 #[test]
-fn test_calc_with_function_2() {
+fn test_call_function_2() {
     run_test(
         "
         fn square(x: number): number {
@@ -76,7 +123,7 @@ fn test_calc_with_function_2() {
             return square(x) + y;
         }
         fn main() {
-            assert_eq(calc(2, 3), 7);
+            assertEq(calc(2, 3), 7);
         }
         ",
     );
@@ -94,73 +141,53 @@ fn test_function_recursion() {
             }
         }
         fn main() {
-            assert_eq(calc(8), 256);
+            assertEq(calc(8), 256);
         }
         ",
     );
 }
 
-#[test]
-fn test_variable_basic() {
-    run_test(
-        "
-        fn main() {
-            const x = 1 + 2;
-            assert_eq(x, 3);
-        }
-        ",
-    );
-}
+// function params
 
 #[test]
-fn test_calc_with_variable() {
+fn test_calc_with_func_param() {
     run_test(
         "
         fn calc(x: number, y: number): number {
-            const temp = x + y;
+            var temp = x + y;
             return temp * temp;
         }
         fn main() {
-            const a = 2;
-            assert_eq(calc(a, 3), 25);
+            var a = 2;
+            assertEq(calc(a, 3), 25);
         }
         ",
     );
 }
 
+// return function
+
 #[test]
-fn test_loop_statement() {
+fn test_return_function() {
     run_test(
         "
-        fn main() {
-            let i = 0;
-            let x = 1;
-            loop {
-                if i == 10 { break; }
-                x = x * 2;
-                i = i + 1;
+        fn gen_result(x: number): number {
+            if (x != 3) {
+                return 0;
             }
-            assert_eq(x, 1024);
+            return 1;
+        }
+        fn main() {
+            assertEq(gen_result(1), 0);
+            assertEq(gen_result(2), 0);
+            assertEq(gen_result(3), 1);
+            assertEq(gen_result(4), 0);
         }
         ",
     );
 }
 
-#[test]
-fn test_bool() {
-    run_test(
-        "
-        fn f(value: bool): bool {
-            return value;
-        }
-        fn main() {
-            const a = true;
-            const b = false;
-            const c = f(true);
-        }
-        ",
-    );
-}
+// if + if-else + if-elseif-else + bool literal
 
 #[test]
 fn test_if_empty() {
@@ -177,19 +204,206 @@ fn test_if_empty() {
 }
 
 #[test]
-fn test_relational_op() {
+fn test_if() {
     run_test(
         "
         fn main() {
-            let x = 0;
-            if 1 + 2 == 3 {
+            var x = 0;
+            if true {
                 x = 1;
             }
-            assert_eq(x, 1);
+            assertEq(x, 1);
+            if false {
+                x = 2;
+            }
+            assertEq(x, 1);
         }
         ",
     );
 }
+
+#[test]
+fn test_if_else() {
+    run_test(
+        "
+        fn main() {
+            var x = 1;
+            if true {
+                x = 2;
+            } else {
+                x = 3;
+            }
+            assertEq(x, 2);
+            if false {
+                x = 4;
+            } else {
+                x = 5;
+            }
+            assertEq(x, 5);
+        }
+        ",
+    );
+}
+
+#[test]
+fn test_if_elseif_else() {
+    run_test(
+        "
+        fn main() {
+            var x = 1;
+            if true {
+                x = 2;
+            } else if false {
+                x = 3;
+            } else {
+                x = 4;
+            }
+            assertEq(x, 2);
+            if false {
+                x = 2;
+            } else if true {
+                x = 3;
+            } else {
+                x = 4;
+            }
+            assertEq(x, 3);
+            if false {
+                x = 3;
+            } else if false {
+                x = 4;
+            } else {
+                x = 5;
+            }
+            assertEq(x, 5);
+        }
+        ",
+    );
+}
+
+// logical operation
+
+#[test]
+fn test_logical_op_1() {
+    run_test(
+        "
+        fn main() {
+            var x = 1;
+            if true && false {
+                x = 2;
+            }
+            assertEq(x, 1);
+            if true && true {
+                x = 3;
+            }
+            assertEq(x, 3);
+            if false || false {
+                x = 4;
+            }
+            assertEq(x, 3);
+            if false || true {
+                x = 5;
+            }
+            assertEq(x, 5);
+            if false && true || true && true {
+                x = 6;
+            }
+            assertEq(x, 6);
+        }
+        ",
+    );
+}
+
+#[test]
+fn test_logical_op_2() {
+    run_test(
+        "
+        fn main() {
+            var x = 1;
+            if false && true || true && true {
+                x = 2;
+            }
+            assertEq(x, 2);
+        }
+        ",
+    );
+}
+
+#[test]
+fn test_logical_op_3() {
+    run_test(
+        "
+        fn main() {
+            var x = 1;
+            if !false {
+                x = 2;
+            }
+            assertEq(x, 2);
+        }
+        ",
+    );
+}
+
+// arithmetic comparison
+
+#[test]
+fn test_arith_comp_1() {
+    run_test(
+        "
+        fn main() {
+            var x = 1;
+            if x == 1 {
+                x = 2;
+            }
+            assertEq(x, 2);
+            if x == 1 {
+                x = 3;
+            }
+            assertEq(x, 2);
+        }
+        ",
+    );
+}
+
+#[test]
+fn test_arith_comp_2() {
+    run_test(
+        "
+        fn main() {
+            var x = 1;
+            if 1 + 2 == 3 {
+                x = 2;
+            }
+            assertEq(x, 2);
+            if 2 - 1 == 0 {
+                x = 3;
+            }
+            assertEq(x, 2);
+        }
+        ",
+    );
+}
+
+// loop
+
+#[test]
+fn test_loop_statement() {
+    run_test(
+        "
+        fn main() {
+            var i = 0;
+            var x = 1;
+            loop {
+                if i == 10 { break; }
+                x = x * 2;
+                i = i + 1;
+            }
+            assertEq(x, 1024);
+        }
+        ",
+    );
+}
+
+// break
 
 #[test]
 fn test_break_no_target() {
@@ -208,7 +422,7 @@ fn test_break_no_target_nested() {
     let result = try_run_test(
         "
         fn main() {
-            let x = true;
+            var x = true;
             if x {
                 break;
             }
@@ -218,17 +432,19 @@ fn test_break_no_target_nested() {
     assert!(result.is_err());
 }
 
+// assignment
+
 #[test]
 fn test_assignment() {
     run_test(
         "
         fn main() {
-            let x = 0;
-            assert_eq(x, 0);
+            var x = 0;
+            assertEq(x, 0);
             x = 1;
-            assert_eq(x, 1);
+            assertEq(x, 1);
             x = 2;
-            assert_eq(x, 2);
+            assertEq(x, 2);
         }
         ",
     );
@@ -239,23 +455,25 @@ fn test_assignment_modes() {
     run_test(
         "
         fn main() {
-            let x = 0;
-            assert_eq(x, 0);
+            var x = 0;
+            assertEq(x, 0);
             x += 10;
-            assert_eq(x, 10);
+            assertEq(x, 10);
             x -= 2;
-            assert_eq(x, 8);
+            assertEq(x, 8);
             x *= 2;
-            assert_eq(x, 16);
+            assertEq(x, 16);
             x /= 4;
-            assert_eq(x, 4);
+            assertEq(x, 4);
         }
         ",
     );
 }
 
+// function reference
+
 #[test]
-fn test_assign_function() {
+fn should_generate_error_with_function_name_1() {
     let result = try_run_test(
         "
         fn main() {
@@ -264,4 +482,171 @@ fn test_assign_function() {
         ",
     );
     assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_2() {
+    let result = try_run_test(
+        "
+        fn main() {
+            var x = 1;
+            x = main;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_3() {
+    let result = try_run_test(
+        "
+        fn main() {
+            var x = main;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_4() {
+    let result = try_run_test(
+        "
+        fn f(): number {
+            return f;
+        }
+        fn main() {
+            f();
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_5() {
+    let result = try_run_test(
+        "
+        fn main() {
+            if main == main { }
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_6() {
+    let result = try_run_test(
+        "
+        fn main() {
+            main;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_7() {
+    let result = try_run_test(
+        "
+        fn main() {
+            var x = !main;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_8() {
+    let result = try_run_test(
+        "
+        fn main() {
+            var x = main + main;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_9() {
+    let result = try_run_test(
+        "
+        fn main() {
+            var x = main == main;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_10() {
+    let result = try_run_test(
+        "
+        fn main() {
+            var x = main && main;
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn should_generate_error_with_function_name_11() {
+    let result = try_run_test(
+        "
+        fn f() {
+        }
+        fn main() {
+            var x = f(main);
+        }
+        ",
+    );
+    assert!(result.is_err());
+}
+
+// comments
+
+#[test]
+fn test_comment() {
+    run_test(
+        "
+        // main function
+        //
+        // this function is entry point of program
+        fn main() {
+            /*
+             * write
+             * your code
+             * here
+            */
+        }
+        ",
+    );
+}
+
+// other examples
+
+#[test]
+fn test_example() {
+    run_test(
+        "
+        fn calc(x: number): number {
+            if x == 0 {
+                return 1;
+            } else {
+                return calc(x - 1) * 2;
+            }
+        }
+        fn main() {
+            var value = 10;
+            assertEq(calc(value), 1024);
+        }
+        ",
+    );
 }

@@ -1,72 +1,28 @@
-use getopts::Options;
 use std::env;
-use std::fs::File;
-use std::io::Read;
-use uguisu_engine::Engine;
+
+mod commands;
+
+enum Command {
+    Root,
+    Run,
+}
 
 pub fn parse_command() {
-    let mut opts = Options::new();
-    opts.optflag("h", "help", "Print this message.");
-    opts.optflag("v", "version", "Print Uguisu version.");
-    let args: Vec<String> = env::args().collect();
-    let matches = match opts.parse(&args[1..]) {
-        Ok(x) => x,
-        Err(e) => {
-            println!("Error: {}", e.to_string());
-            return;
+    let args_source: Vec<String> = env::args().collect();
+    let command = if args_source.len() > 1 {
+        match args_source[1].as_str() {
+            "run" => Some(Command::Run),
+            _ => None,
         }
+    } else {
+        None
     };
-    if matches.opt_present("h") {
-        show_help(opts);
-        return;
+    let (command, args) = match command {
+        Some(x) => (x, &args_source[2..]),
+        None => (Command::Root, &args_source[1..]),
+    };
+    match command {
+        Command::Root => commands::root_command(args),
+        Command::Run => commands::run::command(args),
     }
-    if matches.opt_present("v") {
-        show_version();
-        return;
-    }
-    if matches.free.is_empty() {
-        show_help(opts);
-        return;
-    }
-    let input = &matches.free[0];
-    run_script(input);
-}
-
-fn show_help(opts: Options) {
-    let brief = "Usage: uguisu [OPTIONS] INPUT";
-    print!("{}", opts.usage(brief));
-}
-
-fn show_version() {
-    println!("uguisu {}", env!("CARGO_PKG_VERSION"));
-}
-
-fn run_script(filename: &str) {
-    let mut file = match File::open(filename) {
-        Ok(x) => x,
-        Err(_) => return println!("Error: Failed to open the file."),
-    };
-
-    let mut code = String::new();
-    match file.read_to_string(&mut code) {
-        Ok(_) => {}
-        Err(_) => return println!("Error: Failed to read the file."),
-    };
-
-    let mut engine = Engine::new();
-
-    let ast = match engine.parse(&code) {
-        Ok(x) => x,
-        Err(e) => return println!("SyntaxError: {}", e.message),
-    };
-
-    let graph = match engine.analyze(&code, ast) {
-        Ok(x) => x,
-        Err(e) => return println!("SyntaxError: {}", e.message),
-    };
-
-    match engine.run(graph) {
-        Ok(_) => {}
-        Err(e) => return println!("RuntimeError: {}", e.message),
-    };
 }

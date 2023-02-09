@@ -61,15 +61,12 @@ fn test_calc() {
 
 #[test]
 fn test_declare_func_no_annotations() {
-    let expect = Ok(Node::new_declaration(
-        Node::new_function(
-            "abc".to_string(),
-            Some(vec![]),
-            vec![],
-            None,
-            vec![],
-            0,
-        ),
+    let expect = Ok(Node::new_function_declaration(
+        "abc".to_string(),
+        Some(vec![]),
+        vec![],
+        None,
+        vec![],
         0,
     ));
     if uguisu_parser::statement("fn abc() { }") != expect {
@@ -88,18 +85,15 @@ fn test_declare_func_no_annotations() {
 
 #[test]
 fn test_declare_func_with_types_1() {
-    let expect = Ok(Node::new_declaration(
-        Node::new_function(
-            "abc".to_string(),
-            Some(vec![]),
-            vec![
-                Node::new_func_param("x".to_string(), Some("number".to_string()), 7),
-                Node::new_func_param("y".to_string(), Some("number".to_string()), 18),
-            ],
-            Some("number".to_string()),
-            vec![],
-            0,
-        ),
+    let expect = Ok(Node::new_function_declaration(
+        "abc".to_string(),
+        Some(vec![]),
+        vec![
+            Node::new_func_param("x".to_string(), Some("number".to_string()), 7),
+            Node::new_func_param("y".to_string(), Some("number".to_string()), 18),
+        ],
+        Some("number".to_string()),
+        vec![],
         0,
     ));
 
@@ -110,18 +104,15 @@ fn test_declare_func_with_types_1() {
 
 #[test]
 fn test_declare_func_with_types_2() {
-    let expect = Ok(Node::new_declaration(
-        Node::new_function(
-            "abc".to_string(),
-            Some(vec![]),
-            vec![
-                Node::new_func_param("x".to_string(), Some("number".to_string()), 7),
-                Node::new_func_param("y".to_string(), Some("number".to_string()), 16),
-            ],
-            Some("number".to_string()),
-            vec![],
-            0,
-        ),
+    let expect = Ok(Node::new_function_declaration(
+        "abc".to_string(),
+        Some(vec![]),
+        vec![
+            Node::new_func_param("x".to_string(), Some("number".to_string()), 7),
+            Node::new_func_param("y".to_string(), Some("number".to_string()), 16),
+        ],
+        Some("number".to_string()),
+        vec![],
         0,
     ));
 
@@ -132,18 +123,15 @@ fn test_declare_func_with_types_2() {
 
 #[test]
 fn test_declare_func_with_types_3() {
-    let expect = Ok(Node::new_declaration(
-        Node::new_function(
-            "abc".to_string(),
-            Some(vec![]),
-            vec![
-                Node::new_func_param("x".to_string(), Some("number".to_string()), 12),
-                Node::new_func_param("y".to_string(), Some("number".to_string()), 29),
-            ],
-            Some("number".to_string()),
-            vec![],
-            0,
-        ),
+    let expect = Ok(Node::new_function_declaration(
+        "abc".to_string(),
+        Some(vec![]),
+        vec![
+            Node::new_func_param("x".to_string(), Some("number".to_string()), 12),
+            Node::new_func_param("y".to_string(), Some("number".to_string()), 29),
+        ],
+        Some("number".to_string()),
+        vec![],
         0,
     ));
 

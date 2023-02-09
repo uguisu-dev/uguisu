@@ -1,15 +1,16 @@
-use crate::run::RuningStack;
-use std::collections::HashMap;
-
-mod analyze;
-mod graph;
-mod types;
-mod parse;
 mod ast;
-mod run;
+mod parse;
+mod hir;
+mod hir_generate;
+mod hir_run;
+mod builtin;
 
 #[cfg(test)]
 mod test;
+
+use hir::SymbolTable;
+use crate::hir_run::Env;
+use std::collections::BTreeMap;
 
 pub struct SyntaxError {
     pub message: String,
@@ -36,13 +37,19 @@ impl RuntimeError {
 }
 
 pub struct Engine {
-    graph_source: HashMap<graph::NodeId, graph::Node>,
+    hir_source: BTreeMap<hir::NodeId, hir::Node>,
+    symbol_table: SymbolTable,
+    analysis_trace: bool,
+    running_trace: bool,
 }
 
 impl Engine {
-    pub fn new() -> Self {
+    pub fn new(analysis_trace: bool, running_trace: bool) -> Self {
         Self {
-            graph_source: HashMap::new(),
+            hir_source: BTreeMap::new(),
+            symbol_table: SymbolTable::new(),
+            analysis_trace,
+            running_trace,
         }
     }
 
@@ -50,19 +57,25 @@ impl Engine {
         parse::parse(code)
     }
 
-    pub fn analyze(&mut self, code: &str, ast: Vec<ast::Node>) -> Result<Vec<graph::NodeRef>, SyntaxError> {
-        let mut analyzer = analyze::Analyzer::new(code, &mut self.graph_source);
-        analyzer.translate(&ast)
+    pub fn show_ast(&self, ast: &Vec<ast::Node>, code: &str) {
+        ast::show_tree(ast, code, 0);
     }
 
-    pub fn show_graph_map(&mut self) {
-        let analyzer = analyze::Analyzer::new("", &mut self.graph_source);
-        analyzer.show_graph();
+    pub fn generate_hir(&mut self, code: &str, ast: Vec<ast::Node>) -> Result<Vec<hir::NodeRef>, SyntaxError> {
+        self.symbol_table.set_trace(self.analysis_trace);
+        let mut analyzer = hir_generate::Analyzer::new(code, &mut self.hir_source, &mut self.symbol_table, self.analysis_trace);
+        let result = analyzer.generate(&ast);
+        self.symbol_table.set_trace(false);
+        result
     }
 
-    pub fn run(&mut self, graph: Vec<graph::NodeRef>) -> Result<(), RuntimeError> {
-        let mut stack = RuningStack::new();
-        let runner = run::Runner::new(&self.graph_source);
-        runner.run(&graph, &mut stack)
+    pub fn show_hir_map(&mut self) {
+        hir::show_map(&self.hir_source, &self.symbol_table);
+    }
+
+    pub fn run(&mut self, hir_code: Vec<hir::NodeRef>) -> Result<(), RuntimeError> {
+        let mut env = Env::new(self.running_trace);
+        let runner = hir_run::Runner::new(&self.hir_source, &self.symbol_table, self.running_trace);
+        runner.run(&hir_code, &mut env)
     }
 }

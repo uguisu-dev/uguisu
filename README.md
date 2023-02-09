@@ -15,8 +15,8 @@ fn calc(x: number): number {
 }
 
 fn main() {
-    const value = 10;
-    print_num(calc(value));
+    var value = 10;
+    printNum(calc(value));
 }
 ```
 
@@ -25,11 +25,20 @@ See [syntaxes (日本語)](https://github.com/uguisu-dev/uguisu/tree/master/docs
 
 ## Usage
 ```
-Usage: uguisu [OPTIONS] INPUT
+Usage: uguisu [options] [commands]
+
+Examples:
+    uguisu run <filename>
+    uguisu <command> -h
+    uguisu -v
 
 Options:
-    -h, --help          Print this message.
+    -h, --help          Print help message.
     -v, --version       Print Uguisu version.
+
+Commands:
+    run                 Run a script file.
+
 ```
 
 ## License
