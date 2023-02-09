@@ -10,7 +10,7 @@ mod test;
 
 use hir::SymbolTable;
 
-use crate::hir_run::RuningStack;
+use crate::hir_run::Env;
 use std::collections::HashMap;
 
 pub struct SyntaxError {
@@ -75,8 +75,8 @@ impl Engine {
     }
 
     pub fn run(&mut self, hir_code: Vec<hir::NodeRef>) -> Result<(), RuntimeError> {
-        let mut stack = RuningStack::new(self.running_trace);
+        let mut env = Env::new(self.running_trace);
         let runner = hir_run::Runner::new(&self.hir_source, &self.symbol_table, self.running_trace);
-        runner.run(&hir_code, &mut stack)
+        runner.run(&hir_code, &mut env)
     }
 }
