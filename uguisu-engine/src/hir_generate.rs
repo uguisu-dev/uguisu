@@ -86,9 +86,23 @@ impl<'a> HirGenerator<'a> {
         }
     }
 
+    fn get_ty_or_err(&self, node_ref: NodeRef) -> Result<Type, SyntaxError> {
+        match self.symbol_table.get(node_ref).ty {
+            Some(x) => Ok(x),
+            None => Err(self.make_error("type not resolved", node_ref)),
+        }
+    }
+
+    fn get_ty_or_low_err(&self, node_ref: NodeRef, parser_node: &ast::Node) -> Result<Type, SyntaxError> {
+        match self.symbol_table.get(node_ref).ty {
+            Some(x) => Ok(x),
+            None => Err(self.make_low_error("type not resolved", parser_node)),
+        }
+    }
+
     fn define_variable_decl(&mut self, parser_node: &ast::Node, body: &ast::Node, decl_node_ref: NodeRef) -> Result<(), SyntaxError> {
         let body_ref = self.generate_expr(body)?;
-        let body_ty = self.symbol_table.get(body_ref).ty.map_or(Err(self.make_error("type not resolved", body_ref)), |x| Ok(x))?;
+        let body_ty = self.get_ty_or_err(body_ref)?;
         if body_ty == Type::Function {
             return Err(self.make_error("type `function` is not supported", body_ref));
         }
@@ -155,7 +169,7 @@ impl<'a> HirGenerator<'a> {
         };
         let callee_node = Node::new_reference(dest_ref);
         let callee_ref = self.register_node(callee_node);
-        let dest_ty = self.symbol_table.get(dest_ref).ty.map_or(Err(SyntaxError::new("type not resolved")), |x| Ok(x))?;
+        let dest_ty = self.get_ty_or_err(dest_ref)?;
         self.symbol_table.set_ty(callee_ref, dest_ty);
 
         // call expr
@@ -338,7 +352,7 @@ impl<'a> HirGenerator<'a> {
                 let body = match node.body.as_ref() {
                     Some(x) => {
                         let body_ref = self.generate_expr(x)?;
-                        let body_ty = self.symbol_table.get(body_ref).ty.map_or(Err(self.make_error("type not resolved", body_ref)), |x| Ok(x))?;
+                        let body_ty = self.get_ty_or_err(body_ref)?;
                         if body_ty == Type::Function {
                             return Err(self.make_error("type `function` is not supported", body_ref));
                         }
@@ -376,18 +390,18 @@ impl<'a> HirGenerator<'a> {
                 let target_node = Node::new_reference(declaration_ref);
                 let target_ref = self.register_node(target_node);
                 self.symbol_table.set_pos(target_ref, self.calc_location(parser_node)?);
-                let declaration_ty = self.symbol_table.get(declaration_ref).ty.map_or(Err(self.make_low_error("type not resolved", parser_node)), |x| Ok(x))?;
+                let declaration_ty = self.get_ty_or_low_err(declaration_ref, parser_node)?;
                 self.symbol_table.set_ty(target_ref, declaration_ty);
 
                 let expr_ref = self.generate_expr(&statement.body)?;
 
                 match statement.mode {
                     AssignmentMode::Assign => {
-                        let target_ty = self.symbol_table.get(target_ref).ty.map_or(Err(self.make_error("type not resolved", target_ref)), |x| Ok(x))?;
+                        let target_ty = self.get_ty_or_err(target_ref)?;
                         if target_ty == Type::Function {
                             return Err(self.make_error("type `function` is not supported", target_ref));
                         }
-                        let expr_ty = self.symbol_table.get(expr_ref).ty.map_or(Err(self.make_error("type not resolved", expr_ref)), |x| Ok(x))?;
+                        let expr_ty = self.get_ty_or_err(expr_ref)?;
                         if expr_ty == Type::Function {
                             return Err(self.make_error("type `function` is not supported", expr_ref));
                         }
@@ -401,9 +415,9 @@ impl<'a> HirGenerator<'a> {
                     | AssignmentMode::MultAssign
                     | AssignmentMode::DivAssign
                     | AssignmentMode::ModAssign => {
-                        let target_ty = self.symbol_table.get(target_ref).ty.map_or(Err(self.make_low_error("type not resolved", parser_node)), |x| Ok(x))?;
+                        let target_ty = self.get_ty_or_low_err(target_ref, parser_node)?;
                         Type::assert(target_ty, Type::Number).map_err(|e| self.make_error(&e, target_ref))?; // TODO: improve error message
-                        let expr_ty = self.symbol_table.get(expr_ref).ty.map_or(Err(self.make_error("type not resolved", expr_ref)), |x| Ok(x))?;
+                        let expr_ty = self.get_ty_or_err(expr_ref)?;
                         Type::assert(expr_ty, Type::Number).map_err(|e| self.make_error(&e, expr_ref))?;
                     }
                 }
@@ -426,7 +440,7 @@ impl<'a> HirGenerator<'a> {
                     match items.get(index) {
                         Some((cond, then_block)) => {
                             let cond_ref = analyzer.generate_expr(cond)?;
-                            let cond_ty = analyzer.symbol_table.get(cond_ref).ty.map_or(Err(analyzer.make_error("type not resolved", cond_ref)), |x| Ok(x))?;
+                            let cond_ty = analyzer.get_ty_or_err(cond_ref)?;
                             Type::assert(cond_ty, Type::Bool).map_err(|e| analyzer.make_error(&e, cond_ref))?;
                             let then_nodes = analyzer.generate_statements(then_block)?;
                             // next else if part
@@ -489,7 +503,7 @@ impl<'a> HirGenerator<'a> {
                     return Err(self.make_low_error("An expression cannot be used in global space", parser_node));
                 }
                 let expr_ref = self.generate_expr(parser_node)?;
-                let expr_ty = self.symbol_table.get(expr_ref).ty.map_or(Err(self.make_error("type not resolved", expr_ref)), |x| Ok(x))?;
+                let expr_ty = self.get_ty_or_err(expr_ref)?;
                 if expr_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", expr_ref));
                 }
@@ -519,7 +533,7 @@ impl<'a> HirGenerator<'a> {
 
                 let node = Node::new_reference(dest_ref);
                 let node_ref = self.register_node(node);
-                let dest_ty = self.symbol_table.get(dest_ref).ty.map_or(Err(self.make_low_error("type not resolved", parser_node)), |x| Ok(x))?;
+                let dest_ty = self.get_ty_or_low_err(dest_ref, parser_node)?;
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_ref, dest_ty);
                 Ok(node_ref)
@@ -543,7 +557,7 @@ impl<'a> HirGenerator<'a> {
             ast::Node::UnaryOp(unary_op) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let expr_ref = self.generate_expr(&unary_op.expr)?;
-                let expr_ty = self.symbol_table.get(expr_ref).ty.map_or(Err(self.make_error("type not resolved", expr_ref)), |x| Ok(x))?;
+                let expr_ty = self.get_ty_or_err(expr_ref)?;
                 if expr_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", expr_ref));
                 }
@@ -566,8 +580,8 @@ impl<'a> HirGenerator<'a> {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let left_ref = self.generate_expr(&binary_expr.left)?;
                 let right_ref = self.generate_expr(&binary_expr.right)?;
-                let left_ty = self.symbol_table.get(left_ref).ty.map_or(Err(self.make_error("type not resolved", left_ref)), |x| Ok(x))?;
-                let right_ty = self.symbol_table.get(right_ref).ty.map_or(Err(self.make_error("type not resolved", right_ref)), |x| Ok(x))?;
+                let left_ty = self.get_ty_or_err(left_ref)?;
+                let right_ty = self.get_ty_or_err(right_ref)?;
                 if left_ty == Type::Function {
                     return Err(self.make_error("type `function` is not supported", left_ref));
                 }
@@ -655,8 +669,8 @@ impl<'a> HirGenerator<'a> {
                 let mut args = Vec::new();
                 for (i, &param_ref) in params.iter().enumerate() {
                     let arg_ref = self.generate_expr(&call_expr.args[i])?;
-                    let param_ty = self.symbol_table.get(param_ref).ty.map_or(Err(self.make_error("type not resolved", param_ref)), |x| Ok(x))?;
-                    let arg_ty = self.symbol_table.get(arg_ref).ty.map_or(Err(self.make_error("type not resolved", arg_ref)), |x| Ok(x))?;
+                    let param_ty = self.get_ty_or_err(param_ref)?;
+                    let arg_ty = self.get_ty_or_err(arg_ref)?;
                     if param_ty == Type::Function {
                         return Err(self.make_error("type `function` is not supported", param_ref));
                     }
