@@ -1,45 +1,34 @@
-use std::collections::HashMap;
-use crate::builtin::BuiltinInfo;
-use crate::{SyntaxError, RuntimeError, hir_run, builtin};
 use crate::ast::{
     self,
     AssignmentMode,
     VariableAttribute,
 };
+use crate::builtin;
+use crate::builtin::BuiltinInfo;
 use crate::hir::{
-    self,
-    ArithmeticOp,
     ArithmeticOperator,
-    Assignment,
-    BreakStatement,
-    CallExpr,
-    Declaration,
     FuncParam,
-    Function,
     FunctionBody,
     FunctionSignature,
-    IfStatement,
-    Literal,
     LiteralValue,
-    LogicalBinaryOp,
     LogicalBinaryOperator,
-    LogicalUnaryOp,
     LogicalUnaryOperator,
-    LoopStatement,
-    Reference,
-    RelationalOp,
+    Node,
+    NodeId,
+    NodeRef,
     RelationalOperator,
     ResolverStack,
-    ReturnStatement,
     Signature,
     SymbolTable,
-    Variable,
-    VariableSignature, Type,
+    Type,
+    VariableSignature,
 };
+use crate::SyntaxError;
+use std::collections::BTreeMap;
 
 pub(crate) struct Analyzer<'a> {
     input: &'a str,
-    source: &'a mut HashMap<hir::NodeId, hir::Node>,
+    source: &'a mut BTreeMap<NodeId, Node>,
     symbol_table: &'a mut SymbolTable,
     resolver: ResolverStack,
     trace: bool,
@@ -48,7 +37,7 @@ pub(crate) struct Analyzer<'a> {
 impl<'a> Analyzer<'a> {
     pub(crate) fn new(
         input: &'a str,
-        source: &'a mut HashMap<hir::NodeId, hir::Node>,
+        source: &'a mut BTreeMap<NodeId, Node>,
         symbol_table: &'a mut SymbolTable,
         trace: bool,
     ) -> Self {
@@ -61,11 +50,11 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn register_node(&mut self, node: hir::Node) -> hir::NodeRef {
+    fn register_node(&mut self, node: Node) -> NodeRef {
         let node_id = self.source.len();
         if self.trace { println!("new node: {} [{}]", node.get_name(), node_id); }
         self.source.insert(node_id, node);
-        let node_ref = hir::NodeRef::new(node_id);
+        let node_ref = NodeRef::new(node_id);
         self.symbol_table.new_record(node_ref);
         node_ref
     }
@@ -79,21 +68,21 @@ impl<'a> Analyzer<'a> {
         SyntaxError::new(&format!("{} ({}:{})", message, line, column))
     }
 
-    fn make_error(&self, message: &str, node: hir::NodeRef) -> SyntaxError {
+    fn make_error(&self, message: &str, node: NodeRef) -> SyntaxError {
         match self.symbol_table.get(node).pos {
             Some((line, column)) => SyntaxError::new(&format!("{} ({}:{})", message, line, column)),
             None => SyntaxError::new(&format!("{}", message)),
         }
     }
 
-    fn resolve_node(&self, node_ref: hir::NodeRef) -> hir::NodeRef {
+    fn resolve_node(&self, node_ref: NodeRef) -> NodeRef {
         match node_ref.get(self.source) {
-            hir::Node::Reference(reference) => self.resolve_node(reference.dest),
+            Node::Reference(reference) => self.resolve_node(reference.dest),
             _ => node_ref,
         }
     }
 
-    fn define_variable_decl(&mut self, parser_node: &ast::Node, body: &ast::Node, decl_node_ref: hir::NodeRef) -> Result<(), SyntaxError> {
+    fn define_variable_decl(&mut self, parser_node: &ast::Node, body: &ast::Node, decl_node_ref: NodeRef) -> Result<(), SyntaxError> {
         let body_ref = self.generate_expr(body)?;
         let body_ty = self.symbol_table.get(body_ref).ty.map_or(Err(self.make_error("type not resolved", body_ref)), |x| Ok(x))?;
         if body_ty == Type::Function {
@@ -115,9 +104,7 @@ impl<'a> Analyzer<'a> {
             None => body_ty,
         };
 
-        let variable_node = hir::Node::Variable(Variable {
-            content: body_ref,
-        });
+        let variable_node = Node::new_variable(body_ref);
         let variable_ref = self.register_node(variable_node);
         self.symbol_table.set_pos(variable_ref, self.calc_location(parser_node)?);
         self.symbol_table.set_ty(variable_ref, ty);
@@ -131,34 +118,24 @@ impl<'a> Analyzer<'a> {
     fn add_builtin_declaration(
         &mut self,
         info: BuiltinInfo,
-    ) -> hir::NodeRef {
+    ) -> NodeRef {
         let mut param_nodes = Vec::new();
         for param_ty in info.params {
             // make param node
-            let node = hir::Node::FuncParam(FuncParam {
-                identifier: "".to_owned(),
-                // param_index: i,
-            });
+            let node = Node::new_func_param("".to_owned());
             let node_ref = self.register_node(node);
             self.symbol_table.set_ty(node_ref, param_ty);
             param_nodes.push(node_ref);
         }
 
-        let func_node = hir::Node::Function(Function {
-            params: param_nodes.clone(),
-            ret_ty: info.ret_ty,
-            content: FunctionBody::NativeCode,
-        });
+        let func_node = Node::new_function(param_nodes.clone(), info.ret_ty, FunctionBody::NativeCode);
         let func_node_ref = self.register_node(func_node);
 
         let func_signature = Signature::FunctionSignature(FunctionSignature {
             params: param_nodes,
             ret_ty: info.ret_ty,
         });
-        let decl_node = hir::Node::Declaration(Declaration {
-            identifier: info.name.clone(),
-            signature: func_signature,
-        });
+        let decl_node = Node::new_declaration(info.name.clone(), func_signature);
         let node_ref = self.register_node(decl_node);
         self.symbol_table.set_ty(node_ref, Type::Function);
         self.symbol_table.set_body(node_ref, func_node_ref);
@@ -166,31 +143,26 @@ impl<'a> Analyzer<'a> {
         node_ref
     }
 
-    fn add_call_main(&mut self) -> Result<hir::NodeRef, SyntaxError> {
+    fn add_call_main(&mut self) -> Result<NodeRef, SyntaxError> {
         // declaration reference of main function
         let dest_ref = match self.resolver.lookup_identifier("main") {
             Some(x) => x,
             None => return Err(SyntaxError::new("function `main` is not found")),
         };
-        let callee_node = hir::Node::Reference(Reference {
-            dest: dest_ref,
-        });
+        let callee_node = Node::new_reference(dest_ref);
         let callee_ref = self.register_node(callee_node);
         let dest_ty = self.symbol_table.get(dest_ref).ty.map_or(Err(SyntaxError::new("type not resolved")), |x| Ok(x))?;
         self.symbol_table.set_ty(callee_ref, dest_ty);
 
         // call expr
-        let call_node = hir::Node::CallExpr(CallExpr {
-            callee: callee_ref,
-            args: Vec::new(),
-        });
+        let call_node = Node::new_call_expr(callee_ref, Vec::new());
         let call_ref = self.register_node(call_node);
         self.symbol_table.set_ty(call_ref, Type::Void);
         Ok(call_ref)
     }
 
     /// Generate a HIR codes from a AST.
-    pub(crate) fn generate(&mut self, ast: &Vec<ast::Node>) -> Result<Vec<hir::NodeRef>, SyntaxError> {
+    pub(crate) fn generate(&mut self, ast: &Vec<ast::Node>) -> Result<Vec<NodeRef>, SyntaxError> {
         let mut ids = Vec::new();
 
         for info in builtin::make_infos() {
@@ -205,7 +177,7 @@ impl<'a> Analyzer<'a> {
     fn generate_statements(
         &mut self,
         parser_nodes: &Vec<ast::Node>,
-    ) -> Result<Vec<hir::NodeRef>, SyntaxError> {
+    ) -> Result<Vec<NodeRef>, SyntaxError> {
         let mut ids = Vec::new();
         for parser_node in parser_nodes.iter() {
             ids.push(self.generate_statement(parser_node)?);
@@ -216,7 +188,7 @@ impl<'a> Analyzer<'a> {
     /// Generate a HIR node from a statement AST node.
     /// - check if the statement is available in the global or local
     /// - check type compatibility for inner expression
-    fn generate_statement(&mut self, parser_node: &ast::Node) -> Result<hir::NodeRef, SyntaxError> {
+    fn generate_statement(&mut self, parser_node: &ast::Node) -> Result<NodeRef, SyntaxError> {
         let result = match &parser_node {
             ast::Node::FunctionDeclaration(func) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
@@ -239,7 +211,7 @@ impl<'a> Analyzer<'a> {
                     // params
                     let mut params = Vec::new();
                     for (i, func_param) in func_params.iter().enumerate() {
-                        let node = hir::Node::FuncParam(func_param.clone());
+                        let node = Node::FuncParam(func_param.clone());
                         let node_ref = self.register_node(node);
                         self.symbol_table.set_pos(node_ref, self.calc_location(&func.params[i])?);
                         let param_type = match &func.params[i].as_func_param().type_identifier {
@@ -254,10 +226,7 @@ impl<'a> Analyzer<'a> {
                         params,
                         ret_ty,
                     });
-                    let node = hir::Node::Declaration(Declaration {
-                        identifier: func.identifier.clone(),
-                        signature,
-                    });
+                    let node = Node::new_declaration(func.identifier.clone(), signature);
                     let node_ref = self.register_node(node);
                     self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                     self.symbol_table.set_ty(node_ref, Type::Function);
@@ -271,7 +240,7 @@ impl<'a> Analyzer<'a> {
                     // params
                     let mut params = Vec::new();
                     for func_param in func_params {
-                        let node = hir::Node::FuncParam(func_param);
+                        let node = Node::FuncParam(func_param);
                         let node_ref = self.register_node(node);
                         params.push(node_ref);
                     }
@@ -299,11 +268,7 @@ impl<'a> Analyzer<'a> {
                     let body = FunctionBody::Statements(self.generate_statements(func_body)?);
                     self.resolver.pop_frame();
 
-                    let node = hir::Node::Function(Function {
-                        params,
-                        ret_ty,
-                        content: body,
-                    });
+                    let node = Node::new_function(params, ret_ty, body);
                     let func_node_ref = self.register_node(node);
                     self.symbol_table.set_pos(func_node_ref, self.calc_location(parser_node)?);
 
@@ -337,10 +302,7 @@ impl<'a> Analyzer<'a> {
                     specified_ty,
                 });
                 // make node
-                let node = hir::Node::Declaration(Declaration {
-                    identifier: variable.identifier.clone(),
-                    signature,
-                });
+                let node = Node::new_declaration(variable.identifier.clone(), signature);
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 self.resolver.set_identifier(&variable.identifier, node_ref);
@@ -357,7 +319,7 @@ impl<'a> Analyzer<'a> {
                     return Err(self.make_low_error("A break statement cannot be used in global space", parser_node));
                 }
                 // TODO: check target
-                let node = hir::Node::BreakStatement(BreakStatement {});
+                let node = Node::new_break_statement();
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
@@ -383,9 +345,7 @@ impl<'a> Analyzer<'a> {
                     }
                     None => None,
                 };
-                let node = hir::Node::ReturnStatement(ReturnStatement {
-                    body,
-                });
+                let node = Node::new_return_statement(body);
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
@@ -409,9 +369,7 @@ impl<'a> Analyzer<'a> {
                 }
 
                 // make target node
-                let target_node = hir::Node::Reference(Reference {
-                    dest: declaration_ref,
-                });
+                let target_node = Node::new_reference(declaration_ref);
                 let target_ref = self.register_node(target_node);
                 self.symbol_table.set_pos(target_ref, self.calc_location(parser_node)?);
                 let declaration_ty = self.symbol_table.get(declaration_ref).ty.map_or(Err(self.make_low_error("type not resolved", parser_node)), |x| Ok(x))?;
@@ -447,11 +405,7 @@ impl<'a> Analyzer<'a> {
                 }
 
                 // make node
-                let node = hir::Node::Assignment(Assignment {
-                    dest: target_ref,
-                    body: expr_ref,
-                    mode: statement.mode,
-                });
+                let node = Node::new_assignment(target_ref, expr_ref, statement.mode);
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
@@ -464,7 +418,7 @@ impl<'a> Analyzer<'a> {
                     parser_node: &ast::Node,
                     items: &Vec<(Box<ast::Node>, Vec<ast::Node>)>,
                     else_block: &Option<Vec<ast::Node>>,
-                ) -> Result<Option<hir::NodeRef>, SyntaxError> {
+                ) -> Result<Option<NodeRef>, SyntaxError> {
                     match items.get(index) {
                         Some((cond, then_block)) => {
                             let cond_ref = analyzer.generate_expr(cond)?;
@@ -475,11 +429,7 @@ impl<'a> Analyzer<'a> {
                             let elif = transform(index + 1, analyzer, parser_node, items, else_block)?;
                             match elif {
                                 Some(x) => {
-                                    let node = hir::Node::IfStatement(IfStatement {
-                                        condition: cond_ref,
-                                        then_block: then_nodes,
-                                        else_block: vec![x],
-                                    });
+                                    let node = Node::new_if_statement(cond_ref, then_nodes, vec![x]);
                                     let node_ref = analyzer.register_node(node);
                                     analyzer.symbol_table.set_pos(node_ref, analyzer.calc_location(parser_node)?);
                                     Ok(Some(node_ref))
@@ -489,11 +439,7 @@ impl<'a> Analyzer<'a> {
                                         Some(x) => analyzer.generate_statements(x)?,
                                         None => vec![],
                                     };
-                                    let node = hir::Node::IfStatement(IfStatement {
-                                        condition: cond_ref,
-                                        then_block: then_nodes,
-                                        else_block: else_nodes,
-                                    });
+                                    let node = Node::new_if_statement(cond_ref, then_nodes, else_nodes);
                                     let node_ref = analyzer.register_node(node);
                                     analyzer.symbol_table.set_pos(node_ref, analyzer.calc_location(parser_node)?);
                                     Ok(Some(node_ref))
@@ -522,9 +468,7 @@ impl<'a> Analyzer<'a> {
                     return Err(self.make_low_error("A loop statement cannot be used in global space", parser_node));
                 }
                 let body = self.generate_statements(&statement.body)?;
-                let node = hir::Node::LoopStatement(LoopStatement {
-                    body,
-                });
+                let node = Node::new_loop_statement(body);
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 Ok(node_ref)
@@ -560,7 +504,7 @@ impl<'a> Analyzer<'a> {
     /// - infer type for the expression
     /// - check type compatibility for inner expression
     /// - generate syntax errors
-    fn generate_expr(&mut self, parser_node: &ast::Node) -> Result<hir::NodeRef, SyntaxError> {
+    fn generate_expr(&mut self, parser_node: &ast::Node) -> Result<NodeRef, SyntaxError> {
         let result = match parser_node {
             ast::Node::Reference(reference) => {
                 if self.trace { println!("enter expr (node: {}, identifier: {})", parser_node.get_name(), reference.identifier); }
@@ -569,9 +513,7 @@ impl<'a> Analyzer<'a> {
                     None => return Err(self.make_low_error("unknown identifier", parser_node)),
                 };
 
-                let node = hir::Node::Reference(Reference {
-                    dest: dest_ref,
-                });
+                let node = Node::new_reference(dest_ref);
                 let node_ref = self.register_node(node);
                 let dest_ty = self.symbol_table.get(dest_ref).ty.map_or(Err(self.make_low_error("type not resolved", parser_node)), |x| Ok(x))?;
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
@@ -580,9 +522,7 @@ impl<'a> Analyzer<'a> {
             }
             ast::Node::NumberLiteral(node) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
-                let node = hir::Node::Literal(Literal {
-                    value: LiteralValue::Number(node.value),
-                });
+                let node = Node::new_literal(LiteralValue::Number(node.value));
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_ref, Type::Number);
@@ -590,9 +530,7 @@ impl<'a> Analyzer<'a> {
             }
             ast::Node::BoolLiteral(node) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
-                let node = hir::Node::Literal(Literal {
-                    value: LiteralValue::Bool(node.value),
-                });
+                let node = Node::new_literal(LiteralValue::Bool(node.value));
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_ref, Type::Bool);
@@ -614,10 +552,7 @@ impl<'a> Analyzer<'a> {
                     _ => return Err(self.make_low_error("unexpected operation", parser_node)),
                 };
                 Type::assert(expr_ty, Type::Bool).map_err(|e| self.make_error(&e, expr_ref))?;
-                let node = hir::Node::LogicalUnaryOp(LogicalUnaryOp {
-                    operator: op,
-                    expr: expr_ref,
-                });
+                let node = Node::new_logical_unary_op(op, expr_ref);
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_ref, Type::Bool);
@@ -655,11 +590,7 @@ impl<'a> Analyzer<'a> {
                     if let Some(op) = op {
                         Type::assert(left_ty, Type::Number).map_err(|e| self.make_error(&e, left_ref))?;
                         Type::assert(right_ty, Type::Number).map_err(|e| self.make_error(&e, right_ref))?;
-                        let node = hir::Node::ArithmeticOp(ArithmeticOp {
-                            operator: op,
-                            left: left_ref,
-                            right: right_ref,
-                        });
+                        let node = Node::new_arithmetic_op(op, left_ref, right_ref);
                         let node_ref = self.register_node(node);
                         self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                         self.symbol_table.set_ty(node_ref, Type::Number);
@@ -679,12 +610,7 @@ impl<'a> Analyzer<'a> {
                     };
                     if let Some(op) = op {
                         Type::assert(right_ty, left_ty).map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error message
-                        let node = hir::Node::RelationalOp(RelationalOp {
-                            operator: op,
-                            relation_type: left_ty,
-                            left: left_ref,
-                            right: right_ref,
-                        });
+                        let node = Node::new_relational_op(op, left_ty, left_ref, right_ref);
                         let node_ref = self.register_node(node);
                         self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                         self.symbol_table.set_ty(node_ref, Type::Bool);
@@ -701,11 +627,7 @@ impl<'a> Analyzer<'a> {
                     if let Some(op) = op {
                         Type::assert(left_ty, Type::Bool).map_err(|e| self.make_error(&e, left_ref))?;
                         Type::assert(right_ty, Type::Bool).map_err(|e| self.make_error(&e, right_ref))?;
-                        let node = hir::Node::LogicalBinaryOp(LogicalBinaryOp {
-                            operator: op,
-                            left: left_ref,
-                            right: right_ref,
-                        });
+                        let node = Node::new_logical_binary_op(op, left_ref, right_ref);
                         let node_ref = self.register_node(node);
                         self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                         self.symbol_table.set_ty(node_ref, Type::Bool);
@@ -743,10 +665,7 @@ impl<'a> Analyzer<'a> {
                     Type::assert(arg_ty, param_ty).map_err(|e| self.make_error(&e, arg_ref))?;
                     args.push(arg_ref);
                 }
-                let node = hir::Node::CallExpr(CallExpr {
-                    callee: callee_ref,
-                    args,
-                });
+                let node = Node::new_call_expr(callee_ref, args);
                 let node_ref = self.register_node(node);
                 self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_ref, ret_ty);

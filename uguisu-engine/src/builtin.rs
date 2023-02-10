@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
+use std::time::SystemTime;
 use crate::RuntimeError;
 use crate::hir::Type;
 use crate::hir_run::Value;
@@ -26,13 +27,13 @@ impl BuiltinInfo {
 type BuiltinHandler = fn(&Vec<Value>) -> Result<Value, RuntimeError>;
 
 pub(crate) struct BuiltinRuntime {
-    table: HashMap<String, BuiltinHandler>,
+    table: BTreeMap<String, BuiltinHandler>,
 }
 
 impl BuiltinRuntime {
     fn new() -> Self {
         Self {
-            table: HashMap::new(),
+            table: BTreeMap::new(),
         }
     }
 
@@ -70,6 +71,12 @@ pub(crate) fn make_infos() -> Vec<BuiltinInfo> {
         Type::Void,
     ));
 
+    infos.push(BuiltinInfo::new(
+        "getUnixtime",
+        vec![],
+        Type::Number,
+    ));
+
     infos
 }
 
@@ -98,6 +105,19 @@ pub(crate) fn make_runtime() -> BuiltinRuntime {
         Ok(Value::NoneValue)
     }
     runtime.add("assertEq", assert_eq);
+
+    fn get_unixtime(_args: &Vec<Value>) -> Result<Value, RuntimeError> {
+        let unixtime = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH).map_err(|_e| RuntimeError::new("getUnixtime failed"))?
+            .as_secs();
+        // cast validation
+        if unixtime > i64::max_value() as u64 {
+            return Err(RuntimeError::new("value is out of range"));
+        }
+        let unixtime = unixtime as i64;
+        Ok(Value::Number(unixtime))
+    }
+    runtime.add("getUnixtime", get_unixtime);
 
     runtime
 }

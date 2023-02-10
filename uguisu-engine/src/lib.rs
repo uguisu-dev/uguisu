@@ -9,9 +9,8 @@ mod builtin;
 mod test;
 
 use hir::SymbolTable;
-
-use crate::hir_run::RuningStack;
-use std::collections::HashMap;
+use crate::hir_run::Env;
+use std::collections::BTreeMap;
 
 pub struct SyntaxError {
     pub message: String,
@@ -38,7 +37,7 @@ impl RuntimeError {
 }
 
 pub struct Engine {
-    hir_source: HashMap<hir::NodeId, hir::Node>,
+    hir_source: BTreeMap<hir::NodeId, hir::Node>,
     symbol_table: SymbolTable,
     analysis_trace: bool,
     running_trace: bool,
@@ -47,7 +46,7 @@ pub struct Engine {
 impl Engine {
     pub fn new(analysis_trace: bool, running_trace: bool) -> Self {
         Self {
-            hir_source: HashMap::new(),
+            hir_source: BTreeMap::new(),
             symbol_table: SymbolTable::new(),
             analysis_trace,
             running_trace,
@@ -75,8 +74,8 @@ impl Engine {
     }
 
     pub fn run(&mut self, hir_code: Vec<hir::NodeRef>) -> Result<(), RuntimeError> {
-        let mut stack = RuningStack::new(self.running_trace);
+        let mut env = Env::new(self.running_trace);
         let runner = hir_run::Runner::new(&self.hir_source, &self.symbol_table, self.running_trace);
-        runner.run(&hir_code, &mut stack)
+        runner.run(&hir_code, &mut env)
     }
 }

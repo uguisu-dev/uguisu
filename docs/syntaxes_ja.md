@@ -173,6 +173,9 @@ comment
 */
 ```
 
+## スコープ規則
+静的スコープを採用します。
+
 ## ビルトイン関数
 
 ### printNum
@@ -196,3 +199,10 @@ fn printLF();
 fn assertEq(actual: number, expected: number);
 ```
 与えられた数値と期待する数値を比較して、値が異なる場合にランタイムエラーを発生させます。
+
+### getUnixtime
+関数シグネチャ:
+```
+fn getUnixtime(): number;
+```
+現在の時刻をUnixtimeの形式で取得します(単位は秒)。
