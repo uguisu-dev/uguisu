@@ -79,13 +79,6 @@ impl<'a> HirGenerator<'a> {
         }
     }
 
-    fn resolve_node(&self, node_ref: NodeRef) -> NodeRef {
-        match node_ref.get(self.source) {
-            Node::Reference(reference) => self.resolve_node(reference.dest),
-            _ => node_ref,
-        }
-    }
-
     fn get_ty_or_err(&self, node_ref: NodeRef) -> Result<Type, SyntaxError> {
         match self.symbol_table.get(node_ref).ty {
             Some(x) => Ok(x),
@@ -97,6 +90,13 @@ impl<'a> HirGenerator<'a> {
         match self.symbol_table.get(node_ref).ty {
             Some(x) => Ok(x),
             None => Err(self.make_low_error("type not resolved", parser_node)),
+        }
+    }
+
+    fn resolve_node(&self, node_ref: NodeRef) -> NodeRef {
+        match node_ref.get(self.source) {
+            Node::Reference(reference) => self.resolve_node(reference.dest),
+            _ => node_ref,
         }
     }
 
