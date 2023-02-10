@@ -31,13 +31,13 @@ pub(crate) struct BuiltinRuntime {
 }
 
 impl BuiltinRuntime {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             table: BTreeMap::new(),
         }
     }
 
-    fn add(&mut self, internal_name: &str, handler: BuiltinHandler) {
+    pub(crate) fn add(&mut self, internal_name: &str, handler: BuiltinHandler) {
         self.table.insert(internal_name.to_owned(), handler);
     }
 

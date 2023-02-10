@@ -1,3 +1,5 @@
+//! This module provides command parsing and routing to the commands.
+
 use std::env;
 
 mod commands;
@@ -7,7 +9,7 @@ enum Command {
     Run,
 }
 
-pub fn parse_command() {
+pub fn process_command() {
     let args_source: Vec<String> = env::args().collect();
     let command = if args_source.len() > 1 {
         match args_source[1].as_str() {

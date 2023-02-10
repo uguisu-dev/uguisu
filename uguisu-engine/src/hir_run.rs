@@ -121,14 +121,14 @@ impl EnvFrame {
     }
 }
 
-pub(crate) struct Runner<'a> {
+pub(crate) struct HirRunner<'a> {
     source: &'a BTreeMap<NodeId, Node>,
     symbol_table: &'a SymbolTable,
     trace: bool,
     builtins: BuiltinRuntime,
 }
 
-impl<'a> Runner<'a> {
+impl<'a> HirRunner<'a> {
     pub(crate) fn new(source: &'a BTreeMap<NodeId, Node>, symbol_table: &'a SymbolTable, trace: bool) -> Self {
         Self {
             source,

@@ -1,26 +1,17 @@
-use crate::Engine;
 
-fn try_run_test(code: &str) -> Result<(), String> {
-    let mut engine = Engine::new(false, false);
+fn try_run_test(source_code: &str) -> Result<(), String> {
+    let ast_data = crate::parse(source_code)
+        .map_err(|e| format!("Parsing Error: {}", e.message))?;
 
-    let ast = match engine.parse(code) {
-        Ok(x) => x,
-        Err(e) => return Err(format!("Parsing Error: {}", e.message)),
-    };
+    let hir_data = crate::generate_hir(&ast_data, false)
+        .map_err(|e| format!("Analysis Error: {}", e.message))?;
 
-    let hir_code = match engine.generate_hir(code, ast) {
-        Ok(x) => x,
-        Err(e) => return Err(format!("Analysis Error: {}", e.message)),
-    };
-
-    match engine.run(hir_code) {
-        Ok(x) => Ok(x),
-        Err(e) => return Err(format!("Runtime Error: {}", e.message)),
-    }
+    crate::run(&hir_data, false)
+        .map_err(|e| format!("Runtime Error: {}", e.message))
 }
 
-fn run_test(code: &str) {
-    try_run_test(code).unwrap();
+fn run_test(source_code: &str) {
+    try_run_test(source_code).unwrap();
 }
 
 // variable + number literal

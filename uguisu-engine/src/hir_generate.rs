@@ -26,26 +26,30 @@ use crate::hir::{
 use crate::SyntaxError;
 use std::collections::BTreeMap;
 
-pub(crate) struct Analyzer<'a> {
+pub(crate) struct HirGenerator<'a> {
     input: &'a str,
+    ast: &'a Vec<ast::Node>,
     source: &'a mut BTreeMap<NodeId, Node>,
     symbol_table: &'a mut SymbolTable,
     resolver: ResolverStack,
     trace: bool,
 }
 
-impl<'a> Analyzer<'a> {
+impl<'a> HirGenerator<'a> {
     pub(crate) fn new(
         input: &'a str,
+        ast: &'a Vec<ast::Node>,
         source: &'a mut BTreeMap<NodeId, Node>,
         symbol_table: &'a mut SymbolTable,
         trace: bool,
     ) -> Self {
+        let resolver = ResolverStack::new(trace);
         Self {
             input,
+            ast,
             source,
             symbol_table,
-            resolver: ResolverStack::new(trace),
+            resolver,
             trace,
         }
     }
@@ -162,13 +166,13 @@ impl<'a> Analyzer<'a> {
     }
 
     /// Generate a HIR codes from a AST.
-    pub(crate) fn generate(&mut self, ast: &Vec<ast::Node>) -> Result<Vec<NodeRef>, SyntaxError> {
+    pub(crate) fn generate(&mut self) -> Result<Vec<NodeRef>, SyntaxError> {
         let mut ids = Vec::new();
 
         for info in builtin::make_infos() {
             ids.push(self.add_builtin_declaration(info));
         }
-        ids.extend(self.generate_statements(ast)?);
+        ids.extend(self.generate_statements(self.ast)?);
         ids.push(self.add_call_main()?);
 
         Ok(ids)
@@ -414,7 +418,7 @@ impl<'a> Analyzer<'a> {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 fn transform(
                     index: usize,
-                    analyzer: &mut Analyzer,
+                    analyzer: &mut HirGenerator,
                     parser_node: &ast::Node,
                     items: &Vec<(Box<ast::Node>, Vec<ast::Node>)>,
                     else_block: &Option<Vec<ast::Node>>,

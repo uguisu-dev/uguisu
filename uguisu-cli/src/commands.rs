@@ -1,3 +1,5 @@
+//! A module for `uguisu` root command.
+
 use getopts::Options;
 
 pub(crate) mod run;
