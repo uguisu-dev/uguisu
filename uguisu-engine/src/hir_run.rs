@@ -352,27 +352,27 @@ impl<'a> HirRunner<'a> {
                 let right = self.eval_expr(expr.right, env)?;
                 match expr.relation_type {
                     Type::Number => {
-                        let l = left.as_number();
-                        let r = right.as_number();
+                        let left = left.as_number();
+                        let right = right.as_number();
                         match expr.operator {
-                            RelationalOperator::Equal => Ok(Value::Bool(l == r)),
-                            RelationalOperator::NotEqual => Ok(Value::Bool(l != r)),
-                            RelationalOperator::LessThan => Ok(Value::Bool(l < r)),
-                            RelationalOperator::LessThanEqual => Ok(Value::Bool(l <= r)),
-                            RelationalOperator::GreaterThan => Ok(Value::Bool(l > r)),
-                            RelationalOperator::GreaterThanEqual => Ok(Value::Bool(l >= r)),
+                            RelationalOperator::Equal => Ok(Value::Bool(left == right)),
+                            RelationalOperator::NotEqual => Ok(Value::Bool(left != right)),
+                            RelationalOperator::LessThan => Ok(Value::Bool(left < right)),
+                            RelationalOperator::LessThanEqual => Ok(Value::Bool(left <= right)),
+                            RelationalOperator::GreaterThan => Ok(Value::Bool(left > right)),
+                            RelationalOperator::GreaterThanEqual => Ok(Value::Bool(left >= right)),
                         }
                     }
                     Type::Bool => {
-                        let l = left.as_bool();
-                        let r = right.as_bool();
+                        let left = left.as_bool();
+                        let right = right.as_bool();
                         match expr.operator {
-                            RelationalOperator::Equal => Ok(Value::Bool(l == r)),
-                            RelationalOperator::NotEqual => Ok(Value::Bool(l != r)),
-                            RelationalOperator::LessThan => Ok(Value::Bool(l < r)),
-                            RelationalOperator::LessThanEqual => Ok(Value::Bool(l <= r)),
-                            RelationalOperator::GreaterThan => Ok(Value::Bool(l > r)),
-                            RelationalOperator::GreaterThanEqual => Ok(Value::Bool(l >= r)),
+                            RelationalOperator::Equal => Ok(Value::Bool(left == right)),
+                            RelationalOperator::NotEqual => Ok(Value::Bool(left != right)),
+                            RelationalOperator::LessThan => Ok(Value::Bool(left < right)),
+                            RelationalOperator::LessThanEqual => Ok(Value::Bool(left <= right)),
+                            RelationalOperator::GreaterThan => Ok(Value::Bool(left > right)),
+                            RelationalOperator::GreaterThanEqual => Ok(Value::Bool(left >= right)),
                         }
                     }
                     Type::Function
@@ -423,12 +423,11 @@ impl<'a> HirRunner<'a> {
             }
             Node::CallExpr(call_expr) => {
                 let callee_ref = self.resolve_node(call_expr.callee);
-                let callee_node = callee_ref.get(self.source);
-                let decl = callee_node.as_decl().unwrap();
-                let signature = decl.signature.as_function_signature().unwrap();
+                let callee = callee_ref.get(self.source).as_decl().unwrap();
+                let signature = callee.signature.as_function_signature().unwrap();
                 let func = match self.symbol_table.get(callee_ref).body {
                     Some(x) => x.get(self.source).as_function().unwrap(),
-                    None => panic!("function `{}` is not defined (node_id={})", decl.identifier, call_expr.callee.id),
+                    None => panic!("function `{}` is not defined (node_id={})", callee.identifier, call_expr.callee.id),
                 };
                 let mut args = Vec::new();
                 for &arg_ref in call_expr.args.iter() {
@@ -457,7 +456,7 @@ impl<'a> HirRunner<'a> {
                         }
                     }
                     FunctionBody::NativeCode => {
-                        result = Some(self.builtins.call(&decl.identifier, &args)?);
+                        result = Some(self.builtins.call(&callee.identifier, &args)?);
                     }
                 }
                 env.pop_frame();

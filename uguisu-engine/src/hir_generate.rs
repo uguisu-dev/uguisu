@@ -27,9 +27,9 @@ use crate::SyntaxError;
 use std::collections::BTreeMap;
 
 pub(crate) struct HirGenerator<'a> {
-    input: &'a str,
+    source_code: &'a str,
     ast: &'a Vec<ast::Node>,
-    source: &'a mut BTreeMap<NodeId, Node>,
+    node_map: &'a mut BTreeMap<NodeId, Node>,
     symbol_table: &'a mut SymbolTable,
     resolver: ResolverStack,
     trace: bool,
@@ -37,17 +37,17 @@ pub(crate) struct HirGenerator<'a> {
 
 impl<'a> HirGenerator<'a> {
     pub(crate) fn new(
-        input: &'a str,
+        source_code: &'a str,
         ast: &'a Vec<ast::Node>,
-        source: &'a mut BTreeMap<NodeId, Node>,
+        node_map: &'a mut BTreeMap<NodeId, Node>,
         symbol_table: &'a mut SymbolTable,
         trace: bool,
     ) -> Self {
         let resolver = ResolverStack::new(trace);
         Self {
-            input,
+            source_code,
             ast,
-            source,
+            node_map,
             symbol_table,
             resolver,
             trace,
@@ -55,20 +55,20 @@ impl<'a> HirGenerator<'a> {
     }
 
     fn register_node(&mut self, node: Node) -> NodeRef {
-        let node_id = self.source.len();
+        let node_id = self.node_map.len();
         if self.trace { println!("new node: {} [{}]", node.get_name(), node_id); }
-        self.source.insert(node_id, node);
+        self.node_map.insert(node_id, node);
         let node_ref = NodeRef::new(node_id);
         self.symbol_table.new_record(node_ref);
         node_ref
     }
 
     fn calc_location(&self, node: &ast::Node) -> Result<(usize, usize), SyntaxError> {
-        node.calc_location(self.input).map_err(|e| SyntaxError::new(&e))
+        node.calc_location(self.source_code).map_err(|e| SyntaxError::new(&e))
     }
 
     fn make_low_error(&self, message: &str, node: &ast::Node) -> SyntaxError {
-        let (line, column) = node.calc_location(self.input).unwrap();
+        let (line, column) = node.calc_location(self.source_code).unwrap();
         SyntaxError::new(&format!("{} ({}:{})", message, line, column))
     }
 
@@ -94,7 +94,7 @@ impl<'a> HirGenerator<'a> {
     }
 
     fn resolve_node(&self, node_ref: NodeRef) -> NodeRef {
-        match node_ref.get(self.source) {
+        match node_ref.get(self.node_map) {
             Node::Reference(reference) => self.resolve_node(reference.dest),
             _ => node_ref,
         }
@@ -109,8 +109,7 @@ impl<'a> HirGenerator<'a> {
         if body_ty == Type::Void {
             return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", body_ref));
         }
-        let decl_node = decl_node_ref.get(self.source);
-        let decl = decl_node.as_decl().unwrap();
+        let decl = decl_node_ref.get(self.node_map).as_decl().unwrap();
         let signature = match &decl.signature {
             Signature::VariableSignature(x) => x,
             Signature::FunctionSignature(_) => {
@@ -265,8 +264,7 @@ impl<'a> HirGenerator<'a> {
 
                     // body
                     self.resolver.push_frame();
-                    let decl_node = decl_node_ref.get(self.source);
-                    let decl = decl_node.as_decl().unwrap();
+                    let decl = decl_node_ref.get(self.node_map).as_decl().unwrap();
                     let signature = decl.signature.as_function_signature().unwrap();
                     let mut i = 0;
                     loop {
@@ -274,8 +272,7 @@ impl<'a> HirGenerator<'a> {
                             Some(&x) => x,
                             None => break,
                         };
-                        let param_node = param_ref.get(self.source);
-                        let param = param_node.as_func_param().unwrap();
+                        let param = param_ref.get(self.node_map).as_func_param().unwrap();
                         self.resolver.set_identifier(&param.identifier, param_ref);
                         i += 1;
                     }
@@ -658,8 +655,7 @@ impl<'a> HirGenerator<'a> {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let callee_ref = self.generate_expr(&call_expr.callee)?;
                 let callee_func_ref = self.resolve_node(callee_ref);
-                let callee_func_node = callee_func_ref.get(self.source);
-                let callee_func = callee_func_node.as_decl().map_err(|e| self.make_error(&e, callee_ref))?;
+                let callee_func = callee_func_ref.get(self.node_map).as_decl().map_err(|e| self.make_error(&e, callee_ref))?;
                 let signature = callee_func.signature.as_function_signature().map_err(|e| self.make_error(&e, callee_ref))?;
                 let ret_ty = signature.ret_ty;
                 let params = signature.params.clone();
