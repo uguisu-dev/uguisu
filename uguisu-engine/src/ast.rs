@@ -22,7 +22,7 @@ pub enum Node {
 }
 
 impl Node {
-    pub(crate) fn get_name(&self) -> &str {
+    pub fn get_name(&self) -> &str {
         match self {
             Node::FunctionDeclaration(_) => "FunctionDeclaration",
             Node::VariableDeclaration(_) => "VariableDeclaration",
@@ -41,8 +41,8 @@ impl Node {
         }
     }
 
-    pub(crate) fn calc_location(&self, code: &str) -> Result<(usize, usize), String> {
-        let pos = match self {
+    pub fn get_pos(&self) -> usize {
+        match self {
             Node::FunctionDeclaration(node) => node.pos,
             Node::VariableDeclaration(node) => node.pos,
             Node::BreakStatement(node) => node.pos,
@@ -57,11 +57,10 @@ impl Node {
             Node::UnaryOp(node) => node.pos,
             Node::CallExpr(node) => node.pos,
             Node::FuncParam(node) => node.pos,
-        };
-        parse::calc_location(pos, code)
+        }
     }
 
-    pub(crate) fn new_function_declaration(
+    pub fn new_function_declaration(
         identifier: String,
         body: Option<Vec<Node>>,
         params: Vec<Node>,
@@ -79,7 +78,7 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_func_param(identifier: String, type_identifier: Option<String>, pos: usize) -> Self {
+    pub fn new_func_param(identifier: String, type_identifier: Option<String>, pos: usize) -> Self {
         Node::FuncParam(FuncParam {
             identifier,
             type_identifier,
@@ -87,7 +86,7 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_variable_declaration(
+    pub fn new_variable_declaration(
         identifier: String,
         body: Option<Node>,
         type_identifier: Option<String>,
@@ -107,20 +106,20 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_break_statement(pos: usize) -> Self {
+    pub fn new_break_statement(pos: usize) -> Self {
         Node::BreakStatement(BreakStatement {
             pos,
         })
     }
 
-    pub(crate) fn new_return_statement(expr: Option<Node>, pos: usize) -> Self {
+    pub fn new_return_statement(expr: Option<Node>, pos: usize) -> Self {
         match expr {
             Some(x) => Node::ReturnStatement(ReturnStatement { body: Some(Box::new(x)), pos }),
             None => Node::ReturnStatement(ReturnStatement { body: None, pos }),
         }
     }
 
-    pub(crate) fn new_assignment(dest: Node, body: Node, mode: AssignmentMode, pos: usize) -> Self {
+    pub fn new_assignment(dest: Node, body: Node, mode: AssignmentMode, pos: usize) -> Self {
         Node::Assignment(Assignment {
             dest: Box::new(dest),
             body: Box::new(body),
@@ -129,7 +128,7 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<Node>>, pos: usize) -> Self {
+    pub fn new_if_statement(cond_blocks: Vec<(Node, Vec<Node>)>, else_block: Option<Vec<Node>>, pos: usize) -> Self {
         let mut items = Vec::new();
         for (cond, block) in cond_blocks {
             items.push((Box::new(cond), block))
@@ -141,26 +140,26 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_loop_statement(body: Vec<Node>, pos: usize) -> Self {
+    pub fn new_loop_statement(body: Vec<Node>, pos: usize) -> Self {
         Node::LoopStatement(LoopStatement { body, pos })
     }
 
-    pub(crate) fn new_reference(identifier: &str, pos: usize) -> Self {
+    pub fn new_reference(identifier: &str, pos: usize) -> Self {
         Node::Reference(Reference {
             identifier: identifier.to_string(),
             pos,
         })
     }
 
-    pub(crate) fn new_number(value: i64, pos: usize) -> Self {
+    pub fn new_number(value: i64, pos: usize) -> Self {
         Node::NumberLiteral(NumberLiteral { value, pos })
     }
 
-    pub(crate) fn new_bool(value: bool, pos: usize) -> Self {
+    pub fn new_bool(value: bool, pos: usize) -> Self {
         Node::BoolLiteral(BoolLiteral { value, pos })
     }
 
-    pub(crate) fn new_binary_expr(op: &str, left: Node, right: Node, pos: usize) -> Self {
+    pub fn new_binary_expr(op: &str, left: Node, right: Node, pos: usize) -> Self {
         Node::BinaryExpr(BinaryExpr {
             operator: op.to_string(),
             left: Box::new(left),
@@ -169,7 +168,7 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_unary_op(op: &str, expr: Node, pos: usize) -> Self {
+    pub fn new_unary_op(op: &str, expr: Node, pos: usize) -> Self {
         Node::UnaryOp(UnaryOp {
             operator: op.to_string(),
             expr: Box::new(expr),
@@ -177,7 +176,7 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_call_expr(callee: Node, args: Vec<Node>, pos: usize) -> Self {
+    pub fn new_call_expr(callee: Node, args: Vec<Node>, pos: usize) -> Self {
         Node::CallExpr(CallExpr {
             callee: Box::new(callee),
             args,
@@ -185,14 +184,14 @@ impl Node {
         })
     }
 
-    pub(crate) fn as_func_param(&self) -> &FuncParam {
+    pub fn as_func_param(&self) -> &FuncParam {
         match self {
             Node::FuncParam(x) => x,
             _ => panic!("function parameter expected"),
         }
     }
 
-    pub(crate) fn as_reference(&self) -> &Reference {
+    pub fn as_reference(&self) -> &Reference {
         match self {
             Node::Reference(x) => x,
             _ => panic!("reference expected"),
@@ -327,15 +326,15 @@ fn indent(indent: usize) -> String {
     buf
 }
 
-pub fn show_tree(nodes: &Vec<Node>, code: &str, level: usize) {
+pub(crate) fn show_tree(nodes: &Vec<Node>, source_code: &str, level: usize) {
     for node in nodes.iter() {
-        show_node(node, code, level);
+        show_node(node, source_code, level);
     }
 }
 
-fn show_node(node: &Node, code: &str, level: usize) {
+fn show_node(node: &Node, source_code: &str, level: usize) {
     let name = node.get_name();
-    let (line, column) = node.calc_location(code).unwrap();
+    let (line, column) = parse::calc_location(node.get_pos(), source_code).unwrap();
     println!("{}{} ({}:{}) {{", indent(level), name, line, column);
     match node {
         Node::FunctionDeclaration(node) => {
@@ -348,7 +347,7 @@ fn show_node(node: &Node, code: &str, level: usize) {
             println!("{}}}", indent(level + 1));
 
             println!("{}params: {{", indent(level + 1));
-            show_tree(&node.params, code, level + 2);
+            show_tree(&node.params, source_code, level + 2);
             println!("{}}}", indent(level + 1));
 
             match &node.ret {
@@ -363,7 +362,7 @@ fn show_node(node: &Node, code: &str, level: usize) {
             println!("{}body: {{", indent(level + 1));
             match &node.body {
                 Some(x) => {
-                    show_tree(x, code, level + 2);
+                    show_tree(x, source_code, level + 2);
                 }
                 None => {
                     println!("{}(None)", indent(level + 2));
@@ -392,7 +391,7 @@ fn show_node(node: &Node, code: &str, level: usize) {
             println!("{}body: {{", indent(level + 1));
             match &node.body {
                 Some(x) => {
-                    show_node(x, code, level + 2);
+                    show_node(x, source_code, level + 2);
                 }
                 None => {
                     println!("{}(None)", indent(level + 2));
@@ -405,7 +404,7 @@ fn show_node(node: &Node, code: &str, level: usize) {
             println!("{}body: {{", indent(level + 1));
             match &node.body {
                 Some(x) => {
-                    show_node(x, code, level + 2);
+                    show_node(x, source_code, level + 2);
                 }
                 None => {
                     println!("{}(None)", indent(level + 2));
@@ -417,11 +416,11 @@ fn show_node(node: &Node, code: &str, level: usize) {
             println!("{}node: {:?}", indent(level + 1), node.mode);
 
             println!("{}dest: {{", indent(level + 1));
-            show_node(&node.dest, code, level + 2);
+            show_node(&node.dest, source_code, level + 2);
             println!("{}}}", indent(level + 1));
 
             println!("{}body: {{", indent(level + 1));
-            show_node(&node.body, code, level + 2);
+            show_node(&node.body, source_code, level + 2);
             println!("{}}}", indent(level + 1));
         }
         Node::IfStatement(node) => {
@@ -429,11 +428,11 @@ fn show_node(node: &Node, code: &str, level: usize) {
             for (cond, body) in node.cond_blocks.iter() {
                 println!("{}cond_block: {{", indent(level + 2));
                 println!("{}cond: {{", indent(level + 3));
-                show_node(cond, code, level + 4);
+                show_node(cond, source_code, level + 4);
                 println!("{}}}", indent(level + 3));
 
                 println!("{}body: {{", indent(level + 3));
-                show_tree(body, code, level + 4);
+                show_tree(body, source_code, level + 4);
                 println!("{}}}", indent(level + 3));
                 println!("{}}}", indent(level + 2));
             }
@@ -442,7 +441,7 @@ fn show_node(node: &Node, code: &str, level: usize) {
             println!("{}else_block: {{", indent(level + 1));
             match &node.else_block {
                 Some(x) => {
-                    show_tree(x, code, level + 2);
+                    show_tree(x, source_code, level + 2);
                 }
                 None => {
                     println!("{}(None)", indent(level + 2));
@@ -452,7 +451,7 @@ fn show_node(node: &Node, code: &str, level: usize) {
         }
         Node::LoopStatement(node) => {
             println!("{}body: {{", indent(level + 1));
-            show_tree(&node.body, code, level + 2);
+            show_tree(&node.body, source_code, level + 2);
             println!("{}}}", indent(level + 1));
         }
         Node::Reference(node) => {
@@ -468,27 +467,27 @@ fn show_node(node: &Node, code: &str, level: usize) {
             println!("{}operator: \"{}\"", indent(level + 1), node.operator);
 
             println!("{}left: {{", indent(level + 1));
-            show_node(&node.left, code, level + 2);
+            show_node(&node.left, source_code, level + 2);
             println!("{}}}", indent(level + 1));
 
             println!("{}right: {{", indent(level + 1));
-            show_node(&node.right, code, level + 2);
+            show_node(&node.right, source_code, level + 2);
             println!("{}}}", indent(level + 1));
         }
         Node::UnaryOp(node) => {
             println!("{}operator: \"{}\"", indent(level + 1), node.operator);
 
             println!("{}expr: {{", indent(level + 1));
-            show_node(&node.expr, code, level + 2);
+            show_node(&node.expr, source_code, level + 2);
             println!("{}}}", indent(level + 1));
         }
         Node::CallExpr(node) => {
             println!("{}callee: {{", indent(level + 1));
-            show_node(&node.callee, code, level + 2);
+            show_node(&node.callee, source_code, level + 2);
             println!("{}}}", indent(level + 1));
 
             println!("{}args: {{", indent(level + 1));
-            show_tree(&node.args, code, level + 2);
+            show_tree(&node.args, source_code, level + 2);
             println!("{}}}", indent(level + 1));
         }
         Node::FuncParam(node) => {

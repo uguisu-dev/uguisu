@@ -1,8 +1,8 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt};
 use crate::ast;
 
 #[derive(Debug)]
-pub(crate) enum Node {
+pub enum Node {
     // statement
     Declaration(Declaration),
     BreakStatement(BreakStatement),
@@ -24,7 +24,7 @@ pub(crate) enum Node {
 }
 
 impl Node {
-    pub(crate) fn get_name(&self) -> &str {
+    pub fn get_name(&self) -> &str {
         match self {
             Node::Declaration(_) => "Declaration",
             Node::BreakStatement(_) => "BreakStatement",
@@ -45,7 +45,7 @@ impl Node {
         }
     }
 
-    pub(crate) fn new_declaration(
+    pub fn new_declaration(
         identifier: String,
         signature: Signature,
     ) -> Self {
@@ -55,19 +55,19 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_break_statement() -> Self {
+    pub fn new_break_statement() -> Self {
         Node::BreakStatement(BreakStatement {})
     }
 
-    pub(crate) fn new_return_statement(body: Option<NodeRef>) -> Self {
+    pub fn new_return_statement(body: Option<NodeId>) -> Self {
         Node::ReturnStatement(ReturnStatement {
             body,
         })
     }
 
-    pub(crate) fn new_assignment(
-        dest: NodeRef,
-        body: NodeRef,
+    pub fn new_assignment(
+        dest: NodeId,
+        body: NodeId,
         mode: ast::AssignmentMode,
     ) -> Self {
         Node::Assignment(Assignment {
@@ -77,10 +77,10 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_if_statement(
-        condition: NodeRef,
-        then_block: Vec<NodeRef>,
-        else_block: Vec<NodeRef>,
+    pub fn new_if_statement(
+        condition: NodeId,
+        then_block: Vec<NodeId>,
+        else_block: Vec<NodeId>,
     ) -> Self {
         Node::IfStatement(IfStatement {
             condition,
@@ -89,14 +89,14 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_loop_statement(body: Vec<NodeRef>) -> Self {
+    pub fn new_loop_statement(body: Vec<NodeId>) -> Self {
         Node::LoopStatement(LoopStatement {
             body,
         })
     }
 
-    pub(crate) fn new_function(
-        params: Vec<NodeRef>,
+    pub fn new_function(
+        params: Vec<NodeId>,
         ret_ty: Type,
         content: FunctionBody,
     ) -> Self {
@@ -107,29 +107,29 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_variable(content: NodeRef) -> Self {
+    pub fn new_variable(content: NodeId) -> Self {
         Node::Variable(Variable {
             content,
         })
     }
 
-    pub(crate) fn new_reference(dest: NodeRef) -> Self {
+    pub fn new_reference(dest: NodeId) -> Self {
         Node::Reference(Reference {
             dest,
         })
     }
 
-    pub(crate) fn new_literal(value: LiteralValue) -> Self {
+    pub fn new_literal(value: LiteralValue) -> Self {
         Node::Literal(Literal {
             value,
         })
     }
 
-    pub(crate) fn new_relational_op(
+    pub fn new_relational_op(
         operator: RelationalOperator,
         relation_type: Type,
-        left: NodeRef,
-        right: NodeRef,
+        left: NodeId,
+        right: NodeId,
     ) -> Self {
         Node::RelationalOp(RelationalOp {
             operator,
@@ -139,10 +139,10 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_logical_binary_op(
+    pub fn new_logical_binary_op(
         operator: LogicalBinaryOperator,
-        left: NodeRef,
-        right: NodeRef,
+        left: NodeId,
+        right: NodeId,
     ) -> Self {
         Node::LogicalBinaryOp(LogicalBinaryOp {
             operator,
@@ -151,10 +151,10 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_arithmetic_op(
+    pub fn new_arithmetic_op(
         operator: ArithmeticOperator,
-        left: NodeRef,
-        right: NodeRef,
+        left: NodeId,
+        right: NodeId,
     ) -> Self {
         Node::ArithmeticOp(ArithmeticOp {
             operator,
@@ -163,9 +163,9 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_logical_unary_op(
+    pub fn new_logical_unary_op(
         operator: LogicalUnaryOperator,
-        expr: NodeRef,
+        expr: NodeId,
     ) -> Self {
         Node::LogicalUnaryOp(LogicalUnaryOp {
             operator,
@@ -173,9 +173,9 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_call_expr(
-        callee: NodeRef,
-        args: Vec<NodeRef>,
+    pub fn new_call_expr(
+        callee: NodeId,
+        args: Vec<NodeId>,
     ) -> Self {
         Node::CallExpr(CallExpr {
             callee,
@@ -183,28 +183,28 @@ impl Node {
         })
     }
 
-    pub(crate) fn new_func_param(identifier: String) -> Self {
+    pub fn new_func_param(identifier: String) -> Self {
         Node::FuncParam(FuncParam {
             identifier,
             // param_index,
         })
     }
 
-    pub(crate) fn as_function(&self) -> Result<&Function, String> {
+    pub fn as_function(&self) -> Result<&Function, String> {
         match self {
             Node::Function(x) => Ok(x),
             _ => Err("function expected".to_owned()),
         }
     }
 
-    pub(crate) fn as_decl(&self) -> Result<&Declaration, String> {
+    pub fn as_decl(&self) -> Result<&Declaration, String> {
         match self {
             Node::Declaration(x) => Ok(x),
             _ => Err("declaration expected".to_owned()),
         }
     }
 
-    pub(crate) fn as_func_param(&self) -> Result<&FuncParam, String> {
+    pub fn as_func_param(&self) -> Result<&FuncParam, String> {
         match self {
             Node::FuncParam(x) => Ok(x),
             _ => Err("function parameter expected".to_owned()),
@@ -212,38 +212,44 @@ impl Node {
     }
 }
 
-pub(crate) type NodeId = usize;
-
-#[derive(Debug, Clone, Copy)]
-pub struct NodeRef {
-    pub id: NodeId,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct NodeId {
+    pub value: usize,
 }
 
-impl NodeRef {
-    pub(crate) fn new(node_id: NodeId) -> Self {
-        Self { id: node_id }
+impl NodeId {
+    pub fn new(value: usize) -> Self {
+        Self {
+            value,
+        }
     }
 
-    pub(crate) fn get<'a>(&self, source: &'a BTreeMap<NodeId, Node>) -> &'a Node {
-        &source[&self.id]
+    pub fn get<'a>(&self, node_map: &'a BTreeMap<NodeId, Node>) -> &'a Node {
+        &node_map[&self]
+    }
+}
+
+impl fmt::Display for NodeId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.value)
     }
 }
 
 #[derive(Debug)]
-pub(crate) struct Declaration {
+pub struct Declaration {
     pub identifier: String,
     pub signature: Signature,
     //pub ty: Option<Type>,
 }
 
 #[derive(Debug)]
-pub(crate) enum Signature {
+pub enum Signature {
     FunctionSignature(FunctionSignature),
     VariableSignature(VariableSignature),
 }
 
 impl Signature {
-    pub(crate) fn as_function_signature(&self) -> Result<&FunctionSignature, String> {
+    pub fn as_function_signature(&self) -> Result<&FunctionSignature, String> {
         match self {
             Signature::FunctionSignature(x) => Ok(x),
             _ => Err("function signature expected".to_owned()),
@@ -252,108 +258,108 @@ impl Signature {
 }
 
 #[derive(Debug)]
-pub(crate) struct FunctionSignature {
+pub struct FunctionSignature {
     /// FuncParam
-    pub params: Vec<NodeRef>,
+    pub params: Vec<NodeId>,
     pub ret_ty: Type,
 }
 
 #[derive(Debug)]
-pub(crate) struct VariableSignature {
+pub struct VariableSignature {
     pub specified_ty: Option<Type>,
 }
 
 #[derive(Debug)]
-pub(crate) struct BreakStatement {
+pub struct BreakStatement {
 }
 
 #[derive(Debug)]
-pub(crate) struct ReturnStatement {
+pub struct ReturnStatement {
     /// Expression
-    pub body: Option<NodeRef>,
+    pub body: Option<NodeId>,
 }
 
 #[derive(Debug)]
-pub(crate) struct Assignment {
+pub struct Assignment {
     /// Reference
-    pub dest: NodeRef,
+    pub dest: NodeId,
     /// Expression
-    pub body: NodeRef,
+    pub body: NodeId,
     pub mode: ast::AssignmentMode,
 }
 
 #[derive(Debug)]
-pub(crate) struct IfStatement {
+pub struct IfStatement {
     /// Expression
-    pub condition: NodeRef,
+    pub condition: NodeId,
     /// Statement
-    pub then_block: Vec<NodeRef>,
+    pub then_block: Vec<NodeId>,
     /// Statement
-    pub else_block: Vec<NodeRef>,
+    pub else_block: Vec<NodeId>,
 }
 
 #[derive(Debug)]
-pub(crate) struct LoopStatement {
+pub struct LoopStatement {
     /// Statement
-    pub body: Vec<NodeRef>,
+    pub body: Vec<NodeId>,
 }
 
 #[derive(Debug)]
-pub(crate) struct Function {
+pub struct Function {
     /// FuncParam
-    pub params: Vec<NodeRef>,
+    pub params: Vec<NodeId>,
     pub ret_ty: Type,
     pub content: FunctionBody,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct FuncParam {
+pub struct FuncParam {
     pub identifier: String,
     // pub param_index: usize,
 }
 
 #[derive(Debug)]
-pub(crate) enum FunctionBody {
+pub enum FunctionBody {
     /// Statement
-    Statements(Vec<NodeRef>),
+    Statements(Vec<NodeId>),
     NativeCode,
 }
 
 #[derive(Debug)]
-pub(crate) struct Variable {
+pub struct Variable {
     /// Expression
-    pub content: NodeRef,
+    pub content: NodeId,
 }
 
 #[derive(Debug)]
-pub(crate) struct Reference {
+pub struct Reference {
     /// Declaration
-    pub dest: NodeRef,
+    pub dest: NodeId,
 }
 
 #[derive(Debug)]
-pub(crate) struct Literal {
+pub struct Literal {
     pub value: LiteralValue,
 }
 
 #[derive(Debug)]
-pub(crate) enum LiteralValue {
+pub enum LiteralValue {
     Number(i64),
     Bool(bool),
 }
 
 #[derive(Debug)]
-pub(crate) struct RelationalOp {
+pub struct RelationalOp {
     pub operator: RelationalOperator,
     pub relation_type: Type,
     /// Expression
-    pub left: NodeRef,
+    pub left: NodeId,
     /// Expression
-    pub right: NodeRef,
+    pub right: NodeId,
 }
 
 #[derive(Debug)]
-pub(crate) enum RelationalOperator {
+pub enum RelationalOperator {
     Equal,
     NotEqual,
     GreaterThan,
@@ -363,31 +369,31 @@ pub(crate) enum RelationalOperator {
 }
 
 #[derive(Debug)]
-pub(crate) struct LogicalBinaryOp {
+pub struct LogicalBinaryOp {
     pub operator: LogicalBinaryOperator,
     /// Expression
-    pub left: NodeRef,
+    pub left: NodeId,
     /// Expression
-    pub right: NodeRef,
+    pub right: NodeId,
 }
 
 #[derive(Debug)]
-pub(crate) enum LogicalBinaryOperator {
+pub enum LogicalBinaryOperator {
     And,
     Or,
 }
 
 #[derive(Debug)]
-pub(crate) struct ArithmeticOp {
+pub struct ArithmeticOp {
     pub operator: ArithmeticOperator,
     /// Expression
-    pub left: NodeRef,
+    pub left: NodeId,
     /// Expression
-    pub right: NodeRef,
+    pub right: NodeId,
 }
 
 #[derive(Debug)]
-pub(crate) enum ArithmeticOperator {
+pub enum ArithmeticOperator {
     Add,
     Sub,
     Mult,
@@ -396,37 +402,37 @@ pub(crate) enum ArithmeticOperator {
 }
 
 #[derive(Debug)]
-pub(crate) struct LogicalUnaryOp {
+pub struct LogicalUnaryOp {
     pub operator: LogicalUnaryOperator,
     /// Expression
-    pub expr: NodeRef,
+    pub expr: NodeId,
 }
 
 #[derive(Debug)]
-pub(crate) enum LogicalUnaryOperator {
+pub enum LogicalUnaryOperator {
     Not,
 }
 
 #[derive(Debug)]
-pub(crate) struct CallExpr {
+pub struct CallExpr {
     /// Reference (expects: Reference -> Declaration -> Function)
-    pub callee: NodeRef,
+    pub callee: NodeId,
     /// Expression
-    pub args: Vec<NodeRef>,
+    pub args: Vec<NodeId>,
 }
 
-pub(crate) fn show_map(source: &BTreeMap<NodeId, Node>, table: &SymbolTable) {
-    for i in 0..source.len() {
-        show_node(NodeRef::new(i), source, table);
+pub(crate) fn show_map(node_map: &BTreeMap<NodeId, Node>, symbol_table: &SymbolTable) {
+    for i in 0..node_map.len() {
+        show_node(NodeId::new(i), node_map, symbol_table);
     }
 }
 
-pub(crate) fn show_node(node_ref: NodeRef, source: &BTreeMap<NodeId, Node>, table: &SymbolTable) {
-    let node = node_ref.get(source);
+pub(crate) fn show_node(node_id: NodeId, node_map: &BTreeMap<NodeId, Node>, symbol_table: &SymbolTable) {
+    let node = node_id.get(node_map);
     let name = node.get_name();
-    match table.get(node_ref).pos {
-        Some((line, column)) => println!("[{}] {} ({}:{}) {{", node_ref.id, name, line, column),
-        None => println!("[{}] {} (no location) {{", node_ref.id, name),
+    match symbol_table.get(node_id).pos {
+        Some((line, column)) => println!("[{}] {} ({}:{}) {{", node_id, name, line, column),
+        None => println!("[{}] {} (no location) {{", node_id, name),
     }
     match node {
         Node::Declaration(decl) => {
@@ -436,7 +442,7 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &BTreeMap<NodeId, Node>, tabl
                     println!("  signature(FunctionSignature): {{");
                     println!("    params: {{");
                     for param in signature.params.iter() {
-                        println!("      [{}]", param.id);
+                        println!("      [{}]", param);
                     }
                     println!("    }}");
                     println!("    return_type: {:?}", signature.ret_ty);
@@ -459,7 +465,7 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &BTreeMap<NodeId, Node>, tabl
         Node::Function(func) => {
             println!("  params: {{");
             for param in func.params.iter() {
-                println!("    [{}]", param.id);
+                println!("    [{}]", param);
             }
             println!("  }}");
             println!("  return_type: {:?}", func.ret_ty);
@@ -467,7 +473,7 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &BTreeMap<NodeId, Node>, tabl
                 FunctionBody::Statements(body) => {
                     println!("  body: (statements) {{");
                     for item in body.iter() {
-                        println!("    [{}]", item.id);
+                        println!("    [{}]", item);
                     }
                     println!("  }}");
                 }
@@ -478,7 +484,7 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &BTreeMap<NodeId, Node>, tabl
         }
         Node::Variable(variable) => {
             println!("  content: {{");
-            println!("    [{}]", variable.content.id);
+            println!("    [{}]", variable.content);
             println!("  }}");
         }
         Node::BreakStatement(_) => {}
@@ -486,7 +492,7 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &BTreeMap<NodeId, Node>, tabl
             match node.body {
                 Some(x) => {
                     println!("  expr: {{");
-                    println!("    [{}]", x.id);
+                    println!("    [{}]", x);
                     println!("  }}");
                 }
                 None => {
@@ -496,37 +502,37 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &BTreeMap<NodeId, Node>, tabl
         }
         Node::Assignment(statement) => {
             println!("  dest: {{");
-            println!("    [{}]", statement.dest.id);
+            println!("    [{}]", statement.dest);
             println!("  }}");
             println!("  body: {{");
-            println!("    [{}]", statement.body.id);
+            println!("    [{}]", statement.body);
             println!("  }}");
         }
         Node::IfStatement(if_statement) => {
             println!("  condition: {{");
-            println!("    [{}]", if_statement.condition.id);
+            println!("    [{}]", if_statement.condition);
             println!("  }}");
             println!("  then_block: {{");
             for item in if_statement.then_block.iter() {
-                println!("    [{}]", item.id);
+                println!("    [{}]", item);
             }
             println!("  }}");
             println!("  else_block: {{");
             for item in if_statement.else_block.iter() {
-                println!("    [{}]", item.id);
+                println!("    [{}]", item);
             }
             println!("  }}");
         }
         Node::LoopStatement(statement) => {
             println!("  body: {{");
             for item in statement.body.iter() {
-                println!("    [{}]", item.id);
+                println!("    [{}]", item);
             }
             println!("  }}");
         }
         Node::Reference(x) => {
             println!("  dest: {{");
-            println!("    [{}]", x.dest.id);
+            println!("    [{}]", x.dest);
             println!("  }}");
         }
         Node::Literal(literal) => {
@@ -535,43 +541,43 @@ pub(crate) fn show_node(node_ref: NodeRef, source: &BTreeMap<NodeId, Node>, tabl
         Node::RelationalOp(expr) => {
             println!("  operator: {:?}", expr.operator);
             println!("  left: {{");
-            println!("    [{}]", expr.left.id);
+            println!("    [{}]", expr.left);
             println!("  }}");
             println!("  right: {{");
-            println!("    [{}]", expr.right.id);
+            println!("    [{}]", expr.right);
             println!("  }}");
         },
         Node::LogicalBinaryOp(expr) => {
             println!("  operator: {:?}", expr.operator);
             println!("  left: {{");
-            println!("    [{}]", expr.left.id);
+            println!("    [{}]", expr.left);
             println!("  }}");
             println!("  right: {{");
-            println!("    [{}]", expr.right.id);
+            println!("    [{}]", expr.right);
             println!("  }}");
         },
         Node::ArithmeticOp(expr) => {
             println!("  operator: {:?}", expr.operator);
             println!("  left: {{");
-            println!("    [{}]", expr.left.id);
+            println!("    [{}]", expr.left);
             println!("  }}");
             println!("  right: {{");
-            println!("    [{}]", expr.right.id);
+            println!("    [{}]", expr.right);
             println!("  }}");
         },
         Node::LogicalUnaryOp(op) => {
             println!("  operator: {:?}", op.operator);
             println!("  expr: {{");
-            println!("    [{}]", op.expr.id);
+            println!("    [{}]", op.expr);
             println!("  }}");
         },
         Node::CallExpr(call_expr) => {
             println!("  callee: {{");
-            println!("    [{}]", call_expr.callee.id);
+            println!("    [{}]", call_expr.callee);
             println!("  }}");
             println!("  args: {{");
             for arg in call_expr.args.iter() {
-                println!("    [{}]", arg.id);
+                println!("    [{}]", arg);
             }
             println!("  }}");
         }
@@ -613,22 +619,22 @@ impl ResolverStack {
         self.frames.remove(0);
     }
 
-    pub(crate) fn set_identifier(&mut self, identifier: &str, node: NodeRef) {
-        if self.trace { println!("set_identifier (identifier: \"{}\", node_id: [{}])", identifier, node.id); }
+    pub(crate) fn set_identifier(&mut self, identifier: &str, node_id: NodeId) {
+        if self.trace { println!("set_identifier (identifier: \"{}\", node_id: [{}])", identifier, node_id); }
         match self.frames.get_mut(0) {
             Some(frame) => {
-                frame.table.insert(identifier.to_string(), node);
+                frame.table.insert(identifier.to_string(), node_id);
             }
             None => panic!("frame not found"),
         }
     }
 
-    pub(crate) fn lookup_identifier(&self, identifier: &str) -> Option<NodeRef> {
+    pub(crate) fn lookup_identifier(&self, identifier: &str) -> Option<NodeId> {
         for frame in self.frames.iter() {
             match frame.table.get(identifier) {
-                Some(&node) => {
-                    if self.trace { println!("lookup_identifier success (identifier: \"{}\", node_id: {})", identifier, node.id); }
-                    return Some(node)
+                Some(&node_id) => {
+                    if self.trace { println!("lookup_identifier success (identifier: \"{}\", node_id: {})", identifier, node_id); }
+                    return Some(node_id)
                 }
                 None => {
                     if self.trace { println!("lookup_identifier failure (identifier: \"{}\")", identifier); }
@@ -640,7 +646,7 @@ impl ResolverStack {
 }
 
 struct ResolverFrame {
-    table: BTreeMap<String, NodeRef>,
+    table: BTreeMap<String, NodeId>,
 }
 
 impl ResolverFrame {
@@ -651,62 +657,62 @@ impl ResolverFrame {
     }
 }
 
-pub(crate) struct SymbolTable {
-    table: BTreeMap<NodeId, SymbolRecord>,
-    trace: bool,
+pub struct SymbolTable {
+    pub table: BTreeMap<NodeId, SymbolRecord>,
+    pub trace: bool,
 }
 
 impl SymbolTable {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             table: BTreeMap::new(),
             trace: false,
         }
     }
 
-    pub(crate) fn set_trace(&mut self, enabled: bool) {
+    pub fn set_trace(&mut self, enabled: bool) {
         self.trace = enabled;
     }
 
-    pub(crate) fn new_record(&mut self, node: NodeRef) {
+    pub fn new_record(&mut self, node_id: NodeId) {
         let record = SymbolRecord {
             ty: None,
             pos: None,
             body: None,
         };
-        self.table.insert(node.id, record);
+        self.table.insert(node_id, record);
     }
 
-    pub(crate) fn set_ty(&mut self, node: NodeRef, ty: Type) {
-        if self.trace { println!("set_ty (node_id: [{}], ty: {:?})", node.id, ty); }
-        let record = match self.table.get_mut(&node.id) {
+    pub fn set_ty(&mut self, node_id: NodeId, ty: Type) {
+        if self.trace { println!("set_ty (node_id: [{}], ty: {:?})", node_id, ty); }
+        let record = match self.table.get_mut(&node_id) {
             Some(x) => x,
             None => panic!("symbol not found"),
         };
         record.ty = Some(ty);
     }
 
-    pub(crate) fn set_pos(&mut self, node: NodeRef, pos: (usize, usize)) {
-        if self.trace { println!("set_pos (node_id: [{}], pos: {:?})", node.id, pos); }
-        let record = match self.table.get_mut(&node.id) {
+    pub fn set_pos(&mut self, node_id: NodeId, pos: (usize, usize)) {
+        if self.trace { println!("set_pos (node_id: [{}], pos: {:?})", node_id, pos); }
+        let record = match self.table.get_mut(&node_id) {
             Some(x) => x,
             None => panic!("symbol not found"),
         };
         record.pos = Some(pos);
     }
 
-    pub(crate) fn set_body(&mut self, node: NodeRef, body: NodeRef) {
-        if self.trace { println!("set_body (node_id: [{}], body: [{}])", node.id, body.id); }
-        let record = match self.table.get_mut(&node.id) {
+    pub fn set_body(&mut self, node_id: NodeId, body: NodeId) {
+        if self.trace { println!("set_body (node_id: [{}], body: [{}])", node_id, body); }
+        let record = match self.table.get_mut(&node_id) {
             Some(x) => x,
             None => panic!("symbol not found"),
         };
         record.body = Some(body);
     }
 
-    pub(crate) fn get(&self, node: NodeRef) -> &SymbolRecord {
-        if self.trace { println!("get (node_id: [{}])", node.id); }
-        match self.table.get(&node.id) {
+    pub fn get(&self, node_id: NodeId) -> &SymbolRecord {
+        if self.trace { println!("get (node_id: [{}])", node_id); }
+        match self.table.get(&node_id) {
             Some(x) => x,
             None => panic!("symbol not found"),
         }
@@ -714,15 +720,15 @@ impl SymbolTable {
 }
 
 #[derive(Debug)]
-pub(crate) struct SymbolRecord {
+pub struct SymbolRecord {
     pub ty: Option<Type>,
     pub pos: Option<(usize, usize)>,
     /// (for Declaration) Variable or Function
-    pub body: Option<NodeRef>,
+    pub body: Option<NodeId>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub(crate) enum Type {
+pub enum Type {
     Void,
     Number,
     Bool,
@@ -730,7 +736,7 @@ pub(crate) enum Type {
 }
 
 impl Type {
-    pub(crate) fn get_name(&self) -> &str {
+    pub fn get_name(&self) -> &str {
         match self {
             Type::Void => "void",
             Type::Number => "number",
@@ -739,7 +745,7 @@ impl Type {
         }
     }
 
-    pub(crate) fn from_identifier(ty_identifier: &str) -> Result<Type, String> {
+    pub fn from_identifier(ty_identifier: &str) -> Result<Type, String> {
         match ty_identifier {
             "void" => Err("type `void` is invalid".to_owned()),
             "number" => Ok(Type::Number),
@@ -748,7 +754,7 @@ impl Type {
         }
     }
 
-    pub(crate) fn assert(actual: Type, expected: Type) -> Result<Type, String> {
+    pub fn assert(actual: Type, expected: Type) -> Result<Type, String> {
         if actual == expected {
             Ok(actual)
         } else {

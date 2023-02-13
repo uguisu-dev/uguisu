@@ -5,12 +5,12 @@ use crate::ast::*;
 mod test;
 
 /// supported newline characters: CR, CR+LF, LF
-pub(crate) fn calc_location(pos: usize, code: &str) -> Result<(usize, usize), String> {
+pub(crate) fn calc_location(pos: usize, source_code: &str) -> Result<(usize, usize), String> {
     let mut i = 0;
     let mut line = 1;
     let mut column = 1;
     let mut cr_flag = false;
-    let mut iter = code.char_indices();
+    let mut iter = source_code.char_indices();
     loop {
         if i == pos {
             return Ok((line, column));
@@ -246,11 +246,23 @@ peg::parser! {
     }
 }
 
-pub(crate) fn parse(input: &str) -> Result<Vec<Node>, SyntaxError> {
-    match uguisu_parser::root(input) {
-        Ok(n) => Ok(n),
-        Err(e) => Err(SyntaxError::new(
-            format!("expects {}. ({})", e.expected, e.location).as_str(),
-        )),
+pub(crate) struct Parser<'a> {
+    source_code: &'a str,
+}
+
+impl<'a> Parser<'a> {
+    pub(crate) fn new(source_code: &'a str) -> Self {
+        Self {
+            source_code,
+        }
+    }
+
+    pub(crate) fn parse(&self) -> Result<Vec<Node>, SyntaxError> {
+        match uguisu_parser::root(self.source_code) {
+            Ok(n) => Ok(n),
+            Err(e) => Err(SyntaxError::new(
+                format!("expects {}. ({})", e.expected, e.location).as_str(),
+            )),
+        }
     }
 }
