@@ -84,6 +84,12 @@ pub(crate) fn make_infos() -> Vec<BuiltinInfo> {
         Type::Number,
     ));
 
+    infos.push(BuiltinInfo::new(
+        "concatStr",
+        vec![Type::String, Type::String],
+        Type::String,
+    ));
+
     infos
 }
 
@@ -132,6 +138,15 @@ pub(crate) fn make_runtime() -> BuiltinRuntime {
         Ok(Value::Number(unixtime))
     }
     runtime.add("getUnixtime", get_unixtime);
+
+    fn concat_str(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+        let x = args[0].as_string(); // x: string
+        let y = args[1].as_string(); // y: string
+        let mut value = x.to_string();
+        value += y;
+        Ok(Value::String(value))
+    }
+    runtime.add("concatStr", concat_str);
 
     runtime
 }

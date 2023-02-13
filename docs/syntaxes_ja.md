@@ -223,3 +223,10 @@ fn assertEq(actual: number, expected: number);
 fn getUnixtime(): number;
 ```
 現在の時刻をUnixtimeの形式で取得します(単位は秒)。
+
+### concatStr
+関数シグネチャ:
+```
+fn concatStr(x: string, y: string);
+```
+2つの文字列を連結して新しい文字列を生成します。
