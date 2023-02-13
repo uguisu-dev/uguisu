@@ -93,6 +93,7 @@ peg::parser! {
             --
             e:number() { e }
             e:bool() { e }
+            e:string() { e }
             e:call_expr() { e }
             p:pos() id:idenfitier() { Node::new_reference(id, p) }
             "(" __* e:expression() __* ")" { e }
@@ -165,6 +166,15 @@ peg::parser! {
         rule bool() -> Node
             = p:pos() "true" { Node::new_bool(true, p) }
             / p:pos() "false" { Node::new_bool(false, p) }
+
+        rule string() -> Node
+            = p:pos() "\"" value:string_element()* "\"" { Node::new_string(value.iter().collect(), p) }
+
+        rule string_element() -> char
+            = "\\r" { '\r' }
+            / "\\n" { '\n' }
+            / "\\t" { '\t' }
+            / !"\"" c:[_] { c }
 
         rule call_expr() -> Node
             = p:pos() name:idenfitier() __* "(" __* args:call_params()? __* ")"

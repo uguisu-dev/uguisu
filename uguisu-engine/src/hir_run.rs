@@ -32,6 +32,7 @@ pub(crate) enum Value {
     NoneValue,
     Number(i64),
     Bool(bool),
+    String(String),
     Function(NodeId),
 }
 
@@ -40,6 +41,7 @@ impl Value {
         match self {
             Value::Number(_) => Type::Number,
             Value::Bool(_) => Type::Bool,
+            Value::String(_) => Type::String,
             Value::Function(_) => panic!("get type error"),
             Value::NoneValue => panic!("get type error"),
         }
@@ -56,6 +58,13 @@ impl Value {
         match self {
             &Value::Bool(value) => value,
             _ => panic!("type mismatched. expected `bool`, found `{}`", self.get_type().get_name()),
+        }
+    }
+
+    pub(crate) fn as_string(&self) -> &str {
+        match &self {
+            Value::String(value) => value,
+            _ => panic!("type mismatched. expected `string`, found `{}`", self.get_type().get_name()),
         }
     }
 }
@@ -332,9 +341,10 @@ impl<'a> HirRunner<'a> {
                 }
             }
             Node::Literal(literal) => {
-                match literal.value {
-                    LiteralValue::Number(n) => Ok(Value::Number(n)),
-                    LiteralValue::Bool(value) => Ok(Value::Bool(value)),
+                match &literal.value {
+                    LiteralValue::Number(n) => Ok(Value::Number(*n)),
+                    LiteralValue::Bool(value) => Ok(Value::Bool(*value)),
+                    LiteralValue::String(value) => Ok(Value::String(value.clone())),
                 }
             }
             Node::RelationalOp(expr) => {
@@ -366,6 +376,7 @@ impl<'a> HirRunner<'a> {
                         }
                     }
                     Type::Function
+                    | Type::String
                     | Type::Void => {
                         panic!("unsupported operation (node_id={})", node_id);
                     }

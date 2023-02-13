@@ -14,6 +14,7 @@ pub enum Node {
     Reference(Reference),
     NumberLiteral(NumberLiteral),
     BoolLiteral(BoolLiteral),
+    StringLiteral(StringLiteral),
     BinaryExpr(BinaryExpr),
     UnaryOp(UnaryOp),
     CallExpr(CallExpr),
@@ -34,6 +35,7 @@ impl Node {
             Node::Reference(_) => "Reference",
             Node::NumberLiteral(_) => "NumberLiteral",
             Node::BoolLiteral(_) => "BoolLiteral",
+            Node::StringLiteral(_) => "StringLiteral",
             Node::BinaryExpr(_) => "BinaryExpr",
             Node::UnaryOp(_) => "UnaryOp",
             Node::CallExpr(_) => "CallExpr",
@@ -53,6 +55,7 @@ impl Node {
             Node::Reference(node) => node.pos,
             Node::NumberLiteral(node) => node.pos,
             Node::BoolLiteral(node) => node.pos,
+            Node::StringLiteral(node) => node.pos,
             Node::BinaryExpr(node) => node.pos,
             Node::UnaryOp(node) => node.pos,
             Node::CallExpr(node) => node.pos,
@@ -157,6 +160,10 @@ impl Node {
 
     pub fn new_bool(value: bool, pos: usize) -> Self {
         Node::BoolLiteral(BoolLiteral { value, pos })
+    }
+
+    pub fn new_string(value: String, pos: usize) -> Self {
+        Node::StringLiteral(StringLiteral { value, pos })
     }
 
     pub fn new_binary_expr(op: &str, left: Node, right: Node, pos: usize) -> Self {
@@ -293,6 +300,12 @@ pub struct NumberLiteral {
 #[derive(Debug, PartialEq)]
 pub struct BoolLiteral {
     pub value: bool,
+    pub pos: usize,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct StringLiteral {
+    pub value: String,
     pub pos: usize,
 }
 
@@ -462,6 +475,9 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
         }
         Node::BoolLiteral(node) => {
             println!("{}value: {:?}", indent(level + 1), node.value);
+        }
+        Node::StringLiteral(node) => {
+            println!("{}value: \"{}\"", indent(level + 1), node.value);
         }
         Node::BinaryExpr(node) => {
             println!("{}operator: \"{}\"", indent(level + 1), node.operator);

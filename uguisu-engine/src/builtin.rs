@@ -53,6 +53,13 @@ impl BuiltinRuntime {
 
 pub(crate) fn make_infos() -> Vec<BuiltinInfo> {
     let mut infos = Vec::new();
+
+    infos.push(BuiltinInfo::new(
+        "printStr",
+        vec![Type::String],
+        Type::Void,
+    ));
+
     infos.push(BuiltinInfo::new(
         "printNum",
         vec![Type::Number],
@@ -82,6 +89,13 @@ pub(crate) fn make_infos() -> Vec<BuiltinInfo> {
 
 pub(crate) fn make_runtime() -> BuiltinRuntime {
     let mut runtime = BuiltinRuntime::new();
+
+    fn print_str(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+        let value = args[0].as_string(); // value: string
+        print!("{}", value);
+        Ok(Value::NoneValue)
+    }
+    runtime.add("printStr", print_str);
 
     fn print_num(args: &Vec<Value>) -> Result<Value, RuntimeError> {
         let value = args[0].as_number(); // value: number

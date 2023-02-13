@@ -489,6 +489,7 @@ impl<'a> HirGenerator<'a> {
             ast::Node::Reference(_)
             | ast::Node::NumberLiteral(_)
             | ast::Node::BoolLiteral(_)
+            | ast::Node::StringLiteral(_)
             | ast::Node::BinaryExpr(_)
             | ast::Node::UnaryOp(_)
             | ast::Node::CallExpr(_) => {
@@ -547,6 +548,14 @@ impl<'a> HirGenerator<'a> {
                 let node_id = self.register_node(node);
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_id, Type::Bool);
+                Ok(node_id)
+            }
+            ast::Node::StringLiteral(node) => {
+                if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
+                let node = Node::new_literal(LiteralValue::String(node.value.clone()));
+                let node_id = self.register_node(node);
+                self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                self.symbol_table.set_ty(node_id, Type::String);
                 Ok(node_id)
             }
             ast::Node::UnaryOp(unary_op) => {

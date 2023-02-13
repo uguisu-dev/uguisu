@@ -346,6 +346,7 @@ pub struct Literal {
 pub enum LiteralValue {
     Number(i64),
     Bool(bool),
+    String(String),
 }
 
 #[derive(Debug)]
@@ -732,6 +733,7 @@ pub enum Type {
     Void,
     Number,
     Bool,
+    String,
     Function,
 }
 
@@ -741,6 +743,7 @@ impl Type {
             Type::Void => "void",
             Type::Number => "number",
             Type::Bool => "bool",
+            Type::String => "string",
             Type::Function => "function",
         }
     }
@@ -750,6 +753,7 @@ impl Type {
             "void" => Err("type `void` is invalid".to_owned()),
             "number" => Ok(Type::Number),
             "bool" => Ok(Type::Bool),
+            "string" => Ok(Type::String),
             _ => Err("unknown type name".to_owned()),
         }
     }
