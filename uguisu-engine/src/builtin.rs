@@ -90,6 +90,12 @@ pub(crate) fn make_infos() -> Vec<BuiltinInfo> {
         Type::String,
     ));
 
+    infos.push(BuiltinInfo::new(
+        "toString",
+        vec![Type::Number],
+        Type::String,
+    ));
+
     infos
 }
 
@@ -147,6 +153,12 @@ pub(crate) fn make_runtime() -> BuiltinRuntime {
         Ok(Value::String(value))
     }
     runtime.add("concatStr", concat_str);
+
+    fn to_string(args: &Vec<Value>) -> Result<Value, RuntimeError> {
+        let num = args[0].as_number(); // num: number
+        Ok(Value::String(num.to_string()))
+    }
+    runtime.add("toString", to_string);
 
     runtime
 }
