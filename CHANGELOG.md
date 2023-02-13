@@ -7,8 +7,7 @@
 
 - `string`型を追加
 - 文字列リテラルを追加 `"hello"`
-- ビルトイン関数`printStr`を追加
-- ビルトイン関数`concatStr`を追加
+- ビルトイン関数を追加: `printStr` `concatStr` `toString`
 
 ## 0.6.0 (2023/02/10)
 
