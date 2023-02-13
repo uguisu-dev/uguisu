@@ -621,6 +621,23 @@ fn test_comment() {
     );
 }
 
+// string
+
+#[test]
+fn test_string_literal() {
+    run_test(
+        "
+        fn make_message(): string {
+            var message: string = \"hello\";
+            return message;
+        }
+        fn main() {
+            var x: string = make_message();
+        }
+        ",
+    );
+}
+
 // other examples
 
 #[test]
