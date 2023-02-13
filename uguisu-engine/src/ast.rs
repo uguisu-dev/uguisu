@@ -6,7 +6,6 @@ pub enum Node {
     FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
     StructDeclaration(StructDeclaration),
-    StructField(StructField),
     BreakStatement(BreakStatement),
     ReturnStatement(ReturnStatement),
     Assignment(Assignment),
@@ -22,6 +21,8 @@ pub enum Node {
     CallExpr(CallExpr),
     // function declaration
     FuncParam(FuncParam),
+    // struct declaration
+    StructField(StructField),
 }
 
 impl Node {
@@ -30,7 +31,6 @@ impl Node {
             Node::FunctionDeclaration(_) => "FunctionDeclaration",
             Node::VariableDeclaration(_) => "VariableDeclaration",
             Node::StructDeclaration(_) => "StructDeclaration",
-            Node::StructField(_) => "StructField",
             Node::BreakStatement(_) => "BreakStatement",
             Node::ReturnStatement(_) => "ReturnStatement",
             Node::Assignment(_) => "Assignment",
@@ -44,6 +44,7 @@ impl Node {
             Node::UnaryOp(_) => "UnaryOp",
             Node::CallExpr(_) => "CallExpr",
             Node::FuncParam(_) => "FuncParam",
+            Node::StructField(_) => "StructField",
         }
     }
 
@@ -52,7 +53,6 @@ impl Node {
             Node::FunctionDeclaration(node) => node.pos,
             Node::VariableDeclaration(node) => node.pos,
             Node::StructDeclaration(node) => node.pos,
-            Node::StructField(node) => node.pos,
             Node::BreakStatement(node) => node.pos,
             Node::ReturnStatement(node) => node.pos,
             Node::Assignment(node) => node.pos,
@@ -66,6 +66,7 @@ impl Node {
             Node::UnaryOp(node) => node.pos,
             Node::CallExpr(node) => node.pos,
             Node::FuncParam(node) => node.pos,
+            Node::StructField(node) => node.pos,
         }
     }
 
@@ -465,10 +466,6 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
             show_tree(&node.fields, source_code, level + 2);
             println!("{}}}", indent(level + 1));
         }
-        Node::StructField(node) => {
-            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
-            println!("{}type_identifier: \"{}\"", indent(level + 1), node.type_identifier);
-        }
         Node::BreakStatement(_) => {}
         Node::ReturnStatement(node) => {
             println!("{}body: {{", indent(level + 1));
@@ -574,6 +571,10 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
                     println!("{}type_identifier: (None)", indent(level + 1));
                 }
             }
+        }
+        Node::StructField(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+            println!("{}type_identifier: \"{}\"", indent(level + 1), node.type_identifier);
         }
     }
     println!("{}}}", indent(level));
