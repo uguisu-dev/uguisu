@@ -1,4 +1,4 @@
-<img alt="uguisu logo" width="100px" align="right" src="https://raw.githubusercontent.com/uguisu-dev/uguisu/master/uguisu-logo.png" />
+<img alt="uguisu logo" width="100px" align="right" src="https://raw.githubusercontent.com/uguisu-dev/uguisu/319732c2fd8784797a30ae8330ea5b79e3d36dc9/uguisu-logo.png" />
 
 # Uguisu
 The Uguisu is a statically typed scripting language.  
@@ -21,7 +21,7 @@ fn main() {
 ```
 
 ## Syntaxes
-See [syntaxes (日本語)](https://github.com/uguisu-dev/uguisu/tree/master/docs/syntaxes_ja.md)
+See [syntaxes (日本語)](https://github.com/uguisu-dev/uguisu/blob/v0.6.0/docs/syntaxes_ja.md)
 
 ## Usage
 ```
