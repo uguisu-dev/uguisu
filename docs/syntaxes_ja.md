@@ -188,7 +188,6 @@ comment
 ## ビルトイン関数
 
 ### printStr
-関数シグネチャ:
 ```
 fn printStr(value: string);
 ```
@@ -196,7 +195,6 @@ fn printStr(value: string);
 改行されません。
 
 ### printNum
-関数シグネチャ:
 ```
 fn printNum(value: number);
 ```
@@ -204,35 +202,30 @@ fn printNum(value: number);
 改行されません。
 
 ### printLF
-関数シグネチャ:
 ```
 fn printLF();
 ```
 改行コード(LF)を標準出力に出力します。
 
 ### assertEq
-関数シグネチャ:
 ```
 fn assertEq(actual: number, expected: number);
 ```
 与えられた数値と期待する数値を比較して、値が異なる場合にランタイムエラーを発生させます。
 
 ### getUnixtime
-関数シグネチャ:
 ```
 fn getUnixtime(): number;
 ```
 現在の時刻をUnixtimeの形式で取得します(単位は秒)。
 
 ### concatStr
-関数シグネチャ:
 ```
 fn concatStr(x: string, y: string): string;
 ```
 2つの文字列を連結して新しい文字列を生成します。
 
 ### toString
-関数シグネチャ:
 ```
 fn toString(source: number): string;
 ```
