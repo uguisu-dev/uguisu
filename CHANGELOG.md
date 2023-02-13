@@ -3,6 +3,12 @@
 
 -->
 
+## x.x.x (unreleased)
+
+- `string`型を追加
+- 文字列リテラルを追加 `"hello"`
+- ビルトイン関数`printStr`を追加
+
 ## 0.6.0 (2023/02/10)
 
 - CLI: `run`サブコマンドからスクリプトを実行するように変わりました。`$ uguisu run <filename>`
