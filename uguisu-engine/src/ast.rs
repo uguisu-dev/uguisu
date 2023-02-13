@@ -5,6 +5,8 @@ pub enum Node {
     // statement
     FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
+    StructDeclaration(StructDeclaration),
+    StructField(StructField),
     BreakStatement(BreakStatement),
     ReturnStatement(ReturnStatement),
     Assignment(Assignment),
@@ -27,6 +29,8 @@ impl Node {
         match self {
             Node::FunctionDeclaration(_) => "FunctionDeclaration",
             Node::VariableDeclaration(_) => "VariableDeclaration",
+            Node::StructDeclaration(_) => "StructDeclaration",
+            Node::StructField(_) => "StructField",
             Node::BreakStatement(_) => "BreakStatement",
             Node::ReturnStatement(_) => "ReturnStatement",
             Node::Assignment(_) => "Assignment",
@@ -47,6 +51,8 @@ impl Node {
         match self {
             Node::FunctionDeclaration(node) => node.pos,
             Node::VariableDeclaration(node) => node.pos,
+            Node::StructDeclaration(node) => node.pos,
+            Node::StructField(node) => node.pos,
             Node::BreakStatement(node) => node.pos,
             Node::ReturnStatement(node) => node.pos,
             Node::Assignment(node) => node.pos,
@@ -105,6 +111,26 @@ impl Node {
             body,
             type_identifier,
             attributes,
+            pos,
+        })
+    }
+
+    pub fn new_struct_declaration(
+        identifier: String,
+        fields: Vec<Node>,
+        pos: usize,
+    ) -> Self {
+        Node::StructDeclaration(StructDeclaration {
+            identifier,
+            fields,
+            pos,
+        })
+    }
+
+    pub fn new_struct_field(identifier: String, type_identifier: String, pos: usize) -> Self {
+        Node::StructField(StructField {
+            identifier,
+            type_identifier,
             pos,
         })
     }
@@ -198,6 +224,13 @@ impl Node {
         }
     }
 
+    pub fn as_struct_field(&self) -> &StructField {
+        match self {
+            Node::StructField(x) => x,
+            _ => panic!("struct field expected"),
+        }
+    }
+
     pub fn as_reference(&self) -> &Reference {
         match self {
             Node::Reference(x) => x,
@@ -233,6 +266,20 @@ pub struct VariableDeclaration {
     pub type_identifier: Option<String>,
     pub attributes: Vec<VariableAttribute>,
     pub body: Option<Box<Node>>,
+    pub pos: usize,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct StructDeclaration {
+    pub identifier: String,
+    pub fields: Vec<Node>, // StructField
+    pub pos: usize,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct StructField {
+    pub identifier: String,
+    pub type_identifier: String,
     pub pos: usize,
 }
 
@@ -411,6 +458,16 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
                 }
             }
             println!("{}}}", indent(level + 1));
+        }
+        Node::StructDeclaration(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+            println!("{}fields: {{", indent(level + 1));
+            show_tree(&node.fields, source_code, level + 2);
+            println!("{}}}", indent(level + 1));
+        }
+        Node::StructField(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+            println!("{}type_identifier: \"{}\"", indent(level + 1), node.type_identifier);
         }
         Node::BreakStatement(_) => {}
         Node::ReturnStatement(node) => {

@@ -59,6 +59,7 @@ peg::parser! {
 
         pub(crate) rule statement() -> Node
             = function_declaration()
+            / struct_declaration()
             / break_statement()
             / return_statement()
             / variable_declaration()
@@ -101,7 +102,7 @@ peg::parser! {
 
         rule function_declaration() -> Node =
             p:pos() attrs:func_dec_attrs()? "fn" __+ name:idenfitier() __* "(" __* params:func_dec_params()? __* ")"
-            __* ret:func_dec_return_type()? __* body:func_dec_body()
+            __* ret:type_label()? __* body:func_dec_body()
         {
             let params = if let Some(v) = params { v } else { vec![] };
             let attrs = if let Some(v) = attrs { v } else { vec![] };
@@ -115,7 +116,7 @@ peg::parser! {
             = p:pos() name:idenfitier() type_name:(__* ":" __* n:idenfitier() { n.to_string() })?
         { Node::new_func_param(name.to_string(), type_name, p) }
 
-        rule func_dec_return_type() -> String
+        rule type_label() -> String
             = ":" __* type_name:idenfitier() { type_name.to_string() }
 
         rule func_dec_body() -> Option<Vec<Node>>
@@ -128,6 +129,28 @@ peg::parser! {
 
         // rule func_dec_attr() -> FunctionAttribute
         //     = "" { }
+
+        rule struct_declaration() -> Node =
+            p:pos() "struct" __+ name:idenfitier() __* body:struct_body()
+        {
+            Node::new_struct_declaration(name.to_string(), body, p)
+        }
+
+        rule struct_body() -> Vec<Node> =
+            "{" __* s:(struct_field() ++ (__*))? __* "}"
+        {
+            if let Some(nodes) = s {
+                nodes
+            } else {
+                vec![]
+            }
+        }
+
+        rule struct_field() -> Node =
+            p:pos() name:idenfitier() __* type_name:type_label() __* ";"
+        {
+            Node::new_struct_field(name.to_string(), type_name, p)
+        }
 
         rule break_statement() -> Node
             = p:pos() "break" __* ";" { Node::new_break_statement(p) }

@@ -18,6 +18,8 @@ use crate::hir::{
     RelationalOperator,
     ResolverStack,
     Signature,
+    StructField,
+    StructSignature,
     SymbolTable,
     Type,
     VariableSignature,
@@ -112,6 +114,9 @@ impl<'a> HirGenerator<'a> {
             Signature::VariableSignature(x) => x,
             Signature::FunctionSignature(_) => {
                 return Err(self.make_low_error("type `function` is not supported", parser_node));
+            }
+            Signature::StructSignature(_) => {
+                return Err(self.make_low_error("struct is not supported", parser_node));
             }
         };
         let ty = match signature.specified_ty {
@@ -326,6 +331,31 @@ impl<'a> HirGenerator<'a> {
 
                 Ok(node_id)
             }
+            ast::Node::StructDeclaration(decl) => {
+                if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
+
+                let mut fields = Vec::new();
+                for n in decl.fields.iter() {
+                    let field_node = n.as_struct_field();
+                    let node = Node::StructField(StructField {
+                        identifier: field_node.identifier.clone(),
+                    });
+                    let node_id = self.register_node(node);
+                    fields.push(node_id);
+                }
+
+                // make signature
+                let signature = Signature::StructSignature(StructSignature {
+                    fields: fields,
+                });
+                // make node
+                let node = Node::new_declaration(decl.identifier.clone(), signature);
+                let node_id = self.register_node(node);
+                self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                self.resolver.set_identifier(&decl.identifier, node_id);
+
+                Ok(node_id)
+            }
             ast::Node::BreakStatement(_) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 if self.resolver.is_root_frame() {
@@ -505,7 +535,8 @@ impl<'a> HirGenerator<'a> {
                 }
                 Ok(expr_id)
             }
-            ast::Node::FuncParam(_) => {
+            ast::Node::FuncParam(_)
+            | ast::Node::StructField(_) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 panic!("unexpected node");
             }
@@ -694,12 +725,14 @@ impl<'a> HirGenerator<'a> {
             }
             ast::Node::FunctionDeclaration(_)
             | ast::Node::VariableDeclaration(_)
+            | ast::Node::StructDeclaration(_)
             | ast::Node::BreakStatement(_)
             | ast::Node::ReturnStatement(_)
             | ast::Node::Assignment(_)
             | ast::Node::IfStatement(_)
             | ast::Node::LoopStatement(_)
-            | ast::Node::FuncParam(_) => {
+            | ast::Node::FuncParam(_)
+            | ast::Node::StructField(_) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 panic!("unexpected expr node");
             }

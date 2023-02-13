@@ -1,5 +1,6 @@
-use std::{collections::BTreeMap, fmt};
 use crate::ast;
+use std::collections::BTreeMap;
+use std::fmt;
 
 #[derive(Debug)]
 pub enum Node {
@@ -21,6 +22,7 @@ pub enum Node {
     LogicalUnaryOp(LogicalUnaryOp),
     CallExpr(CallExpr),
     FuncParam(FuncParam),
+    StructField(StructField),
 }
 
 impl Node {
@@ -42,6 +44,7 @@ impl Node {
             Node::LogicalUnaryOp(_) => "LogicalUnaryOp",
             Node::CallExpr(_) => "CallExpr",
             Node::FuncParam(_) => "FuncParam",
+            Node::StructField(_) => "StructField",
         }
     }
 
@@ -246,6 +249,7 @@ pub struct Declaration {
 pub enum Signature {
     FunctionSignature(FunctionSignature),
     VariableSignature(VariableSignature),
+    StructSignature(StructSignature),
 }
 
 impl Signature {
@@ -267,6 +271,17 @@ pub struct FunctionSignature {
 #[derive(Debug)]
 pub struct VariableSignature {
     pub specified_ty: Option<Type>,
+}
+
+#[derive(Debug)]
+pub struct StructSignature {
+    /// StructField
+    pub fields: Vec<NodeId>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StructField {
+    pub identifier: String,
 }
 
 #[derive(Debug)]
@@ -461,6 +476,15 @@ pub(crate) fn show_node(node_id: NodeId, node_map: &BTreeMap<NodeId, Node>, symb
                     }
                     println!("  }}");
                 }
+                Signature::StructSignature(signature) => {
+                    println!("  signature(StructSignature): {{");
+                    println!("    fields: {{");
+                    for field in signature.fields.iter() {
+                        println!("      [{}]", field);
+                    }
+                    println!("    }}");
+                    println!("  }}");
+                }
             }
         }
         Node::Function(func) => {
@@ -585,6 +609,9 @@ pub(crate) fn show_node(node_id: NodeId, node_map: &BTreeMap<NodeId, Node>, symb
         Node::FuncParam(func_param) => {
             println!("  identifier: \"{}\"", func_param.identifier);
             //println!("  type: {:?}", func_param.ty);
+        }
+        Node::StructField(field) => {
+            println!("  identifier: \"{}\"", field.identifier);
         }
     }
     println!("}}");

@@ -199,6 +199,9 @@ impl<'a> HirRunner<'a> {
                             None => {} // variable is not defined yet
                         }
                     }
+                    Signature::StructSignature(_) => {
+                        todo!();
+                    }
                 }
                 Ok(StatementResult::None)
             }
@@ -314,7 +317,8 @@ impl<'a> HirRunner<'a> {
             }
             Node::Function(_)
             | Node::Variable(_)
-            | Node::FuncParam(_) => {
+            | Node::FuncParam(_)
+            | Node::StructField(_) => {
                 panic!("Failed to execute the statement: unsupported node (node_id={})", node_id);
             }
         };
@@ -469,6 +473,7 @@ impl<'a> HirRunner<'a> {
             }
             Node::Function(_) => panic!("function object unsupported (node_id={})", node_id),
             Node::FuncParam(_)
+            | Node::StructField(_)
             | Node::Declaration(_)
             | Node::ReturnStatement(_)
             | Node::BreakStatement(_)
