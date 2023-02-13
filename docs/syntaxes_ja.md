@@ -227,6 +227,13 @@ fn getUnixtime(): number;
 ### concatStr
 関数シグネチャ:
 ```
-fn concatStr(x: string, y: string);
+fn concatStr(x: string, y: string): string;
 ```
 2つの文字列を連結して新しい文字列を生成します。
+
+### toString
+関数シグネチャ:
+```
+fn toString(source: number): string;
+```
+数値を文字列に変換します。
