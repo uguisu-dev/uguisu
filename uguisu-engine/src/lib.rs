@@ -33,6 +33,7 @@ use parse::Parser;
 use crate::hir_run::Env;
 use std::collections::BTreeMap;
 
+#[derive(Debug)]
 pub struct SyntaxError {
     pub message: String,
 }

@@ -41,8 +41,8 @@ impl Node {
         }
     }
 
-    pub fn calc_location(&self, source_code: &str) -> Result<(usize, usize), String> {
-        let pos = match self {
+    pub fn get_pos(&self) -> usize {
+        match self {
             Node::FunctionDeclaration(node) => node.pos,
             Node::VariableDeclaration(node) => node.pos,
             Node::BreakStatement(node) => node.pos,
@@ -57,8 +57,7 @@ impl Node {
             Node::UnaryOp(node) => node.pos,
             Node::CallExpr(node) => node.pos,
             Node::FuncParam(node) => node.pos,
-        };
-        parse::calc_location(pos, source_code)
+        }
     }
 
     pub fn new_function_declaration(
@@ -335,7 +334,7 @@ pub(crate) fn show_tree(nodes: &Vec<Node>, source_code: &str, level: usize) {
 
 fn show_node(node: &Node, source_code: &str, level: usize) {
     let name = node.get_name();
-    let (line, column) = node.calc_location(source_code).unwrap();
+    let (line, column) = parse::calc_location(node.get_pos(), source_code).unwrap();
     println!("{}{} ({}:{}) {{", indent(level), name, line, column);
     match node {
         Node::FunctionDeclaration(node) => {

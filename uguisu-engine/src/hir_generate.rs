@@ -64,11 +64,11 @@ impl<'a> HirGenerator<'a> {
     }
 
     fn calc_location(&self, node: &ast::Node) -> Result<(usize, usize), SyntaxError> {
-        node.calc_location(self.source_code).map_err(|e| SyntaxError::new(&e))
+        crate::parse::calc_location(node.get_pos(), self.source_code).map_err(|e| SyntaxError::new(&e))
     }
 
     fn make_low_error(&self, message: &str, node: &ast::Node) -> SyntaxError {
-        let (line, column) = node.calc_location(self.source_code).unwrap();
+        let (line, column) = self.calc_location(node).unwrap();
         SyntaxError::new(&format!("{} ({}:{})", message, line, column))
     }
 
