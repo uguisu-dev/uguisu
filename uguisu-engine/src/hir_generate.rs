@@ -15,7 +15,6 @@ use crate::hir::{
     LogicalUnaryOperator,
     Node,
     NodeId,
-    NodeRef,
     RelationalOperator,
     ResolverStack,
     Signature,
@@ -54,13 +53,12 @@ impl<'a> HirGenerator<'a> {
         }
     }
 
-    fn register_node(&mut self, node: Node) -> NodeRef {
-        let node_id = self.node_map.len();
+    fn register_node(&mut self, node: Node) -> NodeId {
+        let node_id = NodeId::new(self.node_map.len());
         if self.trace { println!("new node: {} [{}]", node.get_name(), node_id); }
         self.node_map.insert(node_id, node);
-        let node_ref = NodeRef::new(node_id);
-        self.symbol_table.new_record(node_ref);
-        node_ref
+        self.symbol_table.new_record(node_id);
+        node_id
     }
 
     fn calc_location(&self, node: &ast::Node) -> Result<(usize, usize), SyntaxError> {
@@ -72,44 +70,44 @@ impl<'a> HirGenerator<'a> {
         SyntaxError::new(&format!("{} ({}:{})", message, line, column))
     }
 
-    fn make_error(&self, message: &str, node: NodeRef) -> SyntaxError {
-        match self.symbol_table.get(node).pos {
+    fn make_error(&self, message: &str, node_id: NodeId) -> SyntaxError {
+        match self.symbol_table.get(node_id).pos {
             Some((line, column)) => SyntaxError::new(&format!("{} ({}:{})", message, line, column)),
             None => SyntaxError::new(&format!("{}", message)),
         }
     }
 
-    fn get_ty_or_err(&self, node_ref: NodeRef) -> Result<Type, SyntaxError> {
-        match self.symbol_table.get(node_ref).ty {
+    fn get_ty_or_err(&self, node_id: NodeId) -> Result<Type, SyntaxError> {
+        match self.symbol_table.get(node_id).ty {
             Some(x) => Ok(x),
-            None => Err(self.make_error("type not resolved", node_ref)),
+            None => Err(self.make_error("type not resolved", node_id)),
         }
     }
 
-    fn get_ty_or_low_err(&self, node_ref: NodeRef, parser_node: &ast::Node) -> Result<Type, SyntaxError> {
-        match self.symbol_table.get(node_ref).ty {
+    fn get_ty_or_low_err(&self, node_id: NodeId, parser_node: &ast::Node) -> Result<Type, SyntaxError> {
+        match self.symbol_table.get(node_id).ty {
             Some(x) => Ok(x),
             None => Err(self.make_low_error("type not resolved", parser_node)),
         }
     }
 
-    fn resolve_node(&self, node_ref: NodeRef) -> NodeRef {
-        match node_ref.get(self.node_map) {
+    fn resolve_node(&self, node_id: NodeId) -> NodeId {
+        match node_id.get(self.node_map) {
             Node::Reference(reference) => self.resolve_node(reference.dest),
-            _ => node_ref,
+            _ => node_id,
         }
     }
 
-    fn define_variable_decl(&mut self, parser_node: &ast::Node, body: &ast::Node, decl_node_ref: NodeRef) -> Result<(), SyntaxError> {
-        let body_ref = self.generate_expr(body)?;
-        let body_ty = self.get_ty_or_err(body_ref)?;
+    fn define_variable_decl(&mut self, parser_node: &ast::Node, body: &ast::Node, decl_node_id: NodeId) -> Result<(), SyntaxError> {
+        let body_id = self.generate_expr(body)?;
+        let body_ty = self.get_ty_or_err(body_id)?;
         if body_ty == Type::Function {
-            return Err(self.make_error("type `function` is not supported", body_ref));
+            return Err(self.make_error("type `function` is not supported", body_id));
         }
         if body_ty == Type::Void {
-            return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", body_ref));
+            return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", body_id));
         }
-        let decl = decl_node_ref.get(self.node_map).as_decl().unwrap();
+        let decl = decl_node_id.get(self.node_map).as_decl().unwrap();
         let signature = match &decl.signature {
             Signature::VariableSignature(x) => x,
             Signature::FunctionSignature(_) => {
@@ -117,69 +115,69 @@ impl<'a> HirGenerator<'a> {
             }
         };
         let ty = match signature.specified_ty {
-            Some(x) => Type::assert(body_ty, x).map_err(|e| self.make_error(&e, body_ref))?,
+            Some(x) => Type::assert(body_ty, x).map_err(|e| self.make_error(&e, body_id))?,
             None => body_ty,
         };
 
-        let variable_node = Node::new_variable(body_ref);
-        let variable_ref = self.register_node(variable_node);
-        self.symbol_table.set_pos(variable_ref, self.calc_location(parser_node)?);
-        self.symbol_table.set_ty(variable_ref, ty);
+        let variable_node = Node::new_variable(body_id);
+        let variable_id = self.register_node(variable_node);
+        self.symbol_table.set_pos(variable_id, self.calc_location(parser_node)?);
+        self.symbol_table.set_ty(variable_id, ty);
 
         // link declaration
-        self.symbol_table.set_body(decl_node_ref, variable_ref);
-        self.symbol_table.set_ty(decl_node_ref, ty);
+        self.symbol_table.set_body(decl_node_id, variable_id);
+        self.symbol_table.set_ty(decl_node_id, ty);
         Ok(())
     }
 
     fn add_builtin_declaration(
         &mut self,
         info: BuiltinInfo,
-    ) -> NodeRef {
+    ) -> NodeId {
         let mut param_nodes = Vec::new();
         for param_ty in info.params {
             // make param node
             let node = Node::new_func_param("".to_owned());
-            let node_ref = self.register_node(node);
-            self.symbol_table.set_ty(node_ref, param_ty);
-            param_nodes.push(node_ref);
+            let node_id = self.register_node(node);
+            self.symbol_table.set_ty(node_id, param_ty);
+            param_nodes.push(node_id);
         }
 
         let func_node = Node::new_function(param_nodes.clone(), info.ret_ty, FunctionBody::NativeCode);
-        let func_node_ref = self.register_node(func_node);
+        let func_node_id = self.register_node(func_node);
 
         let func_signature = Signature::FunctionSignature(FunctionSignature {
             params: param_nodes,
             ret_ty: info.ret_ty,
         });
         let decl_node = Node::new_declaration(info.name.clone(), func_signature);
-        let node_ref = self.register_node(decl_node);
-        self.symbol_table.set_ty(node_ref, Type::Function);
-        self.symbol_table.set_body(node_ref, func_node_ref);
-        self.resolver.set_identifier(&info.name, node_ref);
-        node_ref
+        let node_id = self.register_node(decl_node);
+        self.symbol_table.set_ty(node_id, Type::Function);
+        self.symbol_table.set_body(node_id, func_node_id);
+        self.resolver.set_identifier(&info.name, node_id);
+        node_id
     }
 
-    fn add_call_main(&mut self) -> Result<NodeRef, SyntaxError> {
+    fn add_call_main(&mut self) -> Result<NodeId, SyntaxError> {
         // declaration reference of main function
-        let dest_ref = match self.resolver.lookup_identifier("main") {
+        let dest_id = match self.resolver.lookup_identifier("main") {
             Some(x) => x,
             None => return Err(SyntaxError::new("function `main` is not found")),
         };
-        let callee_node = Node::new_reference(dest_ref);
-        let callee_ref = self.register_node(callee_node);
-        let dest_ty = self.get_ty_or_err(dest_ref)?;
-        self.symbol_table.set_ty(callee_ref, dest_ty);
+        let callee_node = Node::new_reference(dest_id);
+        let callee_id = self.register_node(callee_node);
+        let dest_ty = self.get_ty_or_err(dest_id)?;
+        self.symbol_table.set_ty(callee_id, dest_ty);
 
         // call expr
-        let call_node = Node::new_call_expr(callee_ref, Vec::new());
-        let call_ref = self.register_node(call_node);
-        self.symbol_table.set_ty(call_ref, Type::Void);
-        Ok(call_ref)
+        let call_node = Node::new_call_expr(callee_id, Vec::new());
+        let call_id = self.register_node(call_node);
+        self.symbol_table.set_ty(call_id, Type::Void);
+        Ok(call_id)
     }
 
     /// Generate a HIR codes from a AST.
-    pub(crate) fn generate(&mut self) -> Result<Vec<NodeRef>, SyntaxError> {
+    pub(crate) fn generate(&mut self) -> Result<Vec<NodeId>, SyntaxError> {
         let mut ids = Vec::new();
 
         for info in builtin::make_infos() {
@@ -194,7 +192,7 @@ impl<'a> HirGenerator<'a> {
     fn generate_statements(
         &mut self,
         parser_nodes: &Vec<ast::Node>,
-    ) -> Result<Vec<NodeRef>, SyntaxError> {
+    ) -> Result<Vec<NodeId>, SyntaxError> {
         let mut ids = Vec::new();
         for parser_node in parser_nodes.iter() {
             ids.push(self.generate_statement(parser_node)?);
@@ -205,7 +203,7 @@ impl<'a> HirGenerator<'a> {
     /// Generate a HIR node from a statement AST node.
     /// - check if the statement is available in the global or local
     /// - check type compatibility for inner expression
-    fn generate_statement(&mut self, parser_node: &ast::Node) -> Result<NodeRef, SyntaxError> {
+    fn generate_statement(&mut self, parser_node: &ast::Node) -> Result<NodeId, SyntaxError> {
         let result = match &parser_node {
             ast::Node::FunctionDeclaration(func) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
@@ -224,19 +222,19 @@ impl<'a> HirGenerator<'a> {
                 };
 
                 // function declaration
-                let decl_node_ref = {
+                let decl_node_id = {
                     // params
                     let mut params = Vec::new();
                     for (i, func_param) in func_params.iter().enumerate() {
                         let node = Node::FuncParam(func_param.clone());
-                        let node_ref = self.register_node(node);
-                        self.symbol_table.set_pos(node_ref, self.calc_location(&func.params[i])?);
+                        let node_id = self.register_node(node);
+                        self.symbol_table.set_pos(node_id, self.calc_location(&func.params[i])?);
                         let param_type = match &func.params[i].as_func_param().type_identifier {
-                            Some(x) => Type::from_identifier(x).map_err(|e| self.make_error(&e, node_ref))?, // TODO: improve error location
-                            None => return Err(self.make_error("parameter type missing", node_ref)),
+                            Some(x) => Type::from_identifier(x).map_err(|e| self.make_error(&e, node_id))?, // TODO: improve error location
+                            None => return Err(self.make_error("parameter type missing", node_id)),
                         };
-                        self.symbol_table.set_ty(node_ref, param_type);
-                        params.push(node_ref);
+                        self.symbol_table.set_ty(node_id, param_type);
+                        params.push(node_id);
                     }
 
                     let signature = Signature::FunctionSignature(FunctionSignature {
@@ -244,12 +242,12 @@ impl<'a> HirGenerator<'a> {
                         ret_ty,
                     });
                     let node = Node::new_declaration(func.identifier.clone(), signature);
-                    let node_ref = self.register_node(node);
-                    self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
-                    self.symbol_table.set_ty(node_ref, Type::Function);
-                    self.resolver.set_identifier(&func.identifier, node_ref);
+                    let node_id = self.register_node(node);
+                    self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                    self.symbol_table.set_ty(node_id, Type::Function);
+                    self.resolver.set_identifier(&func.identifier, node_id);
 
-                    node_ref
+                    node_id
                 };
 
                 // function
@@ -258,22 +256,22 @@ impl<'a> HirGenerator<'a> {
                     let mut params = Vec::new();
                     for func_param in func_params {
                         let node = Node::FuncParam(func_param);
-                        let node_ref = self.register_node(node);
-                        params.push(node_ref);
+                        let node_id = self.register_node(node);
+                        params.push(node_id);
                     }
 
                     // body
                     self.resolver.push_frame();
-                    let decl = decl_node_ref.get(self.node_map).as_decl().unwrap();
+                    let decl = decl_node_id.get(self.node_map).as_decl().unwrap();
                     let signature = decl.signature.as_function_signature().unwrap();
                     let mut i = 0;
                     loop {
-                        let param_ref = match signature.params.get(i) {
+                        let param_id = match signature.params.get(i) {
                             Some(&x) => x,
                             None => break,
                         };
-                        let param = param_ref.get(self.node_map).as_func_param().unwrap();
-                        self.resolver.set_identifier(&param.identifier, param_ref);
+                        let param = param_id.get(self.node_map).as_func_param().unwrap();
+                        self.resolver.set_identifier(&param.identifier, param_id);
                         i += 1;
                     }
                     let func_body = match &func.body {
@@ -284,14 +282,14 @@ impl<'a> HirGenerator<'a> {
                     self.resolver.pop_frame();
 
                     let node = Node::new_function(params, ret_ty, body);
-                    let func_node_ref = self.register_node(node);
-                    self.symbol_table.set_pos(func_node_ref, self.calc_location(parser_node)?);
+                    let func_node_id = self.register_node(node);
+                    self.symbol_table.set_pos(func_node_id, self.calc_location(parser_node)?);
 
                     // link declaration
-                    self.symbol_table.set_body(decl_node_ref, func_node_ref);
+                    self.symbol_table.set_body(decl_node_id, func_node_id);
                 }
 
-                Ok(decl_node_ref)
+                Ok(decl_node_id)
             }
             ast::Node::VariableDeclaration(variable) => {
                 if self.trace { println!("enter statement (node: {}, identifier: {})", parser_node.get_name(), variable.identifier); }
@@ -318,15 +316,15 @@ impl<'a> HirGenerator<'a> {
                 });
                 // make node
                 let node = Node::new_declaration(variable.identifier.clone(), signature);
-                let node_ref = self.register_node(node);
-                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
-                self.resolver.set_identifier(&variable.identifier, node_ref);
+                let node_id = self.register_node(node);
+                self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                self.resolver.set_identifier(&variable.identifier, node_id);
 
                 if let Some(var_body) = &variable.body {
-                    self.define_variable_decl(parser_node, var_body, node_ref)?;
+                    self.define_variable_decl(parser_node, var_body, node_id)?;
                 }
 
-                Ok(node_ref)
+                Ok(node_id)
             }
             ast::Node::BreakStatement(_) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
@@ -335,9 +333,9 @@ impl<'a> HirGenerator<'a> {
                 }
                 // TODO: check target
                 let node = Node::new_break_statement();
-                let node_ref = self.register_node(node);
-                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
-                Ok(node_ref)
+                let node_id = self.register_node(node);
+                self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                Ok(node_id)
             }
             ast::Node::ReturnStatement(node) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
@@ -348,22 +346,22 @@ impl<'a> HirGenerator<'a> {
                 }
                 let body = match node.body.as_ref() {
                     Some(x) => {
-                        let body_ref = self.generate_expr(x)?;
-                        let body_ty = self.get_ty_or_err(body_ref)?;
+                        let body_id = self.generate_expr(x)?;
+                        let body_ty = self.get_ty_or_err(body_id)?;
                         if body_ty == Type::Function {
-                            return Err(self.make_error("type `function` is not supported", body_ref));
+                            return Err(self.make_error("type `function` is not supported", body_id));
                         }
                         if body_ty == Type::Void {
-                            return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", body_ref));
+                            return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", body_id));
                         }
-                        Some(body_ref)
+                        Some(body_id)
                     }
                     None => None,
                 };
                 let node = Node::new_return_statement(body);
-                let node_ref = self.register_node(node);
-                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
-                Ok(node_ref)
+                let node_id = self.register_node(node);
+                self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                Ok(node_id)
             }
             ast::Node::Assignment(statement) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
@@ -373,37 +371,37 @@ impl<'a> HirGenerator<'a> {
                 }
 
                 let reference = statement.dest.as_reference();
-                let declaration_ref = match self.resolver.lookup_identifier(&reference.identifier) {
+                let declaration_id = match self.resolver.lookup_identifier(&reference.identifier) {
                     Some(x) => x,
                     None => return Err(self.make_low_error("unknown identifier", parser_node)),
                 };
 
                 // if the declaration is not defined, define it.
-                if let None = self.symbol_table.get(declaration_ref).body {
-                    self.define_variable_decl(parser_node, &statement.body, declaration_ref)?;
+                if let None = self.symbol_table.get(declaration_id).body {
+                    self.define_variable_decl(parser_node, &statement.body, declaration_id)?;
                 }
 
                 // make target node
-                let target_node = Node::new_reference(declaration_ref);
-                let target_ref = self.register_node(target_node);
-                self.symbol_table.set_pos(target_ref, self.calc_location(parser_node)?);
-                let declaration_ty = self.get_ty_or_low_err(declaration_ref, parser_node)?;
-                self.symbol_table.set_ty(target_ref, declaration_ty);
+                let target_node = Node::new_reference(declaration_id);
+                let target_id = self.register_node(target_node);
+                self.symbol_table.set_pos(target_id, self.calc_location(parser_node)?);
+                let declaration_ty = self.get_ty_or_low_err(declaration_id, parser_node)?;
+                self.symbol_table.set_ty(target_id, declaration_ty);
 
-                let expr_ref = self.generate_expr(&statement.body)?;
+                let expr_id = self.generate_expr(&statement.body)?;
 
                 match statement.mode {
                     AssignmentMode::Assign => {
-                        let target_ty = self.get_ty_or_err(target_ref)?;
+                        let target_ty = self.get_ty_or_err(target_id)?;
                         if target_ty == Type::Function {
-                            return Err(self.make_error("type `function` is not supported", target_ref));
+                            return Err(self.make_error("type `function` is not supported", target_id));
                         }
-                        let expr_ty = self.get_ty_or_err(expr_ref)?;
+                        let expr_ty = self.get_ty_or_err(expr_id)?;
                         if expr_ty == Type::Function {
-                            return Err(self.make_error("type `function` is not supported", expr_ref));
+                            return Err(self.make_error("type `function` is not supported", expr_id));
                         }
                         if expr_ty == Type::Void {
-                            return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", expr_ref));
+                            return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", expr_id));
                         }
                         Type::assert(expr_ty, target_ty).map_err(|e| self.make_low_error(&e, parser_node))?;
                     }
@@ -412,18 +410,18 @@ impl<'a> HirGenerator<'a> {
                     | AssignmentMode::MultAssign
                     | AssignmentMode::DivAssign
                     | AssignmentMode::ModAssign => {
-                        let target_ty = self.get_ty_or_low_err(target_ref, parser_node)?;
-                        Type::assert(target_ty, Type::Number).map_err(|e| self.make_error(&e, target_ref))?; // TODO: improve error message
-                        let expr_ty = self.get_ty_or_err(expr_ref)?;
-                        Type::assert(expr_ty, Type::Number).map_err(|e| self.make_error(&e, expr_ref))?;
+                        let target_ty = self.get_ty_or_low_err(target_id, parser_node)?;
+                        Type::assert(target_ty, Type::Number).map_err(|e| self.make_error(&e, target_id))?; // TODO: improve error message
+                        let expr_ty = self.get_ty_or_err(expr_id)?;
+                        Type::assert(expr_ty, Type::Number).map_err(|e| self.make_error(&e, expr_id))?;
                     }
                 }
 
                 // make node
-                let node = Node::new_assignment(target_ref, expr_ref, statement.mode);
-                let node_ref = self.register_node(node);
-                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
-                Ok(node_ref)
+                let node = Node::new_assignment(target_id, expr_id, statement.mode);
+                let node_id = self.register_node(node);
+                self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                Ok(node_id)
             }
             ast::Node::IfStatement(if_statement) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
@@ -433,31 +431,31 @@ impl<'a> HirGenerator<'a> {
                     parser_node: &ast::Node,
                     items: &Vec<(Box<ast::Node>, Vec<ast::Node>)>,
                     else_block: &Option<Vec<ast::Node>>,
-                ) -> Result<Option<NodeRef>, SyntaxError> {
+                ) -> Result<Option<NodeId>, SyntaxError> {
                     match items.get(index) {
                         Some((cond, then_block)) => {
-                            let cond_ref = analyzer.generate_expr(cond)?;
-                            let cond_ty = analyzer.get_ty_or_err(cond_ref)?;
-                            Type::assert(cond_ty, Type::Bool).map_err(|e| analyzer.make_error(&e, cond_ref))?;
+                            let cond_id = analyzer.generate_expr(cond)?;
+                            let cond_ty = analyzer.get_ty_or_err(cond_id)?;
+                            Type::assert(cond_ty, Type::Bool).map_err(|e| analyzer.make_error(&e, cond_id))?;
                             let then_nodes = analyzer.generate_statements(then_block)?;
                             // next else if part
                             let elif = transform(index + 1, analyzer, parser_node, items, else_block)?;
                             match elif {
                                 Some(x) => {
-                                    let node = Node::new_if_statement(cond_ref, then_nodes, vec![x]);
-                                    let node_ref = analyzer.register_node(node);
-                                    analyzer.symbol_table.set_pos(node_ref, analyzer.calc_location(parser_node)?);
-                                    Ok(Some(node_ref))
+                                    let node = Node::new_if_statement(cond_id, then_nodes, vec![x]);
+                                    let node_id = analyzer.register_node(node);
+                                    analyzer.symbol_table.set_pos(node_id, analyzer.calc_location(parser_node)?);
+                                    Ok(Some(node_id))
                                 }
                                 None => {
                                     let else_nodes = match &else_block {
                                         Some(x) => analyzer.generate_statements(x)?,
                                         None => vec![],
                                     };
-                                    let node = Node::new_if_statement(cond_ref, then_nodes, else_nodes);
-                                    let node_ref = analyzer.register_node(node);
-                                    analyzer.symbol_table.set_pos(node_ref, analyzer.calc_location(parser_node)?);
-                                    Ok(Some(node_ref))
+                                    let node = Node::new_if_statement(cond_id, then_nodes, else_nodes);
+                                    let node_id = analyzer.register_node(node);
+                                    analyzer.symbol_table.set_pos(node_id, analyzer.calc_location(parser_node)?);
+                                    Ok(Some(node_id))
                                 }
                             }
                         }
@@ -465,7 +463,7 @@ impl<'a> HirGenerator<'a> {
                     }
                 }
                 // desugar and make node
-                let node_ref = match transform(
+                let node_id = match transform(
                     0,
                     self,
                     parser_node,
@@ -475,7 +473,7 @@ impl<'a> HirGenerator<'a> {
                     Some(x) => x,
                     None => panic!("unexpected error: cond blocks is empty"),
                 };
-                Ok(node_ref)
+                Ok(node_id)
             }
             ast::Node::LoopStatement(statement) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
@@ -484,9 +482,9 @@ impl<'a> HirGenerator<'a> {
                 }
                 let body = self.generate_statements(&statement.body)?;
                 let node = Node::new_loop_statement(body);
-                let node_ref = self.register_node(node);
-                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
-                Ok(node_ref)
+                let node_id = self.register_node(node);
+                self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                Ok(node_id)
             }
             ast::Node::Reference(_)
             | ast::Node::NumberLiteral(_)
@@ -499,12 +497,12 @@ impl<'a> HirGenerator<'a> {
                 if self.resolver.is_root_frame() {
                     return Err(self.make_low_error("An expression cannot be used in global space", parser_node));
                 }
-                let expr_ref = self.generate_expr(parser_node)?;
-                let expr_ty = self.get_ty_or_err(expr_ref)?;
+                let expr_id = self.generate_expr(parser_node)?;
+                let expr_ty = self.get_ty_or_err(expr_id)?;
                 if expr_ty == Type::Function {
-                    return Err(self.make_error("type `function` is not supported", expr_ref));
+                    return Err(self.make_error("type `function` is not supported", expr_id));
                 }
-                Ok(expr_ref)
+                Ok(expr_id)
             }
             ast::Node::FuncParam(_) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
@@ -519,77 +517,77 @@ impl<'a> HirGenerator<'a> {
     /// - infer type for the expression
     /// - check type compatibility for inner expression
     /// - generate syntax errors
-    fn generate_expr(&mut self, parser_node: &ast::Node) -> Result<NodeRef, SyntaxError> {
+    fn generate_expr(&mut self, parser_node: &ast::Node) -> Result<NodeId, SyntaxError> {
         let result = match parser_node {
             ast::Node::Reference(reference) => {
                 if self.trace { println!("enter expr (node: {}, identifier: {})", parser_node.get_name(), reference.identifier); }
-                let dest_ref = match self.resolver.lookup_identifier(&reference.identifier) {
+                let dest_id = match self.resolver.lookup_identifier(&reference.identifier) {
                     Some(x) => x,
                     None => return Err(self.make_low_error("unknown identifier", parser_node)),
                 };
 
-                let node = Node::new_reference(dest_ref);
-                let node_ref = self.register_node(node);
-                let dest_ty = self.get_ty_or_low_err(dest_ref, parser_node)?;
-                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
-                self.symbol_table.set_ty(node_ref, dest_ty);
-                Ok(node_ref)
+                let node = Node::new_reference(dest_id);
+                let node_id = self.register_node(node);
+                let dest_ty = self.get_ty_or_low_err(dest_id, parser_node)?;
+                self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                self.symbol_table.set_ty(node_id, dest_ty);
+                Ok(node_id)
             }
             ast::Node::NumberLiteral(node) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let node = Node::new_literal(LiteralValue::Number(node.value));
-                let node_ref = self.register_node(node);
-                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
-                self.symbol_table.set_ty(node_ref, Type::Number);
-                Ok(node_ref)
+                let node_id = self.register_node(node);
+                self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                self.symbol_table.set_ty(node_id, Type::Number);
+                Ok(node_id)
             }
             ast::Node::BoolLiteral(node) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let node = Node::new_literal(LiteralValue::Bool(node.value));
-                let node_ref = self.register_node(node);
-                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
-                self.symbol_table.set_ty(node_ref, Type::Bool);
-                Ok(node_ref)
+                let node_id = self.register_node(node);
+                self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                self.symbol_table.set_ty(node_id, Type::Bool);
+                Ok(node_id)
             }
             ast::Node::UnaryOp(unary_op) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
-                let expr_ref = self.generate_expr(&unary_op.expr)?;
-                let expr_ty = self.get_ty_or_err(expr_ref)?;
+                let expr_id = self.generate_expr(&unary_op.expr)?;
+                let expr_ty = self.get_ty_or_err(expr_id)?;
                 if expr_ty == Type::Function {
-                    return Err(self.make_error("type `function` is not supported", expr_ref));
+                    return Err(self.make_error("type `function` is not supported", expr_id));
                 }
                 if expr_ty == Type::Void {
-                    return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", expr_ref));
+                    return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", expr_id));
                 }
                 let op_str = unary_op.operator.as_str();
                 let op = match op_str {
                     "!" => LogicalUnaryOperator::Not,
                     _ => return Err(self.make_low_error("unexpected operation", parser_node)),
                 };
-                Type::assert(expr_ty, Type::Bool).map_err(|e| self.make_error(&e, expr_ref))?;
-                let node = Node::new_logical_unary_op(op, expr_ref);
-                let node_ref = self.register_node(node);
-                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
-                self.symbol_table.set_ty(node_ref, Type::Bool);
-                Ok(node_ref)
+                Type::assert(expr_ty, Type::Bool).map_err(|e| self.make_error(&e, expr_id))?;
+                let node = Node::new_logical_unary_op(op, expr_id);
+                let node_id = self.register_node(node);
+                self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                self.symbol_table.set_ty(node_id, Type::Bool);
+                Ok(node_id)
             }
             ast::Node::BinaryExpr(binary_expr) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
-                let left_ref = self.generate_expr(&binary_expr.left)?;
-                let right_ref = self.generate_expr(&binary_expr.right)?;
-                let left_ty = self.get_ty_or_err(left_ref)?;
-                let right_ty = self.get_ty_or_err(right_ref)?;
+                let left_id = self.generate_expr(&binary_expr.left)?;
+                let right_id = self.generate_expr(&binary_expr.right)?;
+                let left_ty = self.get_ty_or_err(left_id)?;
+                let right_ty = self.get_ty_or_err(right_id)?;
                 if left_ty == Type::Function {
-                    return Err(self.make_error("type `function` is not supported", left_ref));
+                    return Err(self.make_error("type `function` is not supported", left_id));
                 }
                 if left_ty == Type::Void {
-                    return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", left_ref));
+                    return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", left_id));
                 }
                 if right_ty == Type::Function {
-                    return Err(self.make_error("type `function` is not supported", right_ref));
+                    return Err(self.make_error("type `function` is not supported", right_id));
                 }
                 if right_ty == Type::Void {
-                    return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", right_ref));
+                    return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", right_id));
                 }
                 let op_str = binary_expr.operator.as_str();
                 // Arithmetic Operation
@@ -603,13 +601,13 @@ impl<'a> HirGenerator<'a> {
                         _ => None,
                     };
                     if let Some(op) = op {
-                        Type::assert(left_ty, Type::Number).map_err(|e| self.make_error(&e, left_ref))?;
-                        Type::assert(right_ty, Type::Number).map_err(|e| self.make_error(&e, right_ref))?;
-                        let node = Node::new_arithmetic_op(op, left_ref, right_ref);
-                        let node_ref = self.register_node(node);
-                        self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
-                        self.symbol_table.set_ty(node_ref, Type::Number);
-                        return Ok(node_ref);
+                        Type::assert(left_ty, Type::Number).map_err(|e| self.make_error(&e, left_id))?;
+                        Type::assert(right_ty, Type::Number).map_err(|e| self.make_error(&e, right_id))?;
+                        let node = Node::new_arithmetic_op(op, left_id, right_id);
+                        let node_id = self.register_node(node);
+                        self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                        self.symbol_table.set_ty(node_id, Type::Number);
+                        return Ok(node_id);
                     }
                 }
                 // Relational Operation
@@ -625,11 +623,11 @@ impl<'a> HirGenerator<'a> {
                     };
                     if let Some(op) = op {
                         Type::assert(right_ty, left_ty).map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error message
-                        let node = Node::new_relational_op(op, left_ty, left_ref, right_ref);
-                        let node_ref = self.register_node(node);
-                        self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
-                        self.symbol_table.set_ty(node_ref, Type::Bool);
-                        return Ok(node_ref);
+                        let node = Node::new_relational_op(op, left_ty, left_id, right_id);
+                        let node_id = self.register_node(node);
+                        self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                        self.symbol_table.set_ty(node_id, Type::Bool);
+                        return Ok(node_id);
                     }
                 }
                 // Logical Operation
@@ -640,50 +638,50 @@ impl<'a> HirGenerator<'a> {
                         _ => None,
                     };
                     if let Some(op) = op {
-                        Type::assert(left_ty, Type::Bool).map_err(|e| self.make_error(&e, left_ref))?;
-                        Type::assert(right_ty, Type::Bool).map_err(|e| self.make_error(&e, right_ref))?;
-                        let node = Node::new_logical_binary_op(op, left_ref, right_ref);
-                        let node_ref = self.register_node(node);
-                        self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
-                        self.symbol_table.set_ty(node_ref, Type::Bool);
-                        return Ok(node_ref);
+                        Type::assert(left_ty, Type::Bool).map_err(|e| self.make_error(&e, left_id))?;
+                        Type::assert(right_ty, Type::Bool).map_err(|e| self.make_error(&e, right_id))?;
+                        let node = Node::new_logical_binary_op(op, left_id, right_id);
+                        let node_id = self.register_node(node);
+                        self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                        self.symbol_table.set_ty(node_id, Type::Bool);
+                        return Ok(node_id);
                     }
                 }
                 Err(self.make_low_error("unexpected operation", parser_node))
             }
             ast::Node::CallExpr(call_expr) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
-                let callee_ref = self.generate_expr(&call_expr.callee)?;
-                let callee_func_ref = self.resolve_node(callee_ref);
-                let callee_func = callee_func_ref.get(self.node_map).as_decl().map_err(|e| self.make_error(&e, callee_ref))?;
-                let signature = callee_func.signature.as_function_signature().map_err(|e| self.make_error(&e, callee_ref))?;
+                let callee_id = self.generate_expr(&call_expr.callee)?;
+                let callee_func_id = self.resolve_node(callee_id);
+                let callee_func = callee_func_id.get(self.node_map).as_decl().map_err(|e| self.make_error(&e, callee_id))?;
+                let signature = callee_func.signature.as_function_signature().map_err(|e| self.make_error(&e, callee_id))?;
                 let ret_ty = signature.ret_ty;
                 let params = signature.params.clone();
                 if params.len() != call_expr.args.len() {
                     return Err(self.make_low_error("argument count incorrect", parser_node));
                 }
                 let mut args = Vec::new();
-                for (i, &param_ref) in params.iter().enumerate() {
-                    let arg_ref = self.generate_expr(&call_expr.args[i])?;
-                    let param_ty = self.get_ty_or_err(param_ref)?;
-                    let arg_ty = self.get_ty_or_err(arg_ref)?;
+                for (i, &param_id) in params.iter().enumerate() {
+                    let arg_id = self.generate_expr(&call_expr.args[i])?;
+                    let param_ty = self.get_ty_or_err(param_id)?;
+                    let arg_ty = self.get_ty_or_err(arg_id)?;
                     if param_ty == Type::Function {
-                        return Err(self.make_error("type `function` is not supported", param_ref));
+                        return Err(self.make_error("type `function` is not supported", param_id));
                     }
                     if arg_ty == Type::Function {
-                        return Err(self.make_error("type `function` is not supported", arg_ref));
+                        return Err(self.make_error("type `function` is not supported", arg_id));
                     }
                     if arg_ty == Type::Void {
-                        return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", arg_ref));
+                        return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", arg_id));
                     }
-                    Type::assert(arg_ty, param_ty).map_err(|e| self.make_error(&e, arg_ref))?;
-                    args.push(arg_ref);
+                    Type::assert(arg_ty, param_ty).map_err(|e| self.make_error(&e, arg_id))?;
+                    args.push(arg_id);
                 }
-                let node = Node::new_call_expr(callee_ref, args);
-                let node_ref = self.register_node(node);
-                self.symbol_table.set_pos(node_ref, self.calc_location(parser_node)?);
-                self.symbol_table.set_ty(node_ref, ret_ty);
-                Ok(node_ref)
+                let node = Node::new_call_expr(callee_id, args);
+                let node_id = self.register_node(node);
+                self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                self.symbol_table.set_ty(node_id, ret_ty);
+                Ok(node_id)
             }
             ast::Node::FunctionDeclaration(_)
             | ast::Node::VariableDeclaration(_)

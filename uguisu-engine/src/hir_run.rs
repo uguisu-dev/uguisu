@@ -11,7 +11,6 @@ use crate::hir::{
     LogicalUnaryOperator,
     Node,
     NodeId,
-    NodeRef,
     RelationalOperator,
     Signature,
     SymbolTable,
@@ -27,15 +26,13 @@ enum StatementResult {
     ReturnWith(Value),
 }
 
-pub(crate) type SymbolAddress = usize;
-
 /// evaluated value
 #[derive(Debug, Clone)]
 pub(crate) enum Value {
     NoneValue,
     Number(i64),
     Bool(bool),
-    Function(SymbolAddress),
+    Function(NodeId),
 }
 
 impl Value {
@@ -89,20 +86,20 @@ impl Env {
         self.frames.remove(0);
     }
 
-    pub(crate) fn set_symbol(&mut self, address: SymbolAddress, value: Value) {
-        if self.trace { println!("set_symbol (address: [{}], value: {:?})", address, value); }
+    pub(crate) fn set_symbol(&mut self, node_id: NodeId, value: Value) {
+        if self.trace { println!("set_symbol (node_id: [{}], value: {:?})", node_id, value); }
         match self.frames.get_mut(0) {
             Some(frame) => {
-                frame.table.insert(address, value);
+                frame.table.insert(node_id, value);
             }
             None => panic!("frame not found"),
         }
     }
 
-    pub(crate) fn get_symbol(&self, address: SymbolAddress) -> Option<&Value> {
-        if self.trace { println!("get_symbol [{}]", address); }
+    pub(crate) fn get_symbol(&self, node_id: NodeId) -> Option<&Value> {
+        if self.trace { println!("get_symbol [{}]", node_id); }
         match self.frames.get(0) {
-            Some(frame) => frame.table.get(&address),
+            Some(frame) => frame.table.get(&node_id),
             None => panic!("frame not found"),
         }
     }
@@ -138,32 +135,25 @@ impl<'a> HirRunner<'a> {
         }
     }
 
-    fn resolve_node(&self, node_ref: NodeRef) -> NodeRef {
-        match node_ref.get(self.source) {
+    fn resolve_node(&self, node_id: NodeId) -> NodeId {
+        match node_id.get(self.source) {
             Node::Reference(reference) => self.resolve_node(reference.dest),
-            _ => node_ref,
+            _ => node_id,
         }
     }
 
-    fn resolve_address(&self, node_ref: NodeRef) -> SymbolAddress {
-        match node_ref.get(self.source) {
-            Node::Reference(reference) => self.resolve_address(reference.dest),
-            _ => node_ref.id,
-        }
-    }
-
-    pub(crate) fn run(&self, hir_code: &Vec<NodeRef>, env: &mut Env) -> Result<(), RuntimeError> {
-        for &node_ref in hir_code.iter() {
-            self.exec_statement(node_ref, env)?;
+    pub(crate) fn run(&self, hir_code: &Vec<NodeId>, env: &mut Env) -> Result<(), RuntimeError> {
+        for &node_id in hir_code.iter() {
+            self.exec_statement(node_id, env)?;
         }
         Ok(())
     }
 
-    fn exec_block(&self, statements: &Vec<NodeRef>, env: &mut Env) -> Result<StatementResult, RuntimeError> {
+    fn exec_block(&self, statements: &Vec<NodeId>, env: &mut Env) -> Result<StatementResult, RuntimeError> {
         if self.trace { println!("enter block"); }
         let mut result = StatementResult::None;
-        for &node_ref in statements.iter() {
-            result = self.exec_statement(node_ref, env)?;
+        for &node_id in statements.iter() {
+            result = self.exec_statement(node_id, env)?;
             match result {
                 StatementResult::None => {}
                 StatementResult::Break
@@ -180,22 +170,22 @@ impl<'a> HirRunner<'a> {
     // Execute a statement.
     fn exec_statement(
         &self,
-        node_ref: NodeRef,
+        node_id: NodeId,
         env: &mut Env,
     ) -> Result<StatementResult, RuntimeError> {
-        if self.trace { println!("enter statement [{}]", node_ref.id); }
-        let result = match node_ref.get(self.source) {
+        if self.trace { println!("enter statement [{}]", node_id); }
+        let result = match node_id.get(self.source) {
             Node::Declaration(decl) => {
                 // TODO: check duplicate
                 match decl.signature {
                     Signature::FunctionSignature(_) => {
-                        env.set_symbol(node_ref.id, Value::Function(node_ref.id));
+                        env.set_symbol(node_id, Value::Function(node_id));
                     }
                     Signature::VariableSignature(_) => {
-                        match self.symbol_table.get(node_ref).body {
+                        match self.symbol_table.get(node_id).body {
                             Some(body) => {
                                 let value = self.eval_expr(body, env)?;
-                                env.set_symbol(node_ref.id, value);
+                                env.set_symbol(node_id, value);
                             }
                             None => {} // variable is not defined yet
                         }
@@ -219,59 +209,59 @@ impl<'a> HirRunner<'a> {
                 let curr_value = self.eval_expr(statement.dest, env)?;
                 match statement.mode {
                     AssignmentMode::Assign => {
-                        let address = self.resolve_address(statement.dest);
+                        let dest_id = self.resolve_node(statement.dest);
                         let value = self.eval_expr(statement.body, env)?;
-                        env.set_symbol(address, value);
+                        env.set_symbol(dest_id, value);
                     }
                     AssignmentMode::AddAssign => {
-                        let address = self.resolve_address(statement.dest);
+                        let dest_id = self.resolve_node(statement.dest);
                         let restored_value = curr_value.as_number();
                         let body_value = self.eval_expr(statement.body, env)?.as_number();
                         let value = match restored_value.checked_add(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("add operation overflowed")),
                         };
-                        env.set_symbol(address, Value::Number(value));
+                        env.set_symbol(dest_id, Value::Number(value));
                     }
                     AssignmentMode::SubAssign => {
-                        let address = self.resolve_address(statement.dest);
+                        let dest_id = self.resolve_node(statement.dest);
                         let restored_value = curr_value.as_number();
                         let body_value = self.eval_expr(statement.body, env)?.as_number();
                         let value = match restored_value.checked_sub(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("sub operation overflowed")),
                         };
-                        env.set_symbol(address, Value::Number(value));
+                        env.set_symbol(dest_id, Value::Number(value));
                     }
                     AssignmentMode::MultAssign => {
-                        let address = self.resolve_address(statement.dest);
+                        let dest_id = self.resolve_node(statement.dest);
                         let restored_value = curr_value.as_number();
                         let body_value = self.eval_expr(statement.body, env)?.as_number();
                         let value = match restored_value.checked_mul(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("mult operation overflowed")),
                         };
-                        env.set_symbol(address, Value::Number(value));
+                        env.set_symbol(dest_id, Value::Number(value));
                     }
                     AssignmentMode::DivAssign => {
-                        let address = self.resolve_address(statement.dest);
+                        let dest_id = self.resolve_node(statement.dest);
                         let restored_value = curr_value.as_number();
                         let body_value = self.eval_expr(statement.body, env)?.as_number();
                         let value = match restored_value.checked_div(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("div operation overflowed")),
                         };
-                        env.set_symbol(address, Value::Number(value));
+                        env.set_symbol(dest_id, Value::Number(value));
                     }
                     AssignmentMode::ModAssign => {
-                        let address = self.resolve_address(statement.dest);
+                        let dest_id = self.resolve_node(statement.dest);
                         let restored_value = curr_value.as_number();
                         let body_value = self.eval_expr(statement.body, env)?.as_number();
                         let value = match restored_value.checked_rem(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("mod operation overflowed")),
                         };
-                        env.set_symbol(address, Value::Number(value));
+                        env.set_symbol(dest_id, Value::Number(value));
                     }
                 }
                 Ok(StatementResult::None)
@@ -310,35 +300,35 @@ impl<'a> HirRunner<'a> {
             | Node::ArithmeticOp(_)
             | Node::LogicalUnaryOp(_)
             | Node::CallExpr(_) => {
-                self.eval_expr(node_ref, env)?;
+                self.eval_expr(node_id, env)?;
                 Ok(StatementResult::None)
             }
             Node::Function(_)
             | Node::Variable(_)
             | Node::FuncParam(_) => {
-                panic!("Failed to execute the statement: unsupported node (node_id={})", node_ref.id);
+                panic!("Failed to execute the statement: unsupported node (node_id={})", node_id);
             }
         };
-        if self.trace { println!("leave statement [{}]", node_ref.id); }
+        if self.trace { println!("leave statement [{}]", node_id); }
         result
     }
 
     /// Generate a value by evaluating an expression.
     fn eval_expr(
         &self,
-        node_ref: NodeRef,
+        node_id: NodeId,
         env: &mut Env,
     ) -> Result<Value, RuntimeError> {
-        if self.trace { println!("enter expression [{}]", node_ref.id); }
-        let result = match node_ref.get(self.source) {
+        if self.trace { println!("enter expression [{}]", node_id); }
+        let result = match node_id.get(self.source) {
             Node::Variable(variable) => { // variable of initial value
                 Ok(self.eval_expr(variable.content, env)?)
             }
             Node::Reference(reference) => {
-                let address = self.resolve_address(reference.dest);
-                match env.get_symbol(address) {
+                let dest_id = self.resolve_node(reference.dest);
+                match env.get_symbol(dest_id) {
                     Some(x) => Ok(x.clone()),
-                    None => panic!("symbol not found (node_id={}, address={})", node_ref.id, address),
+                    None => panic!("symbol not found (node_id={}, dest_id={})", node_id, dest_id),
                 }
             }
             Node::Literal(literal) => {
@@ -377,7 +367,7 @@ impl<'a> HirRunner<'a> {
                     }
                     Type::Function
                     | Type::Void => {
-                        panic!("unsupported operation (node_id={})", node_ref.id);
+                        panic!("unsupported operation (node_id={})", node_id);
                     }
                 }
             }
@@ -422,16 +412,16 @@ impl<'a> HirRunner<'a> {
                 }
             }
             Node::CallExpr(call_expr) => {
-                let callee_ref = self.resolve_node(call_expr.callee);
-                let callee = callee_ref.get(self.source).as_decl().unwrap();
+                let callee_id = self.resolve_node(call_expr.callee);
+                let callee = callee_id.get(self.source).as_decl().unwrap();
                 let signature = callee.signature.as_function_signature().unwrap();
-                let func = match self.symbol_table.get(callee_ref).body {
+                let func = match self.symbol_table.get(callee_id).body {
                     Some(x) => x.get(self.source).as_function().unwrap(),
-                    None => panic!("function `{}` is not defined (node_id={})", callee.identifier, call_expr.callee.id),
+                    None => panic!("function `{}` is not defined (node_id={})", callee.identifier, call_expr.callee),
                 };
                 let mut args = Vec::new();
-                for &arg_ref in call_expr.args.iter() {
-                    let arg_value = self.eval_expr(arg_ref, env)?;
+                for &arg_id in call_expr.args.iter() {
+                    let arg_value = self.eval_expr(arg_id, env)?;
                     args.push(arg_value);
                 }
                 env.push_frame();
@@ -439,9 +429,9 @@ impl<'a> HirRunner<'a> {
                 match &func.content {
                     FunctionBody::Statements(body) => {
                         for i in 0..signature.params.len() {
-                            let param_addr = &signature.params[i];
+                            let param_addr = signature.params[i];
                             let arg_value = args[i].clone();
-                            env.set_symbol(param_addr.id, arg_value);
+                            env.set_symbol(param_addr, arg_value);
                         }
                         match self.exec_block(&body, env)? {
                             StatementResult::Break => {
@@ -466,7 +456,7 @@ impl<'a> HirRunner<'a> {
                 };
                 Ok(value)
             }
-            Node::Function(_) => panic!("function object unsupported (node_id={})", node_ref.id),
+            Node::Function(_) => panic!("function object unsupported (node_id={})", node_id),
             Node::FuncParam(_)
             | Node::Declaration(_)
             | Node::ReturnStatement(_)
@@ -474,10 +464,10 @@ impl<'a> HirRunner<'a> {
             | Node::Assignment(_)
             | Node::IfStatement(_)
             | Node::LoopStatement(_) => {
-                panic!("Failed to evaluate the expression: unsupported node (node_id={})", node_ref.id);
+                panic!("Failed to evaluate the expression: unsupported node (node_id={})", node_id);
             }
         };
-        if self.trace { println!("leave expression [{}]", node_ref.id); }
+        if self.trace { println!("leave expression [{}]", node_id); }
         result
     }
 }

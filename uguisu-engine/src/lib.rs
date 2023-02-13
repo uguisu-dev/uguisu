@@ -64,7 +64,7 @@ pub struct AstData<'a> {
 }
 
 pub struct HirData {
-    pub content: Vec<hir::NodeRef>,
+    pub content: Vec<hir::NodeId>,
     pub node_map: BTreeMap<hir::NodeId, hir::Node>,
     pub symbol_table: SymbolTable,
 }
