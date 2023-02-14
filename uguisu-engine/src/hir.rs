@@ -249,7 +249,10 @@ impl NodeId {
     }
 
     pub fn get<'a>(&self, node_map: &'a BTreeMap<NodeId, Node>) -> &'a Node {
-        &node_map[&self]
+        match node_map.get(self) {
+            Some(x) => x,
+            None => panic!("node not found"),
+        }
     }
 }
 
@@ -663,29 +666,29 @@ pub(crate) fn show_node(node_id: NodeId, node_map: &BTreeMap<NodeId, Node>, symb
     println!("}}");
 }
 
-pub(crate) struct ResolverStack {
+pub struct ResolverStack {
     frames: Vec<ResolverFrame>,
     trace: bool,
 }
 
 impl ResolverStack {
-    pub(crate) fn new(trace: bool) -> Self {
+    pub fn new(trace: bool) -> Self {
         Self {
             frames: vec![ResolverFrame::new()],
             trace,
         }
     }
 
-    pub(crate) fn is_root_frame(&mut self) -> bool {
+    pub fn is_root_frame(&mut self) -> bool {
         self.frames.len() == 1
     }
 
-    pub(crate) fn push_frame(&mut self) {
+    pub fn push_frame(&mut self) {
         if self.trace { println!("push_frame"); }
         self.frames.insert(0, ResolverFrame::new());
     }
 
-    pub(crate) fn pop_frame(&mut self) {
+    pub fn pop_frame(&mut self) {
         if self.trace { println!("pop_frame"); }
         if self.is_root_frame() {
             panic!("Left the root frame.");
@@ -693,7 +696,7 @@ impl ResolverStack {
         self.frames.remove(0);
     }
 
-    pub(crate) fn set_identifier(&mut self, identifier: &str, node_id: NodeId) {
+    pub fn set_identifier(&mut self, identifier: &str, node_id: NodeId) {
         if self.trace { println!("set_identifier (identifier: \"{}\", node_id: [{}])", identifier, node_id); }
         match self.frames.get_mut(0) {
             Some(frame) => {
@@ -703,7 +706,7 @@ impl ResolverStack {
         }
     }
 
-    pub(crate) fn lookup_identifier(&self, identifier: &str) -> Option<NodeId> {
+    pub fn lookup_identifier(&self, identifier: &str) -> Option<NodeId> {
         for frame in self.frames.iter() {
             match frame.table.get(identifier) {
                 Some(&node_id) => {
@@ -808,34 +811,55 @@ pub enum Type {
     Bool,
     String,
     Function,
+    Struct(NodeId),
 }
 
 impl Type {
-    pub fn get_name(&self) -> &str {
+    pub fn get_name(&self, node_map: &BTreeMap<NodeId, Node>) -> String {
         match self {
-            Type::Void => "void",
-            Type::Number => "number",
-            Type::Bool => "bool",
-            Type::String => "string",
-            Type::Function => "function",
+            Type::Void => "void".to_owned(),
+            Type::Number => "number".to_owned(),
+            Type::Bool => "bool".to_owned(),
+            Type::String => "string".to_owned(),
+            Type::Function => "function".to_owned(),
+            Type::Struct(node_id) => {
+                let decl = node_id.get(node_map).as_decl().unwrap();
+                let ty_name = String::from("struct ") + &decl.identifier;
+                ty_name
+            }
         }
     }
 
-    pub fn from_identifier(ty_identifier: &str) -> Result<Type, String> {
+    pub fn from_identifier(ty_identifier: &str, resolver: &ResolverStack, node_map: &BTreeMap<NodeId, Node>) -> Result<Type, String> {
         match ty_identifier {
             "void" => Err("type `void` is invalid".to_owned()),
             "number" => Ok(Type::Number),
             "bool" => Ok(Type::Bool),
             "string" => Ok(Type::String),
-            _ => Err("unknown type name".to_owned()),
+            _ => {
+                let node_id = match resolver.lookup_identifier(ty_identifier) {
+                    Some(x) => x,
+                    None => return Err("unknown type name".to_owned()),
+                };
+                let decl = match node_id.get(node_map).as_decl() {
+                    Ok(x) => x,
+                    Err(_) => return Err("unknown type name".to_owned()),
+                };
+                match &decl.signature {
+                    Signature::StructSignature(_) => {
+                        Ok(Type::Struct(node_id))
+                    }
+                    _ => return Err("unknown type name".to_owned()),
+                }
+            }
         }
     }
 
-    pub fn assert(actual: Type, expected: Type) -> Result<Type, String> {
+    pub fn assert(actual: Type, expected: Type, node_map: &BTreeMap<NodeId, Node>) -> Result<Type, String> {
         if actual == expected {
             Ok(actual)
         } else {
-            let message = format!("type mismatched. expected `{}`, found `{}`", expected.get_name(), actual.get_name());
+            let message = format!("type mismatched. expected `{}`, found `{}`", expected.get_name(node_map), actual.get_name(node_map));
             Err(message)
         }
     }

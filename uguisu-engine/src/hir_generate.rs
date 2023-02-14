@@ -120,7 +120,7 @@ impl<'a> HirGenerator<'a> {
             }
         };
         let ty = match signature.specified_ty {
-            Some(x) => Type::assert(body_ty, x).map_err(|e| self.make_error(&e, body_id))?,
+            Some(x) => Type::assert(body_ty, x, self.node_map).map_err(|e| self.make_error(&e, body_id))?,
             None => body_ty,
         };
 
@@ -222,7 +222,7 @@ impl<'a> HirGenerator<'a> {
                     func_params.push(func_param);
                 }
                 let ret_ty = match &func.ret {
-                    Some(x) => Type::from_identifier(x).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
+                    Some(x) => Type::from_identifier(x, &self.resolver, self.node_map).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
                     None => Type::Void,
                 };
 
@@ -235,7 +235,7 @@ impl<'a> HirGenerator<'a> {
                         let node_id = self.register_node(node);
                         self.symbol_table.set_pos(node_id, self.calc_location(&func.params[i])?);
                         let param_type = match &func.params[i].as_func_param().type_identifier {
-                            Some(x) => Type::from_identifier(x).map_err(|e| self.make_error(&e, node_id))?, // TODO: improve error location
+                            Some(x) => Type::from_identifier(x, &self.resolver, self.node_map).map_err(|e| self.make_error(&e, node_id))?, // TODO: improve error location
                             None => return Err(self.make_error("parameter type missing", node_id)),
                         };
                         self.symbol_table.set_ty(node_id, param_type);
@@ -311,7 +311,7 @@ impl<'a> HirGenerator<'a> {
                 // fetch specified type
                 // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
                 let specified_ty = match &variable.type_identifier {
-                    Some(ident) => Some(Type::from_identifier(ident).map_err(|e| self.make_low_error(&e, parser_node))?), // TODO: improve error location
+                    Some(ident) => Some(Type::from_identifier(ident, &self.resolver, self.node_map).map_err(|e| self.make_low_error(&e, parser_node))?), // TODO: improve error location
                     None => None,
                 };
 
@@ -346,12 +346,13 @@ impl<'a> HirGenerator<'a> {
 
                 // make signature
                 let signature = Signature::StructSignature(StructSignature {
-                    fields: fields,
+                    fields,
                 });
                 // make node
                 let node = Node::new_declaration(decl.identifier.clone(), signature);
                 let node_id = self.register_node(node);
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                self.symbol_table.set_ty(node_id, Type::Struct(node_id));
                 self.resolver.set_identifier(&decl.identifier, node_id);
 
                 Ok(node_id)
@@ -433,7 +434,7 @@ impl<'a> HirGenerator<'a> {
                         if expr_ty == Type::Void {
                             return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", expr_id));
                         }
-                        Type::assert(expr_ty, target_ty).map_err(|e| self.make_low_error(&e, parser_node))?;
+                        Type::assert(expr_ty, target_ty, self.node_map).map_err(|e| self.make_low_error(&e, parser_node))?;
                     }
                     AssignmentMode::AddAssign
                     | AssignmentMode::SubAssign
@@ -441,9 +442,9 @@ impl<'a> HirGenerator<'a> {
                     | AssignmentMode::DivAssign
                     | AssignmentMode::ModAssign => {
                         let target_ty = self.get_ty_or_low_err(target_id, parser_node)?;
-                        Type::assert(target_ty, Type::Number).map_err(|e| self.make_error(&e, target_id))?; // TODO: improve error message
+                        Type::assert(target_ty, Type::Number, self.node_map).map_err(|e| self.make_error(&e, target_id))?; // TODO: improve error message
                         let expr_ty = self.get_ty_or_err(expr_id)?;
-                        Type::assert(expr_ty, Type::Number).map_err(|e| self.make_error(&e, expr_id))?;
+                        Type::assert(expr_ty, Type::Number, self.node_map).map_err(|e| self.make_error(&e, expr_id))?;
                     }
                 }
 
@@ -466,7 +467,7 @@ impl<'a> HirGenerator<'a> {
                         Some((cond, then_block)) => {
                             let cond_id = analyzer.generate_expr(cond)?;
                             let cond_ty = analyzer.get_ty_or_err(cond_id)?;
-                            Type::assert(cond_ty, Type::Bool).map_err(|e| analyzer.make_error(&e, cond_id))?;
+                            Type::assert(cond_ty, Type::Bool, analyzer.node_map).map_err(|e| analyzer.make_error(&e, cond_id))?;
                             let then_nodes = analyzer.generate_statements(then_block)?;
                             // next else if part
                             let elif = transform(index + 1, analyzer, parser_node, items, else_block)?;
@@ -606,7 +607,7 @@ impl<'a> HirGenerator<'a> {
                     "!" => LogicalUnaryOperator::Not,
                     _ => return Err(self.make_low_error("unexpected operation", parser_node)),
                 };
-                Type::assert(expr_ty, Type::Bool).map_err(|e| self.make_error(&e, expr_id))?;
+                Type::assert(expr_ty, Type::Bool, self.node_map).map_err(|e| self.make_error(&e, expr_id))?;
                 let node = Node::new_logical_unary_op(op, expr_id);
                 let node_id = self.register_node(node);
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
@@ -643,8 +644,8 @@ impl<'a> HirGenerator<'a> {
                         _ => None,
                     };
                     if let Some(op) = op {
-                        Type::assert(left_ty, Type::Number).map_err(|e| self.make_error(&e, left_id))?;
-                        Type::assert(right_ty, Type::Number).map_err(|e| self.make_error(&e, right_id))?;
+                        Type::assert(left_ty, Type::Number, self.node_map).map_err(|e| self.make_error(&e, left_id))?;
+                        Type::assert(right_ty, Type::Number, self.node_map).map_err(|e| self.make_error(&e, right_id))?;
                         let node = Node::new_arithmetic_op(op, left_id, right_id);
                         let node_id = self.register_node(node);
                         self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
@@ -664,7 +665,7 @@ impl<'a> HirGenerator<'a> {
                         _ => None,
                     };
                     if let Some(op) = op {
-                        Type::assert(right_ty, left_ty).map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error message
+                        Type::assert(right_ty, left_ty, self.node_map).map_err(|e| self.make_low_error(&e, parser_node))?; // TODO: improve error message
                         let node = Node::new_relational_op(op, left_ty, left_id, right_id);
                         let node_id = self.register_node(node);
                         self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
@@ -680,8 +681,8 @@ impl<'a> HirGenerator<'a> {
                         _ => None,
                     };
                     if let Some(op) = op {
-                        Type::assert(left_ty, Type::Bool).map_err(|e| self.make_error(&e, left_id))?;
-                        Type::assert(right_ty, Type::Bool).map_err(|e| self.make_error(&e, right_id))?;
+                        Type::assert(left_ty, Type::Bool, self.node_map).map_err(|e| self.make_error(&e, left_id))?;
+                        Type::assert(right_ty, Type::Bool, self.node_map).map_err(|e| self.make_error(&e, right_id))?;
                         let node = Node::new_logical_binary_op(op, left_id, right_id);
                         let node_id = self.register_node(node);
                         self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
@@ -716,7 +717,7 @@ impl<'a> HirGenerator<'a> {
                     if arg_ty == Type::Void {
                         return Err(self.make_error("A function call that does not return a value cannot be used as an expression.", arg_id));
                     }
-                    Type::assert(arg_ty, param_ty).map_err(|e| self.make_error(&e, arg_id))?;
+                    Type::assert(arg_ty, param_ty, self.node_map).map_err(|e| self.make_error(&e, arg_id))?;
                     args.push(arg_id);
                 }
                 let node = Node::new_call_expr(callee_id, args);
@@ -726,7 +727,11 @@ impl<'a> HirGenerator<'a> {
                 Ok(node_id)
             }
             ast::Node::StructInit(struct_init) => {
-                if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
+                if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
+
+                let ty = Type::from_identifier(&struct_init.identifier, &self.resolver, self.node_map).map_err(|e| self.make_low_error(&e, parser_node))?;
+
+                // TODO: type check for fields
 
                 let mut fields = Vec::new();
                 for n in struct_init.fields.iter() {
@@ -741,6 +746,7 @@ impl<'a> HirGenerator<'a> {
                 let node = Node::new_struct_init(struct_init.identifier.clone(), fields);
                 let node_id = self.register_node(node);
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                self.symbol_table.set_ty(node_id, ty);
 
                 Ok(node_id)
             }

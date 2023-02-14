@@ -34,6 +34,7 @@ pub(crate) enum Value {
     Bool(bool),
     String(String),
     Function(NodeId),
+    Struct(NodeId), // struct init
 }
 
 impl Value {
@@ -42,29 +43,30 @@ impl Value {
             Value::Number(_) => Type::Number,
             Value::Bool(_) => Type::Bool,
             Value::String(_) => Type::String,
+            Value::Struct(node_id) => Type::Struct(node_id.clone()),
             Value::Function(_) => panic!("get type error"),
             Value::NoneValue => panic!("get type error"),
         }
     }
 
-    pub(crate) fn as_number(&self) -> i64 {
+    pub(crate) fn as_number(&self, node_map: &BTreeMap<NodeId, Node>) -> i64 {
         match self {
             &Value::Number(value) => value,
-            _ => panic!("type mismatched. expected `number`, found `{}`", self.get_type().get_name()),
+            _ => panic!("type mismatched. expected `number`, found `{}`", self.get_type().get_name(node_map)),
         }
     }
 
-    pub(crate) fn as_bool(&self) -> bool {
+    pub(crate) fn as_bool(&self, node_map: &BTreeMap<NodeId, Node>) -> bool {
         match self {
             &Value::Bool(value) => value,
-            _ => panic!("type mismatched. expected `bool`, found `{}`", self.get_type().get_name()),
+            _ => panic!("type mismatched. expected `bool`, found `{}`", self.get_type().get_name(node_map)),
         }
     }
 
-    pub(crate) fn as_string(&self) -> &str {
+    pub(crate) fn as_string(&self, node_map: &BTreeMap<NodeId, Node>) -> &str {
         match &self {
             Value::String(value) => value,
-            _ => panic!("type mismatched. expected `string`, found `{}`", self.get_type().get_name()),
+            _ => panic!("type mismatched. expected `string`, found `{}`", self.get_type().get_name(node_map)),
         }
     }
 }
@@ -200,7 +202,7 @@ impl<'a> HirRunner<'a> {
                         }
                     }
                     Signature::StructSignature(_) => {
-                        todo!();
+                        env.set_symbol(node_id, Value::Struct(node_id));
                     }
                 }
                 Ok(StatementResult::None)
@@ -227,8 +229,8 @@ impl<'a> HirRunner<'a> {
                     }
                     AssignmentMode::AddAssign => {
                         let dest_id = self.resolve_node(statement.dest);
-                        let restored_value = curr_value.as_number();
-                        let body_value = self.eval_expr(statement.body, env)?.as_number();
+                        let restored_value = curr_value.as_number(self.source);
+                        let body_value = self.eval_expr(statement.body, env)?.as_number(self.source);
                         let value = match restored_value.checked_add(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("add operation overflowed")),
@@ -237,8 +239,8 @@ impl<'a> HirRunner<'a> {
                     }
                     AssignmentMode::SubAssign => {
                         let dest_id = self.resolve_node(statement.dest);
-                        let restored_value = curr_value.as_number();
-                        let body_value = self.eval_expr(statement.body, env)?.as_number();
+                        let restored_value = curr_value.as_number(self.source);
+                        let body_value = self.eval_expr(statement.body, env)?.as_number(self.source);
                         let value = match restored_value.checked_sub(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("sub operation overflowed")),
@@ -247,8 +249,8 @@ impl<'a> HirRunner<'a> {
                     }
                     AssignmentMode::MultAssign => {
                         let dest_id = self.resolve_node(statement.dest);
-                        let restored_value = curr_value.as_number();
-                        let body_value = self.eval_expr(statement.body, env)?.as_number();
+                        let restored_value = curr_value.as_number(self.source);
+                        let body_value = self.eval_expr(statement.body, env)?.as_number(self.source);
                         let value = match restored_value.checked_mul(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("mult operation overflowed")),
@@ -257,8 +259,8 @@ impl<'a> HirRunner<'a> {
                     }
                     AssignmentMode::DivAssign => {
                         let dest_id = self.resolve_node(statement.dest);
-                        let restored_value = curr_value.as_number();
-                        let body_value = self.eval_expr(statement.body, env)?.as_number();
+                        let restored_value = curr_value.as_number(self.source);
+                        let body_value = self.eval_expr(statement.body, env)?.as_number(self.source);
                         let value = match restored_value.checked_div(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("div operation overflowed")),
@@ -267,8 +269,8 @@ impl<'a> HirRunner<'a> {
                     }
                     AssignmentMode::ModAssign => {
                         let dest_id = self.resolve_node(statement.dest);
-                        let restored_value = curr_value.as_number();
-                        let body_value = self.eval_expr(statement.body, env)?.as_number();
+                        let restored_value = curr_value.as_number(self.source);
+                        let body_value = self.eval_expr(statement.body, env)?.as_number(self.source);
                         let value = match restored_value.checked_rem(body_value) {
                             Some(x) => x,
                             None => return Err(RuntimeError::new("mod operation overflowed")),
@@ -279,7 +281,7 @@ impl<'a> HirRunner<'a> {
                 Ok(StatementResult::None)
             }
             Node::IfStatement(statement) => {
-                let condition = self.eval_expr(statement.condition, env)?.as_bool();
+                let condition = self.eval_expr(statement.condition, env)?.as_bool(self.source);
                 let block = if condition {
                     &statement.then_block
                 } else {
@@ -358,8 +360,8 @@ impl<'a> HirRunner<'a> {
                 let right = self.eval_expr(expr.right, env)?;
                 match expr.relation_type {
                     Type::Number => {
-                        let left = left.as_number();
-                        let right = right.as_number();
+                        let left = left.as_number(self.source);
+                        let right = right.as_number(self.source);
                         match expr.operator {
                             RelationalOperator::Equal => Ok(Value::Bool(left == right)),
                             RelationalOperator::NotEqual => Ok(Value::Bool(left != right)),
@@ -370,8 +372,8 @@ impl<'a> HirRunner<'a> {
                         }
                     }
                     Type::Bool => {
-                        let left = left.as_bool();
-                        let right = right.as_bool();
+                        let left = left.as_bool(self.source);
+                        let right = right.as_bool(self.source);
                         match expr.operator {
                             RelationalOperator::Equal => Ok(Value::Bool(left == right)),
                             RelationalOperator::NotEqual => Ok(Value::Bool(left != right)),
@@ -383,22 +385,23 @@ impl<'a> HirRunner<'a> {
                     }
                     Type::Function
                     | Type::String
-                    | Type::Void => {
+                    | Type::Void
+                    | Type::Struct(_) => {
                         panic!("unsupported operation (node_id={})", node_id);
                     }
                 }
             }
             Node::LogicalBinaryOp(expr) => {
-                let left = self.eval_expr(expr.left, env)?.as_bool();
-                let right = self.eval_expr(expr.right, env)?.as_bool();
+                let left = self.eval_expr(expr.left, env)?.as_bool(self.source);
+                let right = self.eval_expr(expr.right, env)?.as_bool(self.source);
                 match expr.operator {
                     LogicalBinaryOperator::And => Ok(Value::Bool(left && right)),
                     LogicalBinaryOperator::Or => Ok(Value::Bool(left || right)),
                 }
             }
             Node::ArithmeticOp(expr) => {
-                let left = self.eval_expr(expr.left, env)?.as_number();
-                let right = self.eval_expr(expr.right, env)?.as_number();
+                let left = self.eval_expr(expr.left, env)?.as_number(self.source);
+                let right = self.eval_expr(expr.right, env)?.as_number(self.source);
                 match expr.operator {
                     ArithmeticOperator::Add => match left.checked_add(right) {
                         Some(x) => Ok(Value::Number(x)),
@@ -423,7 +426,7 @@ impl<'a> HirRunner<'a> {
                 }
             }
             Node::LogicalUnaryOp(op) => {
-                let expr = self.eval_expr(op.expr, env)?.as_bool();
+                let expr = self.eval_expr(op.expr, env)?.as_bool(self.source);
                 match op.operator {
                     LogicalUnaryOperator::Not => Ok(Value::Bool(!expr)),
                 }
@@ -463,7 +466,7 @@ impl<'a> HirRunner<'a> {
                         }
                     }
                     FunctionBody::NativeCode => {
-                        result = Some(self.builtins.call(&callee.identifier, &args)?);
+                        result = Some(self.builtins.call(&callee.identifier, &args, self.source)?);
                     }
                 }
                 env.pop_frame();
@@ -473,10 +476,12 @@ impl<'a> HirRunner<'a> {
                 };
                 Ok(value)
             }
+            Node::StructInit(_struct_init) => {
+                Ok(Value::Struct(node_id))
+            }
             Node::Function(_) => panic!("function object unsupported (node_id={})", node_id),
             Node::FuncParam(_)
             | Node::StructField(_)
-            | Node::StructInit(_)
             | Node::StructInitField(_)
             | Node::Declaration(_)
             | Node::ReturnStatement(_)
