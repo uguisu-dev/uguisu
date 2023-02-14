@@ -22,9 +22,9 @@ pub enum Node {
     LogicalUnaryOp(LogicalUnaryOp),
     CallExpr(CallExpr),
     FuncParam(FuncParam),
-    StructInit(StructInit),
-    StructInitField(StructInitField),
-    StructField(StructField),
+    StructExpr(StructExpr),
+    StructExprField(StructExprField),
+    StructDeclField(StructDeclField),
 }
 
 impl Node {
@@ -46,9 +46,9 @@ impl Node {
             Node::LogicalUnaryOp(_) => "LogicalUnaryOp",
             Node::CallExpr(_) => "CallExpr",
             Node::FuncParam(_) => "FuncParam",
-            Node::StructField(_) => "StructField",
-            Node::StructInit(_) => "StructInit",
-            Node::StructInitField(_) => "StructInitField",
+            Node::StructDeclField(_) => "StructDeclField",
+            Node::StructExpr(_) => "StructExpr",
+            Node::StructExprField(_) => "StructExprField",
         }
     }
 
@@ -197,18 +197,18 @@ impl Node {
         })
     }
 
-    pub fn new_struct_init(
+    pub fn new_struct_expr(
         identifier: String,
         fields: Vec<NodeId>,
     ) -> Self {
-        Node::StructInit(StructInit {
+        Node::StructExpr(StructExpr {
             identifier,
             fields,
         })
     }
 
-    pub fn new_struct_init_field(identifier: String, body: NodeId) -> Self {
-        Node::StructInitField(StructInitField {
+    pub fn new_struct_expr_field(identifier: String, body: NodeId) -> Self {
+        Node::StructExprField(StructExprField {
             identifier,
             body,
         })
@@ -299,12 +299,12 @@ pub struct VariableSignature {
 
 #[derive(Debug)]
 pub struct StructSignature {
-    /// StructField
+    /// StructDeclField
     pub fields: Vec<NodeId>,
 }
 
 #[derive(Debug, Clone)]
-pub struct StructField {
+pub struct StructDeclField {
     pub identifier: String,
 }
 
@@ -462,14 +462,14 @@ pub struct CallExpr {
 }
 
 #[derive(Debug, Clone)]
-pub struct StructInit {
+pub struct StructExpr {
     pub identifier: String,
-    /// StructInitField
+    /// StructExprField
     pub fields: Vec<NodeId>,
 }
 
 #[derive(Debug, Clone)]
-pub struct StructInitField {
+pub struct StructExprField {
     pub identifier: String,
     /// expression
     pub body: NodeId,
@@ -648,18 +648,18 @@ pub(crate) fn show_node(node_id: NodeId, node_map: &BTreeMap<NodeId, Node>, symb
             println!("  identifier: \"{}\"", func_param.identifier);
             //println!("  type: {:?}", func_param.ty);
         }
-        Node::StructField(field) => {
+        Node::StructDeclField(field) => {
             println!("  identifier: \"{}\"", field.identifier);
         }
-        Node::StructInit(init) => {
-            println!("  identifier: \"{}\"", init.identifier);
+        Node::StructExpr(struct_expr) => {
+            println!("  identifier: \"{}\"", struct_expr.identifier);
             println!("  fields: {{");
-            for field in init.fields.iter() {
+            for field in struct_expr.fields.iter() {
                 println!("    [{}]", field);
             }
             println!("  }}");
         }
-        Node::StructInitField(field) => {
+        Node::StructExprField(field) => {
             println!("  identifier: \"{}\"", field.identifier);
         }
     }

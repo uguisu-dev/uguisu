@@ -6,7 +6,6 @@ pub enum Node {
     FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
     StructDeclaration(StructDeclaration),
-    StructInit(StructInit),
     BreakStatement(BreakStatement),
     ReturnStatement(ReturnStatement),
     Assignment(Assignment),
@@ -20,12 +19,13 @@ pub enum Node {
     BinaryExpr(BinaryExpr),
     UnaryOp(UnaryOp),
     CallExpr(CallExpr),
+    StructExpr(StructExpr),
     // function declaration
     FuncParam(FuncParam),
     // struct declaration
     StructDeclField(StructDeclField),
-    // struct init
-    StructInitField(StructInitField),
+    // struct expr
+    StructExprField(StructExprField),
 }
 
 impl Node {
@@ -34,7 +34,7 @@ impl Node {
             Node::FunctionDeclaration(_) => "FunctionDeclaration",
             Node::VariableDeclaration(_) => "VariableDeclaration",
             Node::StructDeclaration(_) => "StructDeclaration",
-            Node::StructInit(_) => "StructInit",
+            Node::StructExpr(_) => "StructExpr",
             Node::BreakStatement(_) => "BreakStatement",
             Node::ReturnStatement(_) => "ReturnStatement",
             Node::Assignment(_) => "Assignment",
@@ -49,7 +49,7 @@ impl Node {
             Node::CallExpr(_) => "CallExpr",
             Node::FuncParam(_) => "FuncParam",
             Node::StructDeclField(_) => "StructDeclField",
-            Node::StructInitField(_) => "StructInitField",
+            Node::StructExprField(_) => "StructExprField",
         }
     }
 
@@ -58,7 +58,7 @@ impl Node {
             Node::FunctionDeclaration(node) => node.pos,
             Node::VariableDeclaration(node) => node.pos,
             Node::StructDeclaration(node) => node.pos,
-            Node::StructInit(node) => node.pos,
+            Node::StructExpr(node) => node.pos,
             Node::BreakStatement(node) => node.pos,
             Node::ReturnStatement(node) => node.pos,
             Node::Assignment(node) => node.pos,
@@ -73,7 +73,7 @@ impl Node {
             Node::CallExpr(node) => node.pos,
             Node::FuncParam(node) => node.pos,
             Node::StructDeclField(node) => node.pos,
-            Node::StructInitField(node) => node.pos,
+            Node::StructExprField(node) => node.pos,
         }
     }
 
@@ -143,20 +143,20 @@ impl Node {
         })
     }
 
-    pub fn new_struct_init(
+    pub fn new_struct_expr(
         identifier: String,
         fields: Vec<Node>,
         pos: usize,
     ) -> Self {
-        Node::StructInit(StructInit {
+        Node::StructExpr(StructExpr {
             identifier,
             fields,
             pos,
         })
     }
 
-    pub fn new_struct_init_field(identifier: String, body: Node, pos: usize) -> Self {
-        Node::StructInitField(StructInitField {
+    pub fn new_struct_expr_field(identifier: String, body: Node, pos: usize) -> Self {
+        Node::StructExprField(StructExprField {
             identifier,
             body: Box::new(body),
             pos,
@@ -252,17 +252,17 @@ impl Node {
         }
     }
 
-    pub fn as_struct_field(&self) -> &StructDeclField {
+    pub fn as_struct_decl_field(&self) -> &StructDeclField {
         match self {
             Node::StructDeclField(x) => x,
             _ => panic!("struct decl field expected"),
         }
     }
 
-    pub fn as_struct_init_field(&self) -> &StructInitField {
+    pub fn as_struct_expr_field(&self) -> &StructExprField {
         match self {
-            Node::StructInitField(x) => x,
-            _ => panic!("struct init field expected"),
+            Node::StructExprField(x) => x,
+            _ => panic!("struct expr field expected"),
         }
     }
 
@@ -307,7 +307,7 @@ pub struct VariableDeclaration {
 #[derive(Debug, PartialEq)]
 pub struct StructDeclaration {
     pub identifier: String,
-    pub fields: Vec<Node>, // StructField
+    pub fields: Vec<Node>, // StructDeclField
     pub pos: usize,
 }
 
@@ -319,14 +319,14 @@ pub struct StructDeclField {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct StructInit {
+pub struct StructExpr {
     pub identifier: String,
-    pub fields: Vec<Node>, // StructInitField
+    pub fields: Vec<Node>, // StructExprField
     pub pos: usize,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct StructInitField {
+pub struct StructExprField {
     pub identifier: String,
     pub body: Box<Node>, // expression
     pub pos: usize,
@@ -514,7 +514,7 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
             show_tree(&node.fields, source_code, level + 2);
             println!("{}}}", indent(level + 1));
         }
-        Node::StructInit(node) => {
+        Node::StructExpr(node) => {
             println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
             println!("{}fields: {{", indent(level + 1));
             show_tree(&node.fields, source_code, level + 2);
@@ -630,7 +630,7 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
             println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
             println!("{}type_identifier: \"{}\"", indent(level + 1), node.type_identifier);
         }
-        Node::StructInitField(node) => {
+        Node::StructExprField(node) => {
             println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
         }
     }

@@ -18,7 +18,7 @@ use crate::hir::{
     RelationalOperator,
     ResolverStack,
     Signature,
-    StructField,
+    StructDeclField,
     StructSignature,
     SymbolTable,
     Type,
@@ -336,8 +336,8 @@ impl<'a> HirGenerator<'a> {
 
                 let mut fields = Vec::new();
                 for n in decl.fields.iter() {
-                    let field_node = n.as_struct_field();
-                    let node = Node::StructField(StructField {
+                    let field_node = n.as_struct_decl_field();
+                    let node = Node::StructDeclField(StructDeclField {
                         identifier: field_node.identifier.clone(),
                     });
                     let node_id = self.register_node(node);
@@ -524,7 +524,7 @@ impl<'a> HirGenerator<'a> {
             | ast::Node::BinaryExpr(_)
             | ast::Node::UnaryOp(_)
             | ast::Node::CallExpr(_)
-            | ast::Node::StructInit(_) => {
+            | ast::Node::StructExpr(_) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 // when global scope
                 if self.resolver.is_root_frame() {
@@ -539,7 +539,7 @@ impl<'a> HirGenerator<'a> {
             }
             ast::Node::FuncParam(_)
             | ast::Node::StructDeclField(_)
-            | ast::Node::StructInitField(_) => {
+            | ast::Node::StructExprField(_) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 panic!("unexpected node");
             }
@@ -726,24 +726,24 @@ impl<'a> HirGenerator<'a> {
                 self.symbol_table.set_ty(node_id, ret_ty);
                 Ok(node_id)
             }
-            ast::Node::StructInit(struct_init) => {
+            ast::Node::StructExpr(struct_expr) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
 
-                let ty = Type::from_identifier(&struct_init.identifier, &self.resolver, self.node_map).map_err(|e| self.make_low_error(&e, parser_node))?;
+                let ty = Type::from_identifier(&struct_expr.identifier, &self.resolver, self.node_map).map_err(|e| self.make_low_error(&e, parser_node))?;
 
                 // TODO: type check for fields
 
                 let mut fields = Vec::new();
-                for n in struct_init.fields.iter() {
-                    let field_node = n.as_struct_init_field();
+                for n in struct_expr.fields.iter() {
+                    let field_node = n.as_struct_expr_field();
                     let field_body_id = self.generate_expr(&field_node.body)?;
-                    let node = Node::new_struct_init_field(field_node.identifier.clone(), field_body_id);
+                    let node = Node::new_struct_expr_field(field_node.identifier.clone(), field_body_id);
                     let node_id = self.register_node(node);
                     fields.push(node_id);
                 }
 
                 // make node
-                let node = Node::new_struct_init(struct_init.identifier.clone(), fields);
+                let node = Node::new_struct_expr(struct_expr.identifier.clone(), fields);
                 let node_id = self.register_node(node);
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_id, ty);
@@ -760,7 +760,7 @@ impl<'a> HirGenerator<'a> {
             | ast::Node::LoopStatement(_)
             | ast::Node::FuncParam(_)
             | ast::Node::StructDeclField(_)
-            | ast::Node::StructInitField(_) => {
+            | ast::Node::StructExprField(_) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 panic!("unexpected expr node");
             }

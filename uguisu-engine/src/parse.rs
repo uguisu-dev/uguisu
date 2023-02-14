@@ -96,7 +96,7 @@ peg::parser! {
             e:bool() { e }
             e:string() { e }
             e:call_expr() { e }
-            e:struct_init() { e }
+            e:struct_expr() { e }
             p:pos() id:idenfitier() { Node::new_reference(id, p) }
             "(" __* e:expression() __* ")" { e }
         }
@@ -147,20 +147,20 @@ peg::parser! {
             Node::new_struct_decl_field(name.to_string(), type_name, p)
         }
 
-        rule struct_init() -> Node =
-            p:pos() name:idenfitier() __* "{" __* body:(struct_init_field() ++ (__* "," __*))? __* ("," __*)? "}"
+        rule struct_expr() -> Node =
+            p:pos() name:idenfitier() __* "{" __* body:(struct_expr_field() ++ (__* "," __*))? __* ("," __*)? "}"
         {
             let body = match body {
                 Some(x) => x,
                 None => vec![],
             };
-            Node::new_struct_init(name.to_string(), body, p)
+            Node::new_struct_expr(name.to_string(), body, p)
         }
 
-        rule struct_init_field() -> Node =
+        rule struct_expr_field() -> Node =
             p:pos() name:idenfitier() __* ":" __* body:expression()
         {
-            Node::new_struct_init_field(name.to_string(), body, p)
+            Node::new_struct_expr_field(name.to_string(), body, p)
         }
 
         rule break_statement() -> Node

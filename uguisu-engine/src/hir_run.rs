@@ -34,7 +34,7 @@ pub(crate) enum Value {
     Bool(bool),
     String(String),
     Function(NodeId),
-    Struct(NodeId), // struct init
+    Struct(NodeId), // struct expr
 }
 
 impl Value {
@@ -320,9 +320,9 @@ impl<'a> HirRunner<'a> {
             Node::Function(_)
             | Node::Variable(_)
             | Node::FuncParam(_)
-            | Node::StructField(_)
-            | Node::StructInit(_)
-            | Node::StructInitField(_) => {
+            | Node::StructDeclField(_)
+            | Node::StructExpr(_)
+            | Node::StructExprField(_) => {
                 panic!("Failed to execute the statement: unsupported node (node_id={})", node_id);
             }
         };
@@ -476,13 +476,13 @@ impl<'a> HirRunner<'a> {
                 };
                 Ok(value)
             }
-            Node::StructInit(_struct_init) => {
+            Node::StructExpr(_struct_expr) => {
                 Ok(Value::Struct(node_id))
             }
             Node::Function(_) => panic!("function object unsupported (node_id={})", node_id),
             Node::FuncParam(_)
-            | Node::StructField(_)
-            | Node::StructInitField(_)
+            | Node::StructDeclField(_)
+            | Node::StructExprField(_)
             | Node::Declaration(_)
             | Node::ReturnStatement(_)
             | Node::BreakStatement(_)
