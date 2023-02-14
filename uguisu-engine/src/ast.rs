@@ -6,6 +6,7 @@ pub enum Node {
     FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
     StructDeclaration(StructDeclaration),
+    StructInit(StructInit),
     BreakStatement(BreakStatement),
     ReturnStatement(ReturnStatement),
     Assignment(Assignment),
@@ -22,7 +23,9 @@ pub enum Node {
     // function declaration
     FuncParam(FuncParam),
     // struct declaration
-    StructField(StructField),
+    StructDeclField(StructDeclField),
+    // struct init
+    StructInitField(StructInitField),
 }
 
 impl Node {
@@ -31,6 +34,7 @@ impl Node {
             Node::FunctionDeclaration(_) => "FunctionDeclaration",
             Node::VariableDeclaration(_) => "VariableDeclaration",
             Node::StructDeclaration(_) => "StructDeclaration",
+            Node::StructInit(_) => "StructInit",
             Node::BreakStatement(_) => "BreakStatement",
             Node::ReturnStatement(_) => "ReturnStatement",
             Node::Assignment(_) => "Assignment",
@@ -44,7 +48,8 @@ impl Node {
             Node::UnaryOp(_) => "UnaryOp",
             Node::CallExpr(_) => "CallExpr",
             Node::FuncParam(_) => "FuncParam",
-            Node::StructField(_) => "StructField",
+            Node::StructDeclField(_) => "StructDeclField",
+            Node::StructInitField(_) => "StructInitField",
         }
     }
 
@@ -53,6 +58,7 @@ impl Node {
             Node::FunctionDeclaration(node) => node.pos,
             Node::VariableDeclaration(node) => node.pos,
             Node::StructDeclaration(node) => node.pos,
+            Node::StructInit(node) => node.pos,
             Node::BreakStatement(node) => node.pos,
             Node::ReturnStatement(node) => node.pos,
             Node::Assignment(node) => node.pos,
@@ -66,7 +72,8 @@ impl Node {
             Node::UnaryOp(node) => node.pos,
             Node::CallExpr(node) => node.pos,
             Node::FuncParam(node) => node.pos,
-            Node::StructField(node) => node.pos,
+            Node::StructDeclField(node) => node.pos,
+            Node::StructInitField(node) => node.pos,
         }
     }
 
@@ -128,10 +135,30 @@ impl Node {
         })
     }
 
-    pub fn new_struct_field(identifier: String, type_identifier: String, pos: usize) -> Self {
-        Node::StructField(StructField {
+    pub fn new_struct_decl_field(identifier: String, type_identifier: String, pos: usize) -> Self {
+        Node::StructDeclField(StructDeclField {
             identifier,
             type_identifier,
+            pos,
+        })
+    }
+
+    pub fn new_struct_init(
+        identifier: String,
+        fields: Vec<Node>,
+        pos: usize,
+    ) -> Self {
+        Node::StructInit(StructInit {
+            identifier,
+            fields,
+            pos,
+        })
+    }
+
+    pub fn new_struct_init_field(identifier: String, body: Node, pos: usize) -> Self {
+        Node::StructInitField(StructInitField {
+            identifier,
+            body: Box::new(body),
             pos,
         })
     }
@@ -225,10 +252,17 @@ impl Node {
         }
     }
 
-    pub fn as_struct_field(&self) -> &StructField {
+    pub fn as_struct_field(&self) -> &StructDeclField {
         match self {
-            Node::StructField(x) => x,
-            _ => panic!("struct field expected"),
+            Node::StructDeclField(x) => x,
+            _ => panic!("struct decl field expected"),
+        }
+    }
+
+    pub fn as_struct_init_field(&self) -> &StructInitField {
+        match self {
+            Node::StructInitField(x) => x,
+            _ => panic!("struct init field expected"),
         }
     }
 
@@ -278,9 +312,23 @@ pub struct StructDeclaration {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct StructField {
+pub struct StructDeclField {
     pub identifier: String,
     pub type_identifier: String,
+    pub pos: usize,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct StructInit {
+    pub identifier: String,
+    pub fields: Vec<Node>, // StructInitField
+    pub pos: usize,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct StructInitField {
+    pub identifier: String,
+    pub body: Box<Node>, // expression
     pub pos: usize,
 }
 
@@ -466,6 +514,12 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
             show_tree(&node.fields, source_code, level + 2);
             println!("{}}}", indent(level + 1));
         }
+        Node::StructInit(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+            println!("{}fields: {{", indent(level + 1));
+            show_tree(&node.fields, source_code, level + 2);
+            println!("{}}}", indent(level + 1));
+        }
         Node::BreakStatement(_) => {}
         Node::ReturnStatement(node) => {
             println!("{}body: {{", indent(level + 1));
@@ -572,9 +626,12 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
                 }
             }
         }
-        Node::StructField(node) => {
+        Node::StructDeclField(node) => {
             println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
             println!("{}type_identifier: \"{}\"", indent(level + 1), node.type_identifier);
+        }
+        Node::StructInitField(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
         }
     }
     println!("{}}}", indent(level));

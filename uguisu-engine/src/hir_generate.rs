@@ -522,7 +522,8 @@ impl<'a> HirGenerator<'a> {
             | ast::Node::StringLiteral(_)
             | ast::Node::BinaryExpr(_)
             | ast::Node::UnaryOp(_)
-            | ast::Node::CallExpr(_) => {
+            | ast::Node::CallExpr(_)
+            | ast::Node::StructInit(_) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 // when global scope
                 if self.resolver.is_root_frame() {
@@ -536,7 +537,8 @@ impl<'a> HirGenerator<'a> {
                 Ok(expr_id)
             }
             ast::Node::FuncParam(_)
-            | ast::Node::StructField(_) => {
+            | ast::Node::StructDeclField(_)
+            | ast::Node::StructInitField(_) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 panic!("unexpected node");
             }
@@ -723,6 +725,25 @@ impl<'a> HirGenerator<'a> {
                 self.symbol_table.set_ty(node_id, ret_ty);
                 Ok(node_id)
             }
+            ast::Node::StructInit(struct_init) => {
+                if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
+
+                let mut fields = Vec::new();
+                for n in struct_init.fields.iter() {
+                    let field_node = n.as_struct_init_field();
+                    let field_body_id = self.generate_expr(&field_node.body)?;
+                    let node = Node::new_struct_init_field(field_node.identifier.clone(), field_body_id);
+                    let node_id = self.register_node(node);
+                    fields.push(node_id);
+                }
+
+                // make node
+                let node = Node::new_struct_init(struct_init.identifier.clone(), fields);
+                let node_id = self.register_node(node);
+                self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+
+                Ok(node_id)
+            }
             ast::Node::FunctionDeclaration(_)
             | ast::Node::VariableDeclaration(_)
             | ast::Node::StructDeclaration(_)
@@ -732,7 +753,8 @@ impl<'a> HirGenerator<'a> {
             | ast::Node::IfStatement(_)
             | ast::Node::LoopStatement(_)
             | ast::Node::FuncParam(_)
-            | ast::Node::StructField(_) => {
+            | ast::Node::StructDeclField(_)
+            | ast::Node::StructInitField(_) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 panic!("unexpected expr node");
             }

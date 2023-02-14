@@ -318,7 +318,9 @@ impl<'a> HirRunner<'a> {
             Node::Function(_)
             | Node::Variable(_)
             | Node::FuncParam(_)
-            | Node::StructField(_) => {
+            | Node::StructField(_)
+            | Node::StructInit(_)
+            | Node::StructInitField(_) => {
                 panic!("Failed to execute the statement: unsupported node (node_id={})", node_id);
             }
         };
@@ -474,6 +476,8 @@ impl<'a> HirRunner<'a> {
             Node::Function(_) => panic!("function object unsupported (node_id={})", node_id),
             Node::FuncParam(_)
             | Node::StructField(_)
+            | Node::StructInit(_)
+            | Node::StructInitField(_)
             | Node::Declaration(_)
             | Node::ReturnStatement(_)
             | Node::BreakStatement(_)

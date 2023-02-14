@@ -22,6 +22,8 @@ pub enum Node {
     LogicalUnaryOp(LogicalUnaryOp),
     CallExpr(CallExpr),
     FuncParam(FuncParam),
+    StructInit(StructInit),
+    StructInitField(StructInitField),
     StructField(StructField),
 }
 
@@ -45,6 +47,8 @@ impl Node {
             Node::CallExpr(_) => "CallExpr",
             Node::FuncParam(_) => "FuncParam",
             Node::StructField(_) => "StructField",
+            Node::StructInit(_) => "StructInit",
+            Node::StructInitField(_) => "StructInitField",
         }
     }
 
@@ -190,6 +194,23 @@ impl Node {
         Node::FuncParam(FuncParam {
             identifier,
             // param_index,
+        })
+    }
+
+    pub fn new_struct_init(
+        identifier: String,
+        fields: Vec<NodeId>,
+    ) -> Self {
+        Node::StructInit(StructInit {
+            identifier,
+            fields,
+        })
+    }
+
+    pub fn new_struct_init_field(identifier: String, body: NodeId) -> Self {
+        Node::StructInitField(StructInitField {
+            identifier,
+            body,
         })
     }
 
@@ -437,6 +458,20 @@ pub struct CallExpr {
     pub args: Vec<NodeId>,
 }
 
+#[derive(Debug, Clone)]
+pub struct StructInit {
+    pub identifier: String,
+    /// StructInitField
+    pub fields: Vec<NodeId>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StructInitField {
+    pub identifier: String,
+    /// expression
+    pub body: NodeId,
+}
+
 pub(crate) fn show_map(node_map: &BTreeMap<NodeId, Node>, symbol_table: &SymbolTable) {
     for i in 0..node_map.len() {
         show_node(NodeId::new(i), node_map, symbol_table);
@@ -611,6 +646,17 @@ pub(crate) fn show_node(node_id: NodeId, node_map: &BTreeMap<NodeId, Node>, symb
             //println!("  type: {:?}", func_param.ty);
         }
         Node::StructField(field) => {
+            println!("  identifier: \"{}\"", field.identifier);
+        }
+        Node::StructInit(init) => {
+            println!("  identifier: \"{}\"", init.identifier);
+            println!("  fields: {{");
+            for field in init.fields.iter() {
+                println!("    [{}]", field);
+            }
+            println!("  }}");
+        }
+        Node::StructInitField(field) => {
             println!("  identifier: \"{}\"", field.identifier);
         }
     }
