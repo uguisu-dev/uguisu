@@ -25,6 +25,7 @@ pub enum Node {
     StructExpr(StructExpr),
     StructExprField(StructExprField),
     StructDeclField(StructDeclField),
+    FieldAccess(FieldAccess),
 }
 
 impl Node {
@@ -49,6 +50,7 @@ impl Node {
             Node::StructDeclField(_) => "StructDeclField",
             Node::StructExpr(_) => "StructExpr",
             Node::StructExprField(_) => "StructExprField",
+            Node::FieldAccess(_) => "FieldAccess",
         }
     }
 
@@ -214,6 +216,13 @@ impl Node {
         })
     }
 
+    pub fn new_field_access(identifier: String, target: NodeId) -> Self {
+        Node::FieldAccess(FieldAccess {
+            identifier,
+            target,
+        })
+    }
+
     pub fn as_function(&self) -> Result<&Function, String> {
         match self {
             Node::Function(x) => Ok(x),
@@ -306,6 +315,12 @@ pub struct StructSignature {
 #[derive(Debug, Clone)]
 pub struct StructDeclField {
     pub identifier: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct FieldAccess {
+    pub identifier: String,
+    pub target: NodeId,
 }
 
 #[derive(Debug)]
@@ -661,6 +676,15 @@ pub(crate) fn show_node(node_id: NodeId, node_map: &BTreeMap<NodeId, Node>, symb
         }
         Node::StructExprField(field) => {
             println!("  identifier: \"{}\"", field.identifier);
+            println!("  body: {{");
+            println!("    [{}]", field.body);
+            println!("  }}");
+        }
+        Node::FieldAccess(node) => {
+            println!("  identifier: \"{}\"", node.identifier);
+            println!("  target: {{");
+            println!("    [{}]", node.target);
+            println!("  }}");
         }
     }
     println!("}}");

@@ -250,16 +250,12 @@ impl Node {
 
     pub fn new_field_access(
         identifier: String,
-        child: Option<Node>,
+        target: Node,
         pos: usize,
     ) -> Self {
-        let child = match child {
-            Some(x) => Some(Box::new(x)),
-            None => None,
-        };
         Node::FieldAccess(FieldAccess {
             identifier,
-            child,
+            target: Box::new(target),
             pos,
         })
     }
@@ -463,7 +459,7 @@ pub struct CallExpr {
 #[derive(Debug, PartialEq)]
 pub struct FieldAccess {
     pub identifier: String,
-    pub child: Option<Box<Node>>, // FieldAccess
+    pub target: Box<Node>,
     pub pos: usize,
 }
 
@@ -668,16 +664,9 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
         }
         Node::FieldAccess(node) => {
             println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
-            match &node.child {
-                Some(x) => {
-                    println!("{}child: {{", indent(level + 1));
-                    show_node(x, source_code, level + 2);
-                    println!("{}}}", indent(level + 1));
-                }
-                None => {
-                    println!("{}child: (None)", indent(level + 1));
-                }
-            }
+            println!("{}target: {{", indent(level + 1));
+            show_node(&node.target, source_code, level + 2);
+            println!("{}}}", indent(level + 1));
         }
         Node::StructDeclField(node) => {
             println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);

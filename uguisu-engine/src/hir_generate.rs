@@ -727,9 +727,15 @@ impl<'a> HirGenerator<'a> {
                 self.symbol_table.set_ty(node_id, ret_ty);
                 Ok(node_id)
             }
-            ast::Node::FieldAccess(_field_access) => {
+            ast::Node::FieldAccess(expr) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
-                todo!();
+                // TODO: check type
+                let target_id = self.generate_expr(&expr.target)?;
+                let node = Node::new_field_access(expr.identifier.clone(), target_id);
+                let node_id = self.register_node(node);
+                self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
+                self.symbol_table.set_ty(node_id, Type::Number); // TODO: dummy type
+                Ok(node_id)
             }
             ast::Node::StructExpr(struct_expr) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }

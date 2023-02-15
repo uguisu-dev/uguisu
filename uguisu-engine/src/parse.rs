@@ -111,11 +111,11 @@ peg::parser! {
                         expr
                     } else {
                         match segments.get(segments.len() - i - 1) {
-                            Some(outer_item) => {
+                            Some(x) => {
                                 Node::new_field_access(
-                                    outer_item.0.to_owned(),
-                                    Some(build_node(i + 1, segments, expr)),
-                                    outer_item.1,
+                                    x.0.to_owned(),
+                                    build_node(i + 1, segments, expr),
+                                    x.1,
                                 )
                             }
                             None => panic!(),

@@ -313,7 +313,8 @@ impl<'a> HirRunner<'a> {
             | Node::LogicalBinaryOp(_)
             | Node::ArithmeticOp(_)
             | Node::LogicalUnaryOp(_)
-            | Node::CallExpr(_) => {
+            | Node::CallExpr(_)
+            | Node::FieldAccess(_) => {
                 self.eval_expr(node_id, env)?;
                 Ok(StatementResult::None)
             }
@@ -478,6 +479,9 @@ impl<'a> HirRunner<'a> {
             }
             Node::StructExpr(_struct_expr) => {
                 Ok(Value::Struct(node_id))
+            }
+            Node::FieldAccess(_expr) => {
+                todo!(); // TODO: 構造体のフィールドの値を取得して返す
             }
             Node::Function(_) => panic!("function object unsupported (node_id={})", node_id),
             Node::FuncParam(_)
