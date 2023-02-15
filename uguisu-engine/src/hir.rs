@@ -14,7 +14,7 @@ pub enum Node {
     // expression
     Function(Function),
     Variable(Variable),
-    Reference(Reference),
+    Identifier(Identifier),
     Literal(Literal),
     RelationalOp(RelationalOp),
     LogicalBinaryOp(LogicalBinaryOp),
@@ -39,7 +39,7 @@ impl Node {
             Node::LoopStatement(_) => "LoopStatement",
             Node::Function(_) => "Function",
             Node::Variable(_) => "Variable",
-            Node::Reference(_) => "Reference",
+            Node::Identifier(_) => "Identifier",
             Node::Literal(_) => "Literal",
             Node::RelationalOp(_) => "RelationalOp",
             Node::LogicalBinaryOp(_) => "LogicalBinaryOp",
@@ -122,8 +122,8 @@ impl Node {
         })
     }
 
-    pub fn new_reference(dest: NodeId) -> Self {
-        Node::Reference(Reference {
+    pub fn new_identifier(dest: NodeId) -> Self {
+        Node::Identifier(Identifier {
             dest,
         })
     }
@@ -335,7 +335,7 @@ pub struct ReturnStatement {
 
 #[derive(Debug)]
 pub struct Assignment {
-    /// Reference
+    /// Identifier
     pub dest: NodeId,
     /// Expression
     pub body: NodeId,
@@ -386,7 +386,7 @@ pub struct Variable {
 }
 
 #[derive(Debug)]
-pub struct Reference {
+pub struct Identifier {
     /// Declaration
     pub dest: NodeId,
 }
@@ -470,7 +470,7 @@ pub enum LogicalUnaryOperator {
 
 #[derive(Debug)]
 pub struct CallExpr {
-    /// Reference (expects: Reference -> Declaration -> Function)
+    /// Identifier (expects: Identifier -> Declaration -> Function)
     pub callee: NodeId,
     /// Expression
     pub args: Vec<NodeId>,
@@ -608,7 +608,7 @@ pub(crate) fn show_node(node_id: NodeId, node_map: &BTreeMap<NodeId, Node>, symb
             }
             println!("  }}");
         }
-        Node::Reference(x) => {
+        Node::Identifier(x) => {
             println!("  dest: {{");
             println!("    [{}]", x.dest);
             println!("  }}");

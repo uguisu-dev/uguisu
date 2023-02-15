@@ -95,7 +95,7 @@ impl<'a> HirGenerator<'a> {
 
     fn resolve_node(&self, node_id: NodeId) -> NodeId {
         match node_id.get(self.node_map) {
-            Node::Reference(reference) => self.resolve_node(reference.dest),
+            Node::Identifier(identifier) => self.resolve_node(identifier.dest),
             _ => node_id,
         }
     }
@@ -164,12 +164,12 @@ impl<'a> HirGenerator<'a> {
     }
 
     fn add_call_main(&mut self) -> Result<NodeId, SyntaxError> {
-        // declaration reference of main function
+        // make identifier of main function
         let dest_id = match self.resolver.lookup_identifier("main") {
             Some(x) => x,
             None => return Err(SyntaxError::new("function `main` is not found")),
         };
-        let callee_node = Node::new_reference(dest_id);
+        let callee_node = Node::new_identifier(dest_id);
         let callee_id = self.register_node(callee_node);
         let dest_ty = self.get_ty_or_err(dest_id)?;
         self.symbol_table.set_ty(callee_id, dest_ty);
@@ -401,8 +401,8 @@ impl<'a> HirGenerator<'a> {
                     return Err(self.make_low_error("An assignment statement cannot be used in global space", parser_node));
                 }
 
-                let reference = statement.dest.as_reference();
-                let declaration_id = match self.resolver.lookup_identifier(&reference.identifier) {
+                let identifier = statement.dest.as_identifier();
+                let declaration_id = match self.resolver.lookup_identifier(&identifier.value) {
                     Some(x) => x,
                     None => return Err(self.make_low_error("unknown identifier", parser_node)),
                 };
@@ -413,7 +413,7 @@ impl<'a> HirGenerator<'a> {
                 }
 
                 // make target node
-                let target_node = Node::new_reference(declaration_id);
+                let target_node = Node::new_identifier(declaration_id);
                 let target_id = self.register_node(target_node);
                 self.symbol_table.set_pos(target_id, self.calc_location(parser_node)?);
                 let declaration_ty = self.get_ty_or_low_err(declaration_id, parser_node)?;
@@ -517,7 +517,7 @@ impl<'a> HirGenerator<'a> {
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
                 Ok(node_id)
             }
-            ast::Node::Reference(_)
+            ast::Node::Identifier(_)
             | ast::Node::NumberLiteral(_)
             | ast::Node::BoolLiteral(_)
             | ast::Node::StringLiteral(_)
@@ -555,14 +555,14 @@ impl<'a> HirGenerator<'a> {
     /// - generate syntax errors
     fn generate_expr(&mut self, parser_node: &ast::Node) -> Result<NodeId, SyntaxError> {
         let result = match parser_node {
-            ast::Node::Reference(reference) => {
-                if self.trace { println!("enter expr (node: {}, identifier: {})", parser_node.get_name(), reference.identifier); }
-                let dest_id = match self.resolver.lookup_identifier(&reference.identifier) {
+            ast::Node::Identifier(identifier) => {
+                if self.trace { println!("enter expr (node: {}, identifier: {})", parser_node.get_name(), identifier.value); }
+                let dest_id = match self.resolver.lookup_identifier(&identifier.value) {
                     Some(x) => x,
                     None => return Err(self.make_low_error("unknown identifier", parser_node)),
                 };
 
-                let node = Node::new_reference(dest_id);
+                let node = Node::new_identifier(dest_id);
                 let node_id = self.register_node(node);
                 let dest_ty = self.get_ty_or_low_err(dest_id, parser_node)?;
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);

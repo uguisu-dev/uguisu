@@ -135,7 +135,7 @@ peg::parser! {
             / string()
             / call_expr()
             / struct_expr()
-            / p:pos() id:idenfitier() { Node::new_reference(id, p) }
+            / p:pos() id:idenfitier() { Node::new_identifier(id, p) }
             / "(" __* e:expression() __* ")" { e }
 
         rule function_declaration() -> Node =
@@ -216,7 +216,7 @@ peg::parser! {
 
         rule assignment() -> Node
             = p:pos() id:idenfitier() __* mode:assignment_mode() __* e:expression() ";" {
-                Node::new_assignment(Node::new_reference(id, p), e, mode, p)
+                Node::new_assignment(Node::new_identifier(id, p), e, mode, p)
             }
 
         rule assignment_mode() -> AssignmentMode
@@ -251,7 +251,7 @@ peg::parser! {
             = p:pos() name:idenfitier() __* "(" __* args:call_params()? __* ")"
         {
             let args = if let Some(v) = args { v } else { vec![] };
-            Node::new_call_expr(Node::new_reference(name, p), args, p)
+            Node::new_call_expr(Node::new_identifier(name, p), args, p)
         }
 
         rule call_params() -> Vec<Node>

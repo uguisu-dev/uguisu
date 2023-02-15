@@ -461,7 +461,7 @@ fn test_assignment_modes() {
     );
 }
 
-// function reference
+// function identifier
 
 #[test]
 fn should_generate_error_with_function_name_1() {

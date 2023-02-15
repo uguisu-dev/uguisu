@@ -148,7 +148,7 @@ impl<'a> HirRunner<'a> {
 
     fn resolve_node(&self, node_id: NodeId) -> NodeId {
         match node_id.get(self.source) {
-            Node::Reference(reference) => self.resolve_node(reference.dest),
+            Node::Identifier(identifier) => self.resolve_node(identifier.dest),
             _ => node_id,
         }
     }
@@ -307,7 +307,7 @@ impl<'a> HirRunner<'a> {
                 }
                 Ok(result)
             }
-            Node::Reference(_)
+            Node::Identifier(_)
             | Node::Literal(_)
             | Node::RelationalOp(_)
             | Node::LogicalBinaryOp(_)
@@ -342,8 +342,8 @@ impl<'a> HirRunner<'a> {
             Node::Variable(variable) => { // variable of initial value
                 Ok(self.eval_expr(variable.content, env)?)
             }
-            Node::Reference(reference) => {
-                let dest_id = self.resolve_node(reference.dest);
+            Node::Identifier(identifier) => {
+                let dest_id = self.resolve_node(identifier.dest);
                 match env.get_symbol(dest_id) {
                     Some(x) => Ok(x.clone()),
                     None => panic!("symbol not found (node_id={}, dest_id={})", node_id, dest_id),

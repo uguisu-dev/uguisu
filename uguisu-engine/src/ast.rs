@@ -12,7 +12,7 @@ pub enum Node {
     IfStatement(IfStatement),
     LoopStatement(LoopStatement),
     // expression
-    Reference(Reference),
+    Identifier(Identifier),
     NumberLiteral(NumberLiteral),
     BoolLiteral(BoolLiteral),
     StringLiteral(StringLiteral),
@@ -41,7 +41,7 @@ impl Node {
             Node::Assignment(_) => "Assignment",
             Node::IfStatement(_) => "IfStatement",
             Node::LoopStatement(_) => "LoopStatement",
-            Node::Reference(_) => "Reference",
+            Node::Identifier(_) => "Identifier",
             Node::NumberLiteral(_) => "NumberLiteral",
             Node::BoolLiteral(_) => "BoolLiteral",
             Node::StringLiteral(_) => "StringLiteral",
@@ -66,7 +66,7 @@ impl Node {
             Node::Assignment(node) => node.pos,
             Node::IfStatement(node) => node.pos,
             Node::LoopStatement(node) => node.pos,
-            Node::Reference(node) => node.pos,
+            Node::Identifier(node) => node.pos,
             Node::NumberLiteral(node) => node.pos,
             Node::BoolLiteral(node) => node.pos,
             Node::StringLiteral(node) => node.pos,
@@ -204,9 +204,9 @@ impl Node {
         Node::LoopStatement(LoopStatement { body, pos })
     }
 
-    pub fn new_reference(identifier: &str, pos: usize) -> Self {
-        Node::Reference(Reference {
-            identifier: identifier.to_string(),
+    pub fn new_identifier(value: &str, pos: usize) -> Self {
+        Node::Identifier(Identifier {
+            value: value.to_string(),
             pos,
         })
     }
@@ -281,10 +281,10 @@ impl Node {
         }
     }
 
-    pub fn as_reference(&self) -> &Reference {
+    pub fn as_identifier(&self) -> &Identifier {
         match self {
-            Node::Reference(x) => x,
-            _ => panic!("reference expected"),
+            Node::Identifier(x) => x,
+            _ => panic!("identifier expected"),
         }
     }
 
@@ -411,8 +411,8 @@ pub struct LoopStatement {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Reference {
-    pub identifier: String,
+pub struct Identifier {
+    pub value: String,
     pub pos: usize,
 }
 
@@ -611,8 +611,8 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
             show_tree(&node.body, source_code, level + 2);
             println!("{}}}", indent(level + 1));
         }
-        Node::Reference(node) => {
-            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+        Node::Identifier(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.value);
         }
         Node::NumberLiteral(node) => {
             println!("{}value: {:?}", indent(level + 1), node.value);
