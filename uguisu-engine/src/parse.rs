@@ -92,14 +92,51 @@ peg::parser! {
             // p:pos() "+" __* expr:(@) { Node::new_unary_op("+", expr, p) }
             // p:pos() "-" __* expr:(@) { Node::new_unary_op("-", expr, p) }
             --
-            e:number() { e }
-            e:bool() { e }
-            e:string() { e }
-            e:call_expr() { e }
-            e:struct_expr() { e }
-            p:pos() id:idenfitier() { Node::new_reference(id, p) }
-            "(" __* e:expression() __* ")" { e }
+            expr:expr_factor() field:(__* x:field_access() { x })? {
+                /// build the field access chain
+                /// ```text
+                /// expr: "x", field: ["aaa", "bbb", "ccc"]
+                ///     |
+                ///     v
+                /// "ccc" {
+                ///     "bbb" {
+                ///         "aaa" {
+                ///             "x" { }
+                ///         }
+                ///     }
+                /// }
+                /// ```
+                fn build_node(i: usize, segments: &Vec<(&str, usize)>, expr: Node) -> Node {
+                    if i >= segments.len() {
+                        expr
+                    } else {
+                        match segments.get(segments.len() - i - 1) {
+                            Some(outer_item) => {
+                                Node::new_field_access(
+                                    outer_item.0.to_owned(),
+                                    Some(build_node(i + 1, segments, expr)),
+                                    outer_item.1,
+                                )
+                            }
+                            None => panic!(),
+                        }
+                    }
+                }
+                match field {
+                    Some(x) => build_node(0, &x, expr),
+                    None => expr,
+                }
+            }
         }
+
+        rule expr_factor() -> Node
+            = number()
+            / bool()
+            / string()
+            / call_expr()
+            / struct_expr()
+            / p:pos() id:idenfitier() { Node::new_reference(id, p) }
+            / "(" __* e:expression() __* ")" { e }
 
         rule function_declaration() -> Node =
             p:pos() attrs:func_dec_attrs()? "fn" __+ name:idenfitier() __* "(" __* params:func_dec_params()? __* ")"
@@ -254,6 +291,15 @@ peg::parser! {
             = p:pos() "loop" __* body:block() {
                 Node::new_loop_statement(body, p)
             }
+
+        rule field_access() -> Vec<(&'input str, usize)>
+            = field_access_segment() ++ (__*)
+
+        rule field_access_segment() -> (&'input str, usize)
+            = "." __* p:pos() name:idenfitier()
+        {
+            (name, p)
+        }
 
         rule block() -> Vec<Node>
             = "{" __* s:statements()? __* "}" {

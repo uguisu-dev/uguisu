@@ -20,6 +20,7 @@ pub enum Node {
     UnaryOp(UnaryOp),
     CallExpr(CallExpr),
     StructExpr(StructExpr),
+    FieldAccess(FieldAccess),
     // function declaration
     FuncParam(FuncParam),
     // struct declaration
@@ -48,6 +49,7 @@ impl Node {
             Node::UnaryOp(_) => "UnaryOp",
             Node::CallExpr(_) => "CallExpr",
             Node::FuncParam(_) => "FuncParam",
+            Node::FieldAccess(_) => "FieldAccess",
             Node::StructDeclField(_) => "StructDeclField",
             Node::StructExprField(_) => "StructExprField",
         }
@@ -72,6 +74,7 @@ impl Node {
             Node::UnaryOp(node) => node.pos,
             Node::CallExpr(node) => node.pos,
             Node::FuncParam(node) => node.pos,
+            Node::FieldAccess(node) => node.pos,
             Node::StructDeclField(node) => node.pos,
             Node::StructExprField(node) => node.pos,
         }
@@ -245,6 +248,22 @@ impl Node {
         })
     }
 
+    pub fn new_field_access(
+        identifier: String,
+        child: Option<Node>,
+        pos: usize,
+    ) -> Self {
+        let child = match child {
+            Some(x) => Some(Box::new(x)),
+            None => None,
+        };
+        Node::FieldAccess(FieldAccess {
+            identifier,
+            child,
+            pos,
+        })
+    }
+
     pub fn as_func_param(&self) -> &FuncParam {
         match self {
             Node::FuncParam(x) => x,
@@ -270,6 +289,20 @@ impl Node {
         match self {
             Node::Reference(x) => x,
             _ => panic!("reference expected"),
+        }
+    }
+
+    pub fn as_field_access(&self) -> &FieldAccess {
+        match self {
+            Node::FieldAccess(x) => x,
+            _ => panic!("field access expected"),
+        }
+    }
+
+    pub fn as_field_access_mut(&mut self) -> &mut FieldAccess {
+        match self {
+            Node::FieldAccess(x) => x,
+            _ => panic!("field access expected"),
         }
     }
 }
@@ -424,6 +457,13 @@ pub struct UnaryOp {
 pub struct CallExpr {
     pub callee: Box<Node>,
     pub args: Vec<Node>,
+    pub pos: usize,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FieldAccess {
+    pub identifier: String,
+    pub child: Option<Box<Node>>, // FieldAccess
     pub pos: usize,
 }
 
@@ -623,6 +663,19 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
                 }
                 None => {
                     println!("{}type_identifier: (None)", indent(level + 1));
+                }
+            }
+        }
+        Node::FieldAccess(node) => {
+            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+            match &node.child {
+                Some(x) => {
+                    println!("{}child: {{", indent(level + 1));
+                    show_node(x, source_code, level + 2);
+                    println!("{}}}", indent(level + 1));
+                }
+                None => {
+                    println!("{}child: (None)", indent(level + 1));
                 }
             }
         }

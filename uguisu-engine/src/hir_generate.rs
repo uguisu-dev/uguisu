@@ -524,6 +524,7 @@ impl<'a> HirGenerator<'a> {
             | ast::Node::BinaryExpr(_)
             | ast::Node::UnaryOp(_)
             | ast::Node::CallExpr(_)
+            | ast::Node::FieldAccess(_)
             | ast::Node::StructExpr(_) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
                 // when global scope
@@ -725,6 +726,10 @@ impl<'a> HirGenerator<'a> {
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_id, ret_ty);
                 Ok(node_id)
+            }
+            ast::Node::FieldAccess(_field_access) => {
+                if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
+                todo!();
             }
             ast::Node::StructExpr(struct_expr) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
