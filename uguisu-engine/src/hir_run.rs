@@ -146,9 +146,9 @@ impl<'a> HirRunner<'a> {
         }
     }
 
-    fn resolve_node(&self, node_id: NodeId) -> NodeId {
+    fn resolve_identifier(&self, node_id: NodeId) -> NodeId {
         match node_id.get(self.source) {
-            Node::Identifier(identifier) => self.resolve_node(identifier.dest),
+            Node::Identifier(identifier) => self.resolve_identifier(identifier.dest),
             _ => node_id,
         }
     }
@@ -223,12 +223,12 @@ impl<'a> HirRunner<'a> {
                 let curr_value = self.eval_expr(statement.dest, env)?;
                 match statement.mode {
                     AssignmentMode::Assign => {
-                        let dest_id = self.resolve_node(statement.dest);
+                        let dest_id = self.resolve_identifier(statement.dest);
                         let value = self.eval_expr(statement.body, env)?;
                         env.set_symbol(dest_id, value);
                     }
                     AssignmentMode::AddAssign => {
-                        let dest_id = self.resolve_node(statement.dest);
+                        let dest_id = self.resolve_identifier(statement.dest);
                         let restored_value = curr_value.as_number(self.source);
                         let body_value = self.eval_expr(statement.body, env)?.as_number(self.source);
                         let value = match restored_value.checked_add(body_value) {
@@ -238,7 +238,7 @@ impl<'a> HirRunner<'a> {
                         env.set_symbol(dest_id, Value::Number(value));
                     }
                     AssignmentMode::SubAssign => {
-                        let dest_id = self.resolve_node(statement.dest);
+                        let dest_id = self.resolve_identifier(statement.dest);
                         let restored_value = curr_value.as_number(self.source);
                         let body_value = self.eval_expr(statement.body, env)?.as_number(self.source);
                         let value = match restored_value.checked_sub(body_value) {
@@ -248,7 +248,7 @@ impl<'a> HirRunner<'a> {
                         env.set_symbol(dest_id, Value::Number(value));
                     }
                     AssignmentMode::MultAssign => {
-                        let dest_id = self.resolve_node(statement.dest);
+                        let dest_id = self.resolve_identifier(statement.dest);
                         let restored_value = curr_value.as_number(self.source);
                         let body_value = self.eval_expr(statement.body, env)?.as_number(self.source);
                         let value = match restored_value.checked_mul(body_value) {
@@ -258,7 +258,7 @@ impl<'a> HirRunner<'a> {
                         env.set_symbol(dest_id, Value::Number(value));
                     }
                     AssignmentMode::DivAssign => {
-                        let dest_id = self.resolve_node(statement.dest);
+                        let dest_id = self.resolve_identifier(statement.dest);
                         let restored_value = curr_value.as_number(self.source);
                         let body_value = self.eval_expr(statement.body, env)?.as_number(self.source);
                         let value = match restored_value.checked_div(body_value) {
@@ -268,7 +268,7 @@ impl<'a> HirRunner<'a> {
                         env.set_symbol(dest_id, Value::Number(value));
                     }
                     AssignmentMode::ModAssign => {
-                        let dest_id = self.resolve_node(statement.dest);
+                        let dest_id = self.resolve_identifier(statement.dest);
                         let restored_value = curr_value.as_number(self.source);
                         let body_value = self.eval_expr(statement.body, env)?.as_number(self.source);
                         let value = match restored_value.checked_rem(body_value) {
@@ -343,7 +343,7 @@ impl<'a> HirRunner<'a> {
                 Ok(self.eval_expr(variable.content, env)?)
             }
             Node::Identifier(identifier) => {
-                let dest_id = self.resolve_node(identifier.dest);
+                let dest_id = self.resolve_identifier(identifier.dest);
                 match env.get_symbol(dest_id) {
                     Some(x) => Ok(x.clone()),
                     None => panic!("symbol not found (node_id={}, dest_id={})", node_id, dest_id),
@@ -433,7 +433,7 @@ impl<'a> HirRunner<'a> {
                 }
             }
             Node::CallExpr(call_expr) => {
-                let callee_id = self.resolve_node(call_expr.callee);
+                let callee_id = self.resolve_identifier(call_expr.callee);
                 let callee = callee_id.get(self.source).as_decl().unwrap();
                 let signature = callee.signature.as_function_signature().unwrap();
                 let func = match self.symbol_table.get(callee_id).body {

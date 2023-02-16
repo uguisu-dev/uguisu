@@ -201,17 +201,16 @@ impl Node {
 
     pub fn new_struct_expr(
         identifier: String,
-        fields: Vec<NodeId>,
+        fields: BTreeMap<String, NodeId>,
     ) -> Self {
         Node::StructExpr(StructExpr {
             identifier,
-            fields,
+            field_table: fields,
         })
     }
 
-    pub fn new_struct_expr_field(identifier: String, body: NodeId) -> Self {
+    pub fn new_struct_expr_field(body: NodeId) -> Self {
         Node::StructExprField(StructExprField {
-            identifier,
             body,
         })
     }
@@ -230,6 +229,13 @@ impl Node {
         }
     }
 
+    pub fn as_variable(&self) -> Result<&Variable, String> {
+        match self {
+            Node::Variable(x) => Ok(x),
+            _ => Err("variable expected".to_owned()),
+        }
+    }
+
     pub fn as_decl(&self) -> Result<&Declaration, String> {
         match self {
             Node::Declaration(x) => Ok(x),
@@ -241,6 +247,27 @@ impl Node {
         match self {
             Node::FuncParam(x) => Ok(x),
             _ => Err("function parameter expected".to_owned()),
+        }
+    }
+
+    pub fn as_struct_decl_field(&self) -> Result<&StructDeclField, String> {
+        match self {
+            Node::StructDeclField(x) => Ok(x),
+            _ => Err("struct declaration field expected".to_owned()),
+        }
+    }
+
+    pub fn as_struct_expr(&self) -> Result<&StructExpr, String> {
+        match self {
+            Node::StructExpr(x) => Ok(x),
+            _ => Err("struct expression expected".to_owned()),
+        }
+    }
+
+    pub fn as_struct_expr_field(&self) -> Result<&StructExprField, String> {
+        match self {
+            Node::StructExprField(x) => Ok(x),
+            _ => Err("struct expression field expected".to_owned()),
         }
     }
 }
@@ -292,6 +319,13 @@ impl Signature {
             _ => Err("function signature expected".to_owned()),
         }
     }
+
+    pub fn as_struct_signature(&self) -> Result<&StructSignature, String> {
+        match self {
+            Signature::StructSignature(x) => Ok(x),
+            _ => Err("struct signature expected".to_owned()),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -309,12 +343,11 @@ pub struct VariableSignature {
 #[derive(Debug)]
 pub struct StructSignature {
     /// StructDeclField
-    pub fields: Vec<NodeId>,
+    pub field_table: BTreeMap<String, NodeId>,
 }
 
 #[derive(Debug, Clone)]
 pub struct StructDeclField {
-    pub identifier: String,
 }
 
 #[derive(Debug, Clone)]
@@ -480,12 +513,11 @@ pub struct CallExpr {
 pub struct StructExpr {
     pub identifier: String,
     /// StructExprField
-    pub fields: Vec<NodeId>,
+    pub field_table: BTreeMap<String, NodeId>,
 }
 
 #[derive(Debug, Clone)]
 pub struct StructExprField {
-    pub identifier: String,
     /// expression
     pub body: NodeId,
 }
@@ -531,9 +563,9 @@ pub(crate) fn show_node(node_id: NodeId, node_map: &BTreeMap<NodeId, Node>, symb
                 }
                 Signature::StructSignature(signature) => {
                     println!("  signature(StructSignature): {{");
-                    println!("    fields: {{");
-                    for field in signature.fields.iter() {
-                        println!("      [{}]", field);
+                    println!("    field_table: {{");
+                    for (name, node_id) in signature.field_table.iter() {
+                        println!("      \"{}\": [{}]", name, node_id);
                     }
                     println!("    }}");
                     println!("  }}");
@@ -663,19 +695,16 @@ pub(crate) fn show_node(node_id: NodeId, node_map: &BTreeMap<NodeId, Node>, symb
             println!("  identifier: \"{}\"", func_param.identifier);
             //println!("  type: {:?}", func_param.ty);
         }
-        Node::StructDeclField(field) => {
-            println!("  identifier: \"{}\"", field.identifier);
-        }
+        Node::StructDeclField(_) => {}
         Node::StructExpr(struct_expr) => {
             println!("  identifier: \"{}\"", struct_expr.identifier);
-            println!("  fields: {{");
-            for field in struct_expr.fields.iter() {
-                println!("    [{}]", field);
+            println!("  field_table: {{");
+            for (name, node_id) in struct_expr.field_table.iter() {
+                println!("    \"{}\": [{}]", name, node_id);
             }
             println!("  }}");
         }
         Node::StructExprField(field) => {
-            println!("  identifier: \"{}\"", field.identifier);
             println!("  body: {{");
             println!("    [{}]", field.body);
             println!("  }}");

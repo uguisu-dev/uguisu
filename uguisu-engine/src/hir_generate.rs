@@ -67,6 +67,18 @@ impl<'a> HirGenerator<'a> {
         crate::parse::calc_location(node.get_pos(), self.source_code).map_err(|e| SyntaxError::new(&e))
     }
 
+    fn get_node_pos(&self, node_id: NodeId) -> Option<(usize, usize)> {
+        self.symbol_table.get(node_id).pos
+    }
+
+    fn get_node_ty(&self, node_id: NodeId) -> Option<Type> {
+        self.symbol_table.get(node_id).ty
+    }
+
+    fn get_decl_body(&self, node_id: NodeId) -> Option<NodeId> {
+        self.symbol_table.get(node_id).body
+    }
+
     fn make_low_error(&self, message: &str, node: &ast::Node) -> SyntaxError {
         let (line, column) = self.calc_location(node).unwrap();
         SyntaxError::new(&format!("{} ({}:{})", message, line, column))
@@ -93,9 +105,9 @@ impl<'a> HirGenerator<'a> {
         }
     }
 
-    fn resolve_node(&self, node_id: NodeId) -> NodeId {
+    fn resolve_identifier(&self, node_id: NodeId) -> NodeId {
         match node_id.get(self.node_map) {
-            Node::Identifier(identifier) => self.resolve_node(identifier.dest),
+            Node::Identifier(identifier) => self.resolve_identifier(identifier.dest),
             _ => node_id,
         }
     }
@@ -334,19 +346,17 @@ impl<'a> HirGenerator<'a> {
             ast::Node::StructDeclaration(decl) => {
                 if self.trace { println!("enter statement (node: {})", parser_node.get_name()); }
 
-                let mut fields = Vec::new();
+                let mut field_table = BTreeMap::new();
                 for n in decl.fields.iter() {
                     let field_node = n.as_struct_decl_field();
-                    let node = Node::StructDeclField(StructDeclField {
-                        identifier: field_node.identifier.clone(),
-                    });
+                    let node = Node::StructDeclField(StructDeclField {});
                     let node_id = self.register_node(node);
-                    fields.push(node_id);
+                    field_table.insert(field_node.identifier.clone(), node_id);
                 }
 
                 // make signature
                 let signature = Signature::StructSignature(StructSignature {
-                    fields,
+                    field_table,
                 });
                 // make node
                 let node = Node::new_declaration(decl.identifier.clone(), signature);
@@ -696,7 +706,7 @@ impl<'a> HirGenerator<'a> {
             ast::Node::CallExpr(call_expr) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let callee_id = self.generate_expr(&call_expr.callee)?;
-                let callee_func_id = self.resolve_node(callee_id);
+                let callee_func_id = self.resolve_identifier(callee_id);
                 let callee_func = callee_func_id.get(self.node_map).as_decl().map_err(|e| self.make_error(&e, callee_id))?;
                 let signature = callee_func.signature.as_function_signature().map_err(|e| self.make_error(&e, callee_id))?;
                 let ret_ty = signature.ret_ty;
@@ -729,8 +739,26 @@ impl<'a> HirGenerator<'a> {
             }
             ast::Node::FieldAccess(expr) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
-                // TODO: check type
                 let target_id = self.generate_expr(&expr.target)?;
+                let target_decl_id = self.resolve_identifier(target_id);
+                let decl = target_decl_id.get(self.node_map).as_decl().map_err(|e| self.make_error(&e, target_id))?;
+                match decl.signature {
+                    Signature::VariableSignature(_) => {
+                        let decl_body_id = match self.get_decl_body(target_decl_id) {
+                            Some(x) => x,
+                            None => {
+                                return Err(self.make_error("variable is not defined", target_id));
+                            }
+                        };
+                        let variable = decl_body_id.get(self.node_map).as_variable().map_err(|e| self.make_error(&e, target_id))?;
+                        let _struct_expr = variable.content.get(self.node_map).as_struct_expr().map_err(|e| self.make_error(&e, target_id))?;
+                    }
+                    Signature::FunctionSignature(_)
+                    | Signature::StructSignature(_) => {
+                        return Err(self.make_error("unexpected signature", target_id));
+                    }
+                }
+
                 let node = Node::new_field_access(expr.identifier.clone(), target_id);
                 let node_id = self.register_node(node);
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
@@ -744,13 +772,13 @@ impl<'a> HirGenerator<'a> {
 
                 // TODO: type check for fields
 
-                let mut fields = Vec::new();
+                let mut fields = BTreeMap::new();
                 for n in struct_expr.fields.iter() {
                     let field_node = n.as_struct_expr_field();
                     let field_body_id = self.generate_expr(&field_node.body)?;
-                    let node = Node::new_struct_expr_field(field_node.identifier.clone(), field_body_id);
+                    let node = Node::new_struct_expr_field(field_body_id);
                     let node_id = self.register_node(node);
-                    fields.push(node_id);
+                    fields.insert(field_node.identifier.clone(), node_id);
                 }
 
                 // make node
