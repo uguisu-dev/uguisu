@@ -748,12 +748,10 @@ impl<'a> HirGenerator<'a> {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 fn resolve_to_struct_expr_field(node_id: NodeId, field_ident: &str, ctx: &HirGenerator) -> Result<NodeId, String> {
                     match node_id.get(ctx.node_map) {
-                        // Identifier -> Identifier dest
-                        Node::Identifier(ident) => {
+                        Node::Identifier(ident) => { // Identifier -> Identifier dest
                             resolve_to_struct_expr_field(ident.dest, field_ident, ctx)
                         }
-                        // Declaration -> Declaration body
-                        Node::Declaration(decl) => {
+                        Node::Declaration(decl) => { // Declaration -> Declaration body
                             decl.signature.as_variable_signature().map_err(|_| "variable declaration expected")?;
                             let decl_body_id = match ctx.get_decl_body(node_id) {
                                 Some(x) => x,
@@ -763,9 +761,7 @@ impl<'a> HirGenerator<'a> {
                             let variable_body_id = variable.content;
                             resolve_to_struct_expr_field(variable_body_id, field_ident, ctx)
                         }
-                        // StructExpr -> StructExpr field
-                        Node::StructExpr(struct_expr) => {
-                            // get field
+                        Node::StructExpr(struct_expr) => { // StructExpr -> StructExpr field
                             let struct_expr_field_id = match struct_expr.field_table.get(field_ident) {
                                 Some(&x) => x,
                                 None => return Err("unknown field name".to_owned()),
