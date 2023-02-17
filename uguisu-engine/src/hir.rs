@@ -313,6 +313,13 @@ pub enum Signature {
 }
 
 impl Signature {
+    pub fn as_variable_signature(&self) -> Result<&VariableSignature, String> {
+        match self {
+            Signature::VariableSignature(x) => Ok(x),
+            _ => Err("variable signature expected".to_owned()),
+        }
+    }
+
     pub fn as_function_signature(&self) -> Result<&FunctionSignature, String> {
         match self {
             Signature::FunctionSignature(x) => Ok(x),

@@ -349,8 +349,15 @@ impl<'a> HirGenerator<'a> {
                 let mut field_table = BTreeMap::new();
                 for n in decl.fields.iter() {
                     let field_node = n.as_struct_decl_field();
+                    let field_ty = Type::from_identifier(
+                        &field_node.type_identifier,
+                        &self.resolver,
+                        self.node_map,
+                    ).map_err(|e| self.make_low_error(&e, parser_node))?;
                     let node = Node::StructDeclField(StructDeclField {});
                     let node_id = self.register_node(node);
+                    self.symbol_table.set_pos(node_id, self.calc_location(n)?);
+                    self.symbol_table.set_ty(node_id, field_ty);
                     field_table.insert(field_node.identifier.clone(), node_id);
                 }
 
@@ -741,52 +748,61 @@ impl<'a> HirGenerator<'a> {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
                 let target_id = self.generate_expr(&expr.target)?;
                 let target_decl_id = self.resolve_identifier(target_id);
-                let decl = target_decl_id.get(self.node_map).as_decl().map_err(|e| self.make_error(&e, target_id))?;
-                match decl.signature {
-                    Signature::VariableSignature(_) => {
-                        let decl_body_id = match self.get_decl_body(target_decl_id) {
-                            Some(x) => x,
-                            None => {
-                                return Err(self.make_error("variable is not defined", target_id));
-                            }
-                        };
-                        let variable = decl_body_id.get(self.node_map).as_variable().map_err(|e| self.make_error(&e, target_id))?;
-                        let _struct_expr = variable.content.get(self.node_map).as_struct_expr().map_err(|e| self.make_error(&e, target_id))?;
-                    }
-                    Signature::FunctionSignature(_)
-                    | Signature::StructSignature(_) => {
-                        return Err(self.make_error("unexpected signature", target_id));
-                    }
-                }
-
+                // expect variable declaration
+                let decl = target_decl_id.get(self.node_map).as_decl().map_err(|_| self.make_error("variable declaration expected", target_id))?;
+                decl.signature.as_variable_signature().map_err(|_| self.make_error("variable declaration expected", target_id))?;
+                let decl_body_id = match self.get_decl_body(target_decl_id) {
+                    Some(x) => x,
+                    None => return Err(self.make_error("variable is not defined", target_id)),
+                };
+                let variable = decl_body_id.get(self.node_map).as_variable().map_err(|e| self.make_error(&e, target_id))?;
+                // expect struct expr
+                let struct_expr = variable.content.get(self.node_map).as_struct_expr().map_err(|e| self.make_error(&e, target_id))?;
+                // get field
+                let struct_expr_field_id = match struct_expr.field_table.get(&expr.identifier) {
+                    Some(&x) => x,
+                    None => return Err(self.make_low_error("unknown field name", parser_node)),
+                };
+                let field_ty = self.get_ty_or_err(struct_expr_field_id)?;
+                // make node
                 let node = Node::new_field_access(expr.identifier.clone(), target_id);
                 let node_id = self.register_node(node);
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
-                self.symbol_table.set_ty(node_id, Type::Number); // TODO: dummy type
+                self.symbol_table.set_ty(node_id, field_ty);
                 Ok(node_id)
             }
             ast::Node::StructExpr(struct_expr) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
-
                 let ty = Type::from_identifier(&struct_expr.identifier, &self.resolver, self.node_map).map_err(|e| self.make_low_error(&e, parser_node))?;
-
-                // TODO: type check for fields
-
+                let struct_decl_id = match ty {
+                    Type::Struct(x) => x,
+                    _ => return Err(self.make_low_error("struct type expected", parser_node)),
+                };
                 let mut fields = BTreeMap::new();
                 for n in struct_expr.fields.iter() {
-                    let field_node = n.as_struct_expr_field();
-                    let field_body_id = self.generate_expr(&field_node.body)?;
-                    let node = Node::new_struct_expr_field(field_body_id);
+                    let struct_decl = struct_decl_id.get(self.node_map).as_decl().map_err(|e| self.make_low_error(&e, parser_node))?;
+                    let struct_signature = struct_decl.signature.as_struct_signature().map_err(|e| self.make_low_error(&e, parser_node))?;
+                    let expr_field_node = n.as_struct_expr_field();
+                    let decl_field_id = match struct_signature.field_table.get(&expr_field_node.identifier) {
+                        Some(&x) => x,
+                        None => return Err(self.make_low_error("unknown field name", parser_node)),
+                    };
+                    let expr_field_body_id = self.generate_expr(&expr_field_node.body)?;
+                    let decl_field_ty = self.get_ty_or_err(decl_field_id)?;
+                    let expr_field_body_ty = self.get_ty_or_err(expr_field_body_id)?;
+                    Type::assert(expr_field_body_ty, decl_field_ty, self.node_map).map_err(|e| self.make_error(&e, expr_field_body_id))?;
+                    // make field node
+                    let node = Node::new_struct_expr_field(expr_field_body_id);
                     let node_id = self.register_node(node);
-                    fields.insert(field_node.identifier.clone(), node_id);
+                    self.symbol_table.set_pos(node_id, self.calc_location(n)?);
+                    self.symbol_table.set_ty(node_id, expr_field_body_ty);
+                    fields.insert(expr_field_node.identifier.clone(), node_id);
                 }
-
                 // make node
                 let node = Node::new_struct_expr(struct_expr.identifier.clone(), fields);
                 let node_id = self.register_node(node);
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_id, ty);
-
                 Ok(node_id)
             }
             ast::Node::FunctionDeclaration(_)
