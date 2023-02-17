@@ -19,6 +19,7 @@ use crate::hir::{
     ResolverStack,
     Signature,
     StructDeclField,
+    StructExpr,
     StructSignature,
     SymbolTable,
     Type,
@@ -746,12 +747,14 @@ impl<'a> HirGenerator<'a> {
             }
             ast::Node::FieldAccess(expr) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
-                fn resolve_to_struct_expr_field(node_id: NodeId, field_ident: &str, ctx: &HirGenerator) -> Result<NodeId, String> {
+                fn resolve_to_struct_expr<'b>(node_id: NodeId, ctx: &'b HirGenerator) -> Result<&'b StructExpr, String> {
                     match node_id.get(ctx.node_map) {
-                        Node::Identifier(ident) => { // Identifier -> Identifier dest
-                            resolve_to_struct_expr_field(ident.dest, field_ident, ctx)
+                        Node::Identifier(ident) => {
+                            // Identifier -> Identifier dest
+                            resolve_to_struct_expr(ident.dest, ctx)
                         }
-                        Node::Declaration(decl) => { // Declaration -> Declaration body
+                        Node::Declaration(decl) => {
+                            // Declaration -> Declaration body
                             decl.signature.as_variable_signature().map_err(|_| "variable declaration expected")?;
                             let decl_body_id = match ctx.get_decl_body(node_id) {
                                 Some(x) => x,
@@ -759,20 +762,20 @@ impl<'a> HirGenerator<'a> {
                             };
                             let variable = decl_body_id.get(ctx.node_map).as_variable()?;
                             let variable_body_id = variable.content;
-                            resolve_to_struct_expr_field(variable_body_id, field_ident, ctx)
+                            resolve_to_struct_expr(variable_body_id, ctx)
                         }
-                        Node::StructExpr(struct_expr) => { // StructExpr -> StructExpr field
-                            let struct_expr_field_id = match struct_expr.field_table.get(field_ident) {
-                                Some(&x) => x,
-                                None => return Err("unknown field name".to_owned()),
-                            };
-                            Ok(struct_expr_field_id)
+                        Node::StructExpr(struct_expr) => {
+                            Ok(struct_expr)
                         }
                         _ => Err("resolve failed. unexpected node type".to_owned()),
                     }
                 }
                 let target_id = self.generate_expr(&expr.target)?;
-                let struct_expr_field_id = resolve_to_struct_expr_field(target_id, &expr.identifier, self).map_err(|e| self.make_error(&e, target_id))?;
+                let struct_expr = resolve_to_struct_expr(target_id, self).map_err(|e| self.make_error(&e, target_id))?;
+                let struct_expr_field_id = match struct_expr.field_table.get(&expr.identifier) {
+                    Some(&x) => x,
+                    None => return Err(self.make_error("unknown field name", target_id)),
+                };
                 let field_ty = self.get_ty_or_err(struct_expr_field_id)?;
                 // make node
                 let node = Node::new_field_access(expr.identifier.clone(), target_id);
