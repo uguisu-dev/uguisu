@@ -746,23 +746,37 @@ impl<'a> HirGenerator<'a> {
             }
             ast::Node::FieldAccess(expr) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
+                fn resolve_to_struct_expr_field(node_id: NodeId, field_ident: &str, ctx: &HirGenerator) -> Result<NodeId, String> {
+                    match node_id.get(ctx.node_map) {
+                        // Identifier -> Identifier dest
+                        Node::Identifier(ident) => {
+                            resolve_to_struct_expr_field(ident.dest, field_ident, ctx)
+                        }
+                        // Declaration -> Declaration body
+                        Node::Declaration(decl) => {
+                            decl.signature.as_variable_signature().map_err(|_| "variable declaration expected")?;
+                            let decl_body_id = match ctx.get_decl_body(node_id) {
+                                Some(x) => x,
+                                None => return Err("variable is not defined".to_owned()),
+                            };
+                            let variable = decl_body_id.get(ctx.node_map).as_variable()?;
+                            let variable_body_id = variable.content;
+                            resolve_to_struct_expr_field(variable_body_id, field_ident, ctx)
+                        }
+                        // StructExpr -> StructExpr field
+                        Node::StructExpr(struct_expr) => {
+                            // get field
+                            let struct_expr_field_id = match struct_expr.field_table.get(field_ident) {
+                                Some(&x) => x,
+                                None => return Err("unknown field name".to_owned()),
+                            };
+                            Ok(struct_expr_field_id)
+                        }
+                        _ => Err("resolve failed. unexpected node type".to_owned()),
+                    }
+                }
                 let target_id = self.generate_expr(&expr.target)?;
-                let target_decl_id = self.resolve_identifier(target_id);
-                // expect variable declaration
-                let decl = target_decl_id.get(self.node_map).as_decl().map_err(|_| self.make_error("variable declaration expected", target_id))?;
-                decl.signature.as_variable_signature().map_err(|_| self.make_error("variable declaration expected", target_id))?;
-                let decl_body_id = match self.get_decl_body(target_decl_id) {
-                    Some(x) => x,
-                    None => return Err(self.make_error("variable is not defined", target_id)),
-                };
-                let variable = decl_body_id.get(self.node_map).as_variable().map_err(|e| self.make_error(&e, target_id))?;
-                // expect struct expr
-                let struct_expr = variable.content.get(self.node_map).as_struct_expr().map_err(|e| self.make_error(&e, target_id))?;
-                // get field
-                let struct_expr_field_id = match struct_expr.field_table.get(&expr.identifier) {
-                    Some(&x) => x,
-                    None => return Err(self.make_low_error("unknown field name", parser_node)),
-                };
+                let struct_expr_field_id = resolve_to_struct_expr_field(target_id, &expr.identifier, self).map_err(|e| self.make_error(&e, target_id))?;
                 let field_ty = self.get_ty_or_err(struct_expr_field_id)?;
                 // make node
                 let node = Node::new_field_access(expr.identifier.clone(), target_id);
