@@ -638,6 +638,91 @@ fn test_string_literal() {
     );
 }
 
+// struct declaration
+
+#[test]
+fn test_struct_decl() {
+    run_test(
+        "
+        struct Data {
+            value: number;
+        }
+        fn main() { }
+        ",
+    );
+}
+
+// struct instance
+
+#[test]
+fn test_struct_instance() {
+    run_test(
+        "
+        struct Data {
+            value: number;
+        }
+        fn main() {
+            var x: Data = Data {
+                value: 1,
+            };
+        }
+        ",
+    );
+}
+
+// struct field access
+
+#[test]
+fn test_struct_field_access_1() {
+    run_test(
+        "
+        struct Data {
+            value: number;
+        }
+        fn main() {
+            var x: Data = Data {
+                value: 1,
+            };
+            var y: number = x.value;
+        }
+        ",
+    );
+}
+
+#[test]
+fn test_struct_field_access_2() {
+    run_test(
+        "
+        struct Data {
+            value: number;
+        }
+        fn main() {
+            var x: Data = Data {
+                value: 1,
+            };
+            var y: Data = x;
+            var z: number = y.value;
+        }
+        ",
+    );
+}
+
+#[test]
+fn test_struct_field_access_3() {
+    run_test(
+        "
+        struct Data {
+            value: number;
+        }
+        fn main() {
+            var x: number = Data {
+                value: 1,
+            }.value;
+        }
+        ",
+    );
+}
+
 // other examples
 
 #[test]
