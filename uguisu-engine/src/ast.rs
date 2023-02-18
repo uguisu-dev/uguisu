@@ -81,7 +81,7 @@ impl Node {
     }
 
     pub fn new_function_declaration(
-        identifier: String,
+        name: String,
         body: Option<Vec<Node>>,
         params: Vec<Node>,
         ret: Option<String>,
@@ -89,25 +89,25 @@ impl Node {
         pos: usize,
     ) -> Self {
         Node::FunctionDeclaration(FunctionDeclaration {
-            identifier,
+            name,
             body,
             params,
-            ret,
+            ret_type_name: ret,
             attributes,
             pos,
         })
     }
 
-    pub fn new_func_param(identifier: String, type_identifier: Option<String>, pos: usize) -> Self {
+    pub fn new_func_param(name: String, type_identifier: Option<String>, pos: usize) -> Self {
         Node::FuncParam(FuncParam {
-            identifier,
-            type_identifier,
+            name,
+            type_name: type_identifier,
             pos,
         })
     }
 
     pub fn new_variable_declaration(
-        identifier: String,
+        name: String,
         body: Option<Node>,
         type_identifier: Option<String>,
         attributes: Vec<VariableAttribute>,
@@ -118,49 +118,49 @@ impl Node {
             None => None,
         };
         Node::VariableDeclaration(VariableDeclaration {
-            identifier,
+            name,
             body,
-            type_identifier,
+            type_name: type_identifier,
             attributes,
             pos,
         })
     }
 
     pub fn new_struct_declaration(
-        identifier: String,
+        name: String,
         fields: Vec<Node>,
         pos: usize,
     ) -> Self {
         Node::StructDeclaration(StructDeclaration {
-            identifier,
+            name,
             fields,
             pos,
         })
     }
 
-    pub fn new_struct_decl_field(identifier: String, type_identifier: String, pos: usize) -> Self {
+    pub fn new_struct_decl_field(name: String, type_identifier: String, pos: usize) -> Self {
         Node::StructDeclField(StructDeclField {
-            identifier,
-            type_identifier,
+            name,
+            type_name: type_identifier,
             pos,
         })
     }
 
     pub fn new_struct_expr(
-        identifier: String,
+        name: String,
         fields: Vec<Node>,
         pos: usize,
     ) -> Self {
         Node::StructExpr(StructExpr {
-            identifier,
+            name,
             fields,
             pos,
         })
     }
 
-    pub fn new_struct_expr_field(identifier: String, body: Node, pos: usize) -> Self {
+    pub fn new_struct_expr_field(name: String, body: Node, pos: usize) -> Self {
         Node::StructExprField(StructExprField {
-            identifier,
+            name,
             body: Box::new(body),
             pos,
         })
@@ -206,7 +206,7 @@ impl Node {
 
     pub fn new_identifier(value: &str, pos: usize) -> Self {
         Node::Identifier(Identifier {
-            value: value.to_string(),
+            name: value.to_string(),
             pos,
         })
     }
@@ -249,12 +249,12 @@ impl Node {
     }
 
     pub fn new_field_access(
-        identifier: String,
+        name: String,
         target: Node,
         pos: usize,
     ) -> Self {
         Node::FieldAccess(FieldAccess {
-            identifier,
+            name,
             target: Box::new(target),
             pos,
         })
@@ -305,10 +305,10 @@ impl Node {
 
 #[derive(Debug, PartialEq)]
 pub struct FunctionDeclaration {
-    pub identifier: String,
+    pub name: String,
     pub body: Option<Vec<Node>>,
     pub params: Vec<Node>,
-    pub ret: Option<String>,
+    pub ret_type_name: Option<String>,
     pub attributes: Vec<FunctionAttribute>,
     pub pos: usize,
 }
@@ -319,15 +319,15 @@ pub enum FunctionAttribute {
 
 #[derive(Debug, PartialEq)]
 pub struct FuncParam {
-    pub identifier: String,
-    pub type_identifier: Option<String>,
+    pub name: String,
+    pub type_name: Option<String>,
     pub pos: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct VariableDeclaration {
-    pub identifier: String,
-    pub type_identifier: Option<String>,
+    pub name: String,
+    pub type_name: Option<String>,
     pub attributes: Vec<VariableAttribute>,
     pub body: Option<Box<Node>>,
     pub pos: usize,
@@ -335,28 +335,28 @@ pub struct VariableDeclaration {
 
 #[derive(Debug, PartialEq)]
 pub struct StructDeclaration {
-    pub identifier: String,
+    pub name: String,
     pub fields: Vec<Node>, // StructDeclField
     pub pos: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct StructDeclField {
-    pub identifier: String,
-    pub type_identifier: String,
+    pub name: String,
+    pub type_name: String,
     pub pos: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct StructExpr {
-    pub identifier: String,
+    pub name: String,
     pub fields: Vec<Node>, // StructExprField
     pub pos: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct StructExprField {
-    pub identifier: String,
+    pub name: String,
     pub body: Box<Node>, // expression
     pub pos: usize,
 }
@@ -412,7 +412,7 @@ pub struct LoopStatement {
 
 #[derive(Debug, PartialEq)]
 pub struct Identifier {
-    pub value: String,
+    pub name: String,
     pub pos: usize,
 }
 
@@ -458,7 +458,7 @@ pub struct CallExpr {
 
 #[derive(Debug, PartialEq)]
 pub struct FieldAccess {
-    pub identifier: String,
+    pub name: String,
     pub target: Box<Node>,
     pub pos: usize,
 }
@@ -483,7 +483,7 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
     println!("{}{} ({}:{}) {{", indent(level), name, line, column);
     match node {
         Node::FunctionDeclaration(node) => {
-            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+            println!("{}name: \"{}\"", indent(level + 1), node.name);
 
             println!("{}attributes: {{", indent(level + 1));
             for attr in node.attributes.iter() {
@@ -495,12 +495,12 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
             show_tree(&node.params, source_code, level + 2);
             println!("{}}}", indent(level + 1));
 
-            match &node.ret {
+            match &node.ret_type_name {
                 Some(x) => {
-                    println!("{}ret: \"{}\"", indent(level + 1), x);
+                    println!("{}ret_type_name: \"{}\"", indent(level + 1), x);
                 }
                 None => {
-                    println!("{}ret: (None)", indent(level + 1));
+                    println!("{}ret_type_name: (None)", indent(level + 1));
                 }
             }
 
@@ -516,7 +516,7 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
             println!("{}}}", indent(level + 1));
         }
         Node::VariableDeclaration(node) => {
-            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+            println!("{}name: \"{}\"", indent(level + 1), node.name);
 
             println!("{}attributes: {{", indent(level + 1));
             for attr in node.attributes.iter() {
@@ -524,12 +524,12 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
             }
             println!("{}}}", indent(level + 1));
 
-            match &node.type_identifier {
+            match &node.type_name {
                 Some(x) => {
-                    println!("{}type_identifier: \"{}\"", indent(level + 1), x);
+                    println!("{}type_name: \"{}\"", indent(level + 1), x);
                 }
                 None => {
-                    println!("{}type_identifier: (None)", indent(level + 1));
+                    println!("{}type_name: (None)", indent(level + 1));
                 }
             }
 
@@ -545,13 +545,13 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
             println!("{}}}", indent(level + 1));
         }
         Node::StructDeclaration(node) => {
-            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+            println!("{}name: \"{}\"", indent(level + 1), node.name);
             println!("{}fields: {{", indent(level + 1));
             show_tree(&node.fields, source_code, level + 2);
             println!("{}}}", indent(level + 1));
         }
         Node::StructExpr(node) => {
-            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+            println!("{}name: \"{}\"", indent(level + 1), node.name);
             println!("{}fields: {{", indent(level + 1));
             show_tree(&node.fields, source_code, level + 2);
             println!("{}}}", indent(level + 1));
@@ -612,7 +612,7 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
             println!("{}}}", indent(level + 1));
         }
         Node::Identifier(node) => {
-            println!("{}identifier: \"{}\"", indent(level + 1), node.value);
+            println!("{}name: \"{}\"", indent(level + 1), node.name);
         }
         Node::NumberLiteral(node) => {
             println!("{}value: {:?}", indent(level + 1), node.value);
@@ -651,29 +651,29 @@ fn show_node(node: &Node, source_code: &str, level: usize) {
             println!("{}}}", indent(level + 1));
         }
         Node::FuncParam(node) => {
-            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+            println!("{}name: \"{}\"", indent(level + 1), node.name);
 
-            match &node.type_identifier {
+            match &node.type_name {
                 Some(x) => {
-                    println!("{}type_identifier: \"{}\"", indent(level + 1), x);
+                    println!("{}type_name: \"{}\"", indent(level + 1), x);
                 }
                 None => {
-                    println!("{}type_identifier: (None)", indent(level + 1));
+                    println!("{}type_name: (None)", indent(level + 1));
                 }
             }
         }
         Node::FieldAccess(node) => {
-            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+            println!("{}name: \"{}\"", indent(level + 1), node.name);
             println!("{}target: {{", indent(level + 1));
             show_node(&node.target, source_code, level + 2);
             println!("{}}}", indent(level + 1));
         }
         Node::StructDeclField(node) => {
-            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
-            println!("{}type_identifier: \"{}\"", indent(level + 1), node.type_identifier);
+            println!("{}name: \"{}\"", indent(level + 1), node.name);
+            println!("{}type_name: \"{}\"", indent(level + 1), node.type_name);
         }
         Node::StructExprField(node) => {
-            println!("{}identifier: \"{}\"", indent(level + 1), node.identifier);
+            println!("{}name: \"{}\"", indent(level + 1), node.name);
         }
     }
     println!("{}}}", indent(level));

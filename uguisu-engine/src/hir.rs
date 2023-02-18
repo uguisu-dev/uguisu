@@ -55,11 +55,11 @@ impl Node {
     }
 
     pub fn new_declaration(
-        identifier: String,
+        name: String,
         signature: Signature,
     ) -> Self {
         Node::Declaration(Declaration {
-            identifier,
+            name,
             signature,
         })
     }
@@ -192,19 +192,19 @@ impl Node {
         })
     }
 
-    pub fn new_func_param(identifier: String) -> Self {
+    pub fn new_func_param(name: String) -> Self {
         Node::FuncParam(FuncParam {
-            identifier,
+            name,
             // param_index,
         })
     }
 
     pub fn new_struct_expr(
-        identifier: String,
+        name: String,
         fields: BTreeMap<String, NodeId>,
     ) -> Self {
         Node::StructExpr(StructExpr {
-            identifier,
+            name,
             field_table: fields,
         })
     }
@@ -215,9 +215,9 @@ impl Node {
         })
     }
 
-    pub fn new_field_access(identifier: String, target: NodeId) -> Self {
+    pub fn new_field_access(name: String, target: NodeId) -> Self {
         Node::FieldAccess(FieldAccess {
-            identifier,
+            name,
             target,
         })
     }
@@ -300,7 +300,7 @@ impl fmt::Display for NodeId {
 
 #[derive(Debug)]
 pub struct Declaration {
-    pub identifier: String,
+    pub name: String,
     pub signature: Signature,
     //pub ty: Option<Type>,
 }
@@ -359,7 +359,7 @@ pub struct StructDeclField {
 
 #[derive(Debug, Clone)]
 pub struct FieldAccess {
-    pub identifier: String,
+    pub name: String,
     pub target: NodeId,
 }
 
@@ -408,7 +408,7 @@ pub struct Function {
 
 #[derive(Debug, Clone)]
 pub struct FuncParam {
-    pub identifier: String,
+    pub name: String,
     // pub param_index: usize,
 }
 
@@ -518,7 +518,7 @@ pub struct CallExpr {
 
 #[derive(Debug, Clone)]
 pub struct StructExpr {
-    pub identifier: String,
+    pub name: String,
     /// StructExprField
     pub field_table: BTreeMap<String, NodeId>,
 }
@@ -544,7 +544,7 @@ pub(crate) fn show_node(node_id: NodeId, node_map: &BTreeMap<NodeId, Node>, symb
     }
     match node {
         Node::Declaration(decl) => {
-            println!("  identifier: \"{}\"", decl.identifier);
+            println!("  name: \"{}\"", decl.name);
             match &decl.signature {
                 Signature::FunctionSignature(signature) => {
                     println!("  signature(FunctionSignature): {{");
@@ -699,12 +699,12 @@ pub(crate) fn show_node(node_id: NodeId, node_map: &BTreeMap<NodeId, Node>, symb
             println!("  }}");
         }
         Node::FuncParam(func_param) => {
-            println!("  identifier: \"{}\"", func_param.identifier);
+            println!("  name: \"{}\"", func_param.name);
             //println!("  type: {:?}", func_param.ty);
         }
         Node::StructDeclField(_) => {}
         Node::StructExpr(struct_expr) => {
-            println!("  identifier: \"{}\"", struct_expr.identifier);
+            println!("  name: \"{}\"", struct_expr.name);
             println!("  field_table: {{");
             for (name, node_id) in struct_expr.field_table.iter() {
                 println!("    \"{}\": [{}]", name, node_id);
@@ -717,7 +717,7 @@ pub(crate) fn show_node(node_id: NodeId, node_map: &BTreeMap<NodeId, Node>, symb
             println!("  }}");
         }
         Node::FieldAccess(node) => {
-            println!("  identifier: \"{}\"", node.identifier);
+            println!("  name: \"{}\"", node.name);
             println!("  target: {{");
             println!("    [{}]", node.target);
             println!("  }}");
@@ -815,7 +815,8 @@ impl SymbolTable {
         let record = SymbolRecord {
             ty: None,
             pos: None,
-            body: None,
+            decl_body: None,
+            ident_body: None,
         };
         self.table.insert(node_id, record);
     }
@@ -838,13 +839,22 @@ impl SymbolTable {
         record.pos = Some(pos);
     }
 
-    pub fn set_body(&mut self, node_id: NodeId, body: NodeId) {
-        if self.trace { println!("set_body (node_id: [{}], body: [{}])", node_id, body); }
+    pub fn set_decl_body(&mut self, node_id: NodeId, body: NodeId) {
+        if self.trace { println!("set_decl_body (node_id: [{}], body: [{}])", node_id, body); }
         let record = match self.table.get_mut(&node_id) {
             Some(x) => x,
             None => panic!("symbol not found"),
         };
-        record.body = Some(body);
+        record.decl_body = Some(body);
+    }
+
+    pub fn set_ident_body(&mut self, node_id: NodeId, body: NodeId) {
+        if self.trace { println!("set_ident_body (node_id: [{}], body: [{}])", node_id, body); }
+        let record = match self.table.get_mut(&node_id) {
+            Some(x) => x,
+            None => panic!("symbol not found"),
+        };
+        record.ident_body = Some(body);
     }
 
     pub fn get(&self, node_id: NodeId) -> &SymbolRecord {
@@ -861,7 +871,9 @@ pub struct SymbolRecord {
     pub ty: Option<Type>,
     pub pos: Option<(usize, usize)>,
     /// (for Declaration) Variable or Function
-    pub body: Option<NodeId>,
+    pub decl_body: Option<NodeId>,
+    /// (for Identifier)
+    pub ident_body: Option<NodeId>,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -884,20 +896,20 @@ impl Type {
             Type::Function => "function".to_owned(),
             Type::Struct(node_id) => {
                 let decl = node_id.get(node_map).as_decl().unwrap();
-                let ty_name = String::from("struct ") + &decl.identifier;
+                let ty_name = String::from("struct ") + &decl.name;
                 ty_name
             }
         }
     }
 
-    pub fn from_identifier(ty_identifier: &str, resolver: &ResolverStack, node_map: &BTreeMap<NodeId, Node>) -> Result<Type, String> {
-        match ty_identifier {
+    pub fn from_name(ty_name: &str, resolver: &ResolverStack, node_map: &BTreeMap<NodeId, Node>) -> Result<Type, String> {
+        match ty_name {
             "void" => Err("type `void` is invalid".to_owned()),
             "number" => Ok(Type::Number),
             "bool" => Ok(Type::Bool),
             "string" => Ok(Type::String),
             _ => {
-                let node_id = match resolver.lookup_identifier(ty_identifier) {
+                let node_id = match resolver.lookup_identifier(ty_name) {
                     Some(x) => x,
                     None => return Err("unknown type name".to_owned()),
                 };

@@ -147,20 +147,20 @@ fn test_declare_func_with_types_4() {
 
 #[test]
 fn test_identifier_single_ascii() {
-    if let Ok(Node::Identifier(Identifier { value: identifier, pos: 0, .. })) = uguisu_parser::expression("a") {
-        assert_eq!(identifier, "a");
+    if let Ok(Node::Identifier(Identifier { name, pos: 0, .. })) = uguisu_parser::expression("a") {
+        assert_eq!(name, "a");
     } else {
         panic!("incorrect result 1");
     }
 
-    if let Ok(Node::Identifier(Identifier { value: identifier, pos: 0, .. })) = uguisu_parser::expression("z") {
-        assert_eq!(identifier, "z");
+    if let Ok(Node::Identifier(Identifier { name, pos: 0, .. })) = uguisu_parser::expression("z") {
+        assert_eq!(name, "z");
     } else {
         panic!("incorrect result 2");
     }
 
-    if let Ok(Node::Identifier(Identifier { value: identifier, pos: 0, .. })) = uguisu_parser::expression("_") {
-        assert_eq!(identifier, "_");
+    if let Ok(Node::Identifier(Identifier { name, pos: 0, .. })) = uguisu_parser::expression("_") {
+        assert_eq!(name, "_");
     } else {
         panic!("incorrect result 3");
     }
@@ -172,8 +172,8 @@ fn test_identifier_single_ascii() {
 
 #[test]
 fn test_identifier_multi_ascii() {
-    if let Ok(Node::Identifier(Identifier { value: identifier, pos: 0, .. })) = uguisu_parser::expression("abc") {
-        assert_eq!(identifier, "abc");
+    if let Ok(Node::Identifier(Identifier { name, pos: 0, .. })) = uguisu_parser::expression("abc") {
+        assert_eq!(name, "abc");
     } else {
         panic!("incorrect result");
     }
@@ -185,14 +185,14 @@ fn test_identifier_multi_ascii() {
 
 #[test]
 fn test_identifier_multi_byte() {
-    if let Ok(Node::Identifier(Identifier { value: identifier, pos: 0, .. })) = uguisu_parser::expression("あ") {
-        assert_eq!(identifier, "あ");
+    if let Ok(Node::Identifier(Identifier { name, pos: 0, .. })) = uguisu_parser::expression("あ") {
+        assert_eq!(name, "あ");
     } else {
         panic!("incorrect result");
     }
 
-    if let Ok(Node::Identifier(Identifier { value: identifier, pos: 0, .. })) = uguisu_parser::expression("変数1") {
-        assert_eq!(identifier, "変数1");
+    if let Ok(Node::Identifier(Identifier { name, pos: 0, .. })) = uguisu_parser::expression("変数1") {
+        assert_eq!(name, "変数1");
     } else {
         panic!("incorrect result");
     }

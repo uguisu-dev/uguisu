@@ -34,7 +34,7 @@ pub(crate) enum Value {
     Bool(bool),
     String(String),
     Function(NodeId),
-    Struct(NodeId), // struct expr
+    Struct((NodeId, BTreeMap<String, Value>)),
 }
 
 impl Value {
@@ -43,7 +43,7 @@ impl Value {
             Value::Number(_) => Type::Number,
             Value::Bool(_) => Type::Bool,
             Value::String(_) => Type::String,
-            Value::Struct(node_id) => Type::Struct(node_id.clone()),
+            Value::Struct((node_id, _)) => Type::Struct(node_id.clone()),
             Value::Function(_) => panic!("get type error"),
             Value::NoneValue => panic!("get type error"),
         }
@@ -193,7 +193,7 @@ impl<'a> HirRunner<'a> {
                         env.set_symbol(node_id, Value::Function(node_id));
                     }
                     Signature::VariableSignature(_) => {
-                        match self.symbol_table.get(node_id).body {
+                        match self.symbol_table.get(node_id).decl_body {
                             Some(body) => {
                                 let value = self.eval_expr(body, env)?;
                                 env.set_symbol(node_id, value);
@@ -201,9 +201,7 @@ impl<'a> HirRunner<'a> {
                             None => {} // variable is not defined yet
                         }
                     }
-                    Signature::StructSignature(_) => {
-                        env.set_symbol(node_id, Value::Struct(node_id));
-                    }
+                    Signature::StructSignature(_) => {}
                 }
                 Ok(StatementResult::None)
             }
@@ -314,7 +312,8 @@ impl<'a> HirRunner<'a> {
             | Node::ArithmeticOp(_)
             | Node::LogicalUnaryOp(_)
             | Node::CallExpr(_)
-            | Node::FieldAccess(_) => {
+            | Node::FieldAccess(_)
+            | Node::StructExpr(_) => {
                 self.eval_expr(node_id, env)?;
                 Ok(StatementResult::None)
             }
@@ -322,7 +321,6 @@ impl<'a> HirRunner<'a> {
             | Node::Variable(_)
             | Node::FuncParam(_)
             | Node::StructDeclField(_)
-            | Node::StructExpr(_)
             | Node::StructExprField(_) => {
                 panic!("Failed to execute the statement: unsupported node (node_id={})", node_id);
             }
@@ -436,9 +434,9 @@ impl<'a> HirRunner<'a> {
                 let callee_id = self.resolve_identifier(call_expr.callee);
                 let callee = callee_id.get(self.source).as_decl().unwrap();
                 let signature = callee.signature.as_function_signature().unwrap();
-                let func = match self.symbol_table.get(callee_id).body {
+                let func = match self.symbol_table.get(callee_id).decl_body {
                     Some(x) => x.get(self.source).as_function().unwrap(),
-                    None => panic!("function `{}` is not defined (node_id={})", callee.identifier, call_expr.callee),
+                    None => panic!("function `{}` is not defined (node_id={})", callee.name, call_expr.callee),
                 };
                 let mut args = Vec::new();
                 for &arg_id in call_expr.args.iter() {
@@ -467,7 +465,7 @@ impl<'a> HirRunner<'a> {
                         }
                     }
                     FunctionBody::NativeCode => {
-                        result = Some(self.builtins.call(&callee.identifier, &args, self.source)?);
+                        result = Some(self.builtins.call(&callee.name, &args, self.source)?);
                     }
                 }
                 env.pop_frame();
@@ -477,8 +475,8 @@ impl<'a> HirRunner<'a> {
                 };
                 Ok(value)
             }
-            Node::StructExpr(_struct_expr) => {
-                Ok(Value::Struct(node_id))
+            Node::StructExpr(_expr) => {
+                todo!(); // TODO: 構造体のインスタンスを返す
             }
             Node::FieldAccess(_expr) => {
                 todo!(); // TODO: 構造体のフィールドの値を取得して返す

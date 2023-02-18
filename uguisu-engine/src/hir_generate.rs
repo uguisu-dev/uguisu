@@ -77,7 +77,11 @@ impl<'a> HirGenerator<'a> {
     }
 
     fn get_decl_body(&self, node_id: NodeId) -> Option<NodeId> {
-        self.symbol_table.get(node_id).body
+        self.symbol_table.get(node_id).decl_body
+    }
+
+    fn get_ident_body(&self, node_id: NodeId) -> Option<NodeId> {
+        self.symbol_table.get(node_id).ident_body
     }
 
     fn make_low_error(&self, message: &str, node: &ast::Node) -> SyntaxError {
@@ -143,7 +147,7 @@ impl<'a> HirGenerator<'a> {
         self.symbol_table.set_ty(variable_id, ty);
 
         // link declaration
-        self.symbol_table.set_body(decl_node_id, variable_id);
+        self.symbol_table.set_decl_body(decl_node_id, variable_id);
         self.symbol_table.set_ty(decl_node_id, ty);
         Ok(())
     }
@@ -171,7 +175,7 @@ impl<'a> HirGenerator<'a> {
         let decl_node = Node::new_declaration(info.name.clone(), func_signature);
         let node_id = self.register_node(decl_node);
         self.symbol_table.set_ty(node_id, Type::Function);
-        self.symbol_table.set_body(node_id, func_node_id);
+        self.symbol_table.set_decl_body(node_id, func_node_id);
         self.resolver.set_identifier(&info.name, node_id);
         node_id
     }
@@ -229,13 +233,13 @@ impl<'a> HirGenerator<'a> {
                 for n in func.params.iter() {
                     let param = n.as_func_param();
                     let func_param = FuncParam {
-                        identifier: param.identifier.clone(),
+                        name: param.name.clone(),
                         // param_index: i,
                     };
                     func_params.push(func_param);
                 }
-                let ret_ty = match &func.ret {
-                    Some(x) => Type::from_identifier(x, &self.resolver, self.node_map).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
+                let ret_ty = match &func.ret_type_name {
+                    Some(x) => Type::from_name(x, &self.resolver, self.node_map).map_err(|e| self.make_low_error(&e, parser_node))?, // TODO: improve error location
                     None => Type::Void,
                 };
 
@@ -247,8 +251,8 @@ impl<'a> HirGenerator<'a> {
                         let node = Node::FuncParam(func_param.clone());
                         let node_id = self.register_node(node);
                         self.symbol_table.set_pos(node_id, self.calc_location(&func.params[i])?);
-                        let param_type = match &func.params[i].as_func_param().type_identifier {
-                            Some(x) => Type::from_identifier(x, &self.resolver, self.node_map).map_err(|e| self.make_error(&e, node_id))?, // TODO: improve error location
+                        let param_type = match &func.params[i].as_func_param().type_name {
+                            Some(x) => Type::from_name(x, &self.resolver, self.node_map).map_err(|e| self.make_error(&e, node_id))?, // TODO: improve error location
                             None => return Err(self.make_error("parameter type missing", node_id)),
                         };
                         self.symbol_table.set_ty(node_id, param_type);
@@ -259,11 +263,11 @@ impl<'a> HirGenerator<'a> {
                         params,
                         ret_ty,
                     });
-                    let node = Node::new_declaration(func.identifier.clone(), signature);
+                    let node = Node::new_declaration(func.name.clone(), signature);
                     let node_id = self.register_node(node);
                     self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
                     self.symbol_table.set_ty(node_id, Type::Function);
-                    self.resolver.set_identifier(&func.identifier, node_id);
+                    self.resolver.set_identifier(&func.name, node_id);
 
                     node_id
                 };
@@ -289,7 +293,7 @@ impl<'a> HirGenerator<'a> {
                             None => break,
                         };
                         let param = param_id.get(self.node_map).as_func_param().unwrap();
-                        self.resolver.set_identifier(&param.identifier, param_id);
+                        self.resolver.set_identifier(&param.name, param_id);
                         i += 1;
                     }
                     let func_body = match &func.body {
@@ -304,13 +308,13 @@ impl<'a> HirGenerator<'a> {
                     self.symbol_table.set_pos(func_node_id, self.calc_location(parser_node)?);
 
                     // link declaration
-                    self.symbol_table.set_body(decl_node_id, func_node_id);
+                    self.symbol_table.set_decl_body(decl_node_id, func_node_id);
                 }
 
                 Ok(decl_node_id)
             }
             ast::Node::VariableDeclaration(variable) => {
-                if self.trace { println!("enter statement (node: {}, identifier: {})", parser_node.get_name(), variable.identifier); }
+                if self.trace { println!("enter statement (node: {}, name: {})", parser_node.get_name(), variable.name); }
 
                 let has_const_attr = variable.attributes.iter().any(|x| *x == VariableAttribute::Const);
                 if has_const_attr {
@@ -323,8 +327,8 @@ impl<'a> HirGenerator<'a> {
 
                 // fetch specified type
                 // NOTE: The fact that type `void` cannot be explicitly declared is used to ensure that variables of type `void` are not declared.
-                let specified_ty = match &variable.type_identifier {
-                    Some(ident) => Some(Type::from_identifier(ident, &self.resolver, self.node_map).map_err(|e| self.make_low_error(&e, parser_node))?), // TODO: improve error location
+                let specified_ty = match &variable.type_name {
+                    Some(ident) => Some(Type::from_name(ident, &self.resolver, self.node_map).map_err(|e| self.make_low_error(&e, parser_node))?), // TODO: improve error location
                     None => None,
                 };
 
@@ -333,10 +337,10 @@ impl<'a> HirGenerator<'a> {
                     specified_ty,
                 });
                 // make node
-                let node = Node::new_declaration(variable.identifier.clone(), signature);
+                let node = Node::new_declaration(variable.name.clone(), signature);
                 let node_id = self.register_node(node);
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
-                self.resolver.set_identifier(&variable.identifier, node_id);
+                self.resolver.set_identifier(&variable.name, node_id);
 
                 if let Some(var_body) = &variable.body {
                     self.define_variable_decl(parser_node, var_body, node_id)?;
@@ -350,8 +354,8 @@ impl<'a> HirGenerator<'a> {
                 let mut field_table = BTreeMap::new();
                 for n in decl.fields.iter() {
                     let field_node = n.as_struct_decl_field();
-                    let field_ty = Type::from_identifier(
-                        &field_node.type_identifier,
+                    let field_ty = Type::from_name(
+                        &field_node.type_name,
                         &self.resolver,
                         self.node_map,
                     ).map_err(|e| self.make_low_error(&e, parser_node))?;
@@ -359,7 +363,7 @@ impl<'a> HirGenerator<'a> {
                     let node_id = self.register_node(node);
                     self.symbol_table.set_pos(node_id, self.calc_location(n)?);
                     self.symbol_table.set_ty(node_id, field_ty);
-                    field_table.insert(field_node.identifier.clone(), node_id);
+                    field_table.insert(field_node.name.clone(), node_id);
                 }
 
                 // make signature
@@ -367,11 +371,11 @@ impl<'a> HirGenerator<'a> {
                     field_table,
                 });
                 // make node
-                let node = Node::new_declaration(decl.identifier.clone(), signature);
+                let node = Node::new_declaration(decl.name.clone(), signature);
                 let node_id = self.register_node(node);
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_id, Type::Struct(node_id));
-                self.resolver.set_identifier(&decl.identifier, node_id);
+                self.resolver.set_identifier(&decl.name, node_id);
 
                 Ok(node_id)
             }
@@ -420,13 +424,13 @@ impl<'a> HirGenerator<'a> {
                 }
 
                 let identifier = statement.dest.as_identifier();
-                let declaration_id = match self.resolver.lookup_identifier(&identifier.value) {
+                let declaration_id = match self.resolver.lookup_identifier(&identifier.name) {
                     Some(x) => x,
                     None => return Err(self.make_low_error("unknown identifier", parser_node)),
                 };
 
                 // if the declaration is not defined, define it.
-                if let None = self.symbol_table.get(declaration_id).body {
+                if let None = self.symbol_table.get(declaration_id).decl_body {
                     self.define_variable_decl(parser_node, &statement.body, declaration_id)?;
                 }
 
@@ -574,8 +578,8 @@ impl<'a> HirGenerator<'a> {
     fn generate_expr(&mut self, parser_node: &ast::Node) -> Result<NodeId, SyntaxError> {
         let result = match parser_node {
             ast::Node::Identifier(identifier) => {
-                if self.trace { println!("enter expr (node: {}, identifier: {})", parser_node.get_name(), identifier.value); }
-                let dest_id = match self.resolver.lookup_identifier(&identifier.value) {
+                if self.trace { println!("enter expr (node: {}, name: {})", parser_node.get_name(), identifier.name); }
+                let dest_id = match self.resolver.lookup_identifier(&identifier.name) {
                     Some(x) => x,
                     None => return Err(self.make_low_error("unknown identifier", parser_node)),
                 };
@@ -772,13 +776,13 @@ impl<'a> HirGenerator<'a> {
                 }
                 let target_id = self.generate_expr(&expr.target)?;
                 let struct_expr = resolve_to_struct_expr(target_id, self).map_err(|e| self.make_error(&e, target_id))?;
-                let struct_expr_field_id = match struct_expr.field_table.get(&expr.identifier) {
+                let struct_expr_field_id = match struct_expr.field_table.get(&expr.name) {
                     Some(&x) => x,
                     None => return Err(self.make_error("unknown field name", target_id)),
                 };
                 let field_ty = self.get_ty_or_err(struct_expr_field_id)?;
                 // make node
-                let node = Node::new_field_access(expr.identifier.clone(), target_id);
+                let node = Node::new_field_access(expr.name.clone(), target_id);
                 let node_id = self.register_node(node);
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_id, field_ty);
@@ -786,7 +790,7 @@ impl<'a> HirGenerator<'a> {
             }
             ast::Node::StructExpr(struct_expr) => {
                 if self.trace { println!("enter expr (node: {})", parser_node.get_name()); }
-                let ty = Type::from_identifier(&struct_expr.identifier, &self.resolver, self.node_map).map_err(|e| self.make_low_error(&e, parser_node))?;
+                let ty = Type::from_name(&struct_expr.name, &self.resolver, self.node_map).map_err(|e| self.make_low_error(&e, parser_node))?;
                 let struct_decl_id = match ty {
                     Type::Struct(x) => x,
                     _ => return Err(self.make_low_error("struct type expected", parser_node)),
@@ -796,7 +800,7 @@ impl<'a> HirGenerator<'a> {
                     let struct_decl = struct_decl_id.get(self.node_map).as_decl().map_err(|e| self.make_low_error(&e, parser_node))?;
                     let struct_signature = struct_decl.signature.as_struct_signature().map_err(|e| self.make_low_error(&e, parser_node))?;
                     let expr_field_node = n.as_struct_expr_field();
-                    let decl_field_id = match struct_signature.field_table.get(&expr_field_node.identifier) {
+                    let decl_field_id = match struct_signature.field_table.get(&expr_field_node.name) {
                         Some(&x) => x,
                         None => return Err(self.make_low_error("unknown field name", parser_node)),
                     };
@@ -809,10 +813,10 @@ impl<'a> HirGenerator<'a> {
                     let node_id = self.register_node(node);
                     self.symbol_table.set_pos(node_id, self.calc_location(n)?);
                     self.symbol_table.set_ty(node_id, expr_field_body_ty);
-                    fields.insert(expr_field_node.identifier.clone(), node_id);
+                    fields.insert(expr_field_node.name.clone(), node_id);
                 }
                 // make node
-                let node = Node::new_struct_expr(struct_expr.identifier.clone(), fields);
+                let node = Node::new_struct_expr(struct_expr.name.clone(), fields);
                 let node_id = self.register_node(node);
                 self.symbol_table.set_pos(node_id, self.calc_location(parser_node)?);
                 self.symbol_table.set_ty(node_id, ty);
