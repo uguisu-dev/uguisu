@@ -1,32 +1,5 @@
+import { AstNode, makeIdentifier, makeNumber } from './ast';
 import { Token, TokenKind } from './tokenize';
-
-enum AstNodeKind {
-	Identifier,
-	Number,
-}
-
-interface AstNode {
-	kind: AstNodeKind;
-	pos: number;
-}
-
-interface IdentifierNode extends AstNode {
-	kind: AstNodeKind.Identifier;
-	name: string;
-}
-
-interface NumberNode extends AstNode {
-	kind: AstNodeKind.Number;
-	value: string;
-}
-
-export function makeIdentifier(name: string, pos: number): IdentifierNode {
-	return { kind: AstNodeKind.Identifier, name, pos };
-}
-
-export function makeNumber(value: string, pos: number): NumberNode {
-	return { kind: AstNodeKind.Number, value, pos };
-}
 
 function expectNumber(index: number, input: Token[]): string {
 	const token = input[index];
@@ -54,14 +27,7 @@ export function parse(offset: number, input: Token[]): AstNode[] {
 		result = parseExpr(index, input);
 		if (result != null) {
 			accum.push(result[0]);
-			index++;
-			continue;
-		}
-
-		if (token.kind == TokenKind.Identifier) {
-			const node = makeIdentifier(token.value, token.pos);
-			accum.push(node);
-			index++;
+			index = result[1];
 			continue;
 		}
 

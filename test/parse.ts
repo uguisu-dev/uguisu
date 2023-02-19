@@ -1,6 +1,7 @@
 import assert from 'assert';
 import { scan } from '../src/tokenize';
-import { parse, makeNumber, makeIdentifier } from '../src/parse';
+import { parse } from '../src/parse';
+import { makeNumber, makeIdentifier } from '../src/ast';
 
 describe('number', () => {
 	test('basic', () => {
