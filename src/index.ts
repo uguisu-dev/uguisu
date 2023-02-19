@@ -1,8 +1,9 @@
-import { tokenize, makeToken, Token, TokenKind } from './tokenize';
+import { scan, Token, TokenKind } from './tokenize';
+import { parse } from './parse';
 
 export {
-	tokenize,
-	makeToken,
+	scan,
 	Token,
 	TokenKind,
+	parse,
 };

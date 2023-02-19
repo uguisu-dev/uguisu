@@ -1,5 +1,6 @@
 import assert from 'assert';
-import { tokenize, makeToken, TokenKind } from '../src';
+import { scan, TokenKind } from '../src';
+import { makeToken } from '../src/tokenize';
 
 describe('digit', () => {
 	test('0', () => {
@@ -7,7 +8,7 @@ describe('digit', () => {
 		const expected = [
 			makeToken(TokenKind.Digits, '0', 0),
 		];
-		assert.deepEqual(tokenize(0, input), expected);
+		assert.deepEqual(scan(0, input), expected);
 	});
 
 	test('1', () => {
@@ -15,7 +16,7 @@ describe('digit', () => {
 		const expected = [
 			makeToken(TokenKind.Digits, '1', 0),
 		];
-		assert.deepEqual(tokenize(0, input), expected);
+		assert.deepEqual(scan(0, input), expected);
 	});
 
 	test('10', () => {
@@ -23,7 +24,7 @@ describe('digit', () => {
 		const expected = [
 			makeToken(TokenKind.Digits, '10', 0),
 		];
-		assert.deepEqual(tokenize(0, input), expected);
+		assert.deepEqual(scan(0, input), expected);
 	});
 
 	test('01', () => {
@@ -31,7 +32,7 @@ describe('digit', () => {
 		const expected = [
 			makeToken(TokenKind.Digits, '01', 0),
 		];
-		assert.deepEqual(tokenize(0, input), expected);
+		assert.deepEqual(scan(0, input), expected);
 	});
 
 	test('1 0', () => {
@@ -40,7 +41,7 @@ describe('digit', () => {
 			makeToken(TokenKind.Digits, '1', 0),
 			makeToken(TokenKind.Digits, '0', 2),
 		];
-		assert.deepEqual(tokenize(0, input), expected);
+		assert.deepEqual(scan(0, input), expected);
 	});
 });
 
@@ -50,7 +51,7 @@ describe('punctuator', () => {
 		const expected = [
 			makeToken(TokenKind.Punctuator, '==', 1),
 		];
-		assert.deepEqual(tokenize(0, input), expected);
+		assert.deepEqual(scan(0, input), expected);
 	});
 
 	test('=', () => {
@@ -58,7 +59,7 @@ describe('punctuator', () => {
 		const expected = [
 			makeToken(TokenKind.Punctuator, '=', 1),
 		];
-		assert.deepEqual(tokenize(0, input), expected);
+		assert.deepEqual(scan(0, input), expected);
 	});
 
 	test('<=', () => {
@@ -66,7 +67,7 @@ describe('punctuator', () => {
 		const expected = [
 			makeToken(TokenKind.Punctuator, '<=', 1),
 		];
-		assert.deepEqual(tokenize(0, input), expected);
+		assert.deepEqual(scan(0, input), expected);
 	});
 
 	test('<', () => {
@@ -74,6 +75,6 @@ describe('punctuator', () => {
 		const expected = [
 			makeToken(TokenKind.Punctuator, '<', 1),
 		];
-		assert.deepEqual(tokenize(0, input), expected);
+		assert.deepEqual(scan(0, input), expected);
 	});
 });

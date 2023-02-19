@@ -23,7 +23,7 @@ function skip(index: number, input: string): string {
 	return input.slice(index);
 }
 
-function consumeDigits(index: number, input: string): [Token, number] | null {
+function scanDigits(index: number, input: string): [Token, number] | null {
 	let p = index;
 	let s;
 	const allowedChar = /^[0-9]/;
@@ -49,7 +49,7 @@ function isKeyword(word: string): boolean {
 	return ['fn', 'struct', 'return', 'if', 'else', 'loop', 'number', 'string', 'bool'].includes(word);
 }
 
-function consumeWord(index: number, input: string): [Token, number] | null {
+function scanWord(index: number, input: string): [Token, number] | null {
 	let p = index;
 	let s;
 	const allowedChar = /^[a-zA-Z0-9_]/;
@@ -73,7 +73,7 @@ function consumeWord(index: number, input: string): [Token, number] | null {
 
 const longPunct = ['==', '!=', '<=', '>='];
 const punctChar = /^[!%&'()*+,-./:;<=>?`{|}~]/;
-function consumePunctuator(index: number, input: string): [Token, number] | null {
+function scanPunctuator(index: number, input: string): [Token, number] | null {
 	for (const item of longPunct) {
 		if (input.startsWith(item, index)) {
 			return [makeToken(TokenKind.Punctuator, item, index), index + item.length];
@@ -85,7 +85,7 @@ function consumePunctuator(index: number, input: string): [Token, number] | null
 	return null;
 }
 
-export function tokenize(index: number, input: string): Token[] {
+export function scan(index: number, input: string): Token[] {
 	let p = index;
 	let result;
 	const accum: Token[] = [];
@@ -96,19 +96,19 @@ export function tokenize(index: number, input: string): Token[] {
 			continue;
 		}
 
-		result = consumeDigits(p, input);
+		result = scanDigits(p, input);
 		if (result != null) {
 			accum.push(result[0]);
 			p = result[1];
 			continue;
 		}
-		result = consumeWord(p, input);
+		result = scanWord(p, input);
 		if (result != null) {
 			accum.push(result[0]);
 			p = result[1];
 			continue;
 		}
-		result = consumePunctuator(p, input);
+		result = scanPunctuator(p, input);
 		if (result != null) {
 			accum.push(result[0]);
 			p = result[1];
