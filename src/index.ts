@@ -1,4 +1,4 @@
-import { scan, Token, TokenKind } from './tokenize';
+import { scan, Token, TokenKind } from './scan';
 import { parse } from './parse';
 
 export {

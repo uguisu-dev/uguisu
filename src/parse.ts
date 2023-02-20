@@ -1,5 +1,5 @@
 import { AstNode, makeIdentifier, makeIfStatement, makeNumber } from './ast';
-import { Token, TokenKind } from './tokenize';
+import { Token, TokenKind } from './scan';
 
 type Result<T> = Success<T> | Failure;
 
@@ -134,26 +134,25 @@ function parseIfCondBlock(offset: number, input: Token[]): Result<[AstNode, AstN
 
 	// "if"
 	result = nextToken(offset, input);
-	if (result.data.kind == TokenKind.KEYWORD && result.data.value == 'if') {
-
-		// cond
-		result = parseExpr(result.next, input);
-		if (result.success) {
-			const cond = result.data;
-
-			// block
-			result = parseBlock(result.next, input);
-			if (result.success) {
-				const block = result.data;
-
-				return makeSuccess([cond, block], offset, result.next)
-			}
-		}
-
-		return result;
+	if (result.data.kind != TokenKind.KEYWORD || result.data.value != 'if') {
+		return makeFailure(`unexpected token: ${TokenKind[result.data.kind]}`, offset);
 	}
 
-	return makeFailure(`unexpected token: ${TokenKind[result.data.kind]}`, offset);
+	// cond
+	result = parseExpr(result.next, input);
+	if (!result.success) {
+		return result;
+	}
+	const cond = result.data;
+
+	// block
+	result = parseBlock(result.next, input);
+	if (!result.success) {
+		return result;
+	}
+	const block = result.data;
+
+	return makeSuccess([cond, block], offset, result.next);
 }
 
 /**
@@ -166,30 +165,27 @@ function parseBlock(offset: number, input: Token[]): Result<AstNode[]> {
 
 	// "{"
 	result = nextToken(offset, input);
-	if (result.success) {
-		if (result.data.kind == TokenKind.PUNCTUATOR && result.data.value == '{') {
-
-			let index = result.next;
-			const content: AstNode[] = [];
-			while (true) {
-				// statement
-				result = parseStatement(index, input);
-				if (!result.success) {
-					break;
-				}
-				content.push(result.data);
-				index = result.next;
-			}
-
-			// "}"
-			result = nextToken(index, input);
-			if (result.success) {
-				if (result.data.kind == TokenKind.PUNCTUATOR && result.data.value == '}') {
-					return makeSuccess(content, offset, result.next);
-				}
-			}
-		}
+	if (result.data.kind != TokenKind.PUNCTUATOR || result.data.value != '{') {
+		return makeFailure(`unexpected token: ${TokenKind[result.data.kind]}`, result.index);
 	}
 
-	return makeFailure(`unexpected token: ${TokenKind[result.data.kind]}`, result.index);
+	let index = result.next;
+	const content: AstNode[] = [];
+	while (true) {
+		// statement
+		result = parseStatement(index, input);
+		if (!result.success) {
+			break;
+		}
+		content.push(result.data);
+		index = result.next;
+	}
+
+	// "}"
+	result = nextToken(index, input);
+	if (result.data.kind != TokenKind.PUNCTUATOR || result.data.value != '}') {
+		return makeFailure(`unexpected token: ${TokenKind[result.data.kind]}`, result.index);
+	}
+
+	return makeSuccess(content, offset, result.next);
 }
