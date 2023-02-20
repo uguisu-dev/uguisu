@@ -50,6 +50,11 @@ function isEof(x: Token): boolean {
 	return x.kind == TokenKind.EOF;
 }
 
+/**
+ * ```text
+ * <Root> = <Statement>*
+ * ```
+*/
 export function parse(offset: number, input: Token[]): AstNode[] {
 	let result;
 	let index = offset;
@@ -74,6 +79,11 @@ export function parse(offset: number, input: Token[]): AstNode[] {
 	return accum;
 }
 
+/**
+ * ```text
+ * <Statement> = <IfStatement>
+ * ```
+*/
 export function parseStatement(offset: number, input: Token[]): Result<AstNode> {
 	const token = getToken(offset, input);
 
@@ -81,9 +91,14 @@ export function parseStatement(offset: number, input: Token[]): Result<AstNode> 
 		return parseIfStatement(offset, input);
 	}
 
-	return makeFailure(`unexpected token: ${token.kind}`, offset);
+	return makeFailure(`unexpected token: ${TokenKind[token.kind]}`, offset);
 }
 
+/**
+ * ```text
+ * <Expr> = <Number> / <Identifier>
+ * ```
+*/
 export function parseExpr(offset: number, input: Token[]): Result<AstNode> {
 	let token;
 	let index = offset;
@@ -91,7 +106,7 @@ export function parseExpr(offset: number, input: Token[]): Result<AstNode> {
 	token = getToken(index, input);
 
 	if (token.kind == TokenKind.DIGITS) {
-		const node = makeNumber(token.value, token.pos);
+		const node = makeNumber(parseInt(token.value, 10), token.pos);
 		index++;
 		return makeSuccess(node, offset, index);
 	}
@@ -105,31 +120,66 @@ export function parseExpr(offset: number, input: Token[]): Result<AstNode> {
 	return makeFailure(`unexpected token: ${TokenKind[token.kind]}`, offset);
 }
 
+/**
+ * ```text
+ * <IfStatement> = <IfBlock> ("else" <IfBlock>)* ("else" <Block>)?
+ * ```
+*/
 function parseIfStatement(offset: number, input: Token[]): Result<AstNode> {
 	let result;
 
-	result = parseIfCondBlock(offset, input);
-	if (result.success) {
-		const cond = result.data[0];
-		const thenBlock = result.data[1];
+	// if block
+	result = parseIfBlock(offset, input);
+	if (!result.success) {
+		return result;
+	}
+	const cond = result.data[0];
+	const thenBlock = result.data[1];
 
-		// else if blocks
+	let index = result.next;
+	const elifAccum: [AstNode, AstNode[]][] = [];
+	while (true) {
+		// "else"
+		result = nextToken(index, input);
+		if (result.data.kind != TokenKind.KEYWORD || result.data.value != 'else') {
+			break;
+		}
 
-		// else
+		// if block
+		result = parseIfBlock(result.next, input);
+		if (!result.success) {
+			break;
+		}
 
-		const node = makeIfStatement(cond, thenBlock, offset);
-		return makeSuccess(node, offset, result.next);
+		elifAccum.push([result.data[0], result.data[1]]);
+		index = result.next;
 	}
 
-	return result;
+	// "else"
+	let elseBlock: AstNode[] = [];
+	result = nextToken(index, input);
+	if (result.data.kind == TokenKind.KEYWORD && result.data.value == 'else') {
+		// block
+		result = parseBlock(result.next, input);
+		if (!result.success) {
+			return result;
+		}
+		elseBlock = result.data;
+		index = result.next;
+	}
+
+	// TODO: else if parts
+
+	const node = makeIfStatement(cond, thenBlock, elseBlock, offset);
+	return makeSuccess(node, offset, index);
 }
 
 /**
  * ```text
- * "if" <cond> "{" <statement>... "}"
+ * <IfBlock> = "if" <Expr> <Block>
  * ```
 */
-function parseIfCondBlock(offset: number, input: Token[]): Result<[AstNode, AstNode[]]> {
+function parseIfBlock(offset: number, input: Token[]): Result<[AstNode, AstNode[]]> {
 	let result;
 
 	// "if"
@@ -138,7 +188,7 @@ function parseIfCondBlock(offset: number, input: Token[]): Result<[AstNode, AstN
 		return makeFailure(`unexpected token: ${TokenKind[result.data.kind]}`, offset);
 	}
 
-	// cond
+	// expr
 	result = parseExpr(result.next, input);
 	if (!result.success) {
 		return result;
@@ -157,7 +207,7 @@ function parseIfCondBlock(offset: number, input: Token[]): Result<[AstNode, AstN
 
 /**
  * ```text
- * "{" <statement>... "}"
+ * <Block> = "{" <Statement>* "}"
  * ```
 */
 function parseBlock(offset: number, input: Token[]): Result<AstNode[]> {

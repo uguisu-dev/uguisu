@@ -20,10 +20,10 @@ export function makeIdentifier(name: string, pos: number): IdentifierNode {
 
 export interface NumberNode extends AstNode {
 	kind: AstNodeKind.Number;
-	value: string;
+	value: number;
 }
 
-export function makeNumber(value: string, pos: number): NumberNode {
+export function makeNumber(value: number, pos: number): NumberNode {
 	return { kind: AstNodeKind.Number, value, pos };
 }
 
@@ -31,8 +31,9 @@ export interface IfStatementNode extends AstNode {
 	kind: AstNodeKind.IfStatement;
 	cond: AstNode;
 	thenBlock: AstNode[];
+	elseBlock: AstNode[];
 }
 
-export function makeIfStatement(cond: AstNode, thenBlock: AstNode[], pos: number): IfStatementNode {
-	return { kind: AstNodeKind.IfStatement, cond, thenBlock, pos };
+export function makeIfStatement(cond: AstNode, thenBlock: AstNode[], elseBlock: AstNode[], pos: number): IfStatementNode {
+	return { kind: AstNodeKind.IfStatement, cond, thenBlock, elseBlock, pos };
 }
