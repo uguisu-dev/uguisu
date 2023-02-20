@@ -1,6 +1,6 @@
+import { parseIfStatement } from './syntax';
 import { AstNode, makeIdentifier, makeNumber } from '../ast';
 import { isEofToken, Token, TokenKind } from '../scan';
-import { parseIfStatement } from './syntax';
 
 export type Result<T> = Success<T> | Failure;
 

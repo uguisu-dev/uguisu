@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { scan, parse } from './index';
+import { scan, parse } from '.';
 import { AstNodeKind } from './ast';
 
 async function entry() {
