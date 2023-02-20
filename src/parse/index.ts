@@ -164,3 +164,12 @@ export function parseBlock(offset: number, input: Token[]): Result<AstNode[]> {
 
 	return success(content, offset, result.next);
 }
+
+/**
+ * ```text
+ * <TyLabel> = ":" <Identifier>
+ * ```
+*/
+export function parseTyLabel(offset: number, input: Token[]) {
+	// TODO
+}

@@ -4,6 +4,42 @@ import { Token, TokenKind } from '../scan';
 
 /**
  * ```text
+ * <FunctionDeclaration> = "fn" <Identifier> "(" <FnDeclParams>? ")" <TyLabel>? <Block>
+ * ```
+*/
+function parseFunctionDeclaration(offset: number, input: Token[]) {
+	// TODO
+}
+
+/**
+ * ```text
+ * <FnDeclParams> = <FnDeclParam> ("," <FnDeclParam>)*
+ * ```
+*/
+function parseFnDeclParams(offset: number, input: Token[]) {
+	// TODO
+}
+
+/**
+ * ```text
+ * <FnDeclParam> = <Identifier> <TyLabel>?
+ * ```
+*/
+function parseFnDeclParam(offset: number, input: Token[]) {
+	// TODO
+}
+
+/**
+ * ```text
+ * <VariableDeclaration> = "var" <Identifier> ("=" <Expr>)? ";"
+ * ```
+*/
+function parseVariableDeclaration(offset: number, input: Token[]) {
+	// TODO
+}
+
+/**
+ * ```text
  * <IfStatement> = <IfBlock> ("else" <IfBlock>)* ("else" <Block>)?
  * ```
 */

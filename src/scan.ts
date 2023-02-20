@@ -51,7 +51,7 @@ function scanDigits(index: number, input: string): [Token, number] | null {
 }
 
 function isKeyword(word: string): boolean {
-	return ['fn', 'struct', 'return', 'if', 'else', 'loop', 'number', 'string', 'bool'].includes(word);
+	return ['var', 'const', 'let', 'fn', 'struct', 'return', 'if', 'else', 'loop', 'number', 'string', 'bool'].includes(word);
 }
 
 function scanWord(index: number, input: string): [Token, number] | null {
