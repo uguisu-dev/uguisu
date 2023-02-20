@@ -82,10 +82,23 @@ export function parse(offset: number, input: Token[]): AstNode[] {
  * ```
 */
 export function parseStatement(offset: number, input: Token[]): Result<AstNode> {
-	const token = getToken(offset, input);
+	let result;
 
+	const token = getToken(offset, input);
 	if (token.kind == TokenKind.KEYWORD && token.value == 'if') {
 		return parseIfStatement(offset, input);
+	}
+
+	// expr
+	result = parseExpr(offset, input);
+	if (result.success) {
+		const expr = result.data;
+		// ";"
+		result = nextToken(result.next, input);
+		if (result.data.kind != TokenKind.PUNCTUATOR || result.data.value != ';') {
+			return failure(`unexpected token: ${TokenKind[result.data.kind]}`, result.index);
+		}
+		return success(expr, result.index, result.next);
 	}
 
 	return failure(`unexpected token: ${TokenKind[token.kind]}`, offset);
