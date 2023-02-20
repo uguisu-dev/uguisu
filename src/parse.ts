@@ -40,7 +40,7 @@ export function parse(offset: number, input: Token[]): AstNode[] {
 	return accum;
 }
 
-function parseStatement(offset: number, input: Token[]): [AstNode, number] | null {
+export function parseStatement(offset: number, input: Token[]): [AstNode, number] | null {
 	let result;
 	let index = offset;
 
