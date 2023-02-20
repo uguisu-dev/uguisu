@@ -1,5 +1,5 @@
-import { failure, nextToken, parseBlock, parseExpr, Result, success } from '.';
-import { AstNode, makeIfStatement } from '../ast';
+import { failure, nextToken, parseBlock, parseExpr, Result, Success, success } from '.';
+import { AstNode, IfStatementNode, makeIfStatement } from '../ast';
 import { Token, TokenKind } from '../scan';
 
 /**
@@ -10,16 +10,16 @@ import { Token, TokenKind } from '../scan';
 export function parseIfStatement(offset: number, input: Token[]): Result<AstNode> {
 	let result;
 
+	const ifBlocks: Success<[AstNode, AstNode[]]>[] = [];
+
 	// if block
 	result = parseIfBlock(offset, input);
 	if (!result.success) {
 		return result;
 	}
-	const cond = result.data[0];
-	const thenBlock = result.data[1];
+	ifBlocks.push(result);
 
 	let index = result.next;
-	const elifAccum: [AstNode, AstNode[]][] = [];
 	while (true) {
 		// "else"
 		result = nextToken(index, input);
@@ -33,12 +33,12 @@ export function parseIfStatement(offset: number, input: Token[]): Result<AstNode
 			break;
 		}
 
-		elifAccum.push([result.data[0], result.data[1]]);
+		ifBlocks.push(result);
 		index = result.next;
 	}
 
 	// "else"
-	let elseBlock: AstNode[] = [];
+	let elseBlock: AstNode[] | null = null;
 	result = nextToken(index, input);
 	if (result.data.kind == TokenKind.KEYWORD && result.data.value == 'else') {
 		// block
@@ -50,10 +50,29 @@ export function parseIfStatement(offset: number, input: Token[]): Result<AstNode
 		index = result.next;
 	}
 
-	// TODO: else if parts
+	result = desugarIf(0, ifBlocks, elseBlock, input);
+	if (result.success) {
+		return success(result.data, offset, index);
+	} else {
+		throw new Error('invalid if statement');
+	}
+}
 
-	const node = makeIfStatement(cond, thenBlock, elseBlock, offset);
-	return success(node, offset, index);
+function desugarIf(i: number, ifBlocks: Success<[AstNode, AstNode[]]>[], lastElseBlock: AstNode[] | null, input: Token[]): Result<IfStatementNode> {
+	if (i < ifBlocks.length) {
+		const ifBlock = ifBlocks[i];
+		const child = desugarIf(i + 1, ifBlocks, lastElseBlock, input);
+		let elseBlock;
+		if (child.success) {
+			elseBlock = [child.data];
+		} else {
+			elseBlock = lastElseBlock ?? [];
+		}
+		const pos = input[ifBlock.index].pos;
+		return success(makeIfStatement(ifBlock.data[0], ifBlock.data[1], elseBlock, pos), ifBlock.index, ifBlock.next);
+	} else {
+		return failure('', 0);
+	}
 }
 
 /**
