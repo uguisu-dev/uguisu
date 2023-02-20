@@ -22,7 +22,7 @@ describe('identifier', () => {
 describe('if', () => {
 	test('basic', () => {
 		const input = 'if 1 {}';
-		const expected = makeIfStatement(makeNumber('1', 1), [], 0);
-		assert.deepEqual(parseStatement(0, scan(0, input)), [expected, 4]);
+		const expected = [makeIfStatement(makeNumber('1', 3), [], 0), 4];
+		assert.deepEqual(parseStatement(0, scan(0, input)), expected);
 	});
 });
