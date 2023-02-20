@@ -47,7 +47,7 @@ function nextToken(index: number, input: Token[]): Success<Token> {
 }
 
 function isEof(x: Token): boolean {
-	return x.kind == TokenKind.Eof;
+	return x.kind == TokenKind.EOF;
 }
 
 export function parse(offset: number, input: Token[]): AstNode[] {
@@ -77,11 +77,11 @@ export function parse(offset: number, input: Token[]): AstNode[] {
 export function parseStatement(offset: number, input: Token[]): Result<AstNode> {
 	const token = getToken(offset, input);
 
-	if (token.kind == TokenKind.Keyword && token.value == 'if') {
+	if (token.kind == TokenKind.KEYWORD && token.value == 'if') {
 		return parseIfStatement(offset, input);
 	}
 
-	return makeFailure('unexpected token', offset);
+	return makeFailure(`unexpected token: ${token.kind}`, offset);
 }
 
 export function parseExpr(offset: number, input: Token[]): Result<AstNode> {
@@ -90,19 +90,19 @@ export function parseExpr(offset: number, input: Token[]): Result<AstNode> {
 
 	token = getToken(index, input);
 
-	if (token.kind == TokenKind.Digits) {
+	if (token.kind == TokenKind.DIGITS) {
 		const node = makeNumber(token.value, token.pos);
 		index++;
 		return makeSuccess(node, offset, index);
 	}
 
-	if (token.kind == TokenKind.Identifier) {
+	if (token.kind == TokenKind.IDENTIFIER) {
 		const node = makeIdentifier(token.value, token.pos);
 		index++;
 		return makeSuccess(node, offset, index);
 	}
 
-	return makeFailure('unexpected token', offset);
+	return makeFailure(`unexpected token: ${TokenKind[token.kind]}`, offset);
 }
 
 function parseIfStatement(offset: number, input: Token[]): Result<AstNode> {
@@ -134,7 +134,7 @@ function parseIfCondBlock(offset: number, input: Token[]): Result<[AstNode, AstN
 
 	// "if"
 	result = nextToken(offset, input);
-	if (result.data.kind == TokenKind.Keyword && result.data.value == 'if') {
+	if (result.data.kind == TokenKind.KEYWORD && result.data.value == 'if') {
 
 		// cond
 		result = parseExpr(result.next, input);
@@ -153,7 +153,7 @@ function parseIfCondBlock(offset: number, input: Token[]): Result<[AstNode, AstN
 		return result;
 	}
 
-	return makeFailure('unexpected token', offset);
+	return makeFailure(`unexpected token: ${TokenKind[result.data.kind]}`, offset);
 }
 
 /**
@@ -167,7 +167,7 @@ function parseBlock(offset: number, input: Token[]): Result<AstNode[]> {
 	// "{"
 	result = nextToken(offset, input);
 	if (result.success) {
-		if (result.data.kind == TokenKind.Punctuator && result.data.value == '{') {
+		if (result.data.kind == TokenKind.PUNCTUATOR && result.data.value == '{') {
 
 			let index = result.next;
 			const content: AstNode[] = [];
@@ -184,12 +184,12 @@ function parseBlock(offset: number, input: Token[]): Result<AstNode[]> {
 			// "}"
 			result = nextToken(index, input);
 			if (result.success) {
-				if (result.data.kind == TokenKind.Punctuator && result.data.value == '}') {
+				if (result.data.kind == TokenKind.PUNCTUATOR && result.data.value == '}') {
 					return makeSuccess(content, offset, result.next);
 				}
 			}
 		}
 	}
 
-	return makeFailure('unexpected token', result.index);
+	return makeFailure(`unexpected token: ${TokenKind[result.data.kind]}`, result.index);
 }

@@ -5,11 +5,11 @@ export type Token = {
 };
 
 export enum TokenKind {
-	Identifier,
-	Keyword,
-	Digits,
-	Punctuator,
-	Eof,
+	IDENTIFIER,
+	KEYWORD,
+	DIGITS,
+	PUNCTUATOR,
+	EOF,
 }
 
 export function makeToken(kind: TokenKind, value: string, pos: number): Token {
@@ -43,7 +43,7 @@ function scanDigits(index: number, input: string): [Token, number] | null {
 		return null;
 	}
 
-	return [makeToken(TokenKind.Digits, buf, index), p];
+	return [makeToken(TokenKind.DIGITS, buf, index), p];
 }
 
 function isKeyword(word: string): boolean {
@@ -69,7 +69,7 @@ function scanWord(index: number, input: string): [Token, number] | null {
 		return null;
 	}
 
-	return [makeToken(isKeyword(buf) ? TokenKind.Keyword : TokenKind.Identifier, buf, index), p];
+	return [makeToken(isKeyword(buf) ? TokenKind.KEYWORD : TokenKind.IDENTIFIER, buf, index), p];
 }
 
 const longPunct = ['==', '!=', '<=', '>='];
@@ -77,22 +77,23 @@ const punctChar = /^[!%&'()*+,-./:;<=>?`{|}~]/;
 function scanPunctuator(index: number, input: string): [Token, number] | null {
 	for (const item of longPunct) {
 		if (input.startsWith(item, index)) {
-			return [makeToken(TokenKind.Punctuator, item, index), index + item.length];
+			return [makeToken(TokenKind.PUNCTUATOR, item, index), index + item.length];
 		}
 	}
 	if (punctChar.test(skip(index, input))) {
-		return [makeToken(TokenKind.Punctuator, input[index], index), index + 1];
+		return [makeToken(TokenKind.PUNCTUATOR, input[index], index), index + 1];
 	}
 	return null;
 }
 
+const space = [' ', '\t', '\r', '\n'];
 export function scan(index: number, input: string): Token[] {
 	let p = index;
 	let result;
 	const accum: Token[] = [];
 
 	while (!isEof(p, input)) {
-		if (input[p] == ' ') {
+		if (space.includes(input[p])) {
 			p++;
 			continue;
 		}
@@ -115,9 +116,9 @@ export function scan(index: number, input: string): Token[] {
 			p = result[1];
 			continue;
 		}
-		throw new Error('invalid input');
+		throw new Error(`invalid character: "${input[p]}"`);
 	}
-	accum.push(makeToken(TokenKind.Eof, '', p));
+	accum.push(makeToken(TokenKind.EOF, '', p));
 
 	return accum;
 }

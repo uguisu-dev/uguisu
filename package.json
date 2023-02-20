@@ -18,7 +18,8 @@
   "license": "MIT",
   "scripts": {
     "build": "tsc",
-    "test": "jest --verbose"
+    "test": "jest --verbose",
+    "debug": "node ./built/debug"
   },
   "devDependencies": {
     "@types/jest": "29.0.3",
