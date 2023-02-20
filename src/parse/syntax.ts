@@ -31,10 +31,28 @@ function parseFnDeclParam(offset: number, input: Token[]) {
 
 /**
  * ```text
- * <VariableDeclaration> = "var" <Identifier> ("=" <Expr>)? ";"
+ * <VariableDeclaration> = "var" <Identifier> <TyLabel>? ("=" <Expr>)? ";"
  * ```
 */
 function parseVariableDeclaration(offset: number, input: Token[]) {
+	// TODO
+}
+
+/**
+ * ```text
+ * <BreakStatement> = "break" ";"
+ * ```
+*/
+function parseBreakStatement(offset: number, input: Token[]) {
+	// TODO
+}
+
+/**
+ * ```text
+ * <ReturnStatement> = "return" <Expr>? ";"
+ * ```
+*/
+function parseReturnStatement(offset: number, input: Token[]) {
 	// TODO
 }
 
@@ -140,4 +158,22 @@ function parseIfBlock(offset: number, input: Token[]): Result<[AstNode, AstNode[
 	const block = result.data;
 
 	return success([cond, block], offset, result.next);
+}
+
+/**
+ * ```text
+ * <LoopStatement> = "loop" <Block>
+ * ```
+*/
+function parseLoopStatement(offset: number, input: Token[]) {
+	// TODO
+}
+
+/**
+ * ```text
+ * <AssignStatement> = <Identifier> ("=" / "+=" / "-=" / "*=" / "/=" / "%=") <Expr> ";"
+ * ```
+*/
+function parseAssignStatement(offset: number, input: Token[]) {
+	// TODO
 }
