@@ -1,7 +1,6 @@
 import { promises as fs } from 'fs';
 import { scan, parse } from './index';
 import { AstNodeKind } from './ast';
-//import { parseStatement, parseExpr } from './parse';
 
 async function entry() {
 	const str = await fs.readFile('debug.ug', { encoding: 'utf8' });

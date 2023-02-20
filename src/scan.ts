@@ -16,7 +16,11 @@ export function makeToken(kind: TokenKind, value: string, pos: number): Token {
 	return { kind, value, pos };
 }
 
-function isEof(index: number, input: string) {
+export function isEofToken(x: Token): boolean {
+	return x.kind == TokenKind.EOF;
+}
+
+function isEof(index: number, input: string): boolean {
 	return index >= input.length;
 }
 
