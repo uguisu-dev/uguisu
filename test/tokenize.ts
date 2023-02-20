@@ -7,6 +7,7 @@ describe('digit', () => {
 		const input = '0';
 		const expected = [
 			makeToken(TokenKind.Digits, '0', 0),
+			makeToken(TokenKind.Eof, '', 1),
 		];
 		assert.deepEqual(scan(0, input), expected);
 	});
@@ -15,6 +16,7 @@ describe('digit', () => {
 		const input = '1';
 		const expected = [
 			makeToken(TokenKind.Digits, '1', 0),
+			makeToken(TokenKind.Eof, '', 1),
 		];
 		assert.deepEqual(scan(0, input), expected);
 	});
@@ -23,6 +25,7 @@ describe('digit', () => {
 		const input = '10';
 		const expected = [
 			makeToken(TokenKind.Digits, '10', 0),
+			makeToken(TokenKind.Eof, '', 2),
 		];
 		assert.deepEqual(scan(0, input), expected);
 	});
@@ -31,6 +34,7 @@ describe('digit', () => {
 		const input = '01';
 		const expected = [
 			makeToken(TokenKind.Digits, '01', 0),
+			makeToken(TokenKind.Eof, '', 2),
 		];
 		assert.deepEqual(scan(0, input), expected);
 	});
@@ -40,6 +44,7 @@ describe('digit', () => {
 		const expected = [
 			makeToken(TokenKind.Digits, '1', 0),
 			makeToken(TokenKind.Digits, '0', 2),
+			makeToken(TokenKind.Eof, '', 3),
 		];
 		assert.deepEqual(scan(0, input), expected);
 	});
@@ -50,6 +55,7 @@ describe('punctuator', () => {
 		const input = ' == ';
 		const expected = [
 			makeToken(TokenKind.Punctuator, '==', 1),
+			makeToken(TokenKind.Eof, '', 4),
 		];
 		assert.deepEqual(scan(0, input), expected);
 	});
@@ -58,6 +64,7 @@ describe('punctuator', () => {
 		const input = ' =';
 		const expected = [
 			makeToken(TokenKind.Punctuator, '=', 1),
+			makeToken(TokenKind.Eof, '', 2),
 		];
 		assert.deepEqual(scan(0, input), expected);
 	});
@@ -66,6 +73,7 @@ describe('punctuator', () => {
 		const input = ' <= ';
 		const expected = [
 			makeToken(TokenKind.Punctuator, '<=', 1),
+			makeToken(TokenKind.Eof, '', 4),
 		];
 		assert.deepEqual(scan(0, input), expected);
 	});
@@ -74,6 +82,7 @@ describe('punctuator', () => {
 		const input = ' < ';
 		const expected = [
 			makeToken(TokenKind.Punctuator, '<', 1),
+			makeToken(TokenKind.Eof, '', 3),
 		];
 		assert.deepEqual(scan(0, input), expected);
 	});

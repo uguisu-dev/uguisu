@@ -9,6 +9,7 @@ export enum TokenKind {
 	Keyword,
 	Digits,
 	Punctuator,
+	Eof,
 }
 
 export function makeToken(kind: TokenKind, value: string, pos: number): Token {
@@ -116,6 +117,7 @@ export function scan(index: number, input: string): Token[] {
 		}
 		throw new Error('invalid input');
 	}
+	accum.push(makeToken(TokenKind.Eof, '', p));
 
 	return accum;
 }
