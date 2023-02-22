@@ -22,7 +22,6 @@ export class Scanner {
 	private token: Token;
 	private tokenValue: string;
 	private literalKind: LiteralKind;
-	
 
 	constructor(source: string) {
 		this.source = source;
