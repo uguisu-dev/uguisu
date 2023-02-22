@@ -26,6 +26,7 @@ export class Parser {
 	*/
 	read() {
 		this.s.read();
+		this.debug(Token[this.getToken()]);
 	}
 
 	getPos(): [number, number] {
@@ -48,7 +49,6 @@ export class Parser {
 		if (this.getToken() != token) {
 			return false;
 		}
-		this.read();
 		return true;
 	}
 
@@ -56,6 +56,11 @@ export class Parser {
 		if (!this.tryExpect(token)) {
 			throw new Error(`expected ${Token[token]}`);
 		}
+	}
+
+	consume(token: Token) {
+		this.expect(token);
+		this.read();
 	}
 
 	parse(): SourceFile {
@@ -73,7 +78,6 @@ function parseSourceFile(p: Parser): SourceFile {
 
 	while (true) {
 		p.read();
-		p.debug(Token[p.getToken()]);
 		if (p.getToken() == Token.EOF) {
 			break;
 		}
@@ -152,6 +156,10 @@ function parseExpr(p: Parser)/*: Result<AstNode>*/ {
  * ```
 */
 function parseBlock(p: Parser)/*: Result<AstNode[]>*/ {
+	p.consume(Token.BeginBrace);
+	// parseStatement(p);
+	p.consume(Token.EndBrace);
+
 	// let result;
 
 	// // "{"
@@ -197,13 +205,17 @@ function parseTyLabel(p: Parser) {
 */
 function parseFunctionDecl(p: Parser) {
 	const pos = p.getPos();
+
 	p.expect(Token.Ident);
 	const ident = p.getIdentValue();
-	p.expect(Token.BeginParen);
-	p.expect(Token.EndParen);
-	p.expect(Token.BeginBrace);
-	parseStatement(p);
-	p.expect(Token.EndBrace);
+	p.read();
+
+	p.consume(Token.BeginParen);
+	parseFnDeclParams(p);
+	p.consume(Token.EndParen);
+	parseTyLabel(p);
+
+	parseBlock(p);
 
 	p.debug(`FunctionDecl (ident=${ident}, pos=${pos})`);
 }
