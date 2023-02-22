@@ -14,28 +14,35 @@ const wordChar = /^[A-Za-z0-9_]$/;
 export class Scanner {
 	private source: string;
 	private index: number;
-	private ch: string | null;
-	private _token: Token;
-	private tokenValue: string;
-	private literalKind: LiteralKind;
 	private line: number;
 	private column: number;
+	private tokenLine: number;
+	private tokenColumn: number;
+	private ch: string | null;
+	private token: Token;
+	private tokenValue: string;
+	private literalKind: LiteralKind;
+	
 
 	constructor(source: string) {
 		this.source = source;
 		this.index = 0;
-		this.ch = null;
-		this._token = Token.EOF;
-		this.tokenValue = '';
-		this.literalKind = LiteralKind.None;
 		this.line = 0;
 		this.column = 0;
+		this.tokenLine = 0;
+		this.tokenColumn = 0;
+		this.ch = null;
+		this.token = Token.EOF;
+		this.tokenValue = '';
+		this.literalKind = LiteralKind.None;
 	}
 
 	setup() {
 		this.index = 0;
 		this.line = 0;
 		this.column = 0;
+		this.tokenLine = 0;
+		this.tokenColumn = 0;
 		if (this.isEof()) {
 			return;
 		}
@@ -43,11 +50,11 @@ export class Scanner {
 	}
 
 	getPos(): [number, number] {
-		return [this.line + 1, this.column + 1];
+		return [this.tokenLine + 1, this.tokenColumn + 1];
 	}
 
 	getToken() {
-		return this._token;
+		return this.token;
 	}
 
 	getLiteralValue(): { kind: LiteralKind, value: string } {
@@ -87,13 +94,15 @@ export class Scanner {
 	read() {
 		while (true) {
 			if (this.ch == null) {
-				this._token = Token.EOF;
+				this.token = Token.EOF;
 				break;
 			}
 			if (space.includes(this.ch)) {
 				this.nextChar();
 				continue;
 			}
+			this.tokenLine = this.line;
+			this.tokenColumn = this.column;
 
 			if (digit.test(this.ch)) {
 				this.readDigits();
@@ -107,37 +116,37 @@ export class Scanner {
 
 			switch (this.ch) {
 				case '{': {
-					this._token = Token.BeginBrace;
+					this.token = Token.BeginBrace;
 					this.nextChar();
 					break;
 				}
 				case '}': {
-					this._token = Token.EndBrace;
+					this.token = Token.EndBrace;
 					this.nextChar();
 					break;
 				}
 				case '(': {
-					this._token = Token.BeginParen;
+					this.token = Token.BeginParen;
 					this.nextChar();
 					break;
 				}
 				case ')': {
-					this._token = Token.EndParen;
+					this.token = Token.EndParen;
 					this.nextChar();
 					break;
 				}
 				case ';': {
-					this._token = Token.Semi;
+					this.token = Token.Semi;
 					this.nextChar();
 					break;
 				}
 				case '=': {
 					this.nextChar();
 					if (this.ch == '=') {
-						this._token = Token.Eq;
+						this.token = Token.Eq;
 						this.nextChar();
 					} else {
-						this._token = Token.Assign;
+						this.token = Token.Assign;
 					}
 					break;
 				}
@@ -145,10 +154,10 @@ export class Scanner {
 					this.nextChar();
 					// @ts-ignore
 					if (this.ch == '=') {
-						this._token = Token.GreaterThanEq;
+						this.token = Token.GreaterThanEq;
 						this.nextChar();
 					} else {
-						this._token = Token.GreaterThan;
+						this.token = Token.GreaterThan;
 					}
 					break;
 				}
@@ -156,10 +165,10 @@ export class Scanner {
 					this.nextChar();
 					// @ts-ignore
 					if (this.ch == '=') {
-						this._token = Token.LessThanEq;
+						this.token = Token.LessThanEq;
 						this.nextChar();
 					} else {
-						this._token = Token.LessThan;
+						this.token = Token.LessThan;
 					}
 					break;
 				}
@@ -167,10 +176,10 @@ export class Scanner {
 					this.nextChar();
 					// @ts-ignore
 					if (this.ch == '=') {
-						this._token = Token.NotEq;
+						this.token = Token.NotEq;
 						this.nextChar();
 					} else {
-						this._token = Token.Not;
+						this.token = Token.Not;
 					}
 					break;
 				}
@@ -195,7 +204,7 @@ export class Scanner {
 			buf += this.ch;
 			this.nextChar();
 		}
-		this._token = Token.Literal;
+		this.token = Token.Literal;
 		this.tokenValue = buf;
 		this.literalKind = LiteralKind.Number;
 	}
@@ -211,35 +220,35 @@ export class Scanner {
 		}
 		switch (buf) {
 			case 'var': {
-				this._token = Token.Var;
+				this.token = Token.Var;
 				break;
 			}
 			case 'fn': {
-				this._token = Token.Fn;
+				this.token = Token.Fn;
 				break;
 			}
 			case 'struct': {
-				this._token = Token.Struct;
+				this.token = Token.Struct;
 				break;
 			}
 			case 'return': {
-				this._token = Token.Return;
+				this.token = Token.Return;
 				break;
 			}
 			case 'if': {
-				this._token = Token.If;
+				this.token = Token.If;
 				break;
 			}
 			case 'else': {
-				this._token = Token.Else;
+				this.token = Token.Else;
 				break;
 			}
 			case 'loop': {
-				this._token = Token.Loop;
+				this.token = Token.Loop;
 				break;
 			}
 			default: {
-				this._token = Token.Ident;
+				this.token = Token.Ident;
 				this.tokenValue = buf;
 			}
 		}
@@ -259,7 +268,7 @@ export class Scanner {
 			buf += this.ch;
 			this.nextChar();
 		}
-		this._token = Token.Literal;
+		this.token = Token.Literal;
 		this.tokenValue = buf;
 		this.literalKind = LiteralKind.String;
 	}

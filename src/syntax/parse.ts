@@ -21,8 +21,15 @@ export class Parser {
 		}
 	}
 
+	/**
+	 * Read a token from the current position, and move to the next position.
+	*/
 	read() {
 		this.s.read();
+	}
+
+	getPos(): [number, number] {
+		return this.s.getPos();
 	}
 
 	getToken() {
@@ -51,74 +58,46 @@ export class Parser {
 		}
 	}
 
-	/**
-	 * ```text
-	 * <SourceFile> = (<FunctionDecl>)*
-	 * ```
-	*/
 	parse(): SourceFile {
-		let funcs: FunctionDecl[] = [];
-
-		while (true) {
-			this.read();
-			this.debug(Token[this.getToken()]);
-			if (this.getToken() == Token.EOF) {
-				break;
-			}
-			switch (this.getToken()) {
-				case Token.Fn: {
-					this.read();
-					parseFunctionDecl(this);
-					break;
-				}
-				default: {
-					throw new Error(`unexpected token: ${Token[this.getToken()]}`);
-				}
-			}
-		}
-
-		return new SourceFile(funcs);
+		return parseSourceFile(this);
 	}
 }
 
-// export type Result<T> = Success<T> | Failure;
+/**
+ * ```text
+ * <SourceFile> = (<FunctionDecl>)*
+ * ```
+*/
+function parseSourceFile(p: Parser): SourceFile {
+	let funcs: FunctionDecl[] = [];
 
-// export type Success<T> = {
-// 	success: true,
-// 	index: number,
-// 	next: number,
-// 	data: T,
-// };
+	while (true) {
+		p.read();
+		p.debug(Token[p.getToken()]);
+		if (p.getToken() == Token.EOF) {
+			break;
+		}
+		switch (p.getToken()) {
+			case Token.Fn: {
+				p.read();
+				parseFunctionDecl(p);
+				break;
+			}
+			default: {
+				throw new Error(`unexpected token: ${Token[p.getToken()]}`);
+			}
+		}
+	}
 
-// export type Failure = {
-// 	success: false,
-// 	message: string,
-// 	index: number,
-// };
-
-// export function success<T>(data: T, index: number, next: number): Success<T> {
-// 	return {
-// 		success: true,
-// 		index,
-// 		next,
-// 		data,
-// 	};
-// }
-
-// export function failure(message: string, index: number): Failure {
-// 	return {
-// 		success: false,
-// 		message,
-// 		index,
-// 	};
-// }
+	return new SourceFile(funcs);
+}
 
 /**
  * ```text
  * <Statement> = <IfStatement>
  * ```
 */
-export function parseStatement(p: Parser) {
+function parseStatement(p: Parser) {
 	// 	let result;
 	
 	// 	const token = getToken(offset, input);
@@ -146,7 +125,7 @@ export function parseStatement(p: Parser) {
  * <Expr> = <Number> / <Identifier>
  * ```
 */
-export function parseExpr(p: Parser)/*: Result<AstNode>*/ {
+function parseExpr(p: Parser)/*: Result<AstNode>*/ {
 	// let token;
 	// let index = offset;
 
@@ -172,7 +151,7 @@ export function parseExpr(p: Parser)/*: Result<AstNode>*/ {
  * <Block> = "{" <Statement>* "}"
  * ```
 */
-export function parseBlock(p: Parser)/*: Result<AstNode[]>*/ {
+function parseBlock(p: Parser)/*: Result<AstNode[]>*/ {
 	// let result;
 
 	// // "{"
@@ -207,7 +186,7 @@ export function parseBlock(p: Parser)/*: Result<AstNode[]>*/ {
  * <TyLabel> = ":" <Identifier>
  * ```
 */
-export function parseTyLabel(p: Parser) {
+function parseTyLabel(p: Parser) {
 	// TODO
 }
 
@@ -216,13 +195,17 @@ export function parseTyLabel(p: Parser) {
  * <FunctionDecl> = "fn" <Identifier> "(" <FnDeclParams>? ")" <TyLabel>? <Block>
  * ```
 */
-export function parseFunctionDecl(p: Parser) {
+function parseFunctionDecl(p: Parser) {
+	const pos = p.getPos();
 	p.expect(Token.Ident);
+	const ident = p.getIdentValue();
 	p.expect(Token.BeginParen);
 	p.expect(Token.EndParen);
 	p.expect(Token.BeginBrace);
 	parseStatement(p);
 	p.expect(Token.EndBrace);
+
+	p.debug(`FunctionDecl (ident=${ident}, pos=${pos})`);
 }
 
 //#region Statements
@@ -277,7 +260,7 @@ function parseReturnStatement(p: Parser) {
  * <IfStatement> = <IfBlock> ("else" <IfBlock>)* ("else" <Block>)?
  * ```
 */
-export function parseIfStatement(p: Parser)/*: Result<AstNode>*/ {
+function parseIfStatement(p: Parser)/*: Result<AstNode>*/ {
 	// let result;
 
 	// const ifBlocks: Success<[AstNode, AstNode[]]>[] = [];
