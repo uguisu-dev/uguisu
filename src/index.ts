@@ -1,9 +1,7 @@
-import { scan, Token, TokenKind } from './scan';
-import { parse } from './parse';
+import { Scanner } from './syntax/scan';
+import { Parser } from './syntax/parse';
 
 export {
-	scan,
-	Token,
-	TokenKind,
-	parse,
+	Scanner,
+	Parser,
 };

@@ -1,19 +1,16 @@
 import { promises as fs } from 'fs';
-import { scan, parse } from '.';
-import { AstNodeKind } from './ast';
+import { Scanner, Parser } from '.';
 
 async function entry() {
 	const str = await fs.readFile('debug.ug', { encoding: 'utf8' });
 
-	const tokens = scan(0, str);
+	const scanner = new Scanner(str);
+	const parser = new Parser(scanner);
 	try {
-		const ast = parse(0, tokens);
+		parser.setup();
+		const ast = parser.parse();
 		function replacer(k: string, v: any): any {
-			if (k == 'kind') {
-				return AstNodeKind[v];
-			} else {
-				return v;
-			}
+			return v;
 		}
 		console.log(JSON.stringify(ast, replacer, '  '));
 	}
