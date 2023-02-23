@@ -14,10 +14,12 @@ import {
 	newReturnStatement,
 	newSourceFile,
 	newTyLabel,
+	newVariableDecl,
 	ReturnStatement,
 	SourceFile,
 	StatementNode,
 	TyLabel,
+	VariableDecl,
 } from './ast';
 import { Scanner } from './scan';
 import { Token } from './token';
@@ -279,8 +281,26 @@ function parseFnDeclParam(p: Parser) {
  * <VariableDecl> = "var" <Identifier> <TyLabel>? ("=" <Expr>)? ";"
  * ```
 */
-function parseVariableDecl(p: Parser) {
-	// TODO
+function parseVariableDecl(p: Parser): VariableDecl {
+	p.next();
+	const pos = p.getPos();
+	p.expect(Token.Ident);
+	const name = p.getIdentValue();
+	p.next();
+
+	let ty;
+	if (p.getToken() == Token.Colon) {
+		ty = parseTyLabel(p);
+	}
+
+	let body;
+	if (p.getToken() == Token.Assign) {
+		p.next();
+		body = parseExpr(p);
+	}
+	p.expectAndNext(Token.Semi);
+
+	return newVariableDecl(pos, newIdentifier(pos, name), ty, body);
 }
 
 /**

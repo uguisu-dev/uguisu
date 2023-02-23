@@ -1,8 +1,8 @@
 export type Pos = [number, number];
 
-export type AstNode = SourceFile | FileNode | StatementNode | ExprNode;
+export type AstNode = SourceFile | FileNode | StatementNode | TyLabel;
 export type FileNode = FunctionDecl;
-export type StatementNode = IfStatement;
+export type StatementNode = VariableDecl | AssignStatement | IfStatement | LoopStatement | ReturnStatement | BreakStatement | ExprNode;
 export type ExprNode = Identifier | NumberLiteral;
 
 export type SourceFile = {
@@ -102,4 +102,15 @@ export type AssignStatement = {
 };
 export function newAssignStatement(pos: Pos, name: Identifier, body: ExprNode, mode: AssignMode): AssignStatement {
 	return { kind: 'AssignStatement', pos, name, body, mode };
+}
+
+export type VariableDecl = {
+	kind: 'VariableDecl',
+	pos: Pos,
+	name: Identifier,
+	ty?: TyLabel,
+	body?: ExprNode,
+};
+export function newVariableDecl(pos: Pos, name: Identifier, ty?: TyLabel, body?: ExprNode): VariableDecl {
+	return { kind: 'VariableDecl', pos, name, ty, body };
 }
