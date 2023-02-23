@@ -1,9 +1,11 @@
+import { Token } from "./token";
+
 export type Pos = [number, number];
 
-export type AstNode = SourceFile | FileNode | StatementNode | TyLabel;
+export type AstNode = SourceFile | FileNode | StatementNode | TyLabel | FnDeclParam; // StructDeclField | StructExprField
 export type FileNode = FunctionDecl;
 export type StatementNode = VariableDecl | AssignStatement | IfStatement | LoopStatement | ReturnStatement | BreakStatement | ExprNode;
-export type ExprNode = NumberLiteral | Identifier;
+export type ExprNode = NumberLiteral | BoolLiteral | StringLiteral | BinaryOp | UnaryOp | Identifier | Call; // FieldAccess
 
 export type SourceFile = {
 	kind: 'SourceFile',
@@ -25,14 +27,22 @@ export function newFunctionDecl(pos: Pos, name: string, returnTy?: TyLabel): Fun
 	return { kind: 'FunctionDecl', pos, name, returnTy };
 }
 
+export type FnDeclParam = {
+	kind: 'FnDeclParam',
+	pos: Pos;
+};
+export function newFnDeclParam(pos: Pos): FnDeclParam {
+	return { kind: 'FnDeclParam', pos };
+}
+
 export type IfStatement = {
 	kind: 'IfStatement',
 	pos: Pos;
-	cond: AstNode;
-	thenBlock: AstNode[];
-	elseBlock: AstNode[];
+	cond: ExprNode;
+	thenBlock: StatementNode[];
+	elseBlock: StatementNode[];
 };
-export function newIfStatement(pos: Pos, cond: AstNode, thenBlock: AstNode[], elseBlock: AstNode[]): IfStatement {
+export function newIfStatement(pos: Pos, cond: ExprNode, thenBlock: StatementNode[], elseBlock: StatementNode[]): IfStatement {
 	return { kind: 'IfStatement', pos, cond, thenBlock, elseBlock };
 }
 
@@ -52,6 +62,55 @@ export type NumberLiteral = {
 };
 export function newNumberLiteral(pos: Pos, value: number): NumberLiteral {
 	return { kind: 'NumberLiteral', pos, value };
+}
+
+export type BoolLiteral = {
+	kind: 'BoolLiteral',
+	pos: Pos;
+	value: boolean,
+};
+export function newBoolLiteral(pos: Pos, value: boolean): BoolLiteral {
+	return { kind: 'BoolLiteral', pos, value };
+}
+
+export type StringLiteral = {
+	kind: 'StringLiteral',
+	pos: Pos;
+	value: string,
+};
+export function newStringLiteral(pos: Pos, value: string): StringLiteral {
+	return { kind: 'StringLiteral', pos, value };
+}
+
+export type BinaryOp = {
+	kind: 'BinaryOp',
+	pos: Pos;
+	operator: Token,
+	left: ExprNode,
+	right: ExprNode,
+};
+export function newBinaryOp(pos: Pos, operator: Token, left: ExprNode, right: ExprNode): BinaryOp {
+	return { kind: 'BinaryOp', pos, operator, left, right };
+}
+
+export type UnaryOp = {
+	kind: 'UnaryOp',
+	pos: Pos;
+	operator: Token,
+	expr: ExprNode,
+};
+export function newUnaryOp(pos: Pos, operator: Token, expr: ExprNode): UnaryOp {
+	return { kind: 'UnaryOp', pos, operator, expr };
+}
+
+export type Call = {
+	kind: 'Call',
+	pos: Pos;
+	callee: ExprNode,
+	args: ExprNode[],
+};
+export function newCall(pos: Pos, callee: ExprNode, args: ExprNode[]): Call {
+	return { kind: 'Call', pos, callee, args };
 }
 
 export type TyLabel = {
@@ -107,10 +166,10 @@ export function newAssignStatement(pos: Pos, name: Identifier, body: ExprNode, m
 export type VariableDecl = {
 	kind: 'VariableDecl',
 	pos: Pos,
-	name: Identifier,
+	name: string,
 	ty?: TyLabel,
 	body?: ExprNode,
 };
-export function newVariableDecl(pos: Pos, name: Identifier, ty?: TyLabel, body?: ExprNode): VariableDecl {
+export function newVariableDecl(pos: Pos, name: string, ty?: TyLabel, body?: ExprNode): VariableDecl {
 	return { kind: 'VariableDecl', pos, name, ty, body };
 }

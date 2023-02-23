@@ -339,7 +339,7 @@ function parseVariableDecl(p: Parser): VariableDecl {
 	p.expectAndNext(Token.Semi);
 
 	logger.debugLeave();
-	return newVariableDecl(pos, newIdentifier(pos, name), ty, body);
+	return newVariableDecl(pos, name, ty, body);
 }
 
 /**
