@@ -34,14 +34,14 @@ export class Parser {
 	}
 
 	/**
-	 * Read the next token.
+	 * Move to the next token.
 	*/
-	read() {
-		this.s.read();
+	next() {
+		this.s.next();
 	}
 
 	/**
-	 * Compare the current token and the expected token.
+	 * Expect the current token.
 	*/
 	expect(token: Token) {
 		logger.debug(`[parse] expect (expect ${Token[token]}, actual ${Token[this.getToken()]})`);
@@ -51,15 +51,15 @@ export class Parser {
 	}
 
 	/**
-	 * Read the next token as token of expected kind.
+	 * Expect the current token and move to the next token.
 	*/
-	readAs(token: Token) {
+	expectAndNext(token: Token) {
 		this.expect(token);
-		this.read();
+		this.next();
 	}
 
 	parse(filename: string): SourceFile {
-		this.read();
+		this.next();
 		return parseSourceFile(this, filename);
 	}
 }
@@ -156,9 +156,9 @@ function parseExpr(p: Parser)/*: Result<AstNode>*/ {
 */
 function parseBlock(p: Parser)/*: Result<AstNode[]>*/ {
 	logger.debugEnter('[parse] parseBlock');
-	p.readAs(Token.BeginBrace);
+	p.expectAndNext(Token.BeginBrace);
 	// parseStatement(p);
-	p.readAs(Token.EndBrace);
+	p.expectAndNext(Token.EndBrace);
 
 	// let result;
 
@@ -196,12 +196,12 @@ function parseBlock(p: Parser)/*: Result<AstNode[]>*/ {
  * ```
 */
 function parseTyLabel(p: Parser): TyLabel {
-	p.readAs(Token.Colon);
+	p.expectAndNext(Token.Colon);
 
 	const pos = p.getPos();
 	p.expect(Token.Ident);
 	const name = p.getIdentValue();
-	p.read();
+	p.next();
 
 	return newTyLabel(pos, name);
 }
@@ -214,15 +214,15 @@ function parseTyLabel(p: Parser): TyLabel {
 function parseFunctionDecl(p: Parser): FunctionDecl {
 	logger.debugEnter('[parse] parseFunctionDecl');
 	const pos = p.getPos();
-	p.read();
+	p.next();
 
 	p.expect(Token.Ident);
 	const name = p.getIdentValue();
-	p.read();
+	p.next();
 
-	p.readAs(Token.BeginParen);
+	p.expectAndNext(Token.BeginParen);
 	parseFnDeclParams(p);
-	p.readAs(Token.EndParen);
+	p.expectAndNext(Token.EndParen);
 
 	let returnTy;
 	if (p.getToken() == Token.Colon) {

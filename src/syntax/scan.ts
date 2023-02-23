@@ -81,6 +81,7 @@ export class Scanner {
 			return;
 		}
 
+		// set the position according to the previous character
 		switch (this.ch) {
 			case '\n': {
 				this.line++;
@@ -101,9 +102,9 @@ export class Scanner {
 	}
 
 	/**
-	 * Read a token from the current position, and move to the next position.
+	 * Read a token and move to the next position.
 	*/
-	read() {
+	next() {
 		logger.debugEnter(`[scan] read`);
 		while (true) {
 			if (this.ch == null) {
