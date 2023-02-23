@@ -46,4 +46,6 @@ export enum Token {
 	Else,
 	/** "loop" */
 	Loop,
+	/** "break" */
+	Break,
 }

@@ -268,6 +268,10 @@ export class Scanner {
 				this.token = Token.Loop;
 				break;
 			}
+			case 'break': {
+				this.token = Token.Break;
+				break;
+			}
 			default: {
 				this.token = Token.Ident;
 				this.tokenValue = buf;

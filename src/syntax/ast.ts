@@ -62,3 +62,44 @@ export type TyLabel = {
 export function newTyLabel(pos: Pos, name: string): TyLabel {
 	return { kind: 'TyLabel', pos, name };
 }
+
+export type BreakStatement = {
+	kind: 'BreakStatement',
+	pos: Pos,
+};
+export function newBreakStatement(pos: Pos): BreakStatement {
+	return { kind: 'BreakStatement', pos };
+}
+
+export type ReturnStatement = {
+	kind: 'ReturnStatement',
+	pos: Pos,
+	expr?: ExprNode,
+};
+export function newReturnStatement(pos: Pos, expr?: ExprNode): ReturnStatement {
+	return { kind: 'ReturnStatement', pos, expr };
+}
+
+export type LoopStatement = {
+	kind: 'LoopStatement',
+	pos: Pos,
+	block: StatementNode[],
+};
+export function newLoopStatement(pos: Pos, block: StatementNode[]): LoopStatement {
+	return { kind: 'LoopStatement', pos, block };
+}
+
+export enum AssignMode {
+	Assign,
+}
+
+export type AssignStatement = {
+	kind: 'AssignStatement',
+	pos: Pos,
+	name: Identifier,
+	body: ExprNode,
+	mode: AssignMode,
+};
+export function newAssignStatement(pos: Pos, name: Identifier, body: ExprNode, mode: AssignMode): AssignStatement {
+	return { kind: 'AssignStatement', pos, name, body, mode };
+}
