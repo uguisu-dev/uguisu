@@ -149,6 +149,11 @@ export class Scanner {
 					this.nextChar();
 					break;
 				}
+				case ':': {
+					this.token = Token.Colon;
+					this.nextChar();
+					break;
+				}
 				case ';': {
 					this.token = Token.Semi;
 					this.nextChar();

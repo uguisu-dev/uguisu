@@ -11,6 +11,8 @@ export enum Token {
 	BeginParen,
 	/** ")" */
 	EndParen,
+	/** ":" */
+	Colon,
 	/** ";" */
 	Semi,
 	/** "=" */

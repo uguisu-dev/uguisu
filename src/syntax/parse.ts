@@ -1,5 +1,5 @@
 import { DebugLogger } from '../logger';
-import { FunctionDecl, newFunctionDecl, newSourceFile, SourceFile } from './ast';
+import { FunctionDecl, newFunctionDecl, newSourceFile, newTyLabel, SourceFile, TyLabel } from './ast';
 import { Scanner } from './scan';
 import { Token } from './token';
 
@@ -40,17 +40,10 @@ export class Parser {
 		return this.s.getLiteralValue();
 	}
 
-	tryExpect(token: Token): boolean {
+	expect(token: Token) {
 		logger.debug(`[parse] expect (expect ${Token[token]}, actual ${Token[this.getToken()]})`);
 		if (this.getToken() != token) {
-			return false;
-		}
-		return true;
-	}
-
-	expect(token: Token) {
-		if (!this.tryExpect(token)) {
-			throw new Error(`expected ${Token[token]}`);
+			throw new Error(`unexpected token: ${Token[token]}`);
 		}
 	}
 
@@ -59,9 +52,9 @@ export class Parser {
 		this.read();
 	}
 
-	parse(): SourceFile {
+	parse(filename: string): SourceFile {
 		this.read();
-		return parseSourceFile(this);
+		return parseSourceFile(this, filename);
 	}
 }
 
@@ -70,7 +63,7 @@ export class Parser {
  * <SourceFile> = (<FunctionDecl>)*
  * ```
 */
-function parseSourceFile(p: Parser): SourceFile {
+function parseSourceFile(p: Parser, filename: string): SourceFile {
 	let funcs: FunctionDecl[] = [];
 	logger.debugEnter('[parse] parseSourceFile');
 
@@ -93,7 +86,7 @@ function parseSourceFile(p: Parser): SourceFile {
 	}
 
 	logger.debugLeave();
-	return newSourceFile([0, 0], funcs);
+	return newSourceFile([1, 1], filename, funcs);
 }
 
 /**
@@ -196,8 +189,15 @@ function parseBlock(p: Parser)/*: Result<AstNode[]>*/ {
  * <TyLabel> = ":" <Identifier>
  * ```
 */
-function parseTyLabel(p: Parser) {
-	// TODO
+function parseTyLabel(p: Parser): TyLabel {
+	p.consume(Token.Colon);
+
+	const pos = p.getPos();
+	p.expect(Token.Ident);
+	const name = p.getIdentValue();
+	p.read();
+
+	return newTyLabel(pos, name);
 }
 
 /**
@@ -217,12 +217,16 @@ function parseFunctionDecl(p: Parser): FunctionDecl {
 	p.consume(Token.BeginParen);
 	parseFnDeclParams(p);
 	p.consume(Token.EndParen);
-	parseTyLabel(p);
+
+	let returnTy;
+	if (p.getToken() == Token.Colon) {
+		returnTy = parseTyLabel(p);
+	}
 
 	parseBlock(p);
 
 	logger.debugLeave();
-	return newFunctionDecl(pos, name);
+	return newFunctionDecl(pos, name, returnTy);
 }
 
 //#region Statements

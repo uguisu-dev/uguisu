@@ -8,19 +8,21 @@ export type ExprNode = Identifier | NumberLiteral;
 export type SourceFile = {
 	kind: 'SourceFile',
 	pos: Pos;
+	filename: string;
 	funcs: FunctionDecl[],
 };
-export function newSourceFile(pos: Pos, funcs: FunctionDecl[]): SourceFile {
-	return { kind: 'SourceFile', pos, funcs };
+export function newSourceFile(pos: Pos, filename: string, funcs: FunctionDecl[]): SourceFile {
+	return { kind: 'SourceFile', pos, filename, funcs };
 }
 
 export type FunctionDecl = {
 	kind: 'FunctionDecl',
 	pos: Pos;
 	name: string,
+	returnTy?: TyLabel,
 };
-export function newFunctionDecl(pos: Pos, name: string): FunctionDecl {
-	return { kind: 'FunctionDecl', pos, name };
+export function newFunctionDecl(pos: Pos, name: string, returnTy?: TyLabel): FunctionDecl {
+	return { kind: 'FunctionDecl', pos, name, returnTy };
 }
 
 export type IfStatement = {
@@ -50,4 +52,13 @@ export type NumberLiteral = {
 };
 export function newNumberLiteral(pos: Pos, value: number): NumberLiteral {
 	return { kind: 'NumberLiteral', pos, value };
+}
+
+export type TyLabel = {
+	kind: 'TyLabel',
+	pos: Pos;
+	name: string,
+};
+export function newTyLabel(pos: Pos, name: string): TyLabel {
+	return { kind: 'TyLabel', pos, name };
 }
