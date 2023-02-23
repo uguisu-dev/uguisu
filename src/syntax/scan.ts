@@ -1,4 +1,8 @@
+import { DebugLogger } from '../logger';
 import { Token } from './token';
+
+const logger = DebugLogger.getRootLogger().createChild();
+logger.enabled = false;
 
 export enum LiteralKind {
 	None,
@@ -77,20 +81,30 @@ export class Scanner {
 			return;
 		}
 
-		this.index++;
-		const ch = this.source[this.index];
-		this.column++;
-		if (ch == '\n') {
-			this.line++;
-			this.column = 0;
+		switch (this.ch) {
+			case '\n': {
+				this.line++;
+				this.column = 0;
+				break;
+			}
+			case '\r': {
+				break;
+			}
+			default: {
+				this.column++;
+			}
 		}
-		this.ch = ch;
+		logger.debug(`[scan] pos ${this.line+1},${this.column+1}`);
+
+		this.index++;
+		this.ch = this.source[this.index];
 	}
 
 	/**
 	 * Read a token from the current position, and move to the next position.
 	*/
 	read() {
+		logger.debugEnter(`[scan] read`);
 		while (true) {
 			if (this.ch == null) {
 				this.token = Token.EOF;
@@ -102,6 +116,7 @@ export class Scanner {
 			}
 			this.tokenLine = this.line;
 			this.tokenColumn = this.column;
+			logger.debug(`[scan] token pos ${this.tokenLine+1},${this.tokenColumn+1}`);
 
 			if (digit.test(this.ch)) {
 				this.readDigits();
@@ -192,6 +207,7 @@ export class Scanner {
 			}
 			break;
 		}
+		logger.debugLeave();
 	}
 
 	private readDigits() {

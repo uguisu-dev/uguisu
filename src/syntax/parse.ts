@@ -1,8 +1,10 @@
-import { FunctionDecl, SourceFile } from './ast';
+import { DebugLogger } from '../logger';
+import { FunctionDecl, newFunctionDecl, newSourceFile, SourceFile } from './ast';
 import { Scanner } from './scan';
 import { Token } from './token';
 
-const debug = false;
+const logger = DebugLogger.getRootLogger().createChild();
+logger.enabled = false;
 
 export class Parser {
 	s: Scanner;
@@ -15,18 +17,11 @@ export class Parser {
 		this.s.setup();
 	}
 
-	debug(message: any, ...params: any[]) {
-		if (debug) {
-			console.log(message, ...params);
-		}
-	}
-
 	/**
 	 * Read a token from the current position, and move to the next position.
 	*/
 	read() {
 		this.s.read();
-		this.debug(Token[this.getToken()]);
 	}
 
 	getPos(): [number, number] {
@@ -46,6 +41,7 @@ export class Parser {
 	}
 
 	tryExpect(token: Token): boolean {
+		logger.debug(`[parse] expect (expect ${Token[token]}, actual ${Token[this.getToken()]})`);
 		if (this.getToken() != token) {
 			return false;
 		}
@@ -64,6 +60,7 @@ export class Parser {
 	}
 
 	parse(): SourceFile {
+		this.read();
 		return parseSourceFile(this);
 	}
 }
@@ -75,25 +72,28 @@ export class Parser {
 */
 function parseSourceFile(p: Parser): SourceFile {
 	let funcs: FunctionDecl[] = [];
+	logger.debugEnter('[parse] parseSourceFile');
 
 	while (true) {
-		p.read();
+		logger.debugEnter('[parse] declaration item');
 		if (p.getToken() == Token.EOF) {
+			logger.debugLeave();
 			break;
 		}
 		switch (p.getToken()) {
 			case Token.Fn: {
-				p.read();
-				parseFunctionDecl(p);
+				funcs.push(parseFunctionDecl(p));
 				break;
 			}
 			default: {
 				throw new Error(`unexpected token: ${Token[p.getToken()]}`);
 			}
 		}
+		logger.debugLeave();
 	}
 
-	return new SourceFile(funcs);
+	logger.debugLeave();
+	return newSourceFile([0, 0], funcs);
 }
 
 /**
@@ -156,6 +156,7 @@ function parseExpr(p: Parser)/*: Result<AstNode>*/ {
  * ```
 */
 function parseBlock(p: Parser)/*: Result<AstNode[]>*/ {
+	logger.debugEnter('[parse] parseBlock');
 	p.consume(Token.BeginBrace);
 	// parseStatement(p);
 	p.consume(Token.EndBrace);
@@ -186,6 +187,7 @@ function parseBlock(p: Parser)/*: Result<AstNode[]>*/ {
 	// 	return failure(`unexpected token: ${TokenKind[result.data.kind]}`, result.index);
 	// }
 
+	logger.debugLeave();
 	// return success(content, offset, result.next);
 }
 
@@ -203,11 +205,13 @@ function parseTyLabel(p: Parser) {
  * <FunctionDecl> = "fn" <Identifier> "(" <FnDeclParams>? ")" <TyLabel>? <Block>
  * ```
 */
-function parseFunctionDecl(p: Parser) {
+function parseFunctionDecl(p: Parser): FunctionDecl {
+	logger.debugEnter('[parse] parseFunctionDecl');
 	const pos = p.getPos();
+	p.read();
 
 	p.expect(Token.Ident);
-	const ident = p.getIdentValue();
+	const name = p.getIdentValue();
 	p.read();
 
 	p.consume(Token.BeginParen);
@@ -217,7 +221,8 @@ function parseFunctionDecl(p: Parser) {
 
 	parseBlock(p);
 
-	p.debug(`FunctionDecl (ident=${ident}, pos=${pos})`);
+	logger.debugLeave();
+	return newFunctionDecl(pos, name);
 }
 
 //#region Statements

@@ -1,76 +1,53 @@
-export interface AstNode {
-	pos: number;
+export type Pos = [number, number];
+
+export type AstNode = SourceFile | FileNode | StatementNode | ExprNode;
+export type FileNode = FunctionDecl;
+export type StatementNode = IfStatement;
+export type ExprNode = Identifier | NumberLiteral;
+
+export type SourceFile = {
+	kind: 'SourceFile',
+	pos: Pos;
+	funcs: FunctionDecl[],
+};
+export function newSourceFile(pos: Pos, funcs: FunctionDecl[]): SourceFile {
+	return { kind: 'SourceFile', pos, funcs };
 }
 
-abstract class AstNodeBase implements AstNode {
-	pos: number;
-
-	constructor(pos: number) {
-		this.pos = pos;
-	}
+export type FunctionDecl = {
+	kind: 'FunctionDecl',
+	pos: Pos;
+	name: string,
+};
+export function newFunctionDecl(pos: Pos, name: string): FunctionDecl {
+	return { kind: 'FunctionDecl', pos, name };
 }
 
-export class SourceFile extends AstNodeBase {
-	funcs: FunctionDecl[];
-
-	constructor(funcs: FunctionDecl[]) {
-		super(0);
-		this.funcs = funcs;
-	}
-}
-export function isSourceFile(x: AstNode): x is SourceFile {
-	return x instanceof SourceFile;
-}
-
-export class FunctionDecl extends AstNodeBase {
-	name: string;
-
-	constructor(name: string, pos: number) {
-		super(pos);
-		this.name = name;
-	}
-}
-export function isFunctionDecl(x: AstNode): x is FunctionDecl {
-	return x instanceof FunctionDecl;
-}
-
-export class Identifier extends AstNodeBase {
-	name: string;
-
-	constructor(name: string, pos: number) {
-		super(pos);
-		this.name = name;
-	}
-}
-export function isIdentifier(x: AstNode): x is Identifier {
-	return x instanceof Identifier;
-}
-
-export class Number extends AstNodeBase {
-	value: number;
-
-	constructor(value: number, pos: number) {
-		super(pos);
-		this.value = value;
-	}
-}
-export function isNumber(x: AstNode): x is Number {
-	return x instanceof Number;
-}
-
-export class IfStatement extends AstNodeBase {
+export type IfStatement = {
+	kind: 'IfStatement',
+	pos: Pos;
 	cond: AstNode;
 	thenBlock: AstNode[];
 	elseBlock: AstNode[];
-
-	constructor(cond: AstNode, thenBlock: AstNode[], elseBlock: AstNode[], pos: number) {
-		super(pos);
-		this.cond = cond;
-		this.thenBlock = thenBlock;
-		this.elseBlock = elseBlock;
-		this.pos = pos;
-	}
+};
+export function newIfStatement(pos: Pos, cond: AstNode, thenBlock: AstNode[], elseBlock: AstNode[]): IfStatement {
+	return { kind: 'IfStatement', pos, cond, thenBlock, elseBlock };
 }
-export function isIfStatement(x: AstNode): x is IfStatement {
-	return x instanceof IfStatement;
+
+export type Identifier = {
+	kind: 'Identifier',
+	pos: Pos;
+	name: string,
+};
+export function newIdentifier(pos: Pos, name: string): Identifier {
+	return { kind: 'Identifier', pos, name };
+}
+
+export type NumberLiteral = {
+	kind: 'NumberLiteral',
+	pos: Pos;
+	value: number,
+};
+export function newNumberLiteral(pos: Pos, value: number): NumberLiteral {
+	return { kind: 'NumberLiteral', pos, value };
 }
