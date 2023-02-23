@@ -155,12 +155,12 @@ export enum AssignMode {
 export type AssignStatement = {
 	kind: 'AssignStatement',
 	pos: Pos,
-	name: Identifier,
+	target: ExprNode,
 	body: ExprNode,
 	mode: AssignMode,
 };
-export function newAssignStatement(pos: Pos, name: Identifier, body: ExprNode, mode: AssignMode): AssignStatement {
-	return { kind: 'AssignStatement', pos, name, body, mode };
+export function newAssignStatement(pos: Pos, target: ExprNode, body: ExprNode, mode: AssignMode): AssignStatement {
+	return { kind: 'AssignStatement', pos, target, body, mode };
 }
 
 export type VariableDecl = {

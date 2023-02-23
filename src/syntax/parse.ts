@@ -141,24 +141,15 @@ function parseStatement(p: Parser): StatementNode {
 		case Token.Break: {
 			return parseBreakStatement(p);
 		}
-		case Token.Ident: {
-			// AssignStatement or Identifier
-			return parseAssignStatementOrIdentifier(p);
-		}
-		case Token.Literal: {
-			const expr = parseExpr(p);
-			p.expectAndNext(Token.Semi);
-			return expr;
-		}
 		default: {
-			throw new Error(`unexpected token: ${Token[p.getToken()]}`);
+			return parseStatementStartWithExpr(p);
 		}
 	}
 }
 
 /**
  * ```text
- * <Expr> = <Number> / <Identifier>
+ * <Expr> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <BinaryOp> / <UnaryOp> / <Identifier> / <Call>
  * ```
 */
 function parseExpr(p: Parser): ExprNode {
@@ -184,78 +175,35 @@ function parseExpr(p: Parser): ExprNode {
 }
 
 /**
+ * AssignStatement or Identifier
  * ```text
- * <AssignStatement> = <identifier> ("=" / "+=" / "-=" / "*=" / "/=" / "%=") <Expr> ";"
- * <Identifier> = <identifier> ";"
+ * <StatementStartWithExpr>
+ *   = <Expr> ("=" / "+=" / "-=" / "*=" / "/=" / "%=") <Expr> ";"
+ *   / <Expr> ";"
  * ```
 */
-function parseAssignStatementOrIdentifier(p: Parser): AssignStatement | Identifier {
-	logger.debugEnter('[parse] parseAssignStatementOrIdentifier');
+function parseStatementStartWithExpr(p: Parser): StatementNode {
+	logger.debugEnter('[parse] parseStatementStartWithExpr');
 
-	const pos = p.getPos();
-	p.expect(Token.Ident);
-	const name = p.getIdentValue();
-	p.next();
-
-	let mode: AssignMode;
+	const expr = parseExpr(p);
 	switch (p.getToken()) {
 		case Token.Assign: {
 			p.next();
-			mode = AssignMode.Assign;
-			break;
+			const mode = AssignMode.Assign;
+			const body = parseExpr(p);
+			p.expectAndNext(Token.Semi);
+			logger.debugLeave();
+			return newAssignStatement(expr.pos, expr, body, mode);
 		}
 		case Token.Semi: {
 			p.next();
 			logger.debugLeave();
-			return newIdentifier(pos, name);
+			return expr;
 		}
 		default: {
 			throw new Error(`unexpected token: ${Token[p.getToken()]}`);
 		}
 	}
-
-	const body = parseExpr(p);
-	p.expectAndNext(Token.Semi);
-
-	logger.debugLeave();
-	return newAssignStatement(pos, newIdentifier(pos, name), body, mode);
-}
-
-/**
- * ```text
- * <Block> = "{" <Statement>* "}"
- * ```
-*/
-function parseBlock(p: Parser): StatementNode[] {
-	logger.debugEnter('[parse] parseBlock');
-
-	p.expectAndNext(Token.BeginBrace);
-	const statements: StatementNode[] = [];
-	while (p.getToken() != Token.EndBrace) {
-		statements.push(parseStatement(p));
-	}
-	p.expectAndNext(Token.EndBrace);
-
-	logger.debugLeave();
-	return statements;
-}
-
-/**
- * ```text
- * <TyLabel> = ":" <identifier>
- * ```
-*/
-function parseTyLabel(p: Parser): TyLabel {
-	logger.debugEnter('[parse] parseTyLabel');
-
-	p.expectAndNext(Token.Colon);
-	const pos = p.getPos();
-	p.expect(Token.Ident);
-	const name = p.getIdentValue();
-	p.next();
-
-	logger.debugLeave();
-	return newTyLabel(pos, name);
 }
 
 /**
@@ -507,3 +455,40 @@ function parseLoopStatement(p: Parser): LoopStatement {
 }
 
 //#endregion Statements
+
+/**
+ * ```text
+ * <Block> = "{" <Statement>* "}"
+ * ```
+*/
+function parseBlock(p: Parser): StatementNode[] {
+	logger.debugEnter('[parse] parseBlock');
+
+	p.expectAndNext(Token.BeginBrace);
+	const statements: StatementNode[] = [];
+	while (p.getToken() != Token.EndBrace) {
+		statements.push(parseStatement(p));
+	}
+	p.expectAndNext(Token.EndBrace);
+
+	logger.debugLeave();
+	return statements;
+}
+
+/**
+ * ```text
+ * <TyLabel> = ":" <identifier>
+ * ```
+*/
+function parseTyLabel(p: Parser): TyLabel {
+	logger.debugEnter('[parse] parseTyLabel');
+
+	p.expectAndNext(Token.Colon);
+	const pos = p.getPos();
+	p.expect(Token.Ident);
+	const name = p.getIdentValue();
+	p.next();
+
+	logger.debugLeave();
+	return newTyLabel(pos, name);
+}
