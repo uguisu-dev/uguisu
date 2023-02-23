@@ -5,12 +5,14 @@ import {
 	BreakStatement,
 	ExprNode,
 	FunctionDecl,
+	IfStatement,
 	LoopStatement,
 	newAssignStatement,
 	newBreakStatement,
 	newFunctionDecl,
 	newIdentifier,
 	newLoopStatement,
+	newNumberLiteral,
 	newReturnStatement,
 	newSourceFile,
 	newTyLabel,
@@ -21,7 +23,7 @@ import {
 	TyLabel,
 	VariableDecl,
 } from './ast';
-import { Scanner } from './scan';
+import { LiteralKind, Scanner } from './scan';
 import { Token } from './token';
 
 const logger = DebugLogger.getRootLogger().createChild();
@@ -118,30 +120,40 @@ function parseSourceFile(p: Parser, filename: string): SourceFile {
 
 /**
  * ```text
- * <Statement> = <IfStatement>
+ * <Statement> = <VariableDecl> / <AssignStatement> / <IfStatement> / <LoopStatement> / <ReturnStatement> / <BreakStatement> / <ExprNode>
  * ```
 */
-function parseStatement(p: Parser) {
-	// 	let result;
-	
-	// 	const token = getToken(offset, input);
-	// 	if (token.kind == TokenKind.KEYWORD && token.value == 'if') {
-	// 		return parseIfStatement(offset, input);
-	// 	}
-	
-	// 	// expr
-	// 	result = parseExpr(offset, input);
-	// 	if (result.success) {
-	// 		const expr = result.data;
-	// 		// ";"
-	// 		result = nextToken(result.next, input);
-	// 		if (result.data.kind != TokenKind.PUNCTUATOR || result.data.value != ';') {
-	// 			return failure(`unexpected token: ${TokenKind[result.data.kind]}`, result.index);
-	// 		}
-	// 		return success(expr, result.index, result.next);
-	// 	}
-	
-	// 	return failure(`unexpected token: ${TokenKind[token.kind]}`, offset);
+function parseStatement(p: Parser): StatementNode {
+	switch (p.getToken()) {
+		case Token.Var: {
+			return parseVariableDecl(p);
+		}
+		case Token.If: {
+			return parseIfStatement(p);
+		}
+		case Token.Loop: {
+			return parseLoopStatement(p);
+		}
+		case Token.Return: {
+			return parseReturnStatement(p);
+		}
+		case Token.Break: {
+			return parseBreakStatement(p);
+		}
+		case Token.Ident: {
+			// identifier "=" -> AssignStatement
+			// identifier -> Identifier
+			throw new Error('not implemented yet');
+		}
+		case Token.Literal: {
+			const expr = parseExpr(p);
+			p.expectAndNext(Token.Semi);
+			return expr;
+		}
+		default: {
+			throw new Error(`unexpected token: ${Token[p.getToken()]}`);
+		}
+	}
 }
 
 /**
@@ -150,24 +162,25 @@ function parseStatement(p: Parser) {
  * ```
 */
 function parseExpr(p: Parser): ExprNode {
-	// let token;
-	// let index = offset;
-
-	// token = getToken(index, input);
-
-	// if (token.kind == TokenKind.NUMBER) {
-	// 	const node = makeNumber(parseInt(token.value, 10), token.pos);
-	// 	index++;
-	// 	return success(node, offset, index);
-	// }
-
-	// if (token.kind == TokenKind.IDENTIFIER) {
-	// 	const node = makeIdentifier(token.value, token.pos);
-	// 	index++;
-	// 	return success(node, offset, index);
-	// }
-
-	// return failure(`unexpected token: ${TokenKind[token.kind]}`, offset);
+	const pos = p.getPos();
+	switch (p.getToken()) {
+		case Token.Literal: {
+			const literal = p.getLiteralValue();
+			p.next();
+			if (literal.kind == LiteralKind.Number) {
+				return newNumberLiteral(pos, parseInt(literal.value));
+			}
+			throw new Error('not implemented yet');
+		}
+		case Token.Ident: {
+			const name = p.getIdentValue();
+			p.next();
+			return newIdentifier(pos, name);
+		}
+		default: {
+			throw new Error(`unexpected token: ${Token[p.getToken()]}`);
+		}
+	}
 }
 
 /**
@@ -178,37 +191,14 @@ function parseExpr(p: Parser): ExprNode {
 function parseBlock(p: Parser): StatementNode[] {
 	logger.debugEnter('[parse] parseBlock');
 	p.expectAndNext(Token.BeginBrace);
-	// parseStatement(p);
+	const statements: StatementNode[] = [];
+	while (p.getToken() != Token.EndBrace) {
+		statements.push(parseStatement(p));
+	}
 	p.expectAndNext(Token.EndBrace);
 
-	// let result;
-
-	// // "{"
-	// result = nextToken(offset, input);
-	// if (result.data.kind != TokenKind.PUNCTUATOR || result.data.value != '{') {
-	// 	return failure(`unexpected token: ${TokenKind[result.data.kind]}`, result.index);
-	// }
-
-	// let index = result.next;
-	// const content: AstNode[] = [];
-	// while (true) {
-	// 	// statement
-	// 	result = parseStatement(index, input);
-	// 	if (!result.success) {
-	// 		break;
-	// 	}
-	// 	content.push(result.data);
-	// 	index = result.next;
-	// }
-
-	// // "}"
-	// result = nextToken(index, input);
-	// if (result.data.kind != TokenKind.PUNCTUATOR || result.data.value != '}') {
-	// 	return failure(`unexpected token: ${TokenKind[result.data.kind]}`, result.index);
-	// }
-
 	logger.debugLeave();
-	// return success(content, offset, result.next);
+	return statements;
 }
 
 /**
@@ -336,7 +326,7 @@ function parseReturnStatement(p: Parser): ReturnStatement {
  * <IfStatement> = <IfBlock> ("else" <IfBlock>)* ("else" <Block>)?
  * ```
 */
-function parseIfStatement(p: Parser)/*: Result<AstNode>*/ {
+function parseIfStatement(p: Parser): IfStatement {
 	// let result;
 
 	// const ifBlocks: Success<[AstNode, AstNode[]]>[] = [];

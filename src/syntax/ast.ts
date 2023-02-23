@@ -3,7 +3,7 @@ export type Pos = [number, number];
 export type AstNode = SourceFile | FileNode | StatementNode | TyLabel;
 export type FileNode = FunctionDecl;
 export type StatementNode = VariableDecl | AssignStatement | IfStatement | LoopStatement | ReturnStatement | BreakStatement | ExprNode;
-export type ExprNode = Identifier | NumberLiteral;
+export type ExprNode = NumberLiteral | Identifier;
 
 export type SourceFile = {
 	kind: 'SourceFile',
