@@ -34,12 +34,15 @@ export class Parser {
 	}
 
 	/**
-	 * Read a token from the current position, and move to the next position.
+	 * Read the next token.
 	*/
 	read() {
 		this.s.read();
 	}
 
+	/**
+	 * Compare the current token and the expected token.
+	*/
 	expect(token: Token) {
 		logger.debug(`[parse] expect (expect ${Token[token]}, actual ${Token[this.getToken()]})`);
 		if (this.getToken() != token) {
@@ -47,6 +50,9 @@ export class Parser {
 		}
 	}
 
+	/**
+	 * Read the next token as token of expected kind.
+	*/
 	readAs(token: Token) {
 		this.expect(token);
 		this.read();
