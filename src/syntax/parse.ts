@@ -5,6 +5,7 @@ import {
 	BreakStatement,
 	ExprNode,
 	FunctionDecl,
+	Identifier,
 	IfStatement,
 	LoopStatement,
 	newAssignStatement,
@@ -141,9 +142,8 @@ function parseStatement(p: Parser): StatementNode {
 			return parseBreakStatement(p);
 		}
 		case Token.Ident: {
-			// identifier "=" -> AssignStatement
-			// identifier -> Identifier
-			throw new Error('not implemented yet');
+			// AssignStatement or Identifier
+			return parseAssignStatementOrIdentifier(p);
 		}
 		case Token.Literal: {
 			const expr = parseExpr(p);
@@ -185,11 +185,50 @@ function parseExpr(p: Parser): ExprNode {
 
 /**
  * ```text
+ * <AssignStatement> = <identifier> ("=" / "+=" / "-=" / "*=" / "/=" / "%=") <Expr> ";"
+ * <Identifier> = <identifier> ";"
+ * ```
+*/
+function parseAssignStatementOrIdentifier(p: Parser): AssignStatement | Identifier {
+	logger.debugEnter('[parse] parseAssignStatementOrIdentifier');
+
+	const pos = p.getPos();
+	p.expect(Token.Ident);
+	const name = p.getIdentValue();
+	p.next();
+
+	let mode: AssignMode;
+	switch (p.getToken()) {
+		case Token.Assign: {
+			p.next();
+			mode = AssignMode.Assign;
+			break;
+		}
+		case Token.Semi: {
+			p.next();
+			logger.debugLeave();
+			return newIdentifier(pos, name);
+		}
+		default: {
+			throw new Error(`unexpected token: ${Token[p.getToken()]}`);
+		}
+	}
+
+	const body = parseExpr(p);
+	p.expectAndNext(Token.Semi);
+
+	logger.debugLeave();
+	return newAssignStatement(pos, newIdentifier(pos, name), body, mode);
+}
+
+/**
+ * ```text
  * <Block> = "{" <Statement>* "}"
  * ```
 */
 function parseBlock(p: Parser): StatementNode[] {
 	logger.debugEnter('[parse] parseBlock');
+
 	p.expectAndNext(Token.BeginBrace);
 	const statements: StatementNode[] = [];
 	while (p.getToken() != Token.EndBrace) {
@@ -203,27 +242,30 @@ function parseBlock(p: Parser): StatementNode[] {
 
 /**
  * ```text
- * <TyLabel> = ":" <Identifier>
+ * <TyLabel> = ":" <identifier>
  * ```
 */
 function parseTyLabel(p: Parser): TyLabel {
-	p.expectAndNext(Token.Colon);
+	logger.debugEnter('[parse] parseTyLabel');
 
+	p.expectAndNext(Token.Colon);
 	const pos = p.getPos();
 	p.expect(Token.Ident);
 	const name = p.getIdentValue();
 	p.next();
 
+	logger.debugLeave();
 	return newTyLabel(pos, name);
 }
 
 /**
  * ```text
- * <FunctionDecl> = "fn" <Identifier> "(" <FnDeclParams>? ")" <TyLabel>? <Block>
+ * <FunctionDecl> = "fn" <identifier> "(" <FnDeclParams>? ")" <TyLabel>? <Block>
  * ```
 */
 function parseFunctionDecl(p: Parser): FunctionDecl {
 	logger.debugEnter('[parse] parseFunctionDecl');
+
 	const pos = p.getPos();
 	p.next();
 
@@ -254,24 +296,30 @@ function parseFunctionDecl(p: Parser): FunctionDecl {
  * ```
 */
 function parseFnDeclParams(p: Parser) {
+	logger.debugEnter('[parse] parseFnDeclParams');
 	// TODO
+	logger.debugLeave();
 }
 
 /**
  * ```text
- * <FnDeclParam> = <Identifier> <TyLabel>?
+ * <FnDeclParam> = <identifier> <TyLabel>?
  * ```
 */
 function parseFnDeclParam(p: Parser) {
+	logger.debugEnter('[parse] parseFnDeclParam');
 	// TODO
+	logger.debugLeave();
 }
 
 /**
  * ```text
- * <VariableDecl> = "var" <Identifier> <TyLabel>? ("=" <Expr>)? ";"
+ * <VariableDecl> = "var" <identifier> <TyLabel>? ("=" <Expr>)? ";"
  * ```
 */
 function parseVariableDecl(p: Parser): VariableDecl {
+	logger.debugEnter('[parse] parseVariableDecl');
+
 	p.next();
 	const pos = p.getPos();
 	p.expect(Token.Ident);
@@ -290,6 +338,7 @@ function parseVariableDecl(p: Parser): VariableDecl {
 	}
 	p.expectAndNext(Token.Semi);
 
+	logger.debugLeave();
 	return newVariableDecl(pos, newIdentifier(pos, name), ty, body);
 }
 
@@ -299,9 +348,13 @@ function parseVariableDecl(p: Parser): VariableDecl {
  * ```
 */
 function parseBreakStatement(p: Parser): BreakStatement {
+	logger.debugEnter('[parse] parseBreakStatement');
+
 	const pos = p.getPos();
 	p.expectAndNext(Token.Break);
 	p.expectAndNext(Token.Semi);
+
+	logger.debugLeave();
 	return newBreakStatement(pos);
 }
 
@@ -311,6 +364,8 @@ function parseBreakStatement(p: Parser): BreakStatement {
  * ```
 */
 function parseReturnStatement(p: Parser): ReturnStatement {
+	logger.debugEnter('[parse] parseReturnStatement');
+
 	const pos = p.getPos();
 	p.expectAndNext(Token.Return);
 	let expr;
@@ -318,6 +373,8 @@ function parseReturnStatement(p: Parser): ReturnStatement {
 		expr = parseExpr(p);
 	}
 	p.expectAndNext(Token.Semi);
+
+	logger.debugLeave();
 	return newReturnStatement(pos, expr);
 }
 
@@ -327,6 +384,10 @@ function parseReturnStatement(p: Parser): ReturnStatement {
  * ```
 */
 function parseIfStatement(p: Parser): IfStatement {
+	logger.debugEnter('[parse] parseIfStatement');
+	// TODO
+	logger.debugLeave();
+
 	// let result;
 
 	// const ifBlocks: Success<[AstNode, AstNode[]]>[] = [];
@@ -400,6 +461,10 @@ function parseIfStatement(p: Parser): IfStatement {
  * ```
 */
 function parseIfBlock(p: Parser)/*: Result<[AstNode, AstNode[]]>*/ {
+	logger.debugEnter('[parse] parseIfBlock');
+	// TODO
+	logger.debugLeave();
+
 	// let result;
 
 	// // "if"
@@ -431,39 +496,14 @@ function parseIfBlock(p: Parser)/*: Result<[AstNode, AstNode[]]>*/ {
  * ```
 */
 function parseLoopStatement(p: Parser): LoopStatement {
+	logger.debugEnter('[parse] parseLoopStatement');
+
 	const pos = p.getPos();
 	p.expectAndNext(Token.Loop);
 	const block = parseBlock(p);
+
+	logger.debugLeave();
 	return newLoopStatement(pos, block);
-}
-
-/**
- * ```text
- * <AssignStatement> = <Identifier> ("=" / "+=" / "-=" / "*=" / "/=" / "%=") <Expr> ";"
- * ```
-*/
-function parseAssignStatement(p: Parser): AssignStatement {
-	const pos = p.getPos();
-	p.expect(Token.Ident);
-	const name = p.getIdentValue();
-	p.next();
-
-	let mode: AssignMode;
-	switch (p.getToken()) {
-		case Token.Assign: {
-			p.next();
-			mode = AssignMode.Assign;
-			break;
-		}
-		default: {
-			throw new Error(`unexpected token: ${Token[p.getToken()]}`);
-		}
-	}
-
-	const body = parseExpr(p);
-	p.expectAndNext(Token.Semi);
-
-	return newAssignStatement(pos, newIdentifier(pos, name), body, mode);
 }
 
 //#endregion Statements
