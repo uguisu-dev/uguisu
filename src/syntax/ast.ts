@@ -7,6 +7,13 @@ export type FileNode = FunctionDecl;
 export type StatementNode = VariableDecl | AssignStatement | IfStatement | LoopStatement | ReturnStatement | BreakStatement | ExprNode;
 export type ExprNode = NumberLiteral | BoolLiteral | StringLiteral | BinaryOp | UnaryOp | Identifier | Call; // FieldAccess
 
+const exprNodeKind: AstNode['kind'][] = [
+	'NumberLiteral', 'BoolLiteral', 'StringLiteral', 'BinaryOp', 'UnaryOp', 'Identifier', 'Call',
+];
+export function isExprNode(node: AstNode): node is ExprNode {
+	return exprNodeKind.includes(node.kind);
+}
+
 export type SourceFile = {
 	kind: 'SourceFile',
 	pos: Pos;
@@ -132,6 +139,14 @@ export type BreakStatement = {
 };
 export function newBreakStatement(pos: Pos): BreakStatement {
 	return { kind: 'BreakStatement', pos };
+}
+
+export type ContinueStatement = {
+	kind: 'ContinueStatement',
+	pos: Pos,
+};
+export function newContinueStatement(pos: Pos): ContinueStatement {
+	return { kind: 'ContinueStatement', pos };
 }
 
 export type ReturnStatement = {

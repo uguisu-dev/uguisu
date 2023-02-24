@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { Scanner, Parser } from '.';
+import { Scanner, Parser, Runner } from '.';
 
 async function entry() {
 	const filename = 'debug.ug';
@@ -13,7 +13,10 @@ async function entry() {
 		function replacer(k: string, v: any): any {
 			return v;
 		}
-		console.log(JSON.stringify(ast, replacer, '  '));
+		//console.log(JSON.stringify(ast, replacer, '  '));
+		const runner = new Runner(ast);
+		const value = runner.run();
+		console.log(value);
 	}
 	catch (e) {
 		console.log(e);
