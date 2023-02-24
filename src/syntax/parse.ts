@@ -64,10 +64,12 @@ export class Parser {
 	 * Move to the next token.
 	*/
 	next() {
+		logger.debug(`[parse] next`);
 		this.s.next();
 	}
 
 	tokenIs(token: Token): boolean {
+		logger.debug(`[parse] tokenIs ${Token[token]} (${this.getToken() == token})`);
 		return (this.getToken() == token);
 	}
 
@@ -75,7 +77,6 @@ export class Parser {
 	 * Expect the current token.
 	*/
 	expect(token: Token) {
-		logger.debug(`[parse] expect (expect ${Token[token]}, actual ${Token[this.getToken()]})`);
 		if (!this.tokenIs(token)) {
 			throw new Error(`unexpected token: ${Token[this.getToken()]}`);
 		}
@@ -94,6 +95,49 @@ export class Parser {
 		return parseSourceFile(this, filename);
 	}
 }
+
+//#region General
+
+/**
+ * ```text
+ * <Block> = "{" <Statement>* "}"
+ * ```
+*/
+function parseBlock(p: Parser): StatementNode[] {
+	logger.debugEnter('[parse] parseBlock');
+
+	p.expectAndNext(Token.BeginBrace);
+	const statements: StatementNode[] = [];
+	while (!p.tokenIs(Token.EndBrace)) {
+		statements.push(parseStatement(p));
+	}
+	p.expectAndNext(Token.EndBrace);
+
+	logger.debugLeave();
+	return statements;
+}
+
+/**
+ * ```text
+ * <TyLabel> = ":" <identifier>
+ * ```
+*/
+function parseTyLabel(p: Parser): TyLabel {
+	logger.debugEnter('[parse] parseTyLabel');
+
+	p.expectAndNext(Token.Colon);
+	const pos = p.getPos();
+	p.expect(Token.Ident);
+	const name = p.getIdentValue();
+	p.next();
+
+	logger.debugLeave();
+	return newTyLabel(pos, name);
+}
+
+//#endregion General
+
+//#region SourceFile
 
 /**
  * ```text
@@ -128,6 +172,69 @@ function parseSourceFile(p: Parser, filename: string): SourceFile {
 
 /**
  * ```text
+ * <FunctionDecl> = "fn" <identifier> "(" <FnDeclParams>? ")" <TyLabel>? <Block>
+ * <FnDeclParams> = <FnDeclParam> ("," <FnDeclParam>)*
+ * ```
+*/
+function parseFunctionDecl(p: Parser): FunctionDecl {
+	logger.debugEnter('[parse] parseFunctionDecl');
+
+	const pos = p.getPos();
+	p.next();
+	p.expect(Token.Ident);
+	const name = p.getIdentValue();
+	p.next();
+	p.expectAndNext(Token.BeginParen);
+	let params: FnDeclParam[] = [];
+	if (!p.tokenIs(Token.EndParen)) {
+		params.push(parseFnDeclParam(p));
+		while (p.tokenIs(Token.Comma)) {
+			p.next();
+			if (p.tokenIs(Token.EndParen)) {
+				break;
+			}
+			params.push(parseFnDeclParam(p));
+		}
+	}
+	p.expectAndNext(Token.EndParen);
+	let returnTy;
+	if (p.tokenIs(Token.Colon)) {
+		returnTy = parseTyLabel(p);
+	}
+	const body = parseBlock(p);
+
+	logger.debugLeave();
+	return newFunctionDecl(pos, name, params, body, returnTy);
+}
+
+/**
+ * ```text
+ * <FnDeclParam> = <identifier> <TyLabel>?
+ * ```
+*/
+function parseFnDeclParam(p: Parser): FnDeclParam {
+	logger.debugEnter('[parse] parseFnDeclParam');
+
+	const pos = p.getPos();
+	p.expect(Token.Ident);
+	const name = p.getIdentValue();
+	p.next();
+
+	let ty;
+	if (p.tokenIs(Token.Colon)) {
+		ty = parseTyLabel(p);
+	}
+
+	logger.debugLeave();
+	return newFnDeclParam(pos, name, ty);
+}
+
+//#endregion SourceFile
+
+//#region Statements
+
+/**
+ * ```text
  * <Statement> = <VariableDecl> / <AssignStatement> / <IfStatement> / <LoopStatement> / <ReturnStatement> / <BreakStatement> / <ExprNode>
  * ```
 */
@@ -150,39 +257,6 @@ function parseStatement(p: Parser): StatementNode {
 		}
 		default: {
 			return parseStatementStartWithExpr(p);
-		}
-	}
-}
-
-/**
- * ```text
- * <Expr> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <BinaryOp> / <UnaryOp> / <Identifier> / <Call>
- * ```
-*/
-function parseExpr(p: Parser): ExprNode {
-	const pos = p.getPos();
-	switch (p.getToken()) {
-		case Token.Literal: {
-			const literal = p.getLiteralValue();
-			p.next();
-			if (literal.kind == LiteralKind.Number) {
-				return newNumberLiteral(pos, parseInt(literal.value));
-			}
-			if (literal.kind == LiteralKind.Bool) {
-				return newBoolLiteral(pos, (literal.value == 'true'));
-			}
-			if (literal.kind == LiteralKind.String) {
-				return newStringLiteral(pos, literal.value);
-			}
-			throw new Error('not implemented yet');
-		}
-		case Token.Ident: {
-			const name = p.getIdentValue();
-			p.next();
-			return newIdentifier(pos, name);
-		}
-		default: {
-			throw new Error(`unexpected token: ${Token[p.getToken()]}`);
 		}
 	}
 }
@@ -216,84 +290,6 @@ function parseStatementStartWithExpr(p: Parser): StatementNode {
 			throw new Error(`unexpected token: ${Token[p.getToken()]}`);
 		}
 	}
-}
-
-/**
- * ```text
- * <FunctionDecl> = "fn" <identifier> "(" <FnDeclParams>? ")" <TyLabel>? <Block>
- * ```
-*/
-function parseFunctionDecl(p: Parser): FunctionDecl {
-	logger.debugEnter('[parse] parseFunctionDecl');
-
-	const pos = p.getPos();
-	p.next();
-
-	p.expect(Token.Ident);
-	const name = p.getIdentValue();
-	p.next();
-
-	p.expectAndNext(Token.BeginParen);
-	let params: FnDeclParam[];
-	if (!p.tokenIs(Token.EndParen)) {
-		params = parseFnDeclParams(p);
-	} else {
-		params = [];
-	}
-	p.expectAndNext(Token.EndParen);
-
-	let returnTy;
-	if (p.tokenIs(Token.Colon)) {
-		returnTy = parseTyLabel(p);
-	}
-
-	const body = parseBlock(p);
-
-	logger.debugLeave();
-	return newFunctionDecl(pos, name, params, body, returnTy);
-}
-
-//#region Statements
-
-/**
- * ```text
- * <FnDeclParams> = <FnDeclParam> ("," <FnDeclParam>)*
- * ```
-*/
-function parseFnDeclParams(p: Parser): FnDeclParam[] {
-	logger.debugEnter('[parse] parseFnDeclParams');
-
-	const accum: FnDeclParam[] = [];
-	accum.push(parseFnDeclParam(p));
-	while (p.tokenIs(Token.Comma)) {
-		p.next();
-		accum.push(parseFnDeclParam(p));
-	}
-
-	logger.debugLeave();
-	return accum;
-}
-
-/**
- * ```text
- * <FnDeclParam> = <identifier> <TyLabel>?
- * ```
-*/
-function parseFnDeclParam(p: Parser): FnDeclParam {
-	logger.debugEnter('[parse] parseFnDeclParam');
-
-	const pos = p.getPos();
-	p.expect(Token.Ident);
-	const name = p.getIdentValue();
-	p.next();
-
-	let ty;
-	if (p.tokenIs(Token.Colon)) {
-		ty = parseTyLabel(p);
-	}
-
-	logger.debugLeave();
-	return newFnDeclParam(pos, name, ty);
 }
 
 /**
@@ -408,39 +404,39 @@ function parseLoopStatement(p: Parser): LoopStatement {
 
 //#endregion Statements
 
-/**
- * ```text
- * <Block> = "{" <Statement>* "}"
- * ```
-*/
-function parseBlock(p: Parser): StatementNode[] {
-	logger.debugEnter('[parse] parseBlock');
-
-	p.expectAndNext(Token.BeginBrace);
-	const statements: StatementNode[] = [];
-	while (!p.tokenIs(Token.EndBrace)) {
-		statements.push(parseStatement(p));
-	}
-	p.expectAndNext(Token.EndBrace);
-
-	logger.debugLeave();
-	return statements;
-}
+//#region Expressions
 
 /**
  * ```text
- * <TyLabel> = ":" <identifier>
+ * <Expr> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <BinaryOp> / <UnaryOp> / <Identifier> / <Call>
  * ```
 */
-function parseTyLabel(p: Parser): TyLabel {
-	logger.debugEnter('[parse] parseTyLabel');
-
-	p.expectAndNext(Token.Colon);
+function parseExpr(p: Parser): ExprNode {
 	const pos = p.getPos();
-	p.expect(Token.Ident);
-	const name = p.getIdentValue();
-	p.next();
-
-	logger.debugLeave();
-	return newTyLabel(pos, name);
+	switch (p.getToken()) {
+		case Token.Literal: {
+			const literal = p.getLiteralValue();
+			p.next();
+			if (literal.kind == LiteralKind.Number) {
+				return newNumberLiteral(pos, parseInt(literal.value));
+			}
+			if (literal.kind == LiteralKind.Bool) {
+				return newBoolLiteral(pos, (literal.value == 'true'));
+			}
+			if (literal.kind == LiteralKind.String) {
+				return newStringLiteral(pos, literal.value);
+			}
+			throw new Error('not implemented yet');
+		}
+		case Token.Ident: {
+			const name = p.getIdentValue();
+			p.next();
+			return newIdentifier(pos, name);
+		}
+		default: {
+			throw new Error(`unexpected token: ${Token[p.getToken()]}`);
+		}
+	}
 }
+
+//#endregion Expressions
