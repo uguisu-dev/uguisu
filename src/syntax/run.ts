@@ -1,4 +1,4 @@
-import { ExprNode, FunctionDecl, isExprNode, SourceFile, StatementNode } from "./ast";
+import { ExprNode, FunctionDecl, isExprNode, SourceFile, StatementNode } from './ast';
 
 type Value = FunctionValue | NumberValue | BoolValue | StringValue;
 
@@ -199,11 +199,11 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 				}
 			}
 			case 'VariableDecl': {
-				throw new Error('not implemented yet');
+				throw new Error('not implemented yet'); // TODO
 			}
 			case 'AssignStatement': {
 				if (statement.target.kind != 'Identifier') {
-					throw new Error('not implemented yet');
+					throw new Error('not implemented yet'); // TODO
 				}
 				env.set(statement.target.name, evalExpr(env, statement.body));
 				return newNoneResult();
@@ -233,7 +233,7 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 		case 'BinaryOp':
 		case 'Call':
 		case 'UnaryOp': {
-			throw new Error('not implemented yet');
+			throw new Error('not implemented yet'); // TODO
 		}
 	}
 }
