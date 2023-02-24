@@ -11,6 +11,8 @@ export enum LiteralKind {
 	Bool,
 }
 
+export type LiteralValue = { kind: LiteralKind, value: string };
+
 const space = [' ', '\t', '\r', '\n'];
 const digit = /^[0-9]$/;
 const wordChar = /^[A-Za-z0-9_]$/;
@@ -60,7 +62,7 @@ export class Scanner {
 		return this.token;
 	}
 
-	getLiteralValue(): { kind: LiteralKind, value: string } {
+	getLiteralValue(): LiteralValue {
 		return { kind: this.literalKind, value: this.tokenValue };
 	}
 

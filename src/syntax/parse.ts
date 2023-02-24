@@ -27,7 +27,7 @@ import {
 	TyLabel,
 	VariableDecl,
 } from './ast';
-import { LiteralKind, Scanner } from './scan';
+import { LiteralKind, LiteralValue, Scanner } from './scan';
 import { Token } from './token';
 
 const logger = DebugLogger.getRootLogger().createChild();
@@ -48,15 +48,15 @@ export class Parser {
 		return this.s.getPos();
 	}
 
-	getToken() {
+	getToken(): Token {
 		return this.s.getToken();
 	}
 
-	getIdentValue() {
+	getIdentValue(): string {
 		return this.s.getIdentValue();
 	}
 
-	getLiteralValue() {
+	getLiteralValue(): LiteralValue {
 		return this.s.getLiteralValue();
 	}
 
@@ -67,7 +67,7 @@ export class Parser {
 		this.s.next();
 	}
 
-	tokenIs(token: Token) {
+	tokenIs(token: Token): boolean {
 		return (this.getToken() == token);
 	}
 
