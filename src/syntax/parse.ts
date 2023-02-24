@@ -67,12 +67,16 @@ export class Parser {
 		this.s.next();
 	}
 
+	tokenIs(token: Token) {
+		return (this.getToken() == token);
+	}
+
 	/**
 	 * Expect the current token.
 	*/
 	expect(token: Token) {
 		logger.debug(`[parse] expect (expect ${Token[token]}, actual ${Token[this.getToken()]})`);
-		if (this.getToken() != token) {
+		if (!this.tokenIs(token)) {
 			throw new Error(`unexpected token: ${Token[this.getToken()]}`);
 		}
 	}
@@ -102,7 +106,7 @@ function parseSourceFile(p: Parser, filename: string): SourceFile {
 
 	while (true) {
 		logger.debugEnter('[parse] declaration item');
-		if (p.getToken() == Token.EOF) {
+		if (p.tokenIs(Token.EOF)) {
 			logger.debugLeave();
 			break;
 		}
@@ -184,7 +188,6 @@ function parseExpr(p: Parser): ExprNode {
 }
 
 /**
- * AssignStatement or Identifier
  * ```text
  * <StatementStartWithExpr>
  *   = <Expr> ("=" / "+=" / "-=" / "*=" / "/=" / "%=") <Expr> ";"
@@ -232,7 +235,7 @@ function parseFunctionDecl(p: Parser): FunctionDecl {
 
 	p.expectAndNext(Token.BeginParen);
 	let params: FnDeclParam[];
-	if (p.getToken() != Token.EndParen) {
+	if (!p.tokenIs(Token.EndParen)) {
 		params = parseFnDeclParams(p);
 	} else {
 		params = [];
@@ -240,7 +243,7 @@ function parseFunctionDecl(p: Parser): FunctionDecl {
 	p.expectAndNext(Token.EndParen);
 
 	let returnTy;
-	if (p.getToken() == Token.Colon) {
+	if (p.tokenIs(Token.Colon)) {
 		returnTy = parseTyLabel(p);
 	}
 
@@ -262,7 +265,7 @@ function parseFnDeclParams(p: Parser): FnDeclParam[] {
 
 	const accum: FnDeclParam[] = [];
 	accum.push(parseFnDeclParam(p));
-	while (p.getToken() == Token.Comma) {
+	while (p.tokenIs(Token.Comma)) {
 		p.next();
 		accum.push(parseFnDeclParam(p));
 	}
@@ -285,7 +288,7 @@ function parseFnDeclParam(p: Parser): FnDeclParam {
 	p.next();
 
 	let ty;
-	if (p.getToken() == Token.Colon) {
+	if (p.tokenIs(Token.Colon)) {
 		ty = parseTyLabel(p);
 	}
 
@@ -308,12 +311,12 @@ function parseVariableDecl(p: Parser): VariableDecl {
 	p.next();
 
 	let ty;
-	if (p.getToken() == Token.Colon) {
+	if (p.tokenIs(Token.Colon)) {
 		ty = parseTyLabel(p);
 	}
 
 	let body;
-	if (p.getToken() == Token.Assign) {
+	if (p.tokenIs(Token.Assign)) {
 		p.next();
 		body = parseExpr(p);
 	}
@@ -350,7 +353,7 @@ function parseReturnStatement(p: Parser): ReturnStatement {
 	const pos = p.getPos();
 	p.expectAndNext(Token.Return);
 	let expr;
-	if (p.getToken() != Token.Semi) {
+	if (!p.tokenIs(Token.Semi)) {
 		expr = parseExpr(p);
 	}
 	p.expectAndNext(Token.Semi);
@@ -372,9 +375,9 @@ function parseIfStatement(p: Parser): IfStatement {
 	const cond = parseExpr(p);
 	const thenBlock = parseBlock(p);
 	let elseBlock: StatementNode[];
-	if (p.getToken() == Token.Else) {
+	if (p.tokenIs(Token.Else)) {
 		p.next();
-		if (p.getToken() == Token.If) {
+		if (p.tokenIs(Token.If)) {
 			elseBlock = [parseIfStatement(p)];
 		} else {
 			elseBlock = parseBlock(p);
@@ -415,7 +418,7 @@ function parseBlock(p: Parser): StatementNode[] {
 
 	p.expectAndNext(Token.BeginBrace);
 	const statements: StatementNode[] = [];
-	while (p.getToken() != Token.EndBrace) {
+	while (!p.tokenIs(Token.EndBrace)) {
 		statements.push(parseStatement(p));
 	}
 	p.expectAndNext(Token.EndBrace);
