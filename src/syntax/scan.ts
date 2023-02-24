@@ -132,6 +132,26 @@ export class Scanner {
 			}
 
 			switch (this.ch) {
+				case '+': {
+					this.token = Token.Plus;
+					this.nextChar();
+					break;
+				}
+				case '-': {
+					this.token = Token.Minus;
+					this.nextChar();
+					break;
+				}
+				case '*': {
+					this.token = Token.Asterisk;
+					this.nextChar();
+					break;
+				}
+				case '/': {
+					this.token = Token.Slash;
+					this.nextChar();
+					break;
+				}
 				case '{': {
 					this.token = Token.BeginBrace;
 					this.nextChar();

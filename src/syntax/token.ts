@@ -3,6 +3,14 @@ export enum Token {
 	Ident,
 	Literal,
 
+	/** "+" */
+	Plus,
+	/** "-" */
+	Minus,
+	/** "*" */
+	Asterisk,
+	/** "/" */
+	Slash,
 	/** "{" */
 	BeginBrace,
 	/** "}" */
