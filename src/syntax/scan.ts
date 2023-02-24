@@ -150,6 +150,11 @@ export class Scanner {
 					this.nextChar();
 					break;
 				}
+				case ',': {
+					this.token = Token.Comma;
+					this.nextChar();
+					break;
+				}
 				case ':': {
 					this.token = Token.Colon;
 					this.nextChar();
@@ -270,6 +275,18 @@ export class Scanner {
 			}
 			case 'break': {
 				this.token = Token.Break;
+				break;
+			}
+			case 'true': {
+				this.token = Token.Literal;
+				this.literalKind = LiteralKind.Bool;
+				this.tokenValue = buf;
+				break;
+			}
+			case 'false': {
+				this.token = Token.Literal;
+				this.literalKind = LiteralKind.Bool;
+				this.tokenValue = buf;
 				break;
 			}
 			default: {

@@ -21,18 +21,22 @@ export type FunctionDecl = {
 	kind: 'FunctionDecl',
 	pos: Pos;
 	name: string,
+	params: FnDeclParam[],
+	body: StatementNode[],
 	returnTy?: TyLabel,
 };
-export function newFunctionDecl(pos: Pos, name: string, returnTy?: TyLabel): FunctionDecl {
-	return { kind: 'FunctionDecl', pos, name, returnTy };
+export function newFunctionDecl(pos: Pos, name: string, params: FnDeclParam[], body: StatementNode[], returnTy?: TyLabel): FunctionDecl {
+	return { kind: 'FunctionDecl', pos, name, params, body, returnTy };
 }
 
 export type FnDeclParam = {
 	kind: 'FnDeclParam',
 	pos: Pos;
+	name: string;
+	ty?: TyLabel;
 };
-export function newFnDeclParam(pos: Pos): FnDeclParam {
-	return { kind: 'FnDeclParam', pos };
+export function newFnDeclParam(pos: Pos, name: string, ty?: TyLabel): FnDeclParam {
+	return { kind: 'FnDeclParam', pos, name, ty };
 }
 
 export type IfStatement = {
