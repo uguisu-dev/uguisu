@@ -11,6 +11,8 @@ import {
 	newBinaryOp,
 	newBoolLiteral,
 	newBreakStatement,
+	newCall,
+	newContinueStatement,
 	newFnDeclParam,
 	newFunctionDecl,
 	newIdentifier,
@@ -21,6 +23,7 @@ import {
 	newSourceFile,
 	newStringLiteral,
 	newTyLabel,
+	newUnaryOp,
 	newVariableDecl,
 	ReturnStatement,
 	SourceFile,
@@ -407,8 +410,8 @@ function parseLoopStatement(p: Parser): LoopStatement {
 
 //#region Expressions
 
-function parseExpr(p: Parser): ExprNode {
-	return parseExprInner(p, 1);
+export function parseExpr(p: Parser): ExprNode {
+	return parseInfix(p, 1);
 }
 
 function isBinaryOp(token: Token): boolean {
@@ -432,7 +435,7 @@ const opTable: Record<number, number> = {
 	[Token.Slash]: 2,
 };
 
-export function parseExprInner(p: Parser, minPrec: number): ExprNode {
+function parseInfix(p: Parser, minPrec: number): ExprNode {
 	// precedence climbing
 	let expr = parseAtom(p);
 	while (true) {
@@ -452,7 +455,7 @@ export function parseExprInner(p: Parser, minPrec: number): ExprNode {
 			nextMinPrec = prec;
 		}
 		p.next();
-		const rightExpr = parseExprInner(p, nextMinPrec);
+		const rightExpr = parseInfix(p, nextMinPrec);
 		expr = newBinaryOp(pos, op, expr, rightExpr);
 	}
 	return expr;
@@ -460,10 +463,30 @@ export function parseExprInner(p: Parser, minPrec: number): ExprNode {
 
 /**
  * ```text
- * <Expr> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <BinaryOp> / <UnaryOp> / <Identifier> / <Call>
+ * <Atom> = <AtomInner> <Suffix>?
  * ```
 */
 function parseAtom(p: Parser): ExprNode {
+	const expr = parseAtomInner(p);
+
+	const pos = p.getPos();
+	switch (p.getToken()) {
+		case Token.BeginParen: {
+			p.next();
+			p.expectAndNext(Token.EndParen);
+			return newCall(pos, expr, []);
+		}
+	}
+
+	return expr;
+}
+
+/**
+ * ```text
+ * <AtomInner> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <Identifier> / <Prefix> <Atom> / "(" <Expr> ")"
+ * ```
+*/
+function parseAtomInner(p: Parser): ExprNode {
 	const pos = p.getPos();
 	switch (p.getToken()) {
 		case Token.Literal: {
@@ -484,6 +507,11 @@ function parseAtom(p: Parser): ExprNode {
 			const name = p.getIdentValue();
 			p.next();
 			return newIdentifier(pos, name);
+		}
+		case Token.Not: {
+			p.next();
+			const expr = parseAtom(p);
+			return newUnaryOp(pos, Token.Not, expr);
 		}
 		case Token.BeginParen: {
 			p.next();
