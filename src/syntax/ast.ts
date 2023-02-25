@@ -96,11 +96,11 @@ export function newStringLiteral(pos: Pos, value: string): StringLiteral {
 export type BinaryOp = {
 	kind: 'BinaryOp',
 	pos: Pos;
-	operator: Token,
+	operator: string,
 	left: ExprNode,
 	right: ExprNode,
 };
-export function newBinaryOp(pos: Pos, operator: Token, left: ExprNode, right: ExprNode): BinaryOp {
+export function newBinaryOp(pos: Pos, operator: string, left: ExprNode, right: ExprNode): BinaryOp {
 	return { kind: 'BinaryOp', pos, operator, left, right };
 }
 

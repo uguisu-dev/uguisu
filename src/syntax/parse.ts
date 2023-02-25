@@ -428,11 +428,13 @@ function isBinaryOp(token: Token): boolean {
 	}
 }
 
-const opTable: Record<number, number> = {
-	[Token.Plus]: 1,
-	[Token.Minus]: 1,
-	[Token.Asterisk]: 2,
-	[Token.Slash]: 2,
+type OpInfo = { prec: number, assoc: 'left' | 'right' };
+
+const opTable: Record<number, OpInfo> = {
+	[Token.Plus]: { prec: 1, assoc: 'left' },
+	[Token.Minus]: { prec: 1, assoc: 'left' },
+	[Token.Asterisk]: { prec: 2, assoc: 'left' },
+	[Token.Slash]: { prec: 2, assoc: 'left' },
 };
 
 function parseInfix(p: Parser, minPrec: number): ExprNode {
@@ -445,19 +447,19 @@ function parseInfix(p: Parser, minPrec: number): ExprNode {
 		if (op == Token.EOF || !isBinaryOp(op)) {
 			break;
 		}
-		const prec = opTable[op];
-		if (prec < minPrec) {
+		const info = opTable[op];
+		if (info.prec < minPrec) {
 			break;
 		}
 		let nextMinPrec;
-		if (true) { // left associative
-			nextMinPrec = prec + 1;
+		if (info.assoc == 'left') {
+			nextMinPrec = info.prec + 1;
 		} else {
-			nextMinPrec = prec;
+			nextMinPrec = info.prec;
 		}
 		p.next();
 		const rightExpr = parseInfix(p, nextMinPrec);
-		expr = newBinaryOp(pos, op, expr, rightExpr);
+		expr = newBinaryOp(pos, Token[op], expr, rightExpr);
 	}
 	return expr;
 }
