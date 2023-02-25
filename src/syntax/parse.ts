@@ -485,6 +485,12 @@ function parseAtom(p: Parser): ExprNode {
 			p.next();
 			return newIdentifier(pos, name);
 		}
+		case Token.BeginParen: {
+			p.next();
+			const expr = parseExpr(p);
+			p.expectAndNext(Token.EndParen);
+			return expr;
+		}
 		default: {
 			throw new Error(`unexpected token: ${Token[p.getToken()]}`);
 		}
