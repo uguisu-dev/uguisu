@@ -11,6 +11,8 @@ export enum Token {
 	Asterisk,
 	/** "/" */
 	Slash,
+	/** "%" */
+	Percent,
 	/** "{" */
 	BeginBrace,
 	/** "}" */
@@ -41,6 +43,14 @@ export enum Token {
 	Not,
 	/** "!=" */
 	NotEq,
+	/** "|" */
+	Or,
+	/** "&" */
+	And,
+	/** "||" */
+	Or2,
+	/** "&&" */
+	And2,
 
 	/** "fn" */
 	Fn,

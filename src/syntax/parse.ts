@@ -414,28 +414,29 @@ export function parseExpr(p: Parser): ExprNode {
 	return parseInfix(p, 1);
 }
 
-function isBinaryOp(token: Token): boolean {
-	switch (token) {
-		case Token.Plus:
-		case Token.Minus:
-		case Token.Asterisk:
-		case Token.Slash: {
-			return true;
-		}
-		default: {
-			return false;
-		}
-	}
-}
-
 type OpInfo = { prec: number, assoc: 'left' | 'right' };
 
-const opTable: Record<number, OpInfo> = {
-	[Token.Plus]: { prec: 1, assoc: 'left' },
-	[Token.Minus]: { prec: 1, assoc: 'left' },
-	[Token.Asterisk]: { prec: 2, assoc: 'left' },
-	[Token.Slash]: { prec: 2, assoc: 'left' },
-};
+const opTable: Map<number, OpInfo> = new Map([
+	// 1
+	[Token.Or2, { prec: 1, assoc: 'left' }],
+	// 2
+	[Token.And2, { prec: 2, assoc: 'left' }],
+	// 3
+	[Token.Eq, { prec: 3, assoc: 'left' }],
+	[Token.NotEq, { prec: 3, assoc: 'left' }],
+	// 4
+	[Token.LessThan, { prec: 4, assoc: 'left' }],
+	[Token.LessThanEq, { prec: 4, assoc: 'left' }],
+	[Token.GreaterThan, { prec: 4, assoc: 'left' }],
+	[Token.GreaterThanEq, { prec: 4, assoc: 'left' }],
+	// 5
+	[Token.Plus, { prec: 5, assoc: 'left' }],
+	[Token.Minus, { prec: 5, assoc: 'left' }],
+	// 6
+	[Token.Asterisk, { prec: 6, assoc: 'left' }],
+	[Token.Slash, { prec: 6, assoc: 'left' }],
+	[Token.Percent, { prec: 6, assoc: 'left' }],
+]);
 
 function parseInfix(p: Parser, minPrec: number): ExprNode {
 	// precedence climbing
@@ -444,11 +445,8 @@ function parseInfix(p: Parser, minPrec: number): ExprNode {
 	while (true) {
 		const pos = p.getPos();
 		const op = p.getToken();
-		if (op == Token.EOF || !isBinaryOp(op)) {
-			break;
-		}
-		const info = opTable[op];
-		if (info.prec < minPrec) {
+		const info = opTable.get(op);
+		if (info == null || info.prec < minPrec) {
 			break;
 		}
 		let nextMinPrec;

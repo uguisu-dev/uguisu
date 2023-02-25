@@ -230,6 +230,26 @@ export class Scanner {
 					}
 					break;
 				}
+				case '&': {
+					this.nextChar();
+					if (this.ch == '&') {
+						this.token = Token.And2;
+						this.nextChar();
+					} else {
+						this.token = Token.And;
+					}
+					break;
+				}
+				case '|': {
+					this.nextChar();
+					if (this.ch == '|') {
+						this.token = Token.Or2;
+						this.nextChar();
+					} else {
+						this.token = Token.Or;
+					}
+					break;
+				}
 				case '"': {
 					this.readString();
 					break;
