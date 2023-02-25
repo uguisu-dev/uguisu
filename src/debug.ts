@@ -10,10 +10,7 @@ async function entry() {
 	try {
 		parser.setup();
 		const ast = parser.parse(filename);
-		function replacer(k: string, v: any): any {
-			return v;
-		}
-		//console.log(JSON.stringify(ast, replacer, '  '));
+		console.log(JSON.stringify(ast, null, '  '));
 		const runner = new Runner(ast);
 		const value = runner.run();
 		console.log(value);
