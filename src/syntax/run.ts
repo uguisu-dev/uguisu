@@ -83,7 +83,14 @@ class Env {
 	}
 
 	get(name: string): Value | undefined {
-		return this.frames[0].get(name);
+		// TODO: lookup as static scope
+		for (const frame of this.frames) {
+			const value = frame.get(name);
+			if (value != null) {
+				return value;
+			}
+		}
+		return undefined;
 	}
 
 	pushFrame() {
@@ -191,6 +198,9 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 			}
 			case 'IfStatement': {
 				const cond = evalExpr(env, statement.cond);
+				if (cond == null) {
+					throw new Error('no values');
+				}
 				asBoolValue(cond);
 				if (cond.value) {
 					return execBlock(env, statement.thenBlock);
@@ -199,20 +209,35 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 				}
 			}
 			case 'VariableDecl': {
-				throw new Error('not implemented yet'); // TODO
+				const body = statement.body;
+				if (body == null) {
+					// TODO: allow defining variables later
+					throw new Error('variable not defined');
+				}
+				const value = evalExpr(env, body);
+				if (value == null) {
+					throw new Error('no values');
+				}
+				// TODO: consider symbol system
+				env.set(statement.name, value);
+				return newNoneResult();
 			}
 			case 'AssignStatement': {
 				if (statement.target.kind != 'Identifier') {
 					throw new Error('not implemented yet'); // TODO
 				}
-				env.set(statement.target.name, evalExpr(env, statement.body));
+				const value = evalExpr(env, statement.body);
+				if (value == null) {
+					throw new Error('no values');
+				}
+				env.set(statement.target.name, value);
 				return newNoneResult();
 			}
 		}
 	}
 }
 
-function evalExpr(env: Env, expr: ExprNode): Value {
+function evalExpr(env: Env, expr: ExprNode): Value | undefined {
 	switch (expr.kind) {
 		case 'Identifier': {
 			const value = env.get(expr.name);
@@ -230,8 +255,22 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 		case 'StringLiteral': {
 			return newStringValue(expr.value);
 		}
+		case 'Call': {
+			const callee = evalExpr(env, expr.callee);
+			if (callee == null) {
+				throw new Error('no values');
+			}
+			asFunctionValue(callee);
+			const args = expr.args.map(i => {
+				const value = evalExpr(env, i);
+				if (value == null) {
+					throw new Error('no values');
+				}
+				return value;
+			});
+			return callFunction(env, callee, args);
+		}
 		case 'BinaryOp':
-		case 'Call':
 		case 'UnaryOp': {
 			throw new Error('not implemented yet'); // TODO
 		}
