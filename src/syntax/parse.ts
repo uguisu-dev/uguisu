@@ -473,10 +473,21 @@ function parseAtom(p: Parser): ExprNode {
 
 	const pos = p.getPos();
 	switch (p.getToken()) {
-		case Token.BeginParen: {
+		case Token.BeginParen: { // call
 			p.next();
+			const args: ExprNode[] = [];
+			if (!p.tokenIs(Token.EndParen)) {
+				args.push(parseExpr(p));
+				while (p.tokenIs(Token.Comma)) {
+					p.next();
+					if (p.tokenIs(Token.EndParen)) {
+						break;
+					}
+					args.push(parseExpr(p));
+				}
+			}
 			p.expectAndNext(Token.EndParen);
-			expr = newCall(pos, expr, []);
+			expr = newCall(pos, expr, args);
 		}
 	}
 
