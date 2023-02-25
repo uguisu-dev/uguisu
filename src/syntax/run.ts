@@ -1,54 +1,54 @@
 import { ExprNode, FunctionDecl, isExprNode, SourceFile, StatementNode } from './ast';
 
-type Value = FunctionValue | NumberValue | BoolValue | StringValue;
+export type Value = FunctionValue | NumberValue | BoolValue | StringValue;
 
-type FunctionValue = {
+export type FunctionValue = {
 	kind: 'FunctionValue',
 	node: FunctionDecl;
 };
-function newFunctionValue(node: FunctionDecl): FunctionValue {
+export function newFunctionValue(node: FunctionDecl): FunctionValue {
 	return { kind: 'FunctionValue', node };
 }
-function asFunctionValue(value: Value): asserts value is FunctionValue {
+export function asFunctionValue(value: Value): asserts value is FunctionValue {
 	if (value.kind != 'FunctionValue') {
 		throw new Error(`type mismatched. expected \`fn\`, found \`${getTypeName(value)}\``);
 	}
 }
 
-type NumberValue = {
+export type NumberValue = {
 	kind: 'NumberValue',
 	value: number,
 };
-function newNumberValue(value: number): NumberValue {
+export function newNumberValue(value: number): NumberValue {
 	return { kind: 'NumberValue', value };
 }
-function asNumberValue(value: Value): asserts value is NumberValue {
+export function asNumberValue(value: Value): asserts value is NumberValue {
 	if (value.kind != 'NumberValue') {
 		throw new Error(`type mismatched. expected \`number\`, found \`${getTypeName(value)}\``);
 	}
 }
 
-type BoolValue = {
+export type BoolValue = {
 	kind: 'BoolValue',
 	value: boolean,
 };
-function newBoolValue(value: boolean): BoolValue {
+export function newBoolValue(value: boolean): BoolValue {
 	return { kind: 'BoolValue', value };
 }
-function asBoolValue(value: Value): asserts value is BoolValue {
+export function asBoolValue(value: Value): asserts value is BoolValue {
 	if (value.kind != 'BoolValue') {
 		throw new Error(`type mismatched. expected \`bool\`, found \`${getTypeName(value)}\``);
 	}
 }
 
-type StringValue = {
+export type StringValue = {
 	kind: 'StringValue',
 	value: string,
 };
-function newStringValue(value: string): StringValue {
+export function newStringValue(value: string): StringValue {
 	return { kind: 'StringValue', value };
 }
-function asStringValue(value: Value): asserts value is StringValue {
+export function asStringValue(value: Value): asserts value is StringValue {
 	if (value.kind != 'StringValue') {
 		throw new Error(`type mismatched. expected \`string\`, found \`${getTypeName(value)}\``);
 	}
