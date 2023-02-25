@@ -437,6 +437,7 @@ const opTable: Record<number, number> = {
 
 function parseInfix(p: Parser, minPrec: number): ExprNode {
 	// precedence climbing
+	// https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
 	let expr = parseAtom(p);
 	while (true) {
 		const pos = p.getPos();
