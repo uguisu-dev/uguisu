@@ -5,6 +5,7 @@ import { Token } from '../src/syntax/token';
 function setupTest(input: string) {
 	const s = new Scanner(input);
 	s.setup();
+	s.next();
 	return s;
 }
 
@@ -14,7 +15,7 @@ function assertToken(s: Scanner, token: Token) {
 
 function assertLiteralToken(s: Scanner, kind: LiteralKind, value: string) {
 	assertToken(s, Token.Literal);
-	assert.strictEqual(s.getLiteralValue(), { kind, value } as LiteralValue);
+	assert.deepStrictEqual(s.getLiteralValue(), { kind, value } as LiteralValue);
 }
 
 test('eof', () => {
@@ -32,7 +33,7 @@ test('identifier', () => {
 	assert.strictEqual(s.getIdentValue(), 'aaa123');
 	s.next();
 	assertToken(s, Token.Ident);
-	assert.strictEqual(s.getIdentValue(), 'xyz789');
+	assert.strictEqual(s.getIdentValue(), 'xyz456');
 	s.next();
 	assertToken(s, Token.EOF);
 });
@@ -61,9 +62,9 @@ describe('literal token', () => {
 	test('bool literal', () => {
 		const input = 'true false';
 		const s = setupTest(input);
-		assertLiteralToken(s, LiteralKind.String, 'true');
+		assertLiteralToken(s, LiteralKind.Bool, 'true');
 		s.next();
-		assertLiteralToken(s, LiteralKind.String, 'false');
+		assertLiteralToken(s, LiteralKind.Bool, 'false');
 		s.next();
 		assertToken(s, Token.EOF);
 	});
