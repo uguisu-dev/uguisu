@@ -8,6 +8,7 @@ import {
 	IfStatement,
 	LoopStatement,
 	newAssignStatement,
+	newBinaryOp,
 	newBoolLiteral,
 	newBreakStatement,
 	newFnDeclParam,
@@ -406,12 +407,63 @@ function parseLoopStatement(p: Parser): LoopStatement {
 
 //#region Expressions
 
+function parseExpr(p: Parser): ExprNode {
+	return parseExprInner(p, 1);
+}
+
+function isBinaryOp(token: Token): boolean {
+	switch (token) {
+		case Token.Plus:
+		case Token.Minus:
+		case Token.Asterisk:
+		case Token.Slash: {
+			return true;
+		}
+		default: {
+			return false;
+		}
+	}
+}
+
+const opTable: Record<number, number> = {
+	[Token.Plus]: 1,
+	[Token.Minus]: 1,
+	[Token.Asterisk]: 2,
+	[Token.Slash]: 2,
+};
+
+export function parseExprInner(p: Parser, minPrec: number): ExprNode {
+	// precedence climbing
+	let expr = parseAtom(p);
+	while (true) {
+		const pos = p.getPos();
+		const op = p.getToken();
+		if (op == Token.EOF || !isBinaryOp(op)) {
+			break;
+		}
+		const prec = opTable[op];
+		if (prec < minPrec) {
+			break;
+		}
+		let nextMinPrec;
+		if (true) { // left associative
+			nextMinPrec = prec + 1;
+		} else {
+			nextMinPrec = prec;
+		}
+		p.next();
+		const rightExpr = parseExprInner(p, nextMinPrec);
+		expr = newBinaryOp(pos, op, expr, rightExpr);
+	}
+	return expr;
+}
+
 /**
  * ```text
  * <Expr> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <BinaryOp> / <UnaryOp> / <Identifier> / <Call>
  * ```
 */
-function parseExpr(p: Parser): ExprNode {
+function parseAtom(p: Parser): ExprNode {
 	const pos = p.getPos();
 	switch (p.getToken()) {
 		case Token.Literal: {
