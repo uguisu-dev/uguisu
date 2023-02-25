@@ -1,6 +1,7 @@
 import { DebugLogger } from '../logger';
 import {
 	AssignMode,
+	BinaryOperator,
 	BreakStatement,
 	ExprNode,
 	FnDeclParam,
@@ -12,7 +13,6 @@ import {
 	newBoolLiteral,
 	newBreakStatement,
 	newCall,
-	newContinueStatement,
 	newFnDeclParam,
 	newFunctionDecl,
 	newIdentifier,
@@ -29,6 +29,7 @@ import {
 	SourceFile,
 	StatementNode,
 	TyLabel,
+	UnaryOperator,
 	VariableDecl,
 } from './ast';
 import { LiteralKind, LiteralValue, Scanner } from './scan';
@@ -411,31 +412,31 @@ function parseLoopStatement(p: Parser): LoopStatement {
 //#region Expressions
 
 export function parseExpr(p: Parser): ExprNode {
-	return parseInfix(p, 1);
+	return parseInfix(p, 0);
 }
 
-type OpInfo = { prec: number, assoc: 'left' | 'right' };
+type OpInfo = { prec: number, assoc: 'left' | 'right', op: BinaryOperator };
 
 const opTable: Map<number, OpInfo> = new Map([
 	// 1
-	[Token.Or2, { prec: 1, assoc: 'left' }],
+	[Token.Or2, { prec: 1, assoc: 'left', op: BinaryOperator.LogicalOr }],
 	// 2
-	[Token.And2, { prec: 2, assoc: 'left' }],
+	[Token.And2, { prec: 2, assoc: 'left', op: BinaryOperator.LogicalAnd }],
 	// 3
-	[Token.Eq, { prec: 3, assoc: 'left' }],
-	[Token.NotEq, { prec: 3, assoc: 'left' }],
+	[Token.Eq, { prec: 3, assoc: 'left', op: BinaryOperator.Eq }],
+	[Token.NotEq, { prec: 3, assoc: 'left', op: BinaryOperator.NotEq }],
 	// 4
-	[Token.LessThan, { prec: 4, assoc: 'left' }],
-	[Token.LessThanEq, { prec: 4, assoc: 'left' }],
-	[Token.GreaterThan, { prec: 4, assoc: 'left' }],
-	[Token.GreaterThanEq, { prec: 4, assoc: 'left' }],
+	[Token.LessThan, { prec: 4, assoc: 'left', op: BinaryOperator.LessThan }],
+	[Token.LessThanEq, { prec: 4, assoc: 'left', op: BinaryOperator.LessThanEq }],
+	[Token.GreaterThan, { prec: 4, assoc: 'left', op: BinaryOperator.GreaterThan }],
+	[Token.GreaterThanEq, { prec: 4, assoc: 'left', op: BinaryOperator.GreaterThanEq }],
 	// 5
-	[Token.Plus, { prec: 5, assoc: 'left' }],
-	[Token.Minus, { prec: 5, assoc: 'left' }],
+	[Token.Plus, { prec: 5, assoc: 'left', op: BinaryOperator.Add }],
+	[Token.Minus, { prec: 5, assoc: 'left', op: BinaryOperator.Sub }],
 	// 6
-	[Token.Asterisk, { prec: 6, assoc: 'left' }],
-	[Token.Slash, { prec: 6, assoc: 'left' }],
-	[Token.Percent, { prec: 6, assoc: 'left' }],
+	[Token.Asterisk, { prec: 6, assoc: 'left', op: BinaryOperator.Mult }],
+	[Token.Slash, { prec: 6, assoc: 'left', op: BinaryOperator.Div }],
+	[Token.Percent, { prec: 6, assoc: 'left', op: BinaryOperator.Mod }],
 ]);
 
 function parseInfix(p: Parser, minPrec: number): ExprNode {
@@ -457,7 +458,7 @@ function parseInfix(p: Parser, minPrec: number): ExprNode {
 		}
 		p.next();
 		const rightExpr = parseInfix(p, nextMinPrec);
-		expr = newBinaryOp(pos, Token[op], expr, rightExpr);
+		expr = newBinaryOp(pos, info.op, expr, rightExpr);
 	}
 	return expr;
 }
@@ -468,14 +469,14 @@ function parseInfix(p: Parser, minPrec: number): ExprNode {
  * ```
 */
 function parseAtom(p: Parser): ExprNode {
-	const expr = parseAtomInner(p);
+	let expr = parseAtomInner(p);
 
 	const pos = p.getPos();
 	switch (p.getToken()) {
 		case Token.BeginParen: {
 			p.next();
 			p.expectAndNext(Token.EndParen);
-			return newCall(pos, expr, []);
+			expr = newCall(pos, expr, []);
 		}
 	}
 
@@ -512,7 +513,7 @@ function parseAtomInner(p: Parser): ExprNode {
 		case Token.Not: {
 			p.next();
 			const expr = parseAtom(p);
-			return newUnaryOp(pos, Token.Not, expr);
+			return newUnaryOp(pos, UnaryOperator.Not, expr);
 		}
 		case Token.BeginParen: {
 			p.next();

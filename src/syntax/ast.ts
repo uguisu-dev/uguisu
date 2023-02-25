@@ -96,21 +96,39 @@ export function newStringLiteral(pos: Pos, value: string): StringLiteral {
 export type BinaryOp = {
 	kind: 'BinaryOp',
 	pos: Pos;
-	operator: string,
+	operator: BinaryOperator,
 	left: ExprNode,
 	right: ExprNode,
 };
-export function newBinaryOp(pos: Pos, operator: string, left: ExprNode, right: ExprNode): BinaryOp {
+export enum BinaryOperator {
+	LogicalOr,
+	LogicalAnd,
+	Eq,
+	NotEq,
+	LessThan,
+	LessThanEq,
+	GreaterThan,
+	GreaterThanEq,
+	Add,
+	Sub,
+	Mult,
+	Div,
+	Mod,
+}
+export function newBinaryOp(pos: Pos, operator: BinaryOperator, left: ExprNode, right: ExprNode): BinaryOp {
 	return { kind: 'BinaryOp', pos, operator, left, right };
 }
 
 export type UnaryOp = {
 	kind: 'UnaryOp',
 	pos: Pos;
-	operator: Token,
+	operator: UnaryOperator,
 	expr: ExprNode,
 };
-export function newUnaryOp(pos: Pos, operator: Token, expr: ExprNode): UnaryOp {
+export enum UnaryOperator {
+	Not,
+}
+export function newUnaryOp(pos: Pos, operator: UnaryOperator, expr: ExprNode): UnaryOp {
 	return { kind: 'UnaryOp', pos, operator, expr };
 }
 
