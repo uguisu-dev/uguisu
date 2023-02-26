@@ -1,13 +1,20 @@
+import { setBuiltinRuntimes } from '../builtins';
 import { ExprNode, FunctionDecl, isExprNode, isLogicalBinaryOperator, isRelationalOperator, SourceFile, StatementNode } from './ast';
 
-export type Value = FunctionValue | NumberValue | BoolValue | StringValue;
+export type Value = FunctionValue | NumberValue | BoolValue | StringValue | NoneValue;
+
+export type NativeFuncHandler = (args: Value[]) => Value;
 
 export type FunctionValue = {
 	kind: 'FunctionValue',
-	node: FunctionDecl;
+	node?: FunctionDecl,
+	native?: NativeFuncHandler,
 };
 export function newFunctionValue(node: FunctionDecl): FunctionValue {
 	return { kind: 'FunctionValue', node };
+}
+export function newNativeFunctionValue(native: NativeFuncHandler): FunctionValue {
+	return { kind: 'FunctionValue', native };
 }
 export function asFunctionValue(value: Value): asserts value is FunctionValue {
 	if (value.kind != 'FunctionValue') {
@@ -54,8 +61,21 @@ export function asStringValue(value: Value): asserts value is StringValue {
 	}
 }
 
+export type NoneValue = {
+	kind: 'NoneValue',
+}
+export function newNoneValue(): NoneValue {
+	return { kind: 'NoneValue' };
+}
+export function isNoneValue(value: Value): value is NoneValue {
+	return (value.kind == 'NoneValue');
+}
+
 function getTypeName(value: Value): string {
 	switch (value.kind) {
+		case 'NoneValue': {
+			return 'none';
+		}
 		case 'FunctionValue': {
 			return 'fn';
 		}
@@ -71,7 +91,7 @@ function getTypeName(value: Value): string {
 	}
 }
 
-class Env {
+export class Env {
 	frames: Map<string, Value>[];
 
 	constructor() {
@@ -102,27 +122,28 @@ class Env {
 	}
 }
 
-type StatementResult = {
-	kind: StatementResultKind,
-	value?: Value,
+export type StatementResult = NoneResult | ReturnResult | BreakResult;
+
+export type NoneResult = {
+	kind: 'NoneResult',
 };
-
-enum StatementResultKind {
-	None,
-	Return,
-	Break,
+export function newNoneResult(): NoneResult {
+	return { kind: 'NoneResult' };
 }
 
-function newNoneResult(): StatementResult {
-	return { kind: StatementResultKind.None };
+export type ReturnResult = {
+	kind: 'ReturnResult',
+	value: Value,
+};
+export function newReturnResult(value: Value): ReturnResult {
+	return { kind: 'ReturnResult', value };
 }
 
-function newReturnResult(value?: Value): StatementResult {
-	return { kind: StatementResultKind.Return, value };
-}
-
-function newBreakResult(): StatementResult {
-	return { kind: StatementResultKind.Break };
+export type BreakResult = {
+	kind: 'BreakResult',
+};
+export function newBreakResult(): BreakResult {
+	return { kind: 'BreakResult' };
 }
 
 export class Runner {
@@ -135,6 +156,7 @@ export class Runner {
 	}
 
 	run() {
+		setBuiltinRuntimes(this.env);
 		evalSourceFile(this.env, this.source);
 		const func = this.env.get('main');
 		if (func == null) {
@@ -151,22 +173,31 @@ function evalSourceFile(env: Env, source: SourceFile) {
 	}
 }
 
-function callFunction(env: Env, func: FunctionValue, args: Value[]): Value | undefined {
+function callFunction(env: Env, func: FunctionValue, args: Value[]): Value {
 	env.pushFrame();
-	let i = 0;
-	while (i < func.node.params.length) {
-		const param = func.node.params[i];
-		const arg = args[i];
-		env.set(param.name, arg);
-		i++;
-	}
-	const result = execBlock(env, func.node.body);
-	env.popFrame();
+	if (func.node != null) {
+		if (func.node.params.length != args.length) {
+			throw new Error('invalid arguments count');
+		}
+		let i = 0;
+		while (i < func.node.params.length) {
+			const param = func.node.params[i];
+			const arg = args[i];
+			env.set(param.name, arg);
+			i++;
+		}
+		const result = execBlock(env, func.node.body);
+		env.popFrame();
 
-	if (result.kind == StatementResultKind.Return) {
-		return result.value;
+		if (result.kind == 'ReturnResult') {
+			return result.value;
+		}
+		return newNoneValue();
+	} else if (func.native != null) {
+		return func.native(args);
+	} else {
+		throw new Error('invalid function');
 	}
-	return undefined;
 }
 
 function execStatement(env: Env, statement: StatementNode): StatementResult {
@@ -179,7 +210,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 				if (statement.expr != null) {
 					return newReturnResult(evalExpr(env, statement.expr));
 				} else {
-					return newReturnResult();
+					return newReturnResult(newNoneValue());
 				}
 			}
 			case 'BreakStatement': {
@@ -188,9 +219,9 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 			case 'LoopStatement': {
 				while (true) {
 					const result = execBlock(env, statement.block);
-					if (result.kind == StatementResultKind.Return) {
+					if (result.kind == 'ReturnResult') {
 						return result;
-					} else if (result.kind == StatementResultKind.Break) {
+					} else if (result.kind == 'BreakResult') {
 						break;
 					}
 				}
@@ -198,7 +229,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 			}
 			case 'IfStatement': {
 				const cond = evalExpr(env, statement.cond);
-				if (cond == null) {
+				if (isNoneValue(cond)) {
 					throw new Error('no values');
 				}
 				asBoolValue(cond);
@@ -215,7 +246,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 					throw new Error('variable not defined');
 				}
 				const value = evalExpr(env, body);
-				if (value == null) {
+				if (isNoneValue(value)) {
 					throw new Error('no values');
 				}
 				// TODO: consider symbol system
@@ -227,7 +258,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 					throw new Error('unsupported assignee');
 				}
 				const value = evalExpr(env, statement.body);
-				if (value == null) {
+				if (isNoneValue(value)) {
 					throw new Error('no values');
 				}
 				env.set(statement.target.name, value);
@@ -237,7 +268,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 	}
 }
 
-function evalExpr(env: Env, expr: ExprNode): Value | undefined {
+function evalExpr(env: Env, expr: ExprNode): Value {
 	switch (expr.kind) {
 		case 'Identifier': {
 			const value = env.get(expr.name);
@@ -257,13 +288,13 @@ function evalExpr(env: Env, expr: ExprNode): Value | undefined {
 		}
 		case 'Call': {
 			const callee = evalExpr(env, expr.callee);
-			if (callee == null) {
+			if (isNoneValue(callee)) {
 				throw new Error('no values');
 			}
 			asFunctionValue(callee);
 			const args = expr.args.map(i => {
 				const value = evalExpr(env, i);
-				if (value == null) {
+				if (isNoneValue(value)) {
 					throw new Error('no values');
 				}
 				return value;
@@ -273,10 +304,10 @@ function evalExpr(env: Env, expr: ExprNode): Value | undefined {
 		case 'BinaryOp': {
 			const left = evalExpr(env, expr.left);
 			const right = evalExpr(env, expr.right);
-			if (left == null) {
+			if (isNoneValue(left)) {
 				throw new Error('no values');
 			}
-			if (right == null) {
+			if (isNoneValue(left)) {
 				throw new Error('no values');
 			}
 			if (isLogicalBinaryOperator(expr.operator)) {
@@ -406,7 +437,7 @@ function evalExpr(env: Env, expr: ExprNode): Value | undefined {
 		}
 		case 'UnaryOp': {
 			const value = evalExpr(env, expr.expr);
-			if (value == null) {
+			if (isNoneValue(value)) {
 				throw new Error('no values');
 			}
 			// Logical Operation
@@ -424,9 +455,9 @@ function evalExpr(env: Env, expr: ExprNode): Value | undefined {
 function execBlock(env: Env, block: StatementNode[]): StatementResult {
 	for (const statement of block) {
 		const result = execStatement(env, statement);
-		if (result.kind == StatementResultKind.Return) {
+		if (result.kind == 'ReturnResult') {
 			return result;
-		} else if (result.kind == StatementResultKind.Break) {
+		} else if (result.kind == 'BreakResult') {
 			return result;
 		}
 	}
