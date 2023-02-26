@@ -24,14 +24,25 @@ fn main() {
 - English (Not translated yet.)
 - [日本語](https://github.com/uguisu-dev/uguisu/blob/v0.6.0/docs/syntaxes_ja.md)
 
+## Install
+```
+$ npm i -g uguisu-js
+$ uguisu-js run example.ug
+```
+
+Temporary using with npx:
+```
+$ npx uguisu-js run example.ug
+```
+
 ## Usage
 ```
-Usage: uguisu [options] [commands]
+Usage: uguisu-js [options] [commands]
 
 Examples:
-    uguisu run <filename>
-    uguisu <command> -h
-    uguisu -v
+    uguisu-js run <filename>
+    uguisu-js <command> -h
+    uguisu-js -v
 
 Options:
     -h, --help          Print help message.

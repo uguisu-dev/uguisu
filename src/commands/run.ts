@@ -29,10 +29,10 @@ function getopts(args: string[]): Match {
 
 function showHelp() {
 	const lines = [
-		'Usage: uguisu run [options] [filename]',
+		'Usage: uguisu-js run [options] [filename]',
 		'',
 		'Examples:',
-		'    uguisu run <filename>',
+		'    uguisu-js run <filename>',
 		'',
 		'Options:',
 		'    -h, --help          Print help message.',

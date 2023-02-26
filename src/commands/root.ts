@@ -31,12 +31,12 @@ function getopts(args: string[]): Match {
 
 function showHelp() {
 	const lines = [
-		'Usage: uguisu [options] [commands]',
+		'Usage: uguisu-js [options] [commands]',
 		'',
 		'Examples:',
-		'    uguisu run <filename>',
-		'    uguisu <command> -h',
-		'    uguisu -v',
+		'    uguisu-js run <filename>',
+		'    uguisu-js <command> -h',
+		'    uguisu-js -v',
 		'',
 		'Options:',
 		'    -h, --help          Print help message.',
@@ -50,7 +50,7 @@ function showHelp() {
 
 function showVersion() {
 	const info = require('../../package.json');
-	console.log(`uguisu ${info.version}`);
+	console.log(`uguisu-js ${info.version}`);
 }
 
 export function command(args: string[]) {
