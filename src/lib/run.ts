@@ -1,5 +1,5 @@
 import { setBuiltinRuntimes } from './builtins';
-import { ExprNode, FunctionDecl, isExprNode, isLogicalBinaryOperator, isRelationalOperator, SourceFile, StatementNode } from './syntax/ast';
+import { AssignMode, ExprNode, FunctionDecl, isExprNode, isLogicalBinaryOperator, isRelationalOperator, SourceFile, StatementNode } from './syntax/ast';
 
 export type Value = FunctionValue | NumberValue | BoolValue | StringValue | NoneValue;
 
@@ -255,11 +255,71 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 				if (statement.target.kind != 'Identifier') {
 					throw new Error('unsupported assignee');
 				}
-				const value = evalExpr(env, statement.body);
-				if (isNoneValue(value)) {
+				const bodyValue = evalExpr(env, statement.body);
+				if (isNoneValue(bodyValue)) {
 					throw new Error('no values');
 				}
-				env.set(statement.target.name, value);
+				switch (statement.mode) {
+					case AssignMode.Assign: {
+						env.set(statement.target.name, bodyValue);
+						break;
+					}
+					case AssignMode.AddAssign: {
+						const restoredValue = env.get(statement.target.name);
+						if (restoredValue == null) {
+							throw new Error('variable is not defined');
+						}
+						asNumberValue(restoredValue);
+						asNumberValue(bodyValue);
+						const value = newNumberValue(restoredValue.value + bodyValue.value);
+						env.set(statement.target.name, value);
+						break;
+					}
+					case AssignMode.SubAssign: {
+						const restoredValue = env.get(statement.target.name);
+						if (restoredValue == null) {
+							throw new Error('variable is not defined');
+						}
+						asNumberValue(restoredValue);
+						asNumberValue(bodyValue);
+						const value = newNumberValue(restoredValue.value - bodyValue.value);
+						env.set(statement.target.name, value);
+						break;
+					}
+					case AssignMode.MultAssign: {
+						const restoredValue = env.get(statement.target.name);
+						if (restoredValue == null) {
+							throw new Error('variable is not defined');
+						}
+						asNumberValue(restoredValue);
+						asNumberValue(bodyValue);
+						const value = newNumberValue(restoredValue.value * bodyValue.value);
+						env.set(statement.target.name, value);
+						break;
+					}
+					case AssignMode.DivAssign: {
+						const restoredValue = env.get(statement.target.name);
+						if (restoredValue == null) {
+							throw new Error('variable is not defined');
+						}
+						asNumberValue(restoredValue);
+						asNumberValue(bodyValue);
+						const value = newNumberValue(restoredValue.value / bodyValue.value);
+						env.set(statement.target.name, value);
+						break;
+					}
+					case AssignMode.ModAssign: {
+						const restoredValue = env.get(statement.target.name);
+						if (restoredValue == null) {
+							throw new Error('variable is not defined');
+						}
+						asNumberValue(restoredValue);
+						asNumberValue(bodyValue);
+						const value = newNumberValue(restoredValue.value % bodyValue.value);
+						env.set(statement.target.name, value);
+						break;
+					}
+				}
 				return newNoneResult();
 			}
 		}

@@ -192,6 +192,11 @@ export function newLoopStatement(pos: Pos, block: StatementNode[]): LoopStatemen
 
 export enum AssignMode {
 	Assign,
+	AddAssign,
+	SubAssign,
+	MultAssign,
+	DivAssign,
+	ModAssign,
 }
 
 export type AssignStatement = {

@@ -29,6 +29,16 @@ export enum Token {
 	Semi,
 	/** "=" */
 	Assign,
+	/** "+=" */
+	AddAssign,
+	/** "-=" */
+	SubAssign,
+	/** "*=" */
+	MultAssign,
+	/** "/=" */
+	DivAssign,
+	/** "%=" */
+	ModAssign,
 	/** "==" */
 	Eq,
 	/** ">" */

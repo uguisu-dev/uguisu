@@ -280,9 +280,44 @@ function parseStatementStartWithExpr(p: Parser): StatementNode {
 
 	const expr = parseExpr(p);
 	switch (p.getToken()) {
-		case Token.Assign: {
+		case Token.Assign:
+		case Token.AddAssign:
+		case Token.SubAssign:
+		case Token.MultAssign:
+		case Token.DivAssign:
+		case Token.ModAssign: {
+			const modeToken = p.getToken();
 			p.next();
-			const mode = AssignMode.Assign;
+			let mode: AssignMode;
+			switch (modeToken) {
+				case Token.Assign: {
+					mode = AssignMode.Assign;
+					break;
+				}
+				case Token.AddAssign: {
+					mode = AssignMode.AddAssign;
+					break;
+				}
+				case Token.SubAssign: {
+					mode = AssignMode.SubAssign;
+					break;
+				}
+				case Token.MultAssign: {
+					mode = AssignMode.MultAssign;
+					break;
+				}
+				case Token.DivAssign: {
+					mode = AssignMode.DivAssign;
+					break;
+				}
+				case Token.ModAssign: {
+					mode = AssignMode.ModAssign;
+					break;
+				}
+				default: {
+					throw new Error(`unexpected token: ${Token[p.getToken()]}`);
+				}
+			}
 			const body = parseExpr(p);
 			p.expectAndNext(Token.Semi);
 			logger.debugLeave();

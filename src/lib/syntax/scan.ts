@@ -134,23 +134,58 @@ export class Scanner {
 
 			switch (this.ch) {
 				case '+': {
-					this.token = Token.Plus;
 					this.nextChar();
+					// @ts-ignore
+					if (this.ch == '=') {
+						this.nextChar();
+						this.token = Token.AddAssign;
+					} else {
+						this.token = Token.Plus;
+					}
 					break;
 				}
 				case '-': {
-					this.token = Token.Minus;
 					this.nextChar();
+					// @ts-ignore
+					if (this.ch == '=') {
+						this.nextChar();
+						this.token = Token.SubAssign;
+					} else {
+						this.token = Token.Minus;
+					}
 					break;
 				}
 				case '*': {
-					this.token = Token.Asterisk;
 					this.nextChar();
+					// @ts-ignore
+					if (this.ch == '=') {
+						this.nextChar();
+						this.token = Token.MultAssign;
+					} else {
+						this.token = Token.Asterisk;
+					}
 					break;
 				}
 				case '/': {
-					this.token = Token.Slash;
 					this.nextChar();
+					// @ts-ignore
+					if (this.ch == '=') {
+						this.nextChar();
+						this.token = Token.DivAssign;
+					} else {
+						this.token = Token.Slash;
+					}
+					break;
+				}
+				case '%': {
+					this.nextChar();
+					// @ts-ignore
+					if (this.ch == '=') {
+						this.nextChar();
+						this.token = Token.ModAssign;
+					} else {
+						this.token = Token.Percent;
+					}
 					break;
 				}
 				case '{': {
