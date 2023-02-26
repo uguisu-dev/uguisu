@@ -1,5 +1,5 @@
-import { setBuiltinRuntimes } from '../builtins';
-import { ExprNode, FunctionDecl, isExprNode, isLogicalBinaryOperator, isRelationalOperator, SourceFile, StatementNode } from './ast';
+import { setBuiltinRuntimes } from './builtins';
+import { ExprNode, FunctionDecl, isExprNode, isLogicalBinaryOperator, isRelationalOperator, SourceFile, StatementNode } from './syntax/ast';
 
 export type Value = FunctionValue | NumberValue | BoolValue | StringValue | NoneValue;
 
@@ -163,7 +163,7 @@ export class Runner {
 			throw new Error('function `main` is not found');
 		}
 		asFunctionValue(func);
-		return callFunction(this.env, func, []);
+		callFunction(this.env, func, []);
 	}
 }
 

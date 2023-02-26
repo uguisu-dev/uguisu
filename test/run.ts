@@ -1,8 +1,5 @@
 import assert from 'assert';
-import { Scanner } from '../src/syntax/scan';
-import { Parser } from '../src/syntax/parse';
-import { Runner } from '../src/syntax/run';
-import { SourceFile } from '../src/syntax/ast';
+import { Scanner, Parser, Runner, SourceFile } from '../src/uguisu';
 
 function runTest(sourceCode: string) {
 	const scanner = new Scanner(sourceCode);

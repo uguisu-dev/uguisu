@@ -1,6 +1,7 @@
 import assert from 'assert';
-import { Scanner, LiteralValue, LiteralKind } from '../src/syntax/scan';
-import { Token } from '../src/syntax/token';
+import { Scanner } from '../src/uguisu';
+import { LiteralValue, LiteralKind } from '../src/uguisu/syntax/scan';
+import { Token } from '../src/uguisu/syntax/token';
 
 function setupTest(input: string) {
 	const s = new Scanner(input);

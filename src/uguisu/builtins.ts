@@ -6,7 +6,7 @@ import {
 	newNoneValue,
 	newNumberValue,
 	newStringValue,
-} from './syntax/run';
+} from './run';
 
 export function setBuiltinRuntimes(env: Env) {
 
