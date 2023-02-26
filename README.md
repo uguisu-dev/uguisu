@@ -26,12 +26,12 @@ fn main() {
 
 ## Install
 Node.js and npm installation is required.  
-If used from the CLI, global installation is required.
+If used from the Command line, global installation is required.
 ```
 $ npm i -g uguisu-js
 ```
 
-## Usage
+## Command line API
 ```
 Usage: uguisu [options] [commands]
 
