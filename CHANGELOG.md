@@ -3,8 +3,9 @@
 
 -->
 
-## x.x.x (unreleased)
+## 0.7.0 (unreleased)
 
+- 実装がRustからNode.jsに移行されました。
 - `string`型を追加
 - 文字列リテラルを追加 `"hello"`
 - ビルトイン関数を追加: `printStr` `concatStr` `toString`

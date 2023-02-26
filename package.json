@@ -1,5 +1,5 @@
 {
-  "name": "uguisu",
+  "name": "uguisu-js",
   "version": "0.7.0",
   "description": "The Uguisu is a statically typed scripting language.",
   "main": "built/lib/index.js",
