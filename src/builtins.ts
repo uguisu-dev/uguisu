@@ -45,8 +45,10 @@ export function setBuiltinRuntimes(env: Env) {
 		}
 		asNumberValue(args[0]);
 		asNumberValue(args[1]);
-		if (args[0] != args[1]) {
-			throw new Error(`assertion error. expected \`${args[1]}\`, actual \`${args[0]}\`.`);
+		const actual = args[0].value;
+		const expected = args[1].value;
+		if (actual != expected) {
+			throw new Error(`assertion error. expected \`${expected}\`, actual \`${actual}\`.`);
 		}
 		return newNoneValue();
 	});
