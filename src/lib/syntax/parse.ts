@@ -39,13 +39,16 @@ logger.enabled = false;
 
 export class Parser {
 	s: Scanner;
+	filename: string;
 
 	constructor(s: Scanner) {
 		this.s = s;
+		this.filename = '';
 	}
 
-	setup() {
-		this.s.setup();
+	setup(sourceCode: string, filename: string) {
+		this.filename = filename;
+		this.s.setup(sourceCode);
 	}
 
 	getPos(): [number, number] {
@@ -94,9 +97,9 @@ export class Parser {
 		this.next();
 	}
 
-	parse(filename: string): SourceFile {
+	parse(): SourceFile {
 		this.next();
-		return parseSourceFile(this, filename);
+		return parseSourceFile(this, this.filename);
 	}
 }
 

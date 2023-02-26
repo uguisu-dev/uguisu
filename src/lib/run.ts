@@ -147,17 +147,15 @@ export function newBreakResult(): BreakResult {
 }
 
 export class Runner {
-	source: SourceFile;
 	env: Env;
 
-	constructor(source: SourceFile) {
-		this.source = source;
+	constructor() {
 		this.env = new Env();
 	}
 
-	run() {
+	run(source: SourceFile) {
 		setBuiltinRuntimes(this.env);
-		evalSourceFile(this.env, this.source);
+		evalSourceFile(this.env, source);
 		const func = this.env.get('main');
 		if (func == null) {
 			throw new Error('function `main` is not found');

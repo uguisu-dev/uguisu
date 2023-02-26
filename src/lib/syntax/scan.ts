@@ -18,7 +18,7 @@ const digit = /^[0-9]$/;
 const wordChar = /^[A-Za-z0-9_]$/;
 
 export class Scanner {
-	private source: string;
+	private sourceCode: string;
 	private index: number;
 	private line: number;
 	private column: number;
@@ -29,8 +29,8 @@ export class Scanner {
 	private tokenValue: string;
 	private literalKind: LiteralKind;
 
-	constructor(source: string) {
-		this.source = source;
+	constructor() {
+		this.sourceCode = '';
 		this.index = 0;
 		this.line = 0;
 		this.column = 0;
@@ -42,7 +42,8 @@ export class Scanner {
 		this.literalKind = LiteralKind.None;
 	}
 
-	setup() {
+	setup(sourceCode: string) {
+		this.sourceCode = sourceCode;
 		this.index = 0;
 		this.line = 0;
 		this.column = 0;
@@ -51,7 +52,7 @@ export class Scanner {
 		if (this.isEof()) {
 			return;
 		}
-		this.ch = this.source[this.index];
+		this.ch = this.sourceCode[this.index];
 	}
 
 	getPos(): [number, number] {
@@ -71,7 +72,7 @@ export class Scanner {
 	}
 
 	private isEof(): boolean {
-		return this.index >= this.source.length;
+		return this.index >= this.sourceCode.length;
 	}
 
 	/**
@@ -100,7 +101,7 @@ export class Scanner {
 		logger.debug(`[scan] pos ${this.line+1},${this.column+1}`);
 
 		this.index++;
-		this.ch = this.source[this.index];
+		this.ch = this.sourceCode[this.index];
 	}
 
 	/**

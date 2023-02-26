@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { Scanner, Parser, Runner } from '../lib';
+import { Uguisu } from '../lib';
 
 type Match = {
 	help: boolean,
@@ -61,22 +61,18 @@ export function command(args: string[]) {
 
 	// load file
 	const filename = match.free[0];
-	let str;
+	let sourceCode;
 	try {
-		str = fs.readFileSync(filename, { encoding: 'utf8' });
+		sourceCode = fs.readFileSync(filename, { encoding: 'utf8' });
 	} catch (err) {
 		console.log('Error: Failed to load the file.');
 		return;
 	}
 
 	// run script
-	const scanner = new Scanner(str);
-	const parser = new Parser(scanner);
+	const uguisu = new Uguisu();
 	try {
-		parser.setup();
-		const ast = parser.parse(filename);
-		const runner = new Runner(ast);
-		runner.run();
+		uguisu.exec(sourceCode, filename);
 	}
 	catch (e) {
 		console.log(e);

@@ -1,18 +1,20 @@
 import { promises as fs } from 'fs';
-import { Scanner, Parser, Runner } from './lib';
+import { Scanner } from './lib/syntax/scan';
+import { Parser } from './lib/syntax/parse';
+import { Runner } from './lib/run';
 
 async function entry() {
 	const filename = 'debug.ug';
-	const str = await fs.readFile(filename, { encoding: 'utf8' });
+	const sourceCode = await fs.readFile(filename, { encoding: 'utf8' });
 
-	const scanner = new Scanner(str);
+	const scanner = new Scanner();
 	const parser = new Parser(scanner);
+	const runner = new Runner();
 	try {
-		parser.setup();
-		const ast = parser.parse(filename);
+		parser.setup(sourceCode, filename);
+		const ast = parser.parse();
 		console.log(JSON.stringify(ast, null, '  '));
-		const runner = new Runner(ast);
-		runner.run();
+		runner.run(ast);
 	}
 	catch (e) {
 		console.log(e);
