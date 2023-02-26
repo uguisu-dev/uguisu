@@ -2,7 +2,10 @@
   "name": "uguisu",
   "version": "0.7.0",
   "description": "The Uguisu is a statically typed scripting language.",
-  "main": "built/index.js",
+  "main": "built/lib/index.js",
+  "bin": {
+    "uguisu": "built/bin/uguisu.js"
+  },
   "directories": {
     "doc": "docs"
   },
@@ -19,6 +22,7 @@
   "scripts": {
     "build": "tsc",
     "test": "jest --verbose",
+    "cli": "node ./built/bin/uguisu.js",
     "debug": "node ./built/debug"
   },
   "devDependencies": {

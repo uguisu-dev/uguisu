@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs';
-import { Scanner, Parser, Runner } from './uguisu';
+import { Scanner, Parser, Runner } from './lib';
 
 async function entry() {
 	const filename = 'debug.ug';
