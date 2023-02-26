@@ -18,7 +18,7 @@ test('empty function', () => {
 	fn main() { }
 	`;
 	const value = runTest(input);
-	assert.ok(value == null);
+	assert.ok(value.kind == 'NoneValue');
 });
 
 test('number', () => {
