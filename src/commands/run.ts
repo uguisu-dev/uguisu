@@ -72,7 +72,7 @@ export function command(args: string[]) {
 	// run script
 	const uguisu = new Uguisu();
 	try {
-		uguisu.exec(sourceCode, filename);
+		uguisu.exec(sourceCode);
 	}
 	catch (e) {
 		console.log(e);

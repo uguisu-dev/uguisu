@@ -17,8 +17,8 @@ export class Uguisu {
 		this._runner = new Runner();
 	}
 
-	exec(sourceCode: string, filename: string) {
-		this._parser.setup(sourceCode, filename);
+	exec(sourceCode: string) {
+		this._parser.setup(sourceCode, 'main.ug');
 		const ast = this._parser.parse();
 		this._runner.run(ast);
 	}
