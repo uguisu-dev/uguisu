@@ -28,7 +28,6 @@ fn main() {
 Node.js and npm installation is required.
 ```
 $ npm i -g uguisu-js
-$ uguisu run example.ug
 ```
 
 ## Usage
