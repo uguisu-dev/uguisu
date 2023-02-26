@@ -21,7 +21,7 @@ function getopts(args: string[]): Match {
 		else if (arg.startsWith('-')) {
 			throw `unknown option: ${arg}`;
 		}
-		else if (arg) {
+		else {
 			match.free.push(arg);
 		}
 	}
