@@ -1,4 +1,4 @@
-import { ExprNode, FunctionDecl, isExprNode, SourceFile, StatementNode } from './ast';
+import { ExprNode, FunctionDecl, isExprNode, isLogicalBinaryOperator, isRelationalOperator, SourceFile, StatementNode } from './ast';
 
 export type Value = FunctionValue | NumberValue | BoolValue | StringValue;
 
@@ -224,7 +224,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 			}
 			case 'AssignStatement': {
 				if (statement.target.kind != 'Identifier') {
-					throw new Error('not implemented yet'); // TODO
+					throw new Error('unsupported assignee');
 				}
 				const value = evalExpr(env, statement.body);
 				if (value == null) {
@@ -270,9 +270,90 @@ function evalExpr(env: Env, expr: ExprNode): Value | undefined {
 			});
 			return callFunction(env, callee, args);
 		}
-		case 'BinaryOp':
+		case 'BinaryOp': {
+			const left = evalExpr(env, expr.left);
+			const right = evalExpr(env, expr.right);
+			if (left == null) {
+				throw new Error('no values');
+			}
+			if (right == null) {
+				throw new Error('no values');
+			}
+			if (isLogicalBinaryOperator(expr.operator)) {
+				// Logical Operation
+				asBoolValue(left);
+				asBoolValue(right);
+				switch (expr.operator) {
+					case '&&': {
+						return newBoolValue(left.value && right.value);
+					}
+					case '||': {
+						return newBoolValue(left.value || right.value);
+					}
+				}
+			} else if (isRelationalOperator(expr.operator)) {
+				// Relational Operation
+				if (left.kind != right.kind) {
+					throw new Error(`type mismatched. expected \`${getTypeName(left)}\`, found \`${getTypeName(right)}\``);
+				}
+				// switch (expr.operator) {
+				// 	case '==': {
+				// 		return newBoolValue(left.value == right.value);
+				// 	}
+				// 	case '!=': {
+				// 		return newBoolValue(left.value != right.value);
+				// 	}
+				// 	case '<': {
+				// 		return newBoolValue(left.value < right.value);
+				// 	}
+				// 	case '<=': {
+				// 		return newBoolValue(left.value <= right.value);
+				// 	}
+				// 	case '>': {
+				// 		return newBoolValue(left.value > right.value);
+				// 	}
+				// 	case '>=': {
+				// 		return newBoolValue(left.value >= right.value);
+				// 	}
+				// }
+				throw new Error('unsupported operator'); // TODO
+			} else {
+				// Arithmetic Operation
+				asNumberValue(left);
+				asNumberValue(right);
+				switch (expr.operator) {
+					case '+': {
+						return newNumberValue(left.value + right.value);
+					}
+					case '-': {
+						return newNumberValue(left.value - right.value);
+					}
+					case '*': {
+						return newNumberValue(left.value * right.value);
+					}
+					case '/': {
+						return newNumberValue(left.value / right.value);
+					}
+					case '%': {
+						return newNumberValue(left.value % right.value);
+					}
+				}
+			}
+			throw new Error('unexpected operation');
+		}
 		case 'UnaryOp': {
-			throw new Error('not implemented yet'); // TODO
+			const value = evalExpr(env, expr.expr);
+			if (value == null) {
+				throw new Error('no values');
+			}
+			// Logical Operation
+			asBoolValue(value);
+			switch (expr.operator) {
+				case '!': {
+					return newBoolValue(!value.value);
+				}
+			}
+			throw new Error('unexpected operation');
 		}
 	}
 }

@@ -29,7 +29,6 @@ import {
 	SourceFile,
 	StatementNode,
 	TyLabel,
-	UnaryOperator,
 	VariableDecl,
 } from './ast';
 import { LiteralKind, LiteralValue, Scanner } from './scan';
@@ -419,24 +418,24 @@ type OpInfo = { prec: number, assoc: 'left' | 'right', op: BinaryOperator };
 
 const opTable: Map<number, OpInfo> = new Map([
 	// 1
-	[Token.Or2, { prec: 1, assoc: 'left', op: BinaryOperator.LogicalOr }],
+	[Token.Or2, { prec: 1, assoc: 'left', op: '||' }],
 	// 2
-	[Token.And2, { prec: 2, assoc: 'left', op: BinaryOperator.LogicalAnd }],
+	[Token.And2, { prec: 2, assoc: 'left', op: '&&' }],
 	// 3
-	[Token.Eq, { prec: 3, assoc: 'left', op: BinaryOperator.Eq }],
-	[Token.NotEq, { prec: 3, assoc: 'left', op: BinaryOperator.NotEq }],
+	[Token.Eq, { prec: 3, assoc: 'left', op: '==' }],
+	[Token.NotEq, { prec: 3, assoc: 'left', op: '!=' }],
 	// 4
-	[Token.LessThan, { prec: 4, assoc: 'left', op: BinaryOperator.LessThan }],
-	[Token.LessThanEq, { prec: 4, assoc: 'left', op: BinaryOperator.LessThanEq }],
-	[Token.GreaterThan, { prec: 4, assoc: 'left', op: BinaryOperator.GreaterThan }],
-	[Token.GreaterThanEq, { prec: 4, assoc: 'left', op: BinaryOperator.GreaterThanEq }],
+	[Token.LessThan, { prec: 4, assoc: 'left', op: '<' }],
+	[Token.LessThanEq, { prec: 4, assoc: 'left', op: '<=' }],
+	[Token.GreaterThan, { prec: 4, assoc: 'left', op: '>' }],
+	[Token.GreaterThanEq, { prec: 4, assoc: 'left', op: '>=' }],
 	// 5
-	[Token.Plus, { prec: 5, assoc: 'left', op: BinaryOperator.Add }],
-	[Token.Minus, { prec: 5, assoc: 'left', op: BinaryOperator.Sub }],
+	[Token.Plus, { prec: 5, assoc: 'left', op: '+' }],
+	[Token.Minus, { prec: 5, assoc: 'left', op: '-' }],
 	// 6
-	[Token.Asterisk, { prec: 6, assoc: 'left', op: BinaryOperator.Mult }],
-	[Token.Slash, { prec: 6, assoc: 'left', op: BinaryOperator.Div }],
-	[Token.Percent, { prec: 6, assoc: 'left', op: BinaryOperator.Mod }],
+	[Token.Asterisk, { prec: 6, assoc: 'left', op: '*' }],
+	[Token.Slash, { prec: 6, assoc: 'left', op: '/' }],
+	[Token.Percent, { prec: 6, assoc: 'left', op: '%' }],
 ]);
 
 function parseInfix(p: Parser, minPrec: number): ExprNode {
@@ -524,7 +523,7 @@ function parseAtomInner(p: Parser): ExprNode {
 		case Token.Not: {
 			p.next();
 			const expr = parseAtom(p);
-			return newUnaryOp(pos, UnaryOperator.Not, expr);
+			return newUnaryOp(pos, '!', expr);
 		}
 		case Token.BeginParen: {
 			p.next();

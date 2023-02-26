@@ -1,5 +1,3 @@
-import { Token } from './token';
-
 export type Pos = [number, number];
 
 export type AstNode = SourceFile | FileNode | StatementNode | TyLabel | FnDeclParam; // StructDeclField | StructExprField
@@ -93,6 +91,18 @@ export function newStringLiteral(pos: Pos, value: string): StringLiteral {
 	return { kind: 'StringLiteral', pos, value };
 }
 
+export type UnaryOp = {
+	kind: 'UnaryOp',
+	pos: Pos;
+	operator: UnaryOperator,
+	expr: ExprNode,
+};
+export function newUnaryOp(pos: Pos, operator: UnaryOperator, expr: ExprNode): UnaryOp {
+	return { kind: 'UnaryOp', pos, operator, expr };
+}
+export type UnaryOperator = LogicalUnaryOperator;
+export type LogicalUnaryOperator = '!';
+
 export type BinaryOp = {
 	kind: 'BinaryOp',
 	pos: Pos;
@@ -100,36 +110,31 @@ export type BinaryOp = {
 	left: ExprNode,
 	right: ExprNode,
 };
-export enum BinaryOperator {
-	LogicalOr,
-	LogicalAnd,
-	Eq,
-	NotEq,
-	LessThan,
-	LessThanEq,
-	GreaterThan,
-	GreaterThanEq,
-	Add,
-	Sub,
-	Mult,
-	Div,
-	Mod,
-}
 export function newBinaryOp(pos: Pos, operator: BinaryOperator, left: ExprNode, right: ExprNode): BinaryOp {
 	return { kind: 'BinaryOp', pos, operator, left, right };
 }
 
-export type UnaryOp = {
-	kind: 'UnaryOp',
-	pos: Pos;
-	operator: UnaryOperator,
-	expr: ExprNode,
-};
-export enum UnaryOperator {
-	Not,
+export type BinaryOperator = LogicalBinaryOperator | RelationalOperator | ArithmeticOperator;
+
+export type LogicalBinaryOperator = '||' | '&&';
+const logicalBinaryOperators: BinaryOperator[] = ['||', '&&'];
+
+export function isLogicalBinaryOperator(x: BinaryOperator): x is LogicalBinaryOperator {
+	return logicalBinaryOperators.includes(x);
 }
-export function newUnaryOp(pos: Pos, operator: UnaryOperator, expr: ExprNode): UnaryOp {
-	return { kind: 'UnaryOp', pos, operator, expr };
+
+export type RelationalOperator = '==' | '!=' | '<' |'<=' | '>' | '>=';
+const relationalOperators: BinaryOperator[] = ['==', '!=', '<', '<=', '>', '>='];
+
+export function isRelationalOperator(x: BinaryOperator): x is RelationalOperator {
+	return relationalOperators.includes(x);
+}
+
+export type ArithmeticOperator = '+' | '-' | '*' | '/' | '%';
+const arithmeticOperators: BinaryOperator[] = ['+', '-', '*', '/', '%'];
+
+export function isArithmeticOperator(x: BinaryOperator): x is ArithmeticOperator {
+	return arithmeticOperators.includes(x);
 }
 
 export type Call = {
