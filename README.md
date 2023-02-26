@@ -27,22 +27,17 @@ fn main() {
 ## Install
 ```
 $ npm i -g uguisu-js
-$ uguisu-js run example.ug
-```
-
-Temporary using with npx:
-```
-$ npx uguisu-js run example.ug
+$ uguisu run example.ug
 ```
 
 ## Usage
 ```
-Usage: uguisu-js [options] [commands]
+Usage: uguisu [options] [commands]
 
 Examples:
-    uguisu-js run <filename>
-    uguisu-js <command> -h
-    uguisu-js -v
+    uguisu run <filename>
+    uguisu <command> -h
+    uguisu -v
 
 Options:
     -h, --help          Print help message.
