@@ -293,30 +293,93 @@ function evalExpr(env: Env, expr: ExprNode): Value | undefined {
 				}
 			} else if (isRelationalOperator(expr.operator)) {
 				// Relational Operation
-				if (left.kind != right.kind) {
-					throw new Error(`type mismatched. expected \`${getTypeName(left)}\`, found \`${getTypeName(right)}\``);
+				switch (left.kind) {
+					case 'NumberValue': {
+						asNumberValue(right);
+						switch (expr.operator) {
+							// equivalent
+							case '==': {
+								return newBoolValue(left.value == right.value);
+							}
+							case '!=': {
+								return newBoolValue(left.value != right.value);
+							}
+							// ordering
+							case '<': {
+								return newBoolValue(left.value < right.value);
+							}
+							case '<=': {
+								return newBoolValue(left.value <= right.value);
+							}
+							case '>': {
+								return newBoolValue(left.value > right.value);
+							}
+							case '>=': {
+								return newBoolValue(left.value >= right.value);
+							}
+						}
+						break;
+					}
+					case 'BoolValue': {
+						asBoolValue(right);
+						switch (expr.operator) {
+							// equivalent
+							case '==': {
+								return newBoolValue(left.value == right.value);
+							}
+							case '!=': {
+								return newBoolValue(left.value != right.value);
+							}
+							// ordering
+							case '<':
+							case '<=':
+							case '>':
+							case '>=': {
+								throw new Error('type `bool` cannot be used to compare large and small relations.');
+							}
+						}
+						break;
+					}
+					case 'StringValue': {
+						asStringValue(right);
+						switch (expr.operator) {
+							// equivalent
+							case '==': {
+								return newBoolValue(left.value == right.value);
+							}
+							case '!=': {
+								return newBoolValue(left.value != right.value);
+							}
+							// ordering
+							case '<':
+							case '<=':
+							case '>':
+							case '>=': {
+								throw new Error('type `string` cannot be used to compare large and small relations.');
+							}
+						}
+						break;
+					}
+					case 'FunctionValue': {
+						asFunctionValue(right);
+						switch (expr.operator) {
+							// equivalent
+							case '==': {
+								return newBoolValue(left.node == right.node);
+							}
+							case '!=': {
+								return newBoolValue(left.node != right.node);
+							}
+							// ordering
+							case '<':
+							case '<=':
+							case '>':
+							case '>=': {
+								throw new Error('type `fn` cannot be used to compare large and small relations.');
+							}
+						}
+					}
 				}
-				// switch (expr.operator) {
-				// 	case '==': {
-				// 		return newBoolValue(left.value == right.value);
-				// 	}
-				// 	case '!=': {
-				// 		return newBoolValue(left.value != right.value);
-				// 	}
-				// 	case '<': {
-				// 		return newBoolValue(left.value < right.value);
-				// 	}
-				// 	case '<=': {
-				// 		return newBoolValue(left.value <= right.value);
-				// 	}
-				// 	case '>': {
-				// 		return newBoolValue(left.value > right.value);
-				// 	}
-				// 	case '>=': {
-				// 		return newBoolValue(left.value >= right.value);
-				// 	}
-				// }
-				throw new Error('unsupported operator'); // TODO
 			} else {
 				// Arithmetic Operation
 				asNumberValue(left);
