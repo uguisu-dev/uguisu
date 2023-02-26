@@ -48,5 +48,26 @@ Commands:
 
 ```
 
+## JavaScript API
+
+```js
+import { Uguisu } from 'uguisu-js';
+
+const sourceCode = `
+fn main() {
+    printStr("hello world");
+}
+`;
+const filename = 'main.ug';
+
+const uguisu = new Uguisu();
+try {
+    uguisu.exec(sourceCode, filename);
+}
+catch (e) {
+    console.log(e);
+}
+```
+
 ## License
 MIT License
