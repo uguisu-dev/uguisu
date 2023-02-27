@@ -31,7 +31,7 @@ If used from the Command line, global installation is required.
 $ npm i -g uguisu-js
 ```
 
-## Command line API
+## Command line
 ```
 Usage: uguisu [options] [commands]
 
