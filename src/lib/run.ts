@@ -1,5 +1,14 @@
 import { setBuiltinRuntimes } from './builtins';
-import { AssignMode, ExprNode, FunctionDecl, isExprNode, isLogicalBinaryOperator, isRelationalOperator, SourceFile, StatementNode } from './syntax/ast';
+import {
+	AssignMode,
+	ExprNode,
+	FunctionDecl,
+	isExprNode,
+	isLogicalBinaryOperator,
+	isRelationalOperator,
+	SourceFile,
+	StatementNode,
+} from './syntax/ast';
 
 export type Value = FunctionValue | NumberValue | BoolValue | StringValue | NoneValue;
 

@@ -32,7 +32,7 @@ import {
 	VariableDecl,
 } from './ast';
 import { LiteralKind, LiteralValue, Scanner } from './scan';
-import { Token } from './token';
+import { Token } from './scan';
 
 const logger = DebugLogger.getRootLogger().createChild();
 logger.enabled = false;
