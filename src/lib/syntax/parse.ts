@@ -511,7 +511,7 @@ function parseAtom(p: Parser): ExprNode {
 }
 
 /**
- * Only one suffix is consumed and the rest of the chain is consumed in a recursive call.
+ * Consumes a one suffix and the remaining of the chain is consumed in a recursive call.
  * If there is no suffix, the target is returned as is.
 */
 function parseSuffixChain(p: Parser, target: ExprNode): ExprNode {
