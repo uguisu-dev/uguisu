@@ -16,14 +16,20 @@ export type NativeFuncHandler = (args: Value[]) => Value;
 
 export type FunctionValue = {
 	kind: 'FunctionValue',
-	node?: FunctionDecl,
-	native?: NativeFuncHandler,
+	node: FunctionDecl,
+	native: undefined,
+	env: Env,
+} | {
+	kind: 'FunctionValue',
+	node: undefined,
+	native: NativeFuncHandler,
 };
-export function newFunctionValue(node: FunctionDecl): FunctionValue {
-	return { kind: 'FunctionValue', node };
+
+export function newFunctionValue(node: FunctionDecl, env: Env): FunctionValue {
+	return { kind: 'FunctionValue', node, native: undefined, env };
 }
 export function newNativeFunctionValue(native: NativeFuncHandler): FunctionValue {
-	return { kind: 'FunctionValue', native };
+	return { kind: 'FunctionValue', node: undefined, native };
 }
 export function asFunctionValue(value: Value): asserts value is FunctionValue {
 	if (value.kind != 'FunctionValue') {
@@ -103,37 +109,26 @@ function getTypeName(value: Value): string {
 type Symbol = { defined: true, value: Value } | { defined: false };
 
 export class Env {
-	frames: Map<string, Symbol>[];
+	private table: Map<string, Symbol>;
 
-	constructor() {
-		this.frames = [new Map()];
+	constructor(baseEnv?: Env) {
+		if (baseEnv != null) {
+			this.table = new Map(baseEnv.table);
+		} else {
+			this.table = new Map();
+		}
 	}
 
 	declare(name: string) {
-		this.frames[0].set(name, { defined: false });
+		this.table.set(name, { defined: false });
 	}
 
 	define(name: string, value: Value) {
-		this.frames[0].set(name, { defined: true, value });
+		this.table.set(name, { defined: true, value });
 	}
 
 	get(name: string): Symbol | undefined {
-		// TODO: lookup as static scope
-		for (const frame of this.frames) {
-			const symbol = frame.get(name);
-			if (symbol != null) {
-				return symbol;
-			}
-		}
-		return undefined;
-	}
-
-	pushFrame() {
-		this.frames.unshift(new Map());
-	}
-
-	popFrame() {
-		this.frames.shift();
+		return this.table.get(name);
 	}
 }
 
@@ -176,19 +171,19 @@ export class Runner {
 			throw new Error('function `main` is not defined');
 		}
 		asFunctionValue(symbol.value);
-		callFunction(this.env, symbol.value, []);
+		callFunction(symbol.value, []);
 	}
 }
 
 function evalSourceFile(env: Env, source: SourceFile) {
 	for (const func of source.funcs) {
-		env.define(func.name, newFunctionValue(func));
+		env.define(func.name, newFunctionValue(func, env));
 	}
 }
 
-function callFunction(env: Env, func: FunctionValue, args: Value[]): Value {
-	env.pushFrame();
+function callFunction(func: FunctionValue, args: Value[]): Value {
 	if (func.node != null) {
+		const childEnv = new Env(func.env);
 		if (func.node.params.length != args.length) {
 			throw new Error('invalid arguments count');
 		}
@@ -196,12 +191,10 @@ function callFunction(env: Env, func: FunctionValue, args: Value[]): Value {
 		while (i < func.node.params.length) {
 			const param = func.node.params[i];
 			const arg = args[i];
-			env.define(param.name, arg);
+			childEnv.define(param.name, arg);
 			i++;
 		}
-		const result = execBlock(env, func.node.body);
-		env.popFrame();
-
+		const result = execBlock(childEnv, func.node.body);
 		if (result.kind == 'ReturnResult') {
 			return result.value;
 		}
@@ -371,7 +364,7 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 				}
 				return value;
 			});
-			return callFunction(env, callee, args);
+			return callFunction(callee, args);
 		}
 		case 'BinaryOp': {
 			const left = evalExpr(env, expr.left);
