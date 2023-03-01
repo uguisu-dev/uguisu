@@ -91,23 +91,29 @@ function getTypeName(value: Value): string {
 	}
 }
 
+type Symbol = { defined: true, value: Value } | { defined: false };
+
 export class Env {
-	frames: Map<string, Value>[];
+	frames: Map<string, Symbol>[];
 
 	constructor() {
 		this.frames = [new Map()];
 	}
 
-	set(name: string, value: Value) {
-		this.frames[0].set(name, value);
+	declare(name: string) {
+		this.frames[0].set(name, { defined: false });
 	}
 
-	get(name: string): Value | undefined {
+	define(name: string, value: Value) {
+		this.frames[0].set(name, { defined: true, value });
+	}
+
+	get(name: string): Symbol | undefined {
 		// TODO: lookup as static scope
 		for (const frame of this.frames) {
-			const value = frame.get(name);
-			if (value != null) {
-				return value;
+			const symbol = frame.get(name);
+			if (symbol != null) {
+				return symbol;
 			}
 		}
 		return undefined;
@@ -156,18 +162,18 @@ export class Runner {
 	run(source: SourceFile) {
 		setBuiltinRuntimes(this.env);
 		evalSourceFile(this.env, source);
-		const func = this.env.get('main');
-		if (func == null) {
-			throw new Error('function `main` is not found');
+		const symbol = this.env.get('main');
+		if (symbol == null || !symbol.defined) {
+			throw new Error('function `main` is not defined');
 		}
-		asFunctionValue(func);
-		callFunction(this.env, func, []);
+		asFunctionValue(symbol.value);
+		callFunction(this.env, symbol.value, []);
 	}
 }
 
 function evalSourceFile(env: Env, source: SourceFile) {
 	for (const func of source.funcs) {
-		env.set(func.name, newFunctionValue(func));
+		env.define(func.name, newFunctionValue(func));
 	}
 }
 
@@ -181,7 +187,7 @@ function callFunction(env: Env, func: FunctionValue, args: Value[]): Value {
 		while (i < func.node.params.length) {
 			const param = func.node.params[i];
 			const arg = args[i];
-			env.set(param.name, arg);
+			env.define(param.name, arg);
 			i++;
 		}
 		const result = execBlock(env, func.node.body);
@@ -238,17 +244,16 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 				}
 			}
 			case 'VariableDecl': {
-				const body = statement.body;
-				if (body == null) {
-					// TODO: allow defining variables later
-					throw new Error('variable not defined');
+				if (statement.body != null) {
+					const bodyValue = evalExpr(env, statement.body);
+					if (isNoneValue(bodyValue)) {
+						throw new Error('no values');
+					}
+					// TODO: consider symbol system
+					env.define(statement.name, bodyValue);
+				} else {
+					env.declare(statement.name);
 				}
-				const value = evalExpr(env, body);
-				if (isNoneValue(value)) {
-					throw new Error('no values');
-				}
-				// TODO: consider symbol system
-				env.set(statement.name, value);
 				return newNoneResult();
 			}
 			case 'AssignStatement': {
@@ -261,62 +266,62 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 				}
 				switch (statement.mode) {
 					case AssignMode.Assign: {
-						env.set(statement.target.name, bodyValue);
+						env.define(statement.target.name, bodyValue);
 						break;
 					}
 					case AssignMode.AddAssign: {
-						const restoredValue = env.get(statement.target.name);
-						if (restoredValue == null) {
+						const restored = env.get(statement.target.name);
+						if (restored == null || !restored.defined) {
 							throw new Error('variable is not defined');
 						}
-						asNumberValue(restoredValue);
+						asNumberValue(restored.value);
 						asNumberValue(bodyValue);
-						const value = newNumberValue(restoredValue.value + bodyValue.value);
-						env.set(statement.target.name, value);
+						const value = newNumberValue(restored.value.value + bodyValue.value);
+						env.define(statement.target.name, value);
 						break;
 					}
 					case AssignMode.SubAssign: {
-						const restoredValue = env.get(statement.target.name);
-						if (restoredValue == null) {
+						const restored = env.get(statement.target.name);
+						if (restored == null || !restored.defined) {
 							throw new Error('variable is not defined');
 						}
-						asNumberValue(restoredValue);
+						asNumberValue(restored.value);
 						asNumberValue(bodyValue);
-						const value = newNumberValue(restoredValue.value - bodyValue.value);
-						env.set(statement.target.name, value);
+						const value = newNumberValue(restored.value.value - bodyValue.value);
+						env.define(statement.target.name, value);
 						break;
 					}
 					case AssignMode.MultAssign: {
-						const restoredValue = env.get(statement.target.name);
-						if (restoredValue == null) {
+						const restored = env.get(statement.target.name);
+						if (restored == null || !restored.defined) {
 							throw new Error('variable is not defined');
 						}
-						asNumberValue(restoredValue);
+						asNumberValue(restored.value);
 						asNumberValue(bodyValue);
-						const value = newNumberValue(restoredValue.value * bodyValue.value);
-						env.set(statement.target.name, value);
+						const value = newNumberValue(restored.value.value * bodyValue.value);
+						env.define(statement.target.name, value);
 						break;
 					}
 					case AssignMode.DivAssign: {
-						const restoredValue = env.get(statement.target.name);
-						if (restoredValue == null) {
+						const restored = env.get(statement.target.name);
+						if (restored == null || !restored.defined) {
 							throw new Error('variable is not defined');
 						}
-						asNumberValue(restoredValue);
+						asNumberValue(restored.value);
 						asNumberValue(bodyValue);
-						const value = newNumberValue(restoredValue.value / bodyValue.value);
-						env.set(statement.target.name, value);
+						const value = newNumberValue(restored.value.value / bodyValue.value);
+						env.define(statement.target.name, value);
 						break;
 					}
 					case AssignMode.ModAssign: {
-						const restoredValue = env.get(statement.target.name);
-						if (restoredValue == null) {
+						const restored = env.get(statement.target.name);
+						if (restored == null || !restored.defined) {
 							throw new Error('variable is not defined');
 						}
-						asNumberValue(restoredValue);
+						asNumberValue(restored.value);
 						asNumberValue(bodyValue);
-						const value = newNumberValue(restoredValue.value % bodyValue.value);
-						env.set(statement.target.name, value);
+						const value = newNumberValue(restored.value.value % bodyValue.value);
+						env.define(statement.target.name, value);
 						break;
 					}
 				}
@@ -329,11 +334,11 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 function evalExpr(env: Env, expr: ExprNode): Value {
 	switch (expr.kind) {
 		case 'Identifier': {
-			const value = env.get(expr.name);
-			if (value == null) {
-				throw new Error('unknown identifier');
+			const symbol = env.get(expr.name);
+			if (symbol == null || !symbol.defined) {
+				throw new Error(`identifier \`${expr.name}\` is not defined`);
 			}
-			return value;
+			return symbol.value;
 		}
 		case 'NumberLiteral': {
 			return newNumberValue(expr.value);

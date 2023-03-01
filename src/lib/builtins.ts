@@ -18,7 +18,7 @@ export function setBuiltinRuntimes(env: Env) {
 		process.stdout.write(args[0].value);
 		return newNoneValue();
 	});
-	env.set('printStr', printStr);
+	env.define('printStr', printStr);
 
 	const printNum = newNativeFunctionValue((args) => {
 		if (args.length != 1) {
@@ -28,7 +28,7 @@ export function setBuiltinRuntimes(env: Env) {
 		process.stdout.write(args[0].value.toString());
 		return newNoneValue();
 	});
-	env.set('printNum', printNum);
+	env.define('printNum', printNum);
 
 	const printLF = newNativeFunctionValue((args) => {
 		if (args.length != 0) {
@@ -37,7 +37,7 @@ export function setBuiltinRuntimes(env: Env) {
 		process.stdout.write('\n');
 		return newNoneValue();
 	});
-	env.set('printLF', printLF);
+	env.define('printLF', printLF);
 
 	const assertEq = newNativeFunctionValue((args) => {
 		if (args.length != 2) {
@@ -52,7 +52,7 @@ export function setBuiltinRuntimes(env: Env) {
 		}
 		return newNoneValue();
 	});
-	env.set('assertEq', assertEq);
+	env.define('assertEq', assertEq);
 
 	const getUnixtime = newNativeFunctionValue((args) => {
 		if (args.length != 0) {
@@ -61,7 +61,7 @@ export function setBuiltinRuntimes(env: Env) {
 		const unixTime = Math.floor(Date.now() / 1000);
 		return newNumberValue(unixTime);
 	});
-	env.set('getUnixtime', getUnixtime);
+	env.define('getUnixtime', getUnixtime);
 
 	const concatStr = newNativeFunctionValue((args) => {
 		if (args.length != 2) {
@@ -71,7 +71,7 @@ export function setBuiltinRuntimes(env: Env) {
 		asStringValue(args[1]);
 		return newStringValue(args[0].value + args[1].value);
 	});
-	env.set('concatStr', concatStr);
+	env.define('concatStr', concatStr);
 
 	const toString = newNativeFunctionValue((args) => {
 		if (args.length != 1) {
@@ -80,6 +80,6 @@ export function setBuiltinRuntimes(env: Env) {
 		asNumberValue(args[0]);
 		return newStringValue(args[0].value.toString());
 	});
-	env.set('toString', toString);
+	env.define('toString', toString);
 
 }
