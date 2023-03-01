@@ -1,22 +1,25 @@
 import assert from 'assert';
-import { Scanner, Parser, Runner, SourceFile } from '../src/uguisu';
+import { SourceFile } from '../src/lib';
+import { Scanner } from '../src/lib/syntax/scan';
+import { Parser } from '../src/lib/syntax/parse';
+import { Runner } from '../src/lib/run';
 
 function runTest(sourceCode: string) {
-	const scanner = new Scanner(sourceCode);
+	const scanner = new Scanner();
 	const parser = new Parser(scanner);
-	parser.setup();
+	parser.setup(sourceCode, 'test.ug');
 	let ast: SourceFile;
 	try {
-		ast = parser.parse('test.ug');
+		ast = parser.parse();
 	} catch (err) {
 		if (err instanceof Error) {
 			throw new Error(`Parsing Error: ${err.message}`);
 		}
 		throw err;
 	}
-	const runner = new Runner(ast);
+	const runner = new Runner();
 	try {
-		runner.run();
+		runner.run(ast);
 	} catch (err) {
 		if (err instanceof Error) {
 			throw new Error(`Runtime Error: ${err.message}`);
