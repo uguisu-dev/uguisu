@@ -16,6 +16,11 @@ export type LiteralValue = { kind: LiteralKind, value: string };
 const space = [' ', '\t', '\r', '\n'];
 const digit = /^[0-9]$/;
 const wordChar = /^[A-Za-z0-9_]$/;
+const spCharTable = new Map([
+	['r', '\r'],
+	['n', '\n'],
+	['t', '\t'],
+]);
 
 export class Scanner {
 	private sourceCode: string;
@@ -392,6 +397,19 @@ export class Scanner {
 			if (this.ch == '"') {
 				this.nextChar();
 				break;
+			} else if (this.ch == '\\') { // special character
+				this.nextChar();
+				const c = this.ch;
+				if (c == null) {
+					throw new Error('unexpected EOF');
+				}
+				this.nextChar();
+				const sc = spCharTable.get(c);
+				if (sc == null) {
+					throw new Error('invalid special character');
+				}
+				buf += sc;
+				continue;
 			}
 			buf += this.ch;
 			this.nextChar();

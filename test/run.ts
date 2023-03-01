@@ -558,6 +558,14 @@ fn main() {
 }
 `));
 
+test('special character', () => runTest(`
+fn main() {
+	var n: string = \"abc\\n123\";
+	var r: string = \"abc\\r123\";
+	var t: string = \"abc\\t123\";
+}
+`));
+
 // other examples
 
 test('example', () => runTest(`
