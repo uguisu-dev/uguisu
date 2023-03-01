@@ -172,6 +172,14 @@ export class Scanner {
 					if (this.ch == '=') {
 						this.nextChar();
 						this.token = Token.DivAssign;
+					} else if (this.ch == '/') {
+						this.nextChar();
+						this.skipCommentLine();
+						continue;
+					} else if (this.ch == '*') {
+						this.nextChar();
+						this.skipCommentRange();
+						continue;
 					} else {
 						this.token = Token.Slash;
 					}
@@ -391,5 +399,36 @@ export class Scanner {
 		this.token = Token.Literal;
 		this.tokenValue = buf;
 		this.literalKind = LiteralKind.String;
+	}
+
+	private skipCommentLine() {
+		while (true) {
+			if (this.ch == null) {
+				break;
+			}
+			if (this.ch == '\n') {
+				this.nextChar();
+				break;
+			}
+			this.nextChar();
+		}
+	}
+
+	private skipCommentRange() {
+		while (true) {
+			if (this.ch == null) {
+				break;
+			}
+			if (this.ch == '*') {
+				this.nextChar();
+				// @ts-ignore
+				if (this.ch == '/') {
+					this.nextChar();
+					break;
+				}
+				continue;
+			}
+			this.nextChar();
+		}
 	}
 }
