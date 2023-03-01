@@ -502,11 +502,27 @@ function parseInfix(p: Parser, minPrec: number): ExprNode {
 
 /**
  * ```text
- * <Atom> = <AtomInner> <Suffix>?
+ * <Atom> = <AtomInner> <SuffixChain>
  * ```
 */
 function parseAtom(p: Parser): ExprNode {
-	let expr = parseAtomInner(p);
+	const expr = parseAtomInner(p);
+	return parseSuffixChain(p, expr);
+}
+
+/**
+ * Only one suffix is consumed and the rest of the chain is consumed in a recursive call.
+ * If there is no suffix, the target is returned as is.
+*/
+function parseSuffixChain(p: Parser, target: ExprNode): ExprNode {
+	switch (p.getToken()) {
+		case Token.BeginParen: {
+			break;
+		}
+		default: {
+			return target;
+		}
+	}
 
 	const pos = p.getPos();
 	switch (p.getToken()) {
@@ -524,11 +540,11 @@ function parseAtom(p: Parser): ExprNode {
 				}
 			}
 			p.expectAndNext(Token.EndParen);
-			expr = newCall(pos, expr, args);
+			target = newCall(pos, target, args);
 		}
 	}
 
-	return expr;
+	return parseSuffixChain(p, target);
 }
 
 /**
