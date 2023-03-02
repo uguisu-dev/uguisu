@@ -8,7 +8,7 @@ import {
 	newString,
 } from './run';
 
-export function setBuiltinRuntimes(env: Env) {
+export function setRuntime(env: Env) {
 
 	const printStr = newNativeFunction((args) => {
 		if (args.length != 1) {

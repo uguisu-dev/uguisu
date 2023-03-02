@@ -1,4 +1,4 @@
-import { setBuiltinRuntimes } from './builtins';
+import * as builtins from './builtins';
 import {
 	AssignMode,
 	ExprNode,
@@ -164,7 +164,7 @@ export class Runner {
 	}
 
 	run(source: SourceFile) {
-		setBuiltinRuntimes(this.env);
+		builtins.setRuntime(this.env);
 		evalSourceFile(this.env, source);
 		const symbol = this.env.get('main');
 		if (symbol == null || !symbol.defined) {

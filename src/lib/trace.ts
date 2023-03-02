@@ -1,20 +1,20 @@
-let _logger: DebugLogger | null;
+let _default: Trace | null;
 
-export class DebugLogger {
-	parent?: DebugLogger;
+export class Trace {
+	parent?: Trace;
 	depth: number;
 	enabled: boolean;
 
-	constructor(enabled: boolean, parent?: DebugLogger) {
+	constructor(enabled: boolean, parent?: Trace) {
 		this.parent = parent;
 		this.depth = 0;
 		this.enabled = enabled;
 	}
 
-	debug(message: any, ...params: any[]) {
+	log(message: any, ...params: any[]) {
 		if (this.enabled) {
 			if (this.parent) {
-				this.parent.debug(message, ...params);
+				this.parent.log(message, ...params);
 			} else {
 				const indent = '  '.repeat(this.depth);
 				console.log(indent + message, ...params);
@@ -22,10 +22,10 @@ export class DebugLogger {
 		}
 	}
 
-	debugEnter(message: any, ...params: any[]) {
+	enter(message: any, ...params: any[]) {
 		if (this.enabled) {
 			if (this.parent) {
-				this.parent.debugEnter(message, ...params);
+				this.parent.enter(message, ...params);
 			} else {
 				const indent = '  '.repeat(this.depth);
 				console.log(indent + message, ...params);
@@ -34,10 +34,10 @@ export class DebugLogger {
 		}
 	}
 
-	debugLeave(message?: any, ...params: any[]) {
+	leave(message?: any, ...params: any[]) {
 		if (this.enabled) {
 			if (this.parent) {
-				this.parent.debugLeave(message, ...params);
+				this.parent.leave(message, ...params);
 			} else {
 				if (this.depth > 0) {
 					this.depth--;
@@ -50,14 +50,14 @@ export class DebugLogger {
 		}
 	}
 
-	createChild(): DebugLogger {
-		return new DebugLogger(false, this);
+	createChild(enabled: boolean): Trace {
+		return new Trace(enabled, this);
 	}
 
-	static getRootLogger() {
-		if (_logger == null) {
-			_logger = new DebugLogger(true);
+	static getDefault() {
+		if (_default == null) {
+			_default = new Trace(true);
 		}
-		return _logger;
+		return _default;
 	}
 }

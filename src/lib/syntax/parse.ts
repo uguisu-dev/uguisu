@@ -1,4 +1,4 @@
-import { DebugLogger } from '../logger';
+import { Trace } from '../trace';
 import {
 	AssignMode,
 	BinaryOperator,
@@ -34,8 +34,7 @@ import {
 import { LiteralKind, LiteralValue, Scanner } from './scan';
 import { Token } from './scan';
 
-const logger = DebugLogger.getRootLogger().createChild();
-logger.enabled = false;
+const trace = Trace.getDefault().createChild(false);
 
 export class Parser {
 	s: Scanner;
@@ -71,12 +70,12 @@ export class Parser {
 	 * Move to the next token.
 	*/
 	next() {
-		logger.debug(`[parse] next`);
+		trace.log(`[parse] next`);
 		this.s.next();
 	}
 
 	tokenIs(token: Token): boolean {
-		logger.debug(`[parse] tokenIs ${Token[token]} (${this.getToken() == token})`);
+		trace.log(`[parse] tokenIs ${Token[token]} (${this.getToken() == token})`);
 		return (this.getToken() == token);
 	}
 
@@ -111,7 +110,7 @@ export class Parser {
  * ```
 */
 function parseBlock(p: Parser): StatementNode[] {
-	logger.debugEnter('[parse] parseBlock');
+	trace.enter('[parse] parseBlock');
 
 	p.expectAndNext(Token.BeginBrace);
 	const statements: StatementNode[] = [];
@@ -120,7 +119,7 @@ function parseBlock(p: Parser): StatementNode[] {
 	}
 	p.expectAndNext(Token.EndBrace);
 
-	logger.debugLeave();
+	trace.leave();
 	return statements;
 }
 
@@ -130,7 +129,7 @@ function parseBlock(p: Parser): StatementNode[] {
  * ```
 */
 function parseTyLabel(p: Parser): TyLabel {
-	logger.debugEnter('[parse] parseTyLabel');
+	trace.enter('[parse] parseTyLabel');
 
 	p.expectAndNext(Token.Colon);
 	const pos = p.getPos();
@@ -138,7 +137,7 @@ function parseTyLabel(p: Parser): TyLabel {
 	const name = p.getIdentValue();
 	p.next();
 
-	logger.debugLeave();
+	trace.leave();
 	return newTyLabel(pos, name);
 }
 
@@ -153,12 +152,12 @@ function parseTyLabel(p: Parser): TyLabel {
 */
 function parseSourceFile(p: Parser, filename: string): SourceFile {
 	let funcs: FunctionDecl[] = [];
-	logger.debugEnter('[parse] parseSourceFile');
+	trace.enter('[parse] parseSourceFile');
 
 	while (true) {
-		logger.debugEnter('[parse] declaration item');
+		trace.enter('[parse] declaration item');
 		if (p.tokenIs(Token.EOF)) {
-			logger.debugLeave();
+			trace.leave();
 			break;
 		}
 		switch (p.getToken()) {
@@ -170,10 +169,10 @@ function parseSourceFile(p: Parser, filename: string): SourceFile {
 				throw new Error(`unexpected token: ${Token[p.getToken()]}`);
 			}
 		}
-		logger.debugLeave();
+		trace.leave();
 	}
 
-	logger.debugLeave();
+	trace.leave();
 	return newSourceFile([1, 1], filename, funcs);
 }
 
@@ -184,7 +183,7 @@ function parseSourceFile(p: Parser, filename: string): SourceFile {
  * ```
 */
 function parseFunctionDecl(p: Parser): FunctionDecl {
-	logger.debugEnter('[parse] parseFunctionDecl');
+	trace.enter('[parse] parseFunctionDecl');
 
 	const pos = p.getPos();
 	p.next();
@@ -210,7 +209,7 @@ function parseFunctionDecl(p: Parser): FunctionDecl {
 	}
 	const body = parseBlock(p);
 
-	logger.debugLeave();
+	trace.leave();
 	return newFunctionDecl(pos, name, params, body, returnTy);
 }
 
@@ -220,7 +219,7 @@ function parseFunctionDecl(p: Parser): FunctionDecl {
  * ```
 */
 function parseFnDeclParam(p: Parser): FnDeclParam {
-	logger.debugEnter('[parse] parseFnDeclParam');
+	trace.enter('[parse] parseFnDeclParam');
 
 	const pos = p.getPos();
 	p.expect(Token.Ident);
@@ -232,7 +231,7 @@ function parseFnDeclParam(p: Parser): FnDeclParam {
 		ty = parseTyLabel(p);
 	}
 
-	logger.debugLeave();
+	trace.leave();
 	return newFnDeclParam(pos, name, ty);
 }
 
@@ -276,7 +275,7 @@ function parseStatement(p: Parser): StatementNode {
  * ```
 */
 function parseStatementStartWithExpr(p: Parser): StatementNode {
-	logger.debugEnter('[parse] parseStatementStartWithExpr');
+	trace.enter('[parse] parseStatementStartWithExpr');
 
 	const expr = parseExpr(p);
 	switch (p.getToken()) {
@@ -320,12 +319,12 @@ function parseStatementStartWithExpr(p: Parser): StatementNode {
 			}
 			const body = parseExpr(p);
 			p.expectAndNext(Token.Semi);
-			logger.debugLeave();
+			trace.leave();
 			return newAssignStatement(expr.pos, expr, body, mode);
 		}
 		case Token.Semi: {
 			p.next();
-			logger.debugLeave();
+			trace.leave();
 			return expr;
 		}
 		default: {
@@ -340,7 +339,7 @@ function parseStatementStartWithExpr(p: Parser): StatementNode {
  * ```
 */
 function parseVariableDecl(p: Parser): VariableDecl {
-	logger.debugEnter('[parse] parseVariableDecl');
+	trace.enter('[parse] parseVariableDecl');
 
 	p.next();
 	const pos = p.getPos();
@@ -360,7 +359,7 @@ function parseVariableDecl(p: Parser): VariableDecl {
 	}
 	p.expectAndNext(Token.Semi);
 
-	logger.debugLeave();
+	trace.leave();
 	return newVariableDecl(pos, name, ty, body);
 }
 
@@ -370,13 +369,13 @@ function parseVariableDecl(p: Parser): VariableDecl {
  * ```
 */
 function parseBreakStatement(p: Parser): BreakStatement {
-	logger.debugEnter('[parse] parseBreakStatement');
+	trace.enter('[parse] parseBreakStatement');
 
 	const pos = p.getPos();
 	p.expectAndNext(Token.Break);
 	p.expectAndNext(Token.Semi);
 
-	logger.debugLeave();
+	trace.leave();
 	return newBreakStatement(pos);
 }
 
@@ -386,7 +385,7 @@ function parseBreakStatement(p: Parser): BreakStatement {
  * ```
 */
 function parseReturnStatement(p: Parser): ReturnStatement {
-	logger.debugEnter('[parse] parseReturnStatement');
+	trace.enter('[parse] parseReturnStatement');
 
 	const pos = p.getPos();
 	p.expectAndNext(Token.Return);
@@ -396,7 +395,7 @@ function parseReturnStatement(p: Parser): ReturnStatement {
 	}
 	p.expectAndNext(Token.Semi);
 
-	logger.debugLeave();
+	trace.leave();
 	return newReturnStatement(pos, expr);
 }
 
@@ -406,7 +405,7 @@ function parseReturnStatement(p: Parser): ReturnStatement {
  * ```
 */
 function parseIfStatement(p: Parser): IfStatement {
-	logger.debugEnter('[parse] parseIfStatement');
+	trace.enter('[parse] parseIfStatement');
 
 	const pos = p.getPos();
 	p.next();
@@ -424,7 +423,7 @@ function parseIfStatement(p: Parser): IfStatement {
 		elseBlock = [];
 	}
 
-	logger.debugLeave();
+	trace.leave();
 	return newIfStatement(pos, cond, thenBlock, elseBlock);
 }
 
@@ -434,13 +433,13 @@ function parseIfStatement(p: Parser): IfStatement {
  * ```
 */
 function parseLoopStatement(p: Parser): LoopStatement {
-	logger.debugEnter('[parse] parseLoopStatement');
+	trace.enter('[parse] parseLoopStatement');
 
 	const pos = p.getPos();
 	p.expectAndNext(Token.Loop);
 	const block = parseBlock(p);
 
-	logger.debugLeave();
+	trace.leave();
 	return newLoopStatement(pos, block);
 }
 

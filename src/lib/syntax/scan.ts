@@ -1,7 +1,6 @@
-import { DebugLogger } from '../logger';
+import { Trace } from '../trace';
 
-const logger = DebugLogger.getRootLogger().createChild();
-logger.enabled = false;
+const trace = Trace.getDefault().createChild(false);
 
 export enum LiteralKind {
 	None,
@@ -184,7 +183,7 @@ export class Scanner {
 				this.column++;
 			}
 		}
-		logger.debug(`[scan] pos ${this.line+1},${this.column+1}`);
+		trace.log(`[scan] pos ${this.line+1},${this.column+1}`);
 
 		this.index++;
 		this.ch = this.sourceCode[this.index];
@@ -194,7 +193,7 @@ export class Scanner {
 	 * Read a token and move to the next position.
 	*/
 	next() {
-		logger.debugEnter(`[scan] read`);
+		trace.enter(`[scan] read`);
 		while (true) {
 			if (this.ch == null) {
 				this.token = Token.EOF;
@@ -206,7 +205,7 @@ export class Scanner {
 			}
 			this.tokenLine = this.line;
 			this.tokenColumn = this.column;
-			logger.debug(`[scan] token pos ${this.tokenLine+1},${this.tokenColumn+1}`);
+			trace.log(`[scan] token pos ${this.tokenLine+1},${this.tokenColumn+1}`);
 
 			if (digit.test(this.ch)) {
 				this.readDigits();
@@ -390,7 +389,7 @@ export class Scanner {
 			}
 			break;
 		}
-		logger.debugLeave();
+		trace.leave();
 	}
 
 	private readDigits() {
