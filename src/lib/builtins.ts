@@ -1,36 +1,36 @@
 import {
-	asNumberValue,
-	asStringValue,
+	assertNumber,
+	assertString,
 	Env,
-	newNativeFunctionValue,
+	newNativeFunction,
 	newNoneValue,
-	newNumberValue,
-	newStringValue,
+	newNumber,
+	newString,
 } from './run';
 
 export function setBuiltinRuntimes(env: Env) {
 
-	const printStr = newNativeFunctionValue((args) => {
+	const printStr = newNativeFunction((args) => {
 		if (args.length != 1) {
 			throw new Error('invalid arguments count');
 		}
-		asStringValue(args[0]);
+		assertString(args[0]);
 		process.stdout.write(args[0].value);
 		return newNoneValue();
 	});
 	env.define('printStr', printStr);
 
-	const printNum = newNativeFunctionValue((args) => {
+	const printNum = newNativeFunction((args) => {
 		if (args.length != 1) {
 			throw new Error('invalid arguments count');
 		}
-		asNumberValue(args[0]);
+		assertNumber(args[0]);
 		process.stdout.write(args[0].value.toString());
 		return newNoneValue();
 	});
 	env.define('printNum', printNum);
 
-	const printLF = newNativeFunctionValue((args) => {
+	const printLF = newNativeFunction((args) => {
 		if (args.length != 0) {
 			throw new Error('invalid arguments count');
 		}
@@ -39,12 +39,12 @@ export function setBuiltinRuntimes(env: Env) {
 	});
 	env.define('printLF', printLF);
 
-	const assertEq = newNativeFunctionValue((args) => {
+	const assertEq = newNativeFunction((args) => {
 		if (args.length != 2) {
 			throw new Error('invalid arguments count');
 		}
-		asNumberValue(args[0]);
-		asNumberValue(args[1]);
+		assertNumber(args[0]);
+		assertNumber(args[1]);
 		const actual = args[0].value;
 		const expected = args[1].value;
 		if (actual != expected) {
@@ -54,31 +54,31 @@ export function setBuiltinRuntimes(env: Env) {
 	});
 	env.define('assertEq', assertEq);
 
-	const getUnixtime = newNativeFunctionValue((args) => {
+	const getUnixtime = newNativeFunction((args) => {
 		if (args.length != 0) {
 			throw new Error('invalid arguments count');
 		}
 		const unixTime = Math.floor(Date.now() / 1000);
-		return newNumberValue(unixTime);
+		return newNumber(unixTime);
 	});
 	env.define('getUnixtime', getUnixtime);
 
-	const concatStr = newNativeFunctionValue((args) => {
+	const concatStr = newNativeFunction((args) => {
 		if (args.length != 2) {
 			throw new Error('invalid arguments count');
 		}
-		asStringValue(args[0]);
-		asStringValue(args[1]);
-		return newStringValue(args[0].value + args[1].value);
+		assertString(args[0]);
+		assertString(args[1]);
+		return newString(args[0].value + args[1].value);
 	});
 	env.define('concatStr', concatStr);
 
-	const toString = newNativeFunctionValue((args) => {
+	const toString = newNativeFunction((args) => {
 		if (args.length != 1) {
 			throw new Error('invalid arguments count');
 		}
-		asNumberValue(args[0]);
-		return newStringValue(args[0].value.toString());
+		assertNumber(args[0]);
+		return newString(args[0].value.toString());
 	});
 	env.define('toString', toString);
 

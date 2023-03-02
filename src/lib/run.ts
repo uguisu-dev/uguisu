@@ -18,20 +18,20 @@ export type FunctionValue = {
 	kind: 'FunctionValue',
 	node: FunctionDecl,
 	native: undefined,
-	env: Env,
+	env: Env, // lexical scope
 } | {
 	kind: 'FunctionValue',
 	node: undefined,
 	native: NativeFuncHandler,
 };
 
-export function newFunctionValue(node: FunctionDecl, env: Env): FunctionValue {
+export function newFunction(node: FunctionDecl, env: Env): FunctionValue {
 	return { kind: 'FunctionValue', node, native: undefined, env };
 }
-export function newNativeFunctionValue(native: NativeFuncHandler): FunctionValue {
+export function newNativeFunction(native: NativeFuncHandler): FunctionValue {
 	return { kind: 'FunctionValue', node: undefined, native };
 }
-export function asFunctionValue(value: Value): asserts value is FunctionValue {
+export function assertFunction(value: Value): asserts value is FunctionValue {
 	if (value.kind != 'FunctionValue') {
 		throw new Error(`type mismatched. expected \`fn\`, found \`${getTypeName(value)}\``);
 	}
@@ -41,10 +41,10 @@ export type NumberValue = {
 	kind: 'NumberValue',
 	value: number,
 };
-export function newNumberValue(value: number): NumberValue {
+export function newNumber(value: number): NumberValue {
 	return { kind: 'NumberValue', value };
 }
-export function asNumberValue(value: Value): asserts value is NumberValue {
+export function assertNumber(value: Value): asserts value is NumberValue {
 	if (value.kind != 'NumberValue') {
 		throw new Error(`type mismatched. expected \`number\`, found \`${getTypeName(value)}\``);
 	}
@@ -54,10 +54,10 @@ export type BoolValue = {
 	kind: 'BoolValue',
 	value: boolean,
 };
-export function newBoolValue(value: boolean): BoolValue {
+export function newBool(value: boolean): BoolValue {
 	return { kind: 'BoolValue', value };
 }
-export function asBoolValue(value: Value): asserts value is BoolValue {
+export function assertBool(value: Value): asserts value is BoolValue {
 	if (value.kind != 'BoolValue') {
 		throw new Error(`type mismatched. expected \`bool\`, found \`${getTypeName(value)}\``);
 	}
@@ -67,10 +67,10 @@ export type StringValue = {
 	kind: 'StringValue',
 	value: string,
 };
-export function newStringValue(value: string): StringValue {
+export function newString(value: string): StringValue {
 	return { kind: 'StringValue', value };
 }
-export function asStringValue(value: Value): asserts value is StringValue {
+export function assertString(value: Value): asserts value is StringValue {
 	if (value.kind != 'StringValue') {
 		throw new Error(`type mismatched. expected \`string\`, found \`${getTypeName(value)}\``);
 	}
@@ -170,18 +170,18 @@ export class Runner {
 		if (symbol == null || !symbol.defined) {
 			throw new Error('function `main` is not defined');
 		}
-		asFunctionValue(symbol.value);
-		callFunction(symbol.value, []);
+		assertFunction(symbol.value);
+		call(symbol.value, []);
 	}
 }
 
 function evalSourceFile(env: Env, source: SourceFile) {
 	for (const func of source.funcs) {
-		env.define(func.name, newFunctionValue(func, env));
+		env.define(func.name, newFunction(func, env));
 	}
 }
 
-function callFunction(func: FunctionValue, args: Value[]): Value {
+function call(func: FunctionValue, args: Value[]): Value {
 	if (func.node != null) {
 		const childEnv = new Env(func.env);
 		if (func.node.params.length != args.length) {
@@ -238,7 +238,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 				if (isNoneValue(cond)) {
 					throw new Error('no values');
 				}
-				asBoolValue(cond);
+				assertBool(cond);
 				if (cond.value) {
 					return execBlock(env, statement.thenBlock);
 				} else {
@@ -276,9 +276,9 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 						if (restored == null || !restored.defined) {
 							throw new Error('variable is not defined');
 						}
-						asNumberValue(restored.value);
-						asNumberValue(bodyValue);
-						const value = newNumberValue(restored.value.value + bodyValue.value);
+						assertNumber(restored.value);
+						assertNumber(bodyValue);
+						const value = newNumber(restored.value.value + bodyValue.value);
 						env.define(statement.target.name, value);
 						break;
 					}
@@ -287,9 +287,9 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 						if (restored == null || !restored.defined) {
 							throw new Error('variable is not defined');
 						}
-						asNumberValue(restored.value);
-						asNumberValue(bodyValue);
-						const value = newNumberValue(restored.value.value - bodyValue.value);
+						assertNumber(restored.value);
+						assertNumber(bodyValue);
+						const value = newNumber(restored.value.value - bodyValue.value);
 						env.define(statement.target.name, value);
 						break;
 					}
@@ -298,9 +298,9 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 						if (restored == null || !restored.defined) {
 							throw new Error('variable is not defined');
 						}
-						asNumberValue(restored.value);
-						asNumberValue(bodyValue);
-						const value = newNumberValue(restored.value.value * bodyValue.value);
+						assertNumber(restored.value);
+						assertNumber(bodyValue);
+						const value = newNumber(restored.value.value * bodyValue.value);
 						env.define(statement.target.name, value);
 						break;
 					}
@@ -309,9 +309,9 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 						if (restored == null || !restored.defined) {
 							throw new Error('variable is not defined');
 						}
-						asNumberValue(restored.value);
-						asNumberValue(bodyValue);
-						const value = newNumberValue(restored.value.value / bodyValue.value);
+						assertNumber(restored.value);
+						assertNumber(bodyValue);
+						const value = newNumber(restored.value.value / bodyValue.value);
 						env.define(statement.target.name, value);
 						break;
 					}
@@ -320,9 +320,9 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 						if (restored == null || !restored.defined) {
 							throw new Error('variable is not defined');
 						}
-						asNumberValue(restored.value);
-						asNumberValue(bodyValue);
-						const value = newNumberValue(restored.value.value % bodyValue.value);
+						assertNumber(restored.value);
+						assertNumber(bodyValue);
+						const value = newNumber(restored.value.value % bodyValue.value);
 						env.define(statement.target.name, value);
 						break;
 					}
@@ -343,20 +343,20 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 			return symbol.value;
 		}
 		case 'NumberLiteral': {
-			return newNumberValue(expr.value);
+			return newNumber(expr.value);
 		}
 		case 'BoolLiteral': {
-			return newBoolValue(expr.value);
+			return newBool(expr.value);
 		}
 		case 'StringLiteral': {
-			return newStringValue(expr.value);
+			return newString(expr.value);
 		}
 		case 'Call': {
 			const callee = evalExpr(env, expr.callee);
 			if (isNoneValue(callee)) {
 				throw new Error('no values');
 			}
-			asFunctionValue(callee);
+			assertFunction(callee);
 			const args = expr.args.map(i => {
 				const value = evalExpr(env, i);
 				if (isNoneValue(value)) {
@@ -364,7 +364,7 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 				}
 				return value;
 			});
-			return callFunction(callee, args);
+			return call(callee, args);
 		}
 		case 'BinaryOp': {
 			const left = evalExpr(env, expr.left);
@@ -377,54 +377,54 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 			}
 			if (isLogicalBinaryOperator(expr.operator)) {
 				// Logical Operation
-				asBoolValue(left);
-				asBoolValue(right);
+				assertBool(left);
+				assertBool(right);
 				switch (expr.operator) {
 					case '&&': {
-						return newBoolValue(left.value && right.value);
+						return newBool(left.value && right.value);
 					}
 					case '||': {
-						return newBoolValue(left.value || right.value);
+						return newBool(left.value || right.value);
 					}
 				}
 			} else if (isRelationalOperator(expr.operator)) {
 				// Relational Operation
 				switch (left.kind) {
 					case 'NumberValue': {
-						asNumberValue(right);
+						assertNumber(right);
 						switch (expr.operator) {
 							// equivalent
 							case '==': {
-								return newBoolValue(left.value == right.value);
+								return newBool(left.value == right.value);
 							}
 							case '!=': {
-								return newBoolValue(left.value != right.value);
+								return newBool(left.value != right.value);
 							}
 							// ordering
 							case '<': {
-								return newBoolValue(left.value < right.value);
+								return newBool(left.value < right.value);
 							}
 							case '<=': {
-								return newBoolValue(left.value <= right.value);
+								return newBool(left.value <= right.value);
 							}
 							case '>': {
-								return newBoolValue(left.value > right.value);
+								return newBool(left.value > right.value);
 							}
 							case '>=': {
-								return newBoolValue(left.value >= right.value);
+								return newBool(left.value >= right.value);
 							}
 						}
 						break;
 					}
 					case 'BoolValue': {
-						asBoolValue(right);
+						assertBool(right);
 						switch (expr.operator) {
 							// equivalent
 							case '==': {
-								return newBoolValue(left.value == right.value);
+								return newBool(left.value == right.value);
 							}
 							case '!=': {
-								return newBoolValue(left.value != right.value);
+								return newBool(left.value != right.value);
 							}
 							// ordering
 							case '<':
@@ -437,14 +437,14 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 						break;
 					}
 					case 'StringValue': {
-						asStringValue(right);
+						assertString(right);
 						switch (expr.operator) {
 							// equivalent
 							case '==': {
-								return newBoolValue(left.value == right.value);
+								return newBool(left.value == right.value);
 							}
 							case '!=': {
-								return newBoolValue(left.value != right.value);
+								return newBool(left.value != right.value);
 							}
 							// ordering
 							case '<':
@@ -457,14 +457,14 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 						break;
 					}
 					case 'FunctionValue': {
-						asFunctionValue(right);
+						assertFunction(right);
 						switch (expr.operator) {
 							// equivalent
 							case '==': {
-								return newBoolValue(left.node == right.node);
+								return newBool(left.node == right.node);
 							}
 							case '!=': {
-								return newBoolValue(left.node != right.node);
+								return newBool(left.node != right.node);
 							}
 							// ordering
 							case '<':
@@ -478,23 +478,23 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 				}
 			} else {
 				// Arithmetic Operation
-				asNumberValue(left);
-				asNumberValue(right);
+				assertNumber(left);
+				assertNumber(right);
 				switch (expr.operator) {
 					case '+': {
-						return newNumberValue(left.value + right.value);
+						return newNumber(left.value + right.value);
 					}
 					case '-': {
-						return newNumberValue(left.value - right.value);
+						return newNumber(left.value - right.value);
 					}
 					case '*': {
-						return newNumberValue(left.value * right.value);
+						return newNumber(left.value * right.value);
 					}
 					case '/': {
-						return newNumberValue(left.value / right.value);
+						return newNumber(left.value / right.value);
 					}
 					case '%': {
-						return newNumberValue(left.value % right.value);
+						return newNumber(left.value % right.value);
 					}
 				}
 			}
@@ -506,10 +506,10 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 				throw new Error('no values');
 			}
 			// Logical Operation
-			asBoolValue(value);
+			assertBool(value);
 			switch (expr.operator) {
 				case '!': {
-					return newBoolValue(!value.value);
+					return newBool(!value.value);
 				}
 			}
 			throw new Error('unexpected operation');
