@@ -1,11 +1,14 @@
 // TODO
 
-type Path = {
-	handler: () => void,
+import { AstNode, SourceFile } from '../syntax/ast';
+import { visitNode } from '../syntax/visit';
+
+export type Path = {
+	handler: (node: AstNode) => boolean,
 };
 
-function apply(pathes: Path[]) {
+export function apply(source: SourceFile, pathes: Path[]) {
 	for (const path of pathes) {
-		path.handler();
+		visitNode(source, (node) => path.handler(node));
 	}
 }
