@@ -26,10 +26,10 @@ export type FunctionValue = {
 };
 
 export function newFunction(node: FunctionDecl, env: Env): FunctionValue {
-	return { kind: 'FunctionValue', node, native: undefined, env };
+	return { kind: 'FunctionValue', node, env, native: undefined };
 }
 export function newNativeFunction(native: NativeFuncHandler): FunctionValue {
-	return { kind: 'FunctionValue', node: undefined, native };
+	return { kind: 'FunctionValue', native, node: undefined };
 }
 export function assertFunction(value: Value): asserts value is FunctionValue {
 	if (value.kind != 'FunctionValue') {
