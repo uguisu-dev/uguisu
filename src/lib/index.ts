@@ -2,6 +2,7 @@ import { Scanner } from './syntax/scan';
 import { Parser } from './syntax/parse';
 import { Runner } from './run';
 import { SourceFile } from './syntax/ast';
+import { checkTypes } from './semantics/type-check';
 
 export {
 	SourceFile,
@@ -20,6 +21,7 @@ export class Uguisu {
 	exec(sourceCode: string) {
 		this._parser.setup(sourceCode, 'main.ug');
 		const ast = this._parser.parse();
+		checkTypes(ast);
 		this._runner.run(ast);
 	}
 }

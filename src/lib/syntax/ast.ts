@@ -5,6 +5,27 @@ export type FileNode = FunctionDecl;
 export type StatementNode = VariableDecl | AssignStatement | IfStatement | LoopStatement | ReturnStatement | BreakStatement | ExprNode;
 export type ExprNode = NumberLiteral | BoolLiteral | StringLiteral | BinaryOp | UnaryOp | Identifier | Call; // FieldAccess
 
+export type NodeOf<T extends AstNode['kind']>
+	= T extends 'SourceFile' ? SourceFile
+	: T extends 'FunctionDecl' ? FunctionDecl
+	: T extends 'FnDeclParam' ? FnDeclParam
+	: T extends 'IfStatement' ? IfStatement
+	: T extends 'Identifier' ? Identifier
+	: T extends 'NumberLiteral' ? NumberLiteral
+	: T extends 'BoolLiteral' ? BoolLiteral
+	: T extends 'StringLiteral' ? StringLiteral
+	: T extends 'UnaryOp' ? UnaryOp
+	: T extends 'BinaryOp' ? BinaryOp
+	: T extends 'Call' ? Call
+	: T extends 'TyLabel' ? TyLabel
+	: T extends 'BreakStatement' ? BreakStatement
+	: T extends 'ContinueStatement' ? ContinueStatement
+	: T extends 'ReturnStatement' ? ReturnStatement
+	: T extends 'LoopStatement' ? LoopStatement
+	: T extends 'AssignStatement' ? AssignStatement
+	: T extends 'VariableDecl' ? VariableDecl
+	: never;
+
 const exprNodeKind: AstNode['kind'][] = [
 	'NumberLiteral', 'BoolLiteral', 'StringLiteral', 'BinaryOp', 'UnaryOp', 'Identifier', 'Call',
 ];

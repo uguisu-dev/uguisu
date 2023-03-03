@@ -1,11 +1,17 @@
-import { AstNode } from './ast';
+import { AstNode, NodeOf } from '../syntax/ast';
 
-export type Visitor = (node: AstNode) => boolean;
+export type Visitor = {
+	[key in AstNode['kind']]?: VisitorAction<NodeOf<key>>;
+};
 
-export function visitNode(node: AstNode, visitor: Visitor) {
-	if (!visitor(node)) {
-		return;
+export type VisitorAction<T> = (node: T) => void;
+
+export function visit(node: AstNode, visitor: Visitor) {
+	const handler = visitor[node.kind] as VisitorAction<AstNode>;
+	if (handler != null) {
+		handler(node);
 	}
+
 	switch (node.kind) {
 		case 'SourceFile': {
 			visitNodes(node.funcs, visitor);
@@ -18,17 +24,17 @@ export function visitNode(node: AstNode, visitor: Visitor) {
 		}
 		case 'VariableDecl': {
 			if (node.body != null) {
-				visitNode(node.body, visitor);
+				visit(node.body, visitor);
 			}
 			break;
 		}
 		case 'AssignStatement': {
-			visitNode(node.target, visitor);
-			visitNode(node.body, visitor);
+			visit(node.target, visitor);
+			visit(node.body, visitor);
 			break;
 		}
 		case 'IfStatement': {
-			visitNode(node.cond, visitor);
+			visit(node.cond, visitor);
 			visitNodes(node.thenBlock, visitor);
 			visitNodes(node.elseBlock, visitor);
 			break;
@@ -39,7 +45,7 @@ export function visitNode(node: AstNode, visitor: Visitor) {
 		}
 		case 'ReturnStatement': {
 			if (node.expr != null) {
-				visitNode(node.expr, visitor);
+				visit(node.expr, visitor);
 			}
 			break;
 		}
@@ -56,27 +62,27 @@ export function visitNode(node: AstNode, visitor: Visitor) {
 			break;
 		}
 		case 'BinaryOp': {
-			visitNode(node.left, visitor);
-			visitNode(node.right, visitor);
+			visit(node.left, visitor);
+			visit(node.right, visitor);
 			break;
 		}
 		case 'UnaryOp': {
-			visitNode(node.expr, visitor);
+			visit(node.expr, visitor);
 			break;
 		}
 		case 'StringLiteral': {
 			break;
 		}
 		case 'Call': {
-			visitNode(node.callee, visitor);
+			visit(node.callee, visitor);
 			visitNodes(node.args, visitor);
 			break;
 		}
 	}
 }
 
-export function visitNodes(nodes: AstNode[], visitor: Visitor) {
+function visitNodes(nodes: AstNode[], visitor: Visitor) {
 	for (const node of nodes) {
-		visitNode(node, visitor);
+		visit(node, visitor);
 	}
 }
