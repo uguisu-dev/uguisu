@@ -28,25 +28,20 @@ class Env {
 
 export function typeCheck(source: SourceFile) {
 	const env = new Env();
-	for (const node of source.funcs) {
-		setDeclaration(node, env);
-	}
-	for (const node of source.funcs) {
-		validateNode(node, env);
-	}
-}
-
-function setDeclaration(node: AstNode, env: Env) {
-	switch (node.kind) {
-		case 'FunctionDecl': {
-			env.newSymbol(node.name);
-			break;
-		}
-	}
+	validateNode(source, env);
 }
 
 function validateNode(node: AstNode, env: Env) {
 	switch (node.kind) {
+		case 'SourceFile': {
+			for (const n of node.funcs) {
+				setDeclaration(n, env);
+			}
+			for (const n of node.funcs) {
+				validateNode(n, env);
+			}
+			return;
+		}
 		case 'FunctionDecl': {
 			const symbol = env.getSymbol(node.name);
 			if (symbol == null) {
@@ -63,24 +58,46 @@ function validateNode(node: AstNode, env: Env) {
 			for (const statement of node.body) {
 				validateNode(statement, env);
 			}
-			break;
+			return;
 		}
 		case 'VariableDecl': {
-			break;
+			throw new Error('not implemented yet'); // TODO
 		}
 		case 'AssignStatement': {
-			break;
+			throw new Error('not implemented yet'); // TODO
 		}
 		case 'IfStatement': {
-			break;
+			throw new Error('not implemented yet'); // TODO
 		}
 		case 'LoopStatement': {
-			break;
+			throw new Error('not implemented yet'); // TODO
 		}
 		case 'ReturnStatement': {
-			break;
+			throw new Error('not implemented yet'); // TODO
 		}
 		case 'BreakStatement': {
+			throw new Error('not implemented yet'); // TODO
+		}
+		case 'FnDeclParam':
+		case 'TyLabel':
+		case 'NumberLiteral':
+		case 'BoolLiteral':
+		case 'StringLiteral':
+		case 'BinaryOp':
+		case 'UnaryOp':
+		case 'Identifier':
+		case 'Call': {
+			inferType(node, env);
+			return;
+		}
+	}
+	throw new Error('unexpected node');
+}
+
+function setDeclaration(node: AstNode, env: Env) {
+	switch (node.kind) {
+		case 'FunctionDecl': {
+			env.newSymbol(node.name);
 			break;
 		}
 	}
@@ -89,31 +106,42 @@ function validateNode(node: AstNode, env: Env) {
 function inferType(node: AstNode, env: Env): Type {
 	switch (node.kind) {
 		case 'FnDeclParam': {
-			if (node.ty != null) {
-				return resolveTypeName(node.ty.name);
+			if (node.ty == null) {
+				throw new Error('parameter type is not specified');
 			}
-			break;
+			return inferType(node.ty, env);
+		}
+		case 'TyLabel': {
+			return resolveTypeName(node.name);
 		}
 		case 'NumberLiteral': {
-			break;
+			return 'number';
 		}
 		case 'BoolLiteral': {
-			break;
+			return 'bool';
 		}
 		case 'StringLiteral': {
-			break;
+			return 'string';
 		}
 		case 'BinaryOp': {
-			break;
+			// TODO: operator
+			const leftTy = inferType(node.left, env);
+			const rightTy = inferType(node.right, env);
+			if (leftTy != rightTy) {
+				throw new Error('type mismatched.');
+			}
+			return leftTy;
 		}
 		case 'UnaryOp': {
-			break;
+			// TODO: operator
+			const ty = inferType(node.expr, env);
+			return ty;
 		}
 		case 'Identifier': {
-			break;
+			throw new Error('not implemented yet'); // TODO
 		}
 		case 'Call': {
-			break;
+			throw new Error('not implemented yet'); // TODO
 		}
 	}
 	throw new Error('unexpected node');
