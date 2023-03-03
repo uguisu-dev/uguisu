@@ -4,12 +4,17 @@ export type Visitor = {
 	[key in AstNode['kind']]?: VisitorAction<NodeOf<key>>;
 };
 
-export type VisitorAction<T> = (node: T) => void;
+export type VisitorAction<T> = { enter?: VisitorFn<T>, leave?: VisitorFn<T> } | VisitorFn<T>;
+type VisitorFn<T> = (node: T) => void;
 
 export function visit(node: AstNode, visitor: Visitor) {
-	const handler = visitor[node.kind] as VisitorAction<AstNode>;
-	if (handler != null) {
-		handler(node);
+	const action = visitor[node.kind] as VisitorAction<AstNode>;
+	if (typeof action == 'function') {
+		action(node);
+	} else {
+		if (action.enter != null) {
+			action.enter(node);
+		}
 	}
 
 	switch (node.kind) {
@@ -78,6 +83,10 @@ export function visit(node: AstNode, visitor: Visitor) {
 			visitNodes(node.args, visitor);
 			break;
 		}
+	}
+
+	if (typeof action != 'function' && action.leave != null) {
+		action.leave(node);
 	}
 }
 
