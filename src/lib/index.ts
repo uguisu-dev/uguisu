@@ -2,7 +2,8 @@ import { Scanner } from './syntax/scan';
 import { Parser } from './syntax/parse';
 import { Runner } from './run';
 import { SourceFile } from './syntax/ast';
-import { typeCheck } from './semantics/type-check';
+import { Env as AnalysisEnv, typeCheck } from './semantics/type-check';
+import { setDeclarations } from './builtins';
 
 export {
 	SourceFile,
@@ -21,7 +22,11 @@ export class Uguisu {
 	exec(sourceCode: string) {
 		this._parser.setup(sourceCode, 'main.ug');
 		const ast = this._parser.parse();
-		typeCheck(ast);
+		// analysis
+		const env = new AnalysisEnv();
+		setDeclarations(env);
+		typeCheck(ast, env);
+		// running
 		this._runner.run(ast);
 	}
 }

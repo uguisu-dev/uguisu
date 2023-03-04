@@ -1,10 +1,30 @@
-import { AstNode, SourceFile } from '../syntax/ast';
+import { AstNode, FunctionDecl, SourceFile } from '../syntax/ast';
 
-type Type = 'number' | 'bool' | 'string';
+export type Type = 'void' | 'number' | 'bool' | 'string' | 'function';
 
-type Symbol = { defined: boolean, ty?: Type };
+export type FunctionSymbol = {
+	kind: 'FunctionSymbol',
+	node: FunctionDecl,
+	defined: boolean,
+	paramsTy: Type[],
+	returnTy: Type,
+};
 
-class Env {
+export type NativeFnSymbol = {
+	kind: 'NativeFnSymbol',
+	paramsTy: Type[],
+	returnTy: Type,
+};
+
+export type VariableSymbol = {
+	kind: 'VariableSymbol',
+	defined: boolean,
+	ty?: Type
+};
+
+export type Symbol = FunctionSymbol | NativeFnSymbol | VariableSymbol;
+
+export class Env {
 	private table: Map<string, Symbol>;
 
 	constructor(baseEnv?: Env) {
@@ -15,8 +35,7 @@ class Env {
 		}
 	}
 
-	newSymbol(name: string): Symbol {
-		const symbol: Symbol = { defined: false, ty: undefined };
+	setSymbol(name: string, symbol: Symbol) {
 		this.table.set(name, symbol);
 		return symbol;
 	}
@@ -26,8 +45,7 @@ class Env {
 	}
 }
 
-export function typeCheck(source: SourceFile) {
-	const env = new Env();
+export function typeCheck(source: SourceFile, env: Env) {
 	validateNode(source, env);
 }
 
@@ -43,43 +61,85 @@ function validateNode(node: AstNode, env: Env) {
 			return;
 		}
 		case 'FunctionDecl': {
+			// define function
 			const symbol = env.getSymbol(node.name);
 			if (symbol == null) {
 				throw new Error('unknown name');
 			}
-			symbol.defined = true;
-			// node.returnTy
-
-			for (const param of node.params) {
-				const symbol = env.newSymbol(node.name);
-				symbol.ty = inferType(param, env);
+			if (symbol.kind != 'FunctionSymbol') {
+				throw new Error('function expected');
 			}
-
+			symbol.defined = true;
+			// TODO: func param symbols for body
 			for (const statement of node.body) {
 				validateNode(statement, env);
 			}
 			return;
 		}
 		case 'VariableDecl': {
-			throw new Error('not implemented yet'); // TODO
+			let ty;
+			if (node.body != null) {
+				ty = inferType(node.body, env);
+			}
+			const symbol: VariableSymbol = {
+				kind: 'VariableSymbol',
+				defined: (node.body != null),
+				ty,
+			};
+			env.setSymbol(node.name, symbol);
+			return;
 		}
 		case 'AssignStatement': {
-			throw new Error('not implemented yet'); // TODO
+			// TODO: check assignee kind
+			// TODO: mode
+			if (node.target.kind != 'Identifier') {
+				throw new Error('identifier expected');
+			}
+			const symbol = env.getSymbol(node.target.name);
+			if (symbol == null) {
+				throw new Error('unknown target');
+			}
+			if (symbol.kind != 'VariableSymbol') {
+				throw new Error('variable expected');
+			}
+			if (symbol.ty == null) {
+				throw new Error('type not resolved');
+			}
+			const bodyTy = inferType(node.body, env);
+			if (symbol.ty != bodyTy) {
+				throw new Error('type mismatched.');
+			}
+			symbol.defined = true;
+			return;
 		}
 		case 'IfStatement': {
-			throw new Error('not implemented yet'); // TODO
+			const condTy = inferType(node.cond, env);
+			if (condTy != 'bool') {
+				throw new Error('type mismatched.');
+			}
+			for (const statement of node.thenBlock) {
+				validateNode(statement, env);
+			}
+			for (const statement of node.elseBlock) {
+				validateNode(statement, env);
+			}
+			return;
 		}
 		case 'LoopStatement': {
-			throw new Error('not implemented yet'); // TODO
+			for (const statement of node.block) {
+				validateNode(statement, env);
+			}
+			return;
 		}
 		case 'ReturnStatement': {
-			throw new Error('not implemented yet'); // TODO
+			if (node.expr != null) {
+				inferType(node.expr, env);
+			}
+			return;
 		}
 		case 'BreakStatement': {
-			throw new Error('not implemented yet'); // TODO
+			return;
 		}
-		case 'FnDeclParam':
-		case 'TyLabel':
 		case 'NumberLiteral':
 		case 'BoolLiteral':
 		case 'StringLiteral':
@@ -90,6 +150,10 @@ function validateNode(node: AstNode, env: Env) {
 			inferType(node, env);
 			return;
 		}
+		case 'FnDeclParam':
+		case 'TyLabel': {
+			return;
+		}
 	}
 	throw new Error('unexpected node');
 }
@@ -97,7 +161,28 @@ function validateNode(node: AstNode, env: Env) {
 function setDeclaration(node: AstNode, env: Env) {
 	switch (node.kind) {
 		case 'FunctionDecl': {
-			env.newSymbol(node.name);
+			// declare function
+			let returnTy: Type;
+			if (node.returnTy != null) {
+				returnTy = resolveTypeName(node.returnTy.name);
+			} else {
+				returnTy = 'void';
+			}
+			const paramsTy: Type[] = [];
+			for (const param of node.params) {
+				if (param.ty == null) {
+					throw new Error('parameter type is not specified.');
+				}
+				const paramTy = resolveTypeName(param.ty.name);
+				paramsTy.push(paramTy);
+			}
+			env.setSymbol(node.name, {
+				kind: 'FunctionSymbol',
+				node: node,
+				defined: false,
+				paramsTy,
+				returnTy,
+			});
 			break;
 		}
 	}
@@ -105,15 +190,6 @@ function setDeclaration(node: AstNode, env: Env) {
 
 function inferType(node: AstNode, env: Env): Type {
 	switch (node.kind) {
-		case 'FnDeclParam': {
-			if (node.ty == null) {
-				throw new Error('parameter type is not specified');
-			}
-			return inferType(node.ty, env);
-		}
-		case 'TyLabel': {
-			return resolveTypeName(node.name);
-		}
 		case 'NumberLiteral': {
 			return 'number';
 		}
@@ -138,13 +214,50 @@ function inferType(node: AstNode, env: Env): Type {
 			return ty;
 		}
 		case 'Identifier': {
-			throw new Error('not implemented yet'); // TODO
+			const symbol = lookupSymbolWithNode(node, env);
+			switch (symbol.kind) {
+				case 'FunctionSymbol':
+				case 'NativeFnSymbol': {
+					return 'function';
+				}
+				case 'VariableSymbol': {
+					if (symbol.ty == null) {
+						throw new Error('type not resolved');
+					}
+					return symbol.ty;
+				}
+			}
+			break;
 		}
 		case 'Call': {
-			throw new Error('not implemented yet'); // TODO
+			const callee = lookupSymbolWithNode(node.callee, env);
+			if (callee.kind != 'FunctionSymbol' && callee.kind != 'NativeFnSymbol') {
+				throw new Error('function expected');
+			}
+			if (node.args.length != callee.paramsTy.length) {
+				throw new Error('argument count incorrect');
+			}
+			for (let i = 0; i < callee.paramsTy.length; i++) {
+				const argTy = inferType(node.args[i], env);
+				if (argTy != callee.paramsTy[i]) {
+					throw new Error('type error');
+				}
+			}
+			return callee.returnTy;
 		}
 	}
 	throw new Error('unexpected node');
+}
+
+function lookupSymbolWithNode(node: AstNode, env: Env): Symbol {
+	if (node.kind != 'Identifier') {
+		throw new Error('unexpected node');
+	}
+	const symbol = env.getSymbol(node.name);
+	if (symbol == null) {
+		throw new Error('unknown identifier');
+	}
+	return symbol;
 }
 
 function resolveTypeName(name: string): Type {

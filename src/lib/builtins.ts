@@ -1,14 +1,30 @@
 import {
 	assertNumber,
 	assertString,
-	Env,
+	Env as RunningEnv,
 	newNativeFunction,
 	newNoneValue,
 	newNumber,
 	newString,
 } from './run';
 
-export function setRuntime(env: Env) {
+import { Env as AnalysisEnv, NativeFnSymbol, Type } from './semantics/type-check';
+
+function nativeFnSymbol(paramsTy: Type[], returnTy: Type): NativeFnSymbol {
+	return { kind: 'NativeFnSymbol', paramsTy, returnTy };
+}
+
+export function setDeclarations(env: AnalysisEnv) {
+	env.setSymbol('printStr', nativeFnSymbol(['string'], 'void'));
+	env.setSymbol('printNum', nativeFnSymbol(['number'], 'void'));
+	env.setSymbol('printLF', nativeFnSymbol([], 'void'));
+	env.setSymbol('assertEq', nativeFnSymbol(['number', 'number'], 'void'));
+	env.setSymbol('getUnixtime', nativeFnSymbol([], 'number'));
+	env.setSymbol('concatStr', nativeFnSymbol(['string', 'string'], 'string'));
+	env.setSymbol('toString', nativeFnSymbol(['number'], 'string'));
+}
+
+export function setRuntime(env: RunningEnv) {
 
 	const printStr = newNativeFunction((args) => {
 		if (args.length != 1) {
