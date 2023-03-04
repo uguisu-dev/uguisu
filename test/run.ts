@@ -3,10 +3,13 @@ import { SourceFile } from '../src/lib';
 import { Scanner } from '../src/lib/syntax/scan';
 import { Parser } from '../src/lib/syntax/parse';
 import { Runner } from '../src/lib/run';
+import { Env as AnalysisEnv, typeCheck } from '../src/lib/semantics/type-check';
+import { setDeclarations } from '../src/lib/builtins';
 
 function runTest(sourceCode: string) {
 	const scanner = new Scanner();
 	const parser = new Parser(scanner);
+
 	parser.setup(sourceCode, 'test.ug');
 	let ast: SourceFile;
 	try {
@@ -17,6 +20,18 @@ function runTest(sourceCode: string) {
 		}
 		throw err;
 	}
+
+	const env = new AnalysisEnv();
+	setDeclarations(env);
+	try {
+		typeCheck(ast, env);
+	} catch (err) {
+		if (err instanceof Error) {
+			throw new Error(`Syntax Error: ${err.message}`);
+		}
+		throw err;
+	}
+
 	const runner = new Runner();
 	try {
 		runner.run(ast);
