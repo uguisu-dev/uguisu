@@ -1,5 +1,7 @@
 import { AstNode, FunctionDecl, SourceFile } from '../syntax/ast';
 
+// TODO: consider symbol scope
+
 export type Type = 'void' | 'number' | 'bool' | 'string' | 'function';
 
 export type FunctionSymbol = {
@@ -90,15 +92,8 @@ function validateNode(node: AstNode, env: Env) {
 			return;
 		}
 		case 'AssignStatement': {
-			// TODO: check assignee kind
 			// TODO: mode
-			if (node.target.kind != 'Identifier') {
-				throw new Error('identifier expected');
-			}
-			const symbol = env.getSymbol(node.target.name);
-			if (symbol == null) {
-				throw new Error('unknown target');
-			}
+			const symbol = lookupSymbolWithNode(node.target, env);
 			if (symbol.kind != 'VariableSymbol') {
 				throw new Error('variable expected');
 			}
@@ -106,10 +101,14 @@ function validateNode(node: AstNode, env: Env) {
 				throw new Error('type not resolved');
 			}
 			const bodyTy = inferType(node.body, env);
-			if (symbol.ty != bodyTy) {
-				throw new Error('type mismatched.');
+			if (symbol.defined) {
+				if (symbol.ty != bodyTy) {
+					throw new Error('type mismatched.');
+				}
+			} else {
+				symbol.ty = bodyTy;
+				symbol.defined = true;
 			}
-			symbol.defined = true;
 			return;
 		}
 		case 'IfStatement': {
@@ -255,7 +254,7 @@ function lookupSymbolWithNode(node: AstNode, env: Env): Symbol {
 	}
 	const symbol = env.getSymbol(node.name);
 	if (symbol == null) {
-		throw new Error('unknown identifier');
+		throw new Error('symbol not found');
 	}
 	return symbol;
 }
