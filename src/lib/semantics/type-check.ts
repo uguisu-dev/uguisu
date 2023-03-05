@@ -72,20 +72,46 @@ export class AnalysisEnv {
 }
 
 export function typeCheck(source: SourceFile, env: AnalysisEnv) {
-	validateNode(source, env);
+	for (const n of source.funcs) {
+		setDeclaration(n, env);
+	}
+	for (const n of source.funcs) {
+		validateNode(n, env);
+	}
+}
+
+function setDeclaration(node: AstNode, env: AnalysisEnv) {
+	switch (node.kind) {
+		case 'FunctionDecl': {
+			// declare function
+			let returnTy: Type;
+			if (node.returnTy != null) {
+				returnTy = resolveTypeName(node.returnTy.name);
+			} else {
+				returnTy = 'void';
+			}
+			const paramsTy: Type[] = [];
+			for (const param of node.params) {
+				if (param.ty == null) {
+					throw new Error('parameter type is not specified.');
+				}
+				const paramTy = resolveTypeName(param.ty.name);
+				paramsTy.push(paramTy);
+			}
+			env.set(node.name, {
+				kind: 'FunctionSymbol',
+				node: node,
+				defined: false,
+				paramsTy,
+				returnTy,
+			});
+			break;
+		}
+	}
 }
 
 function validateNode(node: AstNode, env: AnalysisEnv) {
 	switch (node.kind) {
-		case 'SourceFile': {
-			for (const n of node.funcs) {
-				setDeclaration(n, env);
-			}
-			for (const n of node.funcs) {
-				validateNode(n, env);
-			}
-			return;
-		}
 		case 'FunctionDecl': {
 			// define function
 			const symbol = env.get(node.name);
@@ -192,50 +218,13 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 			inferType(node, env);
 			return;
 		}
+		case 'SourceFile':
 		case 'FnDeclParam':
 		case 'TyLabel': {
-			return;
+			throw new Error('unexpected node');
 		}
 	}
 	throw new Error('unexpected node');
-}
-
-function checkBlock(block: StatementNode[], env: AnalysisEnv) {
-	env.enter();
-	for (const statement of block) {
-		validateNode(statement, env);
-	}
-	env.leave();
-}
-
-function setDeclaration(node: AstNode, env: AnalysisEnv) {
-	switch (node.kind) {
-		case 'FunctionDecl': {
-			// declare function
-			let returnTy: Type;
-			if (node.returnTy != null) {
-				returnTy = resolveTypeName(node.returnTy.name);
-			} else {
-				returnTy = 'void';
-			}
-			const paramsTy: Type[] = [];
-			for (const param of node.params) {
-				if (param.ty == null) {
-					throw new Error('parameter type is not specified.');
-				}
-				const paramTy = resolveTypeName(param.ty.name);
-				paramsTy.push(paramTy);
-			}
-			env.set(node.name, {
-				kind: 'FunctionSymbol',
-				node: node,
-				defined: false,
-				paramsTy,
-				returnTy,
-			});
-			break;
-		}
-	}
 }
 
 function inferType(node: AstNode, env: AnalysisEnv): Type {
@@ -332,6 +321,17 @@ function inferType(node: AstNode, env: AnalysisEnv): Type {
 	throw new Error('unexpected node');
 }
 
+function resolveTypeName(name: string): Type {
+	switch (name) {
+		case 'number':
+		case 'bool':
+		case 'string': {
+			return name;
+		}
+	}
+	throw new Error('unknown type');
+}
+
 function lookupSymbolWithNode(node: AstNode, env: AnalysisEnv): Symbol {
 	if (node.kind != 'Identifier') {
 		throw new Error('unexpected node');
@@ -343,13 +343,10 @@ function lookupSymbolWithNode(node: AstNode, env: AnalysisEnv): Symbol {
 	return symbol;
 }
 
-function resolveTypeName(name: string): Type {
-	switch (name) {
-		case 'number':
-		case 'bool':
-		case 'string': {
-			return name;
-		}
+function checkBlock(block: StatementNode[], env: AnalysisEnv) {
+	env.enter();
+	for (const statement of block) {
+		validateNode(statement, env);
 	}
-	throw new Error('unknown type');
+	env.leave();
 }

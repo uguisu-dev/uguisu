@@ -198,6 +198,9 @@ export class Runner {
 
 function evalSourceFile(source: SourceFile, env: RunningEnv) {
 	for (const func of source.funcs) {
+		env.declare(func.name);
+	}
+	for (const func of source.funcs) {
 		env.define(func.name, newFunction(func, env));
 	}
 }
