@@ -135,7 +135,7 @@ export function newBinaryOp(pos: Pos, operator: BinaryOperator, left: ExprNode, 
 	return { kind: 'BinaryOp', pos, operator, left, right };
 }
 
-export type BinaryOperator = LogicalBinaryOperator | RelationalOperator | ArithmeticOperator;
+export type BinaryOperator = LogicalBinaryOperator | EquivalentOperator | OrderingOperator | ArithmeticOperator;
 
 export type LogicalBinaryOperator = '||' | '&&';
 const logicalBinaryOperators: BinaryOperator[] = ['||', '&&'];
@@ -144,11 +144,18 @@ export function isLogicalBinaryOperator(x: BinaryOperator): x is LogicalBinaryOp
 	return logicalBinaryOperators.includes(x);
 }
 
-export type RelationalOperator = '==' | '!=' | '<' |'<=' | '>' | '>=';
-const relationalOperators: BinaryOperator[] = ['==', '!=', '<', '<=', '>', '>='];
+export type EquivalentOperator = '==' | '!=';
+const equivalentOperators: BinaryOperator[] = ['==', '!='];
 
-export function isRelationalOperator(x: BinaryOperator): x is RelationalOperator {
-	return relationalOperators.includes(x);
+export function isEquivalentOperator(x: BinaryOperator): x is EquivalentOperator {
+	return equivalentOperators.includes(x);
+}
+
+export type OrderingOperator = '<' |'<=' | '>' | '>=';
+const orderingOperators: BinaryOperator[] = ['<', '<=', '>', '>='];
+
+export function isOrderingOperator(x: BinaryOperator): x is OrderingOperator {
+	return orderingOperators.includes(x);
 }
 
 export type ArithmeticOperator = '+' | '-' | '*' | '/' | '%';

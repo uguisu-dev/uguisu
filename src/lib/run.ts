@@ -3,9 +3,10 @@ import {
 	AssignMode,
 	ExprNode,
 	FunctionDecl,
+	isEquivalentOperator,
 	isExprNode,
 	isLogicalBinaryOperator,
-	isRelationalOperator,
+	isOrderingOperator,
 	SourceFile,
 	StatementNode,
 } from './syntax/ast';
@@ -387,20 +388,64 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 						return newBool(left.value || right.value);
 					}
 				}
-			} else if (isRelationalOperator(expr.operator)) {
-				// Relational Operation
+			} else if (isEquivalentOperator(expr.operator)) {
+				// Equivalent Operation
 				switch (left.kind) {
 					case 'NumberValue': {
 						assertNumber(right);
 						switch (expr.operator) {
-							// equivalent
 							case '==': {
 								return newBool(left.value == right.value);
 							}
 							case '!=': {
 								return newBool(left.value != right.value);
 							}
-							// ordering
+						}
+						break;
+					}
+					case 'BoolValue': {
+						assertBool(right);
+						switch (expr.operator) {
+							case '==': {
+								return newBool(left.value == right.value);
+							}
+							case '!=': {
+								return newBool(left.value != right.value);
+							}
+						}
+						break;
+					}
+					case 'StringValue': {
+						assertString(right);
+						switch (expr.operator) {
+							case '==': {
+								return newBool(left.value == right.value);
+							}
+							case '!=': {
+								return newBool(left.value != right.value);
+							}
+						}
+						break;
+					}
+					case 'FunctionValue': {
+						assertFunction(right);
+						switch (expr.operator) {
+							case '==': {
+								return newBool(left.node == right.node);
+							}
+							case '!=': {
+								return newBool(left.node != right.node);
+							}
+						}
+						break;
+					}
+				}
+			} else if (isOrderingOperator(expr.operator)) {
+				// Ordering Operation
+				switch (left.kind) {
+					case 'NumberValue': {
+						assertNumber(right);
+						switch (expr.operator) {
 							case '<': {
 								return newBool(left.value < right.value);
 							}
@@ -416,64 +461,10 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 						}
 						break;
 					}
-					case 'BoolValue': {
-						assertBool(right);
-						switch (expr.operator) {
-							// equivalent
-							case '==': {
-								return newBool(left.value == right.value);
-							}
-							case '!=': {
-								return newBool(left.value != right.value);
-							}
-							// ordering
-							case '<':
-							case '<=':
-							case '>':
-							case '>=': {
-								throw new Error('type `bool` cannot be used to compare large and small relations.');
-							}
-						}
-						break;
-					}
-					case 'StringValue': {
-						assertString(right);
-						switch (expr.operator) {
-							// equivalent
-							case '==': {
-								return newBool(left.value == right.value);
-							}
-							case '!=': {
-								return newBool(left.value != right.value);
-							}
-							// ordering
-							case '<':
-							case '<=':
-							case '>':
-							case '>=': {
-								throw new Error('type `string` cannot be used to compare large and small relations.');
-							}
-						}
-						break;
-					}
+					case 'BoolValue':
+					case 'StringValue':
 					case 'FunctionValue': {
-						assertFunction(right);
-						switch (expr.operator) {
-							// equivalent
-							case '==': {
-								return newBool(left.node == right.node);
-							}
-							case '!=': {
-								return newBool(left.node != right.node);
-							}
-							// ordering
-							case '<':
-							case '<=':
-							case '>':
-							case '>=': {
-								throw new Error('type `fn` cannot be used to compare large and small relations.');
-							}
-						}
+						throw new Error(`type \`${getTypeName(left)}\` cannot be used to compare large and small relations.`);
 					}
 				}
 			} else {
