@@ -1,4 +1,12 @@
-import { AstNode, FunctionDecl, isEquivalentOperator, isLogicalBinaryOperator, isOrderingOperator, SourceFile, StatementNode } from '../syntax/ast';
+import {
+	AstNode,
+	FunctionDecl,
+	isEquivalentOperator,
+	isLogicalBinaryOperator,
+	isOrderingOperator,
+	SourceFile,
+	StatementNode,
+} from '../syntax/ast';
 
 // TODO: consider symbol scope
 
@@ -26,10 +34,10 @@ export type VariableSymbol = {
 
 export type Symbol = FunctionSymbol | NativeFnSymbol | VariableSymbol;
 
-export class Env {
+export class AnalysisEnv {
 	private layers: Map<string, Symbol>[];
 
-	constructor(baseEnv?: Env) {
+	constructor(baseEnv?: AnalysisEnv) {
 		if (baseEnv != null) {
 			this.layers = [...baseEnv.layers];
 		} else {
@@ -64,11 +72,11 @@ export class Env {
 	}
 }
 
-export function typeCheck(source: SourceFile, env: Env) {
+export function typeCheck(source: SourceFile, env: AnalysisEnv) {
 	validateNode(source, env);
 }
 
-function validateNode(node: AstNode, env: Env) {
+function validateNode(node: AstNode, env: AnalysisEnv) {
 	switch (node.kind) {
 		case 'SourceFile': {
 			for (const n of node.funcs) {
@@ -166,7 +174,7 @@ function validateNode(node: AstNode, env: Env) {
 	throw new Error('unexpected node');
 }
 
-function checkBlock(block: StatementNode[], env: Env) {
+function checkBlock(block: StatementNode[], env: AnalysisEnv) {
 	env.enter();
 	for (const statement of block) {
 		validateNode(statement, env);
@@ -174,7 +182,7 @@ function checkBlock(block: StatementNode[], env: Env) {
 	env.leave();
 }
 
-function setDeclaration(node: AstNode, env: Env) {
+function setDeclaration(node: AstNode, env: AnalysisEnv) {
 	switch (node.kind) {
 		case 'FunctionDecl': {
 			// declare function
@@ -204,7 +212,7 @@ function setDeclaration(node: AstNode, env: Env) {
 	}
 }
 
-function inferType(node: AstNode, env: Env): Type {
+function inferType(node: AstNode, env: AnalysisEnv): Type {
 	switch (node.kind) {
 		case 'NumberLiteral': {
 			return 'number';
@@ -298,7 +306,7 @@ function inferType(node: AstNode, env: Env): Type {
 	throw new Error('unexpected node');
 }
 
-function lookupSymbolWithNode(node: AstNode, env: Env): Symbol {
+function lookupSymbolWithNode(node: AstNode, env: AnalysisEnv): Symbol {
 	if (node.kind != 'Identifier') {
 		throw new Error('unexpected node');
 	}

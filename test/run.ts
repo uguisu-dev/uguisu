@@ -2,8 +2,8 @@ import assert from 'assert';
 import { SourceFile } from '../src/lib';
 import { Scanner } from '../src/lib/syntax/scan';
 import { Parser } from '../src/lib/syntax/parse';
-import { Runner } from '../src/lib/run';
-import { Env as AnalysisEnv, typeCheck } from '../src/lib/semantics/type-check';
+import { Runner, RunningEnv } from '../src/lib/run';
+import { AnalysisEnv, typeCheck } from '../src/lib/semantics/type-check';
 import { setDeclarations } from '../src/lib/builtins';
 
 function runTest(sourceCode: string) {
@@ -33,8 +33,9 @@ function runTest(sourceCode: string) {
 	}
 
 	const runner = new Runner();
+	const runningEnv = new RunningEnv();
 	try {
-		runner.run(ast);
+		runner.run(ast, runningEnv);
 	} catch (err) {
 		if (err instanceof Error) {
 			throw new Error(`Runtime Error: ${err.message}`);

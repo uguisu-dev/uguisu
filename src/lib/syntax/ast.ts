@@ -1,9 +1,34 @@
 export type Pos = [number, number];
 
-export type AstNode = SourceFile | FileNode | StatementNode | TyLabel | FnDeclParam; // StructDeclField | StructExprField
+export type AstNode
+	= SourceFile
+	| FileNode
+	| StatementNode
+	| TyLabel
+	| FnDeclParam;
+	// StructDeclField
+	// StructExprField
+
 export type FileNode = FunctionDecl;
-export type StatementNode = VariableDecl | AssignStatement | IfStatement | LoopStatement | ReturnStatement | BreakStatement | ExprNode;
-export type ExprNode = NumberLiteral | BoolLiteral | StringLiteral | BinaryOp | UnaryOp | Identifier | Call; // FieldAccess
+
+export type StatementNode
+	= VariableDecl
+	| AssignStatement
+	| IfStatement
+	| LoopStatement
+	| ReturnStatement
+	| BreakStatement
+	| ExprNode;
+
+export type ExprNode
+	= NumberLiteral
+	| BoolLiteral
+	| StringLiteral
+	| BinaryOp
+	| UnaryOp
+	| Identifier
+	| Call;
+	// FieldAccess
 
 export type NodeOf<T extends AstNode['kind']>
 	= T extends 'SourceFile' ? SourceFile
@@ -51,7 +76,13 @@ export type FunctionDecl = {
 	body: StatementNode[],
 	returnTy?: TyLabel,
 };
-export function newFunctionDecl(pos: Pos, name: string, params: FnDeclParam[], body: StatementNode[], returnTy?: TyLabel): FunctionDecl {
+export function newFunctionDecl(
+	pos: Pos,
+	name: string,
+	params: FnDeclParam[],
+	body: StatementNode[],
+	returnTy?: TyLabel,
+): FunctionDecl {
 	return { kind: 'FunctionDecl', pos, name, params, body, returnTy };
 }
 
@@ -72,7 +103,12 @@ export type IfStatement = {
 	thenBlock: StatementNode[];
 	elseBlock: StatementNode[];
 };
-export function newIfStatement(pos: Pos, cond: ExprNode, thenBlock: StatementNode[], elseBlock: StatementNode[]): IfStatement {
+export function newIfStatement(
+	pos: Pos,
+	cond: ExprNode,
+	thenBlock: StatementNode[],
+	elseBlock: StatementNode[],
+): IfStatement {
 	return { kind: 'IfStatement', pos, cond, thenBlock, elseBlock };
 }
 
@@ -131,11 +167,17 @@ export type BinaryOp = {
 	left: ExprNode,
 	right: ExprNode,
 };
-export function newBinaryOp(pos: Pos, operator: BinaryOperator, left: ExprNode, right: ExprNode): BinaryOp {
+export function newBinaryOp(
+	pos: Pos,
+	operator: BinaryOperator,
+	left: ExprNode,
+	right: ExprNode,
+): BinaryOp {
 	return { kind: 'BinaryOp', pos, operator, left, right };
 }
 
-export type BinaryOperator = LogicalBinaryOperator | EquivalentOperator | OrderingOperator | ArithmeticOperator;
+export type BinaryOperator =
+	LogicalBinaryOperator | EquivalentOperator | OrderingOperator | ArithmeticOperator;
 
 export type LogicalBinaryOperator = '||' | '&&';
 const logicalBinaryOperators: BinaryOperator[] = ['||', '&&'];
@@ -234,7 +276,12 @@ export type AssignStatement = {
 	body: ExprNode,
 	mode: AssignMode,
 };
-export function newAssignStatement(pos: Pos, target: ExprNode, body: ExprNode, mode: AssignMode): AssignStatement {
+export function newAssignStatement(
+	pos: Pos,
+	target: ExprNode,
+	body: ExprNode,
+	mode: AssignMode,
+): AssignStatement {
 	return { kind: 'AssignStatement', pos, target, body, mode };
 }
 

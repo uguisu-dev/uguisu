@@ -1,8 +1,8 @@
 import { Scanner } from './syntax/scan';
 import { Parser } from './syntax/parse';
-import { Runner } from './run';
+import { Runner, RunningEnv } from './run';
 import { SourceFile } from './syntax/ast';
-import { Env as AnalysisEnv, typeCheck } from './semantics/type-check';
+import { AnalysisEnv, typeCheck } from './semantics/type-check';
 import { setDeclarations } from './builtins';
 
 export {
@@ -14,8 +14,7 @@ export class Uguisu {
 	private _runner: Runner;
 
 	constructor() {
-		const scanner = new Scanner();
-		this._parser = new Parser(scanner);
+		this._parser = new Parser(new Scanner());
 		this._runner = new Runner();
 	}
 
@@ -23,10 +22,11 @@ export class Uguisu {
 		this._parser.setup(sourceCode, 'main.ug');
 		const ast = this._parser.parse();
 		// analysis
-		const env = new AnalysisEnv();
-		setDeclarations(env);
-		typeCheck(ast, env);
+		const analysisEnv = new AnalysisEnv();
+		setDeclarations(analysisEnv);
+		typeCheck(ast, analysisEnv);
 		// running
-		this._runner.run(ast);
+		const runningEnv = new RunningEnv();
+		this._runner.run(ast, runningEnv);
 	}
 }

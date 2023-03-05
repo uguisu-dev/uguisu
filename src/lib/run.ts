@@ -22,14 +22,14 @@ export type FunctionValue = {
 	kind: 'FunctionValue',
 	node: FunctionDecl,
 	native: undefined,
-	env: Env, // lexical scope
+	env: RunningEnv, // lexical scope
 } | {
 	kind: 'FunctionValue',
 	node: undefined,
 	native: NativeFuncHandler,
 };
 
-export function newFunction(node: FunctionDecl, env: Env): FunctionValue {
+export function newFunction(node: FunctionDecl, env: RunningEnv): FunctionValue {
 	return { kind: 'FunctionValue', node, env, native: undefined };
 }
 export function newNativeFunction(native: NativeFuncHandler): FunctionValue {
@@ -112,10 +112,10 @@ function getTypeName(value: Value): string {
 
 type Symbol = { defined: true, value: Value } | { defined: false };
 
-export class Env {
+export class RunningEnv {
 	layers: Map<string, Symbol>[];
 
-	constructor(baseEnv?: Env) {
+	constructor(baseEnv?: RunningEnv) {
 		if (baseEnv != null) {
 			this.layers = [...baseEnv.layers];
 		} else {
@@ -183,16 +183,10 @@ export function newBreakResult(): BreakResult {
 }
 
 export class Runner {
-	env: Env;
-
-	constructor() {
-		this.env = new Env();
-	}
-
-	run(source: SourceFile) {
-		builtins.setRuntime(this.env);
-		evalSourceFile(this.env, source);
-		const symbol = this.env.get('main');
+	run(source: SourceFile, env: RunningEnv) {
+		builtins.setRuntime(env);
+		evalSourceFile(source, env);
+		const symbol = env.get('main');
 		if (symbol == null || !symbol.defined) {
 			throw new Error('function `main` is not defined');
 		}
@@ -201,7 +195,7 @@ export class Runner {
 	}
 }
 
-function evalSourceFile(env: Env, source: SourceFile) {
+function evalSourceFile(source: SourceFile, env: RunningEnv) {
 	for (const func of source.funcs) {
 		env.define(func.name, newFunction(func, env));
 	}
@@ -209,7 +203,7 @@ function evalSourceFile(env: Env, source: SourceFile) {
 
 function call(func: FunctionValue, args: Value[]): Value {
 	if (func.node != null) {
-		const env = new Env(func.env);
+		const env = new RunningEnv(func.env);
 		env.enter();
 		if (func.node.params.length != args.length) {
 			throw new Error('invalid arguments count');
@@ -223,7 +217,7 @@ function call(func: FunctionValue, args: Value[]): Value {
 		}
 		let result: StatementResult = newNoneResult();
 		for (const statement of func.node.body) {
-			result = execStatement(env, statement);
+			result = execStatement(statement, env);
 			if (result.kind == 'ReturnResult') {
 				break;
 			} else if (result.kind == 'BreakResult') {
@@ -242,16 +236,16 @@ function call(func: FunctionValue, args: Value[]): Value {
 	}
 }
 
-function execStatement(env: Env, statement: StatementNode): StatementResult {
+function execStatement(statement: StatementNode, env: RunningEnv): StatementResult {
 	if (isExprNode(statement)) {
-		evalExpr(env, statement);
+		evalExpr(statement, env);
 		return newNoneResult();
 	} else {
 		switch (statement.kind) {
 			case 'ReturnStatement': {
 				trace.log('ReturnStatement');
 				if (statement.expr != null) {
-					return newReturnResult(evalExpr(env, statement.expr));
+					return newReturnResult(evalExpr(statement.expr, env));
 				} else {
 					return newReturnResult(newNoneValue());
 				}
@@ -263,7 +257,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 			case 'LoopStatement': {
 				trace.log('LoopStatement');
 				while (true) {
-					const result = execBlock(env, statement.block);
+					const result = execBlock(statement.block, env);
 					if (result.kind == 'ReturnResult') {
 						return result;
 					} else if (result.kind == 'BreakResult') {
@@ -274,21 +268,21 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 			}
 			case 'IfStatement': {
 				trace.log('IfStatement');
-				const cond = evalExpr(env, statement.cond);
+				const cond = evalExpr(statement.cond, env);
 				if (isNoneValue(cond)) {
 					throw new Error('no values');
 				}
 				assertBool(cond);
 				if (cond.value) {
-					return execBlock(env, statement.thenBlock);
+					return execBlock(statement.thenBlock, env);
 				} else {
-					return execBlock(env, statement.elseBlock);
+					return execBlock(statement.elseBlock, env);
 				}
 			}
 			case 'VariableDecl': {
 				trace.log('VariableDecl');
 				if (statement.body != null) {
-					const bodyValue = evalExpr(env, statement.body);
+					const bodyValue = evalExpr(statement.body, env);
 					if (isNoneValue(bodyValue)) {
 						throw new Error('no values');
 					}
@@ -311,7 +305,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 				if (!symbol.defined) {
 					throw new Error('symbol is not defined');
 				}
-				const bodyValue = evalExpr(env, statement.body);
+				const bodyValue = evalExpr(statement.body, env);
 				if (isNoneValue(bodyValue)) {
 					throw new Error('no values');
 				}
@@ -382,7 +376,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 	}
 }
 
-function evalExpr(env: Env, expr: ExprNode): Value {
+function evalExpr(expr: ExprNode, env: RunningEnv): Value {
 	switch (expr.kind) {
 		case 'Identifier': {
 			trace.log('Identifier');
@@ -406,13 +400,13 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 		}
 		case 'Call': {
 			trace.log('Call');
-			const callee = evalExpr(env, expr.callee);
+			const callee = evalExpr(expr.callee, env);
 			if (isNoneValue(callee)) {
 				throw new Error('no values');
 			}
 			assertFunction(callee);
 			const args = expr.args.map(i => {
-				const value = evalExpr(env, i);
+				const value = evalExpr(i, env);
 				if (isNoneValue(value)) {
 					throw new Error('no values');
 				}
@@ -422,8 +416,8 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 		}
 		case 'BinaryOp': {
 			trace.log('BinaryOp');
-			const left = evalExpr(env, expr.left);
-			const right = evalExpr(env, expr.right);
+			const left = evalExpr(expr.left, env);
+			const right = evalExpr(expr.right, env);
 			if (isNoneValue(left)) {
 				throw new Error('no values');
 			}
@@ -547,7 +541,7 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 		}
 		case 'UnaryOp': {
 			trace.log('UnaryOp');
-			const value = evalExpr(env, expr.expr);
+			const value = evalExpr(expr.expr, env);
 			if (isNoneValue(value)) {
 				throw new Error('no values');
 			}
@@ -563,12 +557,12 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 	}
 }
 
-function execBlock(env: Env, block: StatementNode[]): StatementResult {
+function execBlock(block: StatementNode[], env: RunningEnv): StatementResult {
 	trace.log('execBlock');
 	env.enter();
 	let result: StatementResult = newNoneResult();
 	for (const statement of block) {
-		result = execStatement(env, statement);
+		result = execStatement(statement, env);
 		if (result.kind == 'ReturnResult') {
 			break;
 		} else if (result.kind == 'BreakResult') {

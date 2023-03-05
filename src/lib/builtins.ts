@@ -1,14 +1,14 @@
 import {
 	assertNumber,
 	assertString,
-	Env as RunningEnv,
+	RunningEnv,
 	newNativeFunction,
 	newNoneValue,
 	newNumber,
 	newString,
 } from './run';
 
-import { Env as AnalysisEnv, NativeFnSymbol, Type } from './semantics/type-check';
+import { AnalysisEnv, NativeFnSymbol, Type } from './semantics/type-check';
 
 function nativeFnSymbol(paramsTy: Type[], returnTy: Type): NativeFnSymbol {
 	return { kind: 'NativeFnSymbol', paramsTy, returnTy };
