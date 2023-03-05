@@ -1,4 +1,4 @@
-import { AstNode, FunctionDecl, isEquivalentOperator, isLogicalBinaryOperator, isOrderingOperator, SourceFile } from '../syntax/ast';
+import { AstNode, FunctionDecl, isEquivalentOperator, isLogicalBinaryOperator, isOrderingOperator, SourceFile, StatementNode } from '../syntax/ast';
 
 // TODO: consider symbol scope
 
@@ -27,23 +27,40 @@ export type VariableSymbol = {
 export type Symbol = FunctionSymbol | NativeFnSymbol | VariableSymbol;
 
 export class Env {
-	private table: Map<string, Symbol>;
+	private layers: Map<string, Symbol>[];
 
 	constructor(baseEnv?: Env) {
 		if (baseEnv != null) {
-			this.table = new Map(baseEnv.table);
+			this.layers = [...baseEnv.layers];
 		} else {
-			this.table = new Map();
+			this.layers = [new Map()];
 		}
 	}
 
-	setSymbol(name: string, symbol: Symbol) {
-		this.table.set(name, symbol);
+	set(name: string, symbol: Symbol) {
+		this.layers[0].set(name, symbol);
 		return symbol;
 	}
 
-	getSymbol(name: string): Symbol | undefined {
-		return this.table.get(name);
+	get(name: string): Symbol | undefined {
+		for (const layer of this.layers) {
+			const symbol = layer.get(name);
+			if (symbol != null) {
+				return symbol;
+			}
+		}
+		return undefined;
+	}
+
+	enter() {
+		this.layers.unshift(new Map());
+	}
+
+	leave() {
+		if (this.layers.length <= 1) {
+			throw new Error('leave root layer');
+		}
+		this.layers.shift();
 	}
 }
 
@@ -64,7 +81,7 @@ function validateNode(node: AstNode, env: Env) {
 		}
 		case 'FunctionDecl': {
 			// define function
-			const symbol = env.getSymbol(node.name);
+			const symbol = env.get(node.name);
 			if (symbol == null) {
 				throw new Error('unknown name');
 			}
@@ -73,9 +90,7 @@ function validateNode(node: AstNode, env: Env) {
 			}
 			symbol.defined = true;
 			// TODO: func param symbols for body
-			for (const statement of node.body) {
-				validateNode(statement, env);
-			}
+			checkBlock(node.body, env);
 			return;
 		}
 		case 'VariableDecl': {
@@ -88,7 +103,7 @@ function validateNode(node: AstNode, env: Env) {
 				defined: (node.body != null),
 				ty,
 			};
-			env.setSymbol(node.name, symbol);
+			env.set(node.name, symbol);
 			return;
 		}
 		case 'AssignStatement': {
@@ -116,18 +131,12 @@ function validateNode(node: AstNode, env: Env) {
 			if (condTy != 'bool') {
 				throw new Error('type mismatched.');
 			}
-			for (const statement of node.thenBlock) {
-				validateNode(statement, env);
-			}
-			for (const statement of node.elseBlock) {
-				validateNode(statement, env);
-			}
+			checkBlock(node.thenBlock, env);
+			checkBlock(node.elseBlock, env);
 			return;
 		}
 		case 'LoopStatement': {
-			for (const statement of node.block) {
-				validateNode(statement, env);
-			}
+			checkBlock(node.block, env);
 			return;
 		}
 		case 'ReturnStatement': {
@@ -157,6 +166,14 @@ function validateNode(node: AstNode, env: Env) {
 	throw new Error('unexpected node');
 }
 
+function checkBlock(block: StatementNode[], env: Env) {
+	env.enter();
+	for (const statement of block) {
+		validateNode(statement, env);
+	}
+	env.leave();
+}
+
 function setDeclaration(node: AstNode, env: Env) {
 	switch (node.kind) {
 		case 'FunctionDecl': {
@@ -175,7 +192,7 @@ function setDeclaration(node: AstNode, env: Env) {
 				const paramTy = resolveTypeName(param.ty.name);
 				paramsTy.push(paramTy);
 			}
-			env.setSymbol(node.name, {
+			env.set(node.name, {
 				kind: 'FunctionSymbol',
 				node: node,
 				defined: false,
@@ -285,7 +302,7 @@ function lookupSymbolWithNode(node: AstNode, env: Env): Symbol {
 	if (node.kind != 'Identifier') {
 		throw new Error('unexpected node');
 	}
-	const symbol = env.getSymbol(node.name);
+	const symbol = env.get(node.name);
 	if (symbol == null) {
 		throw new Error('symbol not found');
 	}

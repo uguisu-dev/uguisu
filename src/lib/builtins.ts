@@ -15,13 +15,13 @@ function nativeFnSymbol(paramsTy: Type[], returnTy: Type): NativeFnSymbol {
 }
 
 export function setDeclarations(env: AnalysisEnv) {
-	env.setSymbol('printStr', nativeFnSymbol(['string'], 'void'));
-	env.setSymbol('printNum', nativeFnSymbol(['number'], 'void'));
-	env.setSymbol('printLF', nativeFnSymbol([], 'void'));
-	env.setSymbol('assertEq', nativeFnSymbol(['number', 'number'], 'void'));
-	env.setSymbol('getUnixtime', nativeFnSymbol([], 'number'));
-	env.setSymbol('concatStr', nativeFnSymbol(['string', 'string'], 'string'));
-	env.setSymbol('toString', nativeFnSymbol(['number'], 'string'));
+	env.set('printStr', nativeFnSymbol(['string'], 'void'));
+	env.set('printNum', nativeFnSymbol(['number'], 'void'));
+	env.set('printLF', nativeFnSymbol([], 'void'));
+	env.set('assertEq', nativeFnSymbol(['number', 'number'], 'void'));
+	env.set('getUnixtime', nativeFnSymbol([], 'number'));
+	env.set('concatStr', nativeFnSymbol(['string', 'string'], 'string'));
+	env.set('toString', nativeFnSymbol(['number'], 'string'));
 }
 
 export function setRuntime(env: RunningEnv) {
