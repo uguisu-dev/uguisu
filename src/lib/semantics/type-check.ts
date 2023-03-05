@@ -1,4 +1,4 @@
-import { AstNode, FunctionDecl, SourceFile } from '../syntax/ast';
+import { AstNode, FunctionDecl, isEquivalentOperator, isLogicalBinaryOperator, isOrderingOperator, SourceFile } from '../syntax/ast';
 
 // TODO: consider symbol scope
 
@@ -199,18 +199,51 @@ function inferType(node: AstNode, env: Env): Type {
 			return 'string';
 		}
 		case 'BinaryOp': {
-			// TODO: operator
 			const leftTy = inferType(node.left, env);
 			const rightTy = inferType(node.right, env);
-			if (leftTy != rightTy) {
-				throw new Error('type mismatched.');
+			if (isLogicalBinaryOperator(node.operator)) {
+				// Logical Operation
+				if (leftTy != 'bool') {
+					throw new Error('type mismatched.');
+				}
+				if (rightTy != 'bool') {
+					throw new Error('type mismatched.');
+				}
+				return 'bool';
+			} else if (isEquivalentOperator(node.operator)) {
+				// Equivalent Operation
+				if (leftTy != rightTy) {
+					throw new Error('type mismatched.');
+				}
+				return 'bool';
+			} else if (isOrderingOperator(node.operator)) {
+				// Ordering Operation
+				if (leftTy != 'number') {
+					throw new Error('type mismatched.');
+				}
+				if (rightTy != 'number') {
+					throw new Error('type mismatched.');
+				}
+				return 'bool';
+			} else {
+				// Arithmetic Operation
+				if (leftTy != 'number') {
+					throw new Error('type mismatched.');
+				}
+				if (rightTy != 'number') {
+					throw new Error('type mismatched.');
+				}
+				return 'number';
 			}
-			return leftTy;
+			break;
 		}
 		case 'UnaryOp': {
-			// TODO: operator
 			const ty = inferType(node.expr, env);
-			return ty;
+			// Logical Operation
+			if (ty != 'bool') {
+				throw new Error('type mismatched.');
+			}
+			return 'bool';
 		}
 		case 'Identifier': {
 			const symbol = lookupSymbolWithNode(node, env);
