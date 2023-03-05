@@ -10,6 +10,9 @@ import {
 	SourceFile,
 	StatementNode,
 } from './syntax/ast';
+import { Trace } from './trace';
+
+const trace = Trace.getDefault().createChild(false);
 
 export type Value = FunctionValue | NumberValue | BoolValue | StringValue | NoneValue;
 
@@ -110,26 +113,48 @@ function getTypeName(value: Value): string {
 type Symbol = { defined: true, value: Value } | { defined: false };
 
 export class Env {
-	private table: Map<string, Symbol>;
+	layers: Map<string, Symbol>[];
 
 	constructor(baseEnv?: Env) {
 		if (baseEnv != null) {
-			this.table = new Map(baseEnv.table);
+			this.layers = [...baseEnv.layers];
 		} else {
-			this.table = new Map();
+			this.layers = [new Map()];
 		}
 	}
 
 	declare(name: string) {
-		this.table.set(name, { defined: false });
+		trace.log(`declare symbol: ${name}`);
+		this.layers[0].set(name, { defined: false });
 	}
 
 	define(name: string, value: Value) {
-		this.table.set(name, { defined: true, value });
+		trace.log(`define symbol: ${name}`, value);
+		this.layers[0].set(name, { defined: true, value });
 	}
 
 	get(name: string): Symbol | undefined {
-		return this.table.get(name);
+		trace.log(`get symbol: ${name}`);
+		for (const layer of this.layers) {
+			const symbol = layer.get(name);
+			if (symbol != null) {
+				return symbol;
+			}
+		}
+		return undefined;
+	}
+
+	enter() {
+		trace.log(`enter scope`);
+		this.layers.unshift(new Map());
+	}
+
+	leave() {
+		trace.log(`leave scope`);
+		if (this.layers.length <= 1) {
+			throw new Error('leave root layer');
+		}
+		this.layers.shift();
 	}
 }
 
@@ -184,7 +209,8 @@ function evalSourceFile(env: Env, source: SourceFile) {
 
 function call(func: FunctionValue, args: Value[]): Value {
 	if (func.node != null) {
-		const childEnv = new Env(func.env);
+		const env = new Env(func.env);
+		env.enter();
 		if (func.node.params.length != args.length) {
 			throw new Error('invalid arguments count');
 		}
@@ -192,10 +218,19 @@ function call(func: FunctionValue, args: Value[]): Value {
 		while (i < func.node.params.length) {
 			const param = func.node.params[i];
 			const arg = args[i];
-			childEnv.define(param.name, arg);
+			env.define(param.name, arg);
 			i++;
 		}
-		const result = execBlock(childEnv, func.node.body);
+		let result: StatementResult = newNoneResult();
+		for (const statement of func.node.body) {
+			result = execStatement(env, statement);
+			if (result.kind == 'ReturnResult') {
+				break;
+			} else if (result.kind == 'BreakResult') {
+				break;
+			}
+		}
+		env.leave();
 		if (result.kind == 'ReturnResult') {
 			return result.value;
 		}
@@ -214,6 +249,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 	} else {
 		switch (statement.kind) {
 			case 'ReturnStatement': {
+				trace.log('ReturnStatement');
 				if (statement.expr != null) {
 					return newReturnResult(evalExpr(env, statement.expr));
 				} else {
@@ -221,9 +257,11 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 				}
 			}
 			case 'BreakStatement': {
+				trace.log('BreakStatement');
 				return newBreakResult();
 			}
 			case 'LoopStatement': {
+				trace.log('LoopStatement');
 				while (true) {
 					const result = execBlock(env, statement.block);
 					if (result.kind == 'ReturnResult') {
@@ -235,6 +273,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 				return newNoneResult();
 			}
 			case 'IfStatement': {
+				trace.log('IfStatement');
 				const cond = evalExpr(env, statement.cond);
 				if (isNoneValue(cond)) {
 					throw new Error('no values');
@@ -247,6 +286,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 				}
 			}
 			case 'VariableDecl': {
+				trace.log('VariableDecl');
 				if (statement.body != null) {
 					const bodyValue = evalExpr(env, statement.body);
 					if (isNoneValue(bodyValue)) {
@@ -260,8 +300,16 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 				return newNoneResult();
 			}
 			case 'AssignStatement': {
+				trace.log('AssignStatement');
 				if (statement.target.kind != 'Identifier') {
 					throw new Error('unsupported assignee');
+				}
+				const symbol = env.get(statement.target.name);
+				if (symbol == null) {
+					throw new Error('unknown identifier');
+				}
+				if (!symbol.defined) {
+					throw new Error('symbol is not defined');
 				}
 				const bodyValue = evalExpr(env, statement.body);
 				if (isNoneValue(bodyValue)) {
@@ -269,7 +317,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 				}
 				switch (statement.mode) {
 					case AssignMode.Assign: {
-						env.define(statement.target.name, bodyValue);
+						symbol.value = bodyValue;
 						break;
 					}
 					case AssignMode.AddAssign: {
@@ -280,7 +328,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 						assertNumber(restored.value);
 						assertNumber(bodyValue);
 						const value = newNumber(restored.value.value + bodyValue.value);
-						env.define(statement.target.name, value);
+						symbol.value = value;
 						break;
 					}
 					case AssignMode.SubAssign: {
@@ -291,7 +339,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 						assertNumber(restored.value);
 						assertNumber(bodyValue);
 						const value = newNumber(restored.value.value - bodyValue.value);
-						env.define(statement.target.name, value);
+						symbol.value = value;
 						break;
 					}
 					case AssignMode.MultAssign: {
@@ -302,7 +350,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 						assertNumber(restored.value);
 						assertNumber(bodyValue);
 						const value = newNumber(restored.value.value * bodyValue.value);
-						env.define(statement.target.name, value);
+						symbol.value = value;
 						break;
 					}
 					case AssignMode.DivAssign: {
@@ -313,7 +361,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 						assertNumber(restored.value);
 						assertNumber(bodyValue);
 						const value = newNumber(restored.value.value / bodyValue.value);
-						env.define(statement.target.name, value);
+						symbol.value = value;
 						break;
 					}
 					case AssignMode.ModAssign: {
@@ -324,7 +372,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 						assertNumber(restored.value);
 						assertNumber(bodyValue);
 						const value = newNumber(restored.value.value % bodyValue.value);
-						env.define(statement.target.name, value);
+						symbol.value = value;
 						break;
 					}
 				}
@@ -337,6 +385,7 @@ function execStatement(env: Env, statement: StatementNode): StatementResult {
 function evalExpr(env: Env, expr: ExprNode): Value {
 	switch (expr.kind) {
 		case 'Identifier': {
+			trace.log('Identifier');
 			const symbol = env.get(expr.name);
 			if (symbol == null || !symbol.defined) {
 				throw new Error(`identifier \`${expr.name}\` is not defined`);
@@ -344,15 +393,19 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 			return symbol.value;
 		}
 		case 'NumberLiteral': {
+			trace.log('NumberLiteral');
 			return newNumber(expr.value);
 		}
 		case 'BoolLiteral': {
+			trace.log('BoolLiteral');
 			return newBool(expr.value);
 		}
 		case 'StringLiteral': {
+			trace.log('StringLiteral');
 			return newString(expr.value);
 		}
 		case 'Call': {
+			trace.log('Call');
 			const callee = evalExpr(env, expr.callee);
 			if (isNoneValue(callee)) {
 				throw new Error('no values');
@@ -368,6 +421,7 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 			return call(callee, args);
 		}
 		case 'BinaryOp': {
+			trace.log('BinaryOp');
 			const left = evalExpr(env, expr.left);
 			const right = evalExpr(env, expr.right);
 			if (isNoneValue(left)) {
@@ -492,6 +546,7 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 			throw new Error('unexpected operation');
 		}
 		case 'UnaryOp': {
+			trace.log('UnaryOp');
 			const value = evalExpr(env, expr.expr);
 			if (isNoneValue(value)) {
 				throw new Error('no values');
@@ -509,13 +564,17 @@ function evalExpr(env: Env, expr: ExprNode): Value {
 }
 
 function execBlock(env: Env, block: StatementNode[]): StatementResult {
+	trace.log('execBlock');
+	env.enter();
+	let result: StatementResult = newNoneResult();
 	for (const statement of block) {
-		const result = execStatement(env, statement);
+		result = execStatement(env, statement);
 		if (result.kind == 'ReturnResult') {
-			return result;
+			break;
 		} else if (result.kind == 'BreakResult') {
-			return result;
+			break;
 		}
 	}
-	return newNoneResult();
+	env.leave();
+	return result;
 }
