@@ -1,3 +1,4 @@
+import { StdoutCallback } from '.';
 import * as builtins from './builtins';
 import {
 	AssignMode,
@@ -183,8 +184,8 @@ export function newBreakResult(): BreakResult {
 }
 
 export class Runner {
-	run(source: SourceFile, env: RunningEnv) {
-		builtins.setRuntime(env);
+	run(source: SourceFile, env: RunningEnv, stdout: StdoutCallback) {
+		builtins.setRuntime(env, stdout);
 		evalSourceFile(source, env);
 		const symbol = env.get('main');
 		if (symbol == null || !symbol.defined) {

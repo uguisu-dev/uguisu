@@ -1,3 +1,4 @@
+import { StdoutCallback } from '.';
 import {
 	assertNumber,
 	assertString,
@@ -24,14 +25,14 @@ export function setDeclarations(env: AnalysisEnv) {
 	env.set('toString', nativeFnSymbol(['number'], 'string'));
 }
 
-export function setRuntime(env: RunningEnv) {
+export function setRuntime(env: RunningEnv, stdout: StdoutCallback) {
 
 	const printStr = newNativeFunction((args) => {
 		if (args.length != 1) {
 			throw new Error('invalid arguments count');
 		}
 		assertString(args[0]);
-		process.stdout.write(args[0].value);
+		stdout(args[0].value);
 		return newNoneValue();
 	});
 	env.define('printStr', printStr);
@@ -41,7 +42,7 @@ export function setRuntime(env: RunningEnv) {
 			throw new Error('invalid arguments count');
 		}
 		assertNumber(args[0]);
-		process.stdout.write(args[0].value.toString());
+		stdout(args[0].value.toString());
 		return newNoneValue();
 	});
 	env.define('printNum', printNum);
@@ -50,7 +51,7 @@ export function setRuntime(env: RunningEnv) {
 		if (args.length != 0) {
 			throw new Error('invalid arguments count');
 		}
-		process.stdout.write('\n');
+		stdout('\n');
 		return newNoneValue();
 	});
 	env.define('printLF', printLF);
