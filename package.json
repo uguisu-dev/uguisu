@@ -1,6 +1,6 @@
 {
   "name": "uguisu-js",
-  "version": "0.7.0-alpha.4",
+  "version": "0.7.0-alpha.5",
   "description": "The Uguisu is a statically typed scripting language.",
   "main": "built/lib/index.js",
   "bin": {
