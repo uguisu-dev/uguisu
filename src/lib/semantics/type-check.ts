@@ -1,4 +1,5 @@
 import {
+	AssignMode,
 	AstNode,
 	FunctionDecl,
 	isEquivalentOperator,
@@ -115,23 +116,39 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 			return;
 		}
 		case 'AssignStatement': {
-			// TODO: mode
 			const symbol = lookupSymbolWithNode(node.target, env);
 			if (symbol.kind != 'VariableSymbol') {
 				throw new Error('variable expected');
 			}
+			const bodyTy = inferType(node.body, env);
+			if (!symbol.defined && symbol.ty == null) {
+				symbol.ty = bodyTy;
+			}
 			if (symbol.ty == null) {
 				throw new Error('type not resolved');
 			}
-			const bodyTy = inferType(node.body, env);
-			if (symbol.defined) {
-				if (symbol.ty != bodyTy) {
-					throw new Error('type mismatched.');
+			switch (node.mode) {
+				case AssignMode.Assign: {
+					if (symbol.ty != bodyTy) {
+						throw new Error('type mismatched.');
+					}
+					break;
 				}
-			} else {
-				symbol.ty = bodyTy;
-				symbol.defined = true;
+				case AssignMode.AddAssign:
+				case AssignMode.SubAssign:
+				case AssignMode.MultAssign:
+				case AssignMode.DivAssign:
+				case AssignMode.ModAssign: {
+					if (symbol.ty != 'number') {
+						throw new Error('type mismatched.');
+					}
+					if (bodyTy != 'number') {
+						throw new Error('type mismatched.');
+					}
+					break;
+				}
 			}
+			symbol.defined = true;
 			return;
 		}
 		case 'IfStatement': {
