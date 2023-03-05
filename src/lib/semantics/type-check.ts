@@ -9,8 +9,6 @@ import {
 	StatementNode,
 } from '../syntax/ast';
 
-// TODO: consider symbol scope
-
 export type Type = 'void' | 'number' | 'bool' | 'string' | 'function';
 
 export type FunctionSymbol = {
@@ -97,9 +95,20 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 			if (symbol.kind != 'FunctionSymbol') {
 				throw new Error('function expected');
 			}
+			env.enter();
+			for (let i = 0; i < node.params.length; i++) {
+				const paramSymbol: VariableSymbol = {
+					kind: 'VariableSymbol',
+					defined: true,
+					ty: symbol.paramsTy[i],
+				};
+				env.set(node.params[i].name, paramSymbol);
+			}
+			for (const statement of node.body) {
+				validateNode(statement, env);
+			}
+			env.leave();
 			symbol.defined = true;
-			// TODO: func param symbols for body
-			checkBlock(node.body, env);
 			return;
 		}
 		case 'VariableDecl': {
