@@ -35,7 +35,7 @@ function runTest(sourceCode: string) {
 	const runner = new Runner();
 	const runningEnv = new RunningEnv();
 	try {
-		runner.run(ast, runningEnv);
+		runner.run(ast, runningEnv, () => {});
 	} catch (err) {
 		if (err instanceof Error) {
 			throw new Error(`Runtime Error: ${err.message}`);
