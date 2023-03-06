@@ -7,9 +7,16 @@ import {
 	isOrderingOperator,
 	SourceFile,
 	StatementNode,
+	TyLabel,
 } from '../syntax/ast';
 
 export type Type = 'void' | 'number' | 'bool' | 'string' | 'function';
+
+function assertType(actual: Type, expected: Type, errorNode: AstNode) {
+	if (actual != expected) {
+		dispatchError(`type mismatched. expected \`${expected}\`, found \`${actual}\``, errorNode);
+	}
+}
 
 export type FunctionSymbol = {
 	kind: 'FunctionSymbol',
@@ -86,7 +93,7 @@ function setDeclaration(node: AstNode, env: AnalysisEnv) {
 			// declare function
 			let returnTy: Type;
 			if (node.returnTy != null) {
-				returnTy = resolveTypeName(node.returnTy.name);
+				returnTy = resolveTypeName(node.returnTy);
 			} else {
 				returnTy = 'void';
 			}
@@ -95,7 +102,7 @@ function setDeclaration(node: AstNode, env: AnalysisEnv) {
 				if (param.ty == null) {
 					dispatchError('parameter type missing.', param);
 				}
-				const paramTy = resolveTypeName(param.ty.name);
+				const paramTy = resolveTypeName(param.ty);
 				paramsTy.push(paramTy);
 			}
 			env.set(node.name, {
@@ -140,14 +147,12 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 		case 'VariableDecl': {
 			let ty;
 			if (node.ty != null) {
-				ty = resolveTypeName(node.ty.name);
+				ty = resolveTypeName(node.ty);
 			}
 			if (node.body != null) {
 				const bodyTy = inferType(node.body, env);
 				if (ty != null) {
-					if (ty != bodyTy) {
-						dispatchError('type mismatched.', node.body); // TODO
-					}
+					assertType(bodyTy, ty, node.body);
 				} else {
 					ty = bodyTy;
 				}
@@ -171,9 +176,7 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 			}
 			switch (node.mode) {
 				case AssignMode.Assign: {
-					if (symbol.ty != bodyTy) {
-						dispatchError('type mismatched.', node.body); // TODO
-					}
+					assertType(bodyTy, symbol.ty, node.body);
 					break;
 				}
 				case AssignMode.AddAssign:
@@ -181,12 +184,8 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 				case AssignMode.MultAssign:
 				case AssignMode.DivAssign:
 				case AssignMode.ModAssign: {
-					if (symbol.ty != 'number') {
-						dispatchError('type mismatched.', node.body); // TODO
-					}
-					if (bodyTy != 'number') {
-						dispatchError('type mismatched.', node.body); // TODO
-					}
+					assertType(symbol.ty, 'number', node.target);
+					assertType(bodyTy, 'number', node.body);
 					break;
 				}
 			}
@@ -195,9 +194,7 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 		}
 		case 'IfStatement': {
 			const condTy = inferType(node.cond, env);
-			if (condTy != 'bool') {
-				dispatchError('type mismatched.', node.cond); // TODO
-			}
+			assertType(condTy, 'bool', node.cond);
 			checkBlock(node.thenBlock, env);
 			checkBlock(node.elseBlock, env);
 			return;
@@ -250,36 +247,22 @@ function inferType(node: AstNode, env: AnalysisEnv): Type {
 			const rightTy = inferType(node.right, env);
 			if (isLogicalBinaryOperator(node.operator)) {
 				// Logical Operation
-				if (leftTy != 'bool') {
-					dispatchError('type mismatched.', node.left); // TODO
-				}
-				if (rightTy != 'bool') {
-					dispatchError('type mismatched.', node.right); // TODO
-				}
+				assertType(leftTy, 'bool', node.left);
+				assertType(rightTy, 'bool', node.right);
 				return 'bool';
 			} else if (isEquivalentOperator(node.operator)) {
 				// Equivalent Operation
-				if (leftTy != rightTy) {
-					dispatchError('type mismatched.', node.left); // TODO
-				}
+				assertType(rightTy, leftTy, node.right);
 				return 'bool';
 			} else if (isOrderingOperator(node.operator)) {
 				// Ordering Operation
-				if (leftTy != 'number') {
-					dispatchError('type mismatched.', node.left); // TODO
-				}
-				if (rightTy != 'number') {
-					dispatchError('type mismatched.', node.right); // TODO
-				}
+				assertType(leftTy, 'number', node.left);
+				assertType(rightTy, 'number', node.right);
 				return 'bool';
 			} else {
 				// Arithmetic Operation
-				if (leftTy != 'number') {
-					dispatchError('type mismatched.', node.left); // TODO
-				}
-				if (rightTy != 'number') {
-					dispatchError('type mismatched.', node.right); // TODO
-				}
+				assertType(leftTy, 'number', node.left);
+				assertType(rightTy, 'number', node.right);
 				return 'number';
 			}
 			break;
@@ -287,9 +270,7 @@ function inferType(node: AstNode, env: AnalysisEnv): Type {
 		case 'UnaryOp': {
 			const ty = inferType(node.expr, env);
 			// Logical Operation
-			if (ty != 'bool') {
-				dispatchError('type mismatched.', node); // TODO
-			}
+			assertType(ty, 'bool', node);
 			return 'bool';
 		}
 		case 'Identifier': {
@@ -319,7 +300,7 @@ function inferType(node: AstNode, env: AnalysisEnv): Type {
 			for (let i = 0; i < callee.paramsTy.length; i++) {
 				const argTy = inferType(node.args[i], env);
 				if (argTy != callee.paramsTy[i]) {
-					dispatchError('type mismatched.', node.args[i]); // TODO
+					assertType(argTy, callee.paramsTy[i], node.args[i]);
 				}
 			}
 			return callee.returnTy;
@@ -328,15 +309,15 @@ function inferType(node: AstNode, env: AnalysisEnv): Type {
 	throw new Error('unexpected node.');
 }
 
-function resolveTypeName(name: string): Type {
-	switch (name) {
+function resolveTypeName(node: TyLabel): Type {
+	switch (node.name) {
 		case 'number':
 		case 'bool':
 		case 'string': {
-			return name;
+			return node.name;
 		}
 	}
-	dispatchError('unknown type name.');
+	dispatchError('unknown type name.', node);
 }
 
 function lookupSymbolWithNode(node: AstNode, env: AnalysisEnv): Symbol {
@@ -358,9 +339,9 @@ function checkBlock(block: StatementNode[], env: AnalysisEnv) {
 	env.leave();
 }
 
-function dispatchError(message: string, node?: AstNode): never {
-	if (node != null) {
-		throw new Error(`${message} (${node.pos[0]}:${node.pos[1]})`);
+function dispatchError(message: string, errorNode?: AstNode): never {
+	if (errorNode != null) {
+		throw new Error(`${message} (${errorNode.pos[0]}:${errorNode.pos[1]})`);
 	} else {
 		throw new Error(message);
 	}
