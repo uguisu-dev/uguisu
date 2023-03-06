@@ -65,7 +65,7 @@ export class AnalysisEnv {
 
 	leave() {
 		if (this.layers.length <= 1) {
-			throw new Error('leave root layer');
+			dispatchError('leave root layer');
 		}
 		this.layers.shift();
 	}
@@ -93,7 +93,7 @@ function setDeclaration(node: AstNode, env: AnalysisEnv) {
 			const paramsTy: Type[] = [];
 			for (const param of node.params) {
 				if (param.ty == null) {
-					throw new Error('parameter type is not specified.');
+					dispatchError('parameter type is not specified.', param);
 				}
 				const paramTy = resolveTypeName(param.ty.name);
 				paramsTy.push(paramTy);
@@ -116,10 +116,10 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 			// define function
 			const symbol = env.get(node.name);
 			if (symbol == null) {
-				throw new Error('unknown name');
+				dispatchError('unknown name', node);
 			}
 			if (symbol.kind != 'FunctionSymbol') {
-				throw new Error('function expected');
+				dispatchError('function expected', node);
 			}
 			env.enter();
 			for (let i = 0; i < node.params.length; i++) {
@@ -153,19 +153,19 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 		case 'AssignStatement': {
 			const symbol = lookupSymbolWithNode(node.target, env);
 			if (symbol.kind != 'VariableSymbol') {
-				throw new Error('variable expected');
+				dispatchError('variable expected', node.target);
 			}
 			const bodyTy = inferType(node.body, env);
 			if (!symbol.defined && symbol.ty == null) {
 				symbol.ty = bodyTy;
 			}
 			if (symbol.ty == null) {
-				throw new Error('type not resolved');
+				dispatchError('type not resolved', node.target);
 			}
 			switch (node.mode) {
 				case AssignMode.Assign: {
 					if (symbol.ty != bodyTy) {
-						throw new Error('type mismatched.');
+						dispatchError('type mismatched.', node.target);
 					}
 					break;
 				}
@@ -175,10 +175,10 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 				case AssignMode.DivAssign:
 				case AssignMode.ModAssign: {
 					if (symbol.ty != 'number') {
-						throw new Error('type mismatched.');
+						dispatchError('type mismatched.', node.target);
 					}
 					if (bodyTy != 'number') {
-						throw new Error('type mismatched.');
+						dispatchError('type mismatched.', node.body);
 					}
 					break;
 				}
@@ -189,7 +189,7 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 		case 'IfStatement': {
 			const condTy = inferType(node.cond, env);
 			if (condTy != 'bool') {
-				throw new Error('type mismatched.');
+				dispatchError('type mismatched.', node.cond);
 			}
 			checkBlock(node.thenBlock, env);
 			checkBlock(node.elseBlock, env);
@@ -221,10 +221,10 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 		case 'SourceFile':
 		case 'FnDeclParam':
 		case 'TyLabel': {
-			throw new Error('unexpected node');
+			dispatchError('unexpected node');
 		}
 	}
-	throw new Error('unexpected node');
+	dispatchError('unexpected node');
 }
 
 function inferType(node: AstNode, env: AnalysisEnv): Type {
@@ -244,34 +244,34 @@ function inferType(node: AstNode, env: AnalysisEnv): Type {
 			if (isLogicalBinaryOperator(node.operator)) {
 				// Logical Operation
 				if (leftTy != 'bool') {
-					throw new Error('type mismatched.');
+					dispatchError('type mismatched.', node.left);
 				}
 				if (rightTy != 'bool') {
-					throw new Error('type mismatched.');
+					dispatchError('type mismatched.', node.right);
 				}
 				return 'bool';
 			} else if (isEquivalentOperator(node.operator)) {
 				// Equivalent Operation
 				if (leftTy != rightTy) {
-					throw new Error('type mismatched.');
+					dispatchError('type mismatched.', node.left);
 				}
 				return 'bool';
 			} else if (isOrderingOperator(node.operator)) {
 				// Ordering Operation
 				if (leftTy != 'number') {
-					throw new Error('type mismatched.');
+					dispatchError('type mismatched.', node.left);
 				}
 				if (rightTy != 'number') {
-					throw new Error('type mismatched.');
+					dispatchError('type mismatched.', node.right);
 				}
 				return 'bool';
 			} else {
 				// Arithmetic Operation
 				if (leftTy != 'number') {
-					throw new Error('type mismatched.');
+					dispatchError('type mismatched.', node.left);
 				}
 				if (rightTy != 'number') {
-					throw new Error('type mismatched.');
+					dispatchError('type mismatched.', node.right);
 				}
 				return 'number';
 			}
@@ -281,7 +281,7 @@ function inferType(node: AstNode, env: AnalysisEnv): Type {
 			const ty = inferType(node.expr, env);
 			// Logical Operation
 			if (ty != 'bool') {
-				throw new Error('type mismatched.');
+				dispatchError('type mismatched.', node);
 			}
 			return 'bool';
 		}
@@ -294,7 +294,7 @@ function inferType(node: AstNode, env: AnalysisEnv): Type {
 				}
 				case 'VariableSymbol': {
 					if (symbol.ty == null) {
-						throw new Error('type not resolved');
+						dispatchError('type not resolved', node);
 					}
 					return symbol.ty;
 				}
@@ -304,21 +304,21 @@ function inferType(node: AstNode, env: AnalysisEnv): Type {
 		case 'Call': {
 			const callee = lookupSymbolWithNode(node.callee, env);
 			if (callee.kind != 'FunctionSymbol' && callee.kind != 'NativeFnSymbol') {
-				throw new Error('function expected');
+				dispatchError('function expected', node.callee);
 			}
 			if (node.args.length != callee.paramsTy.length) {
-				throw new Error('argument count incorrect');
+				dispatchError('argument count incorrect', node);
 			}
 			for (let i = 0; i < callee.paramsTy.length; i++) {
 				const argTy = inferType(node.args[i], env);
 				if (argTy != callee.paramsTy[i]) {
-					throw new Error('type error');
+					dispatchError('type error', node.args[i]);
 				}
 			}
 			return callee.returnTy;
 		}
 	}
-	throw new Error('unexpected node');
+	dispatchError('unexpected node');
 }
 
 function resolveTypeName(name: string): Type {
@@ -329,16 +329,16 @@ function resolveTypeName(name: string): Type {
 			return name;
 		}
 	}
-	throw new Error('unknown type');
+	dispatchError('unknown type');
 }
 
 function lookupSymbolWithNode(node: AstNode, env: AnalysisEnv): Symbol {
 	if (node.kind != 'Identifier') {
-		throw new Error('unexpected node');
+		dispatchError('unexpected node', node);
 	}
 	const symbol = env.get(node.name);
 	if (symbol == null) {
-		throw new Error('symbol not found');
+		dispatchError('symbol not found', node);
 	}
 	return symbol;
 }
@@ -349,4 +349,12 @@ function checkBlock(block: StatementNode[], env: AnalysisEnv) {
 		validateNode(statement, env);
 	}
 	env.leave();
+}
+
+function dispatchError(message: string, node?: AstNode): never {
+	if (node != null) {
+		throw new Error(`${message} (${node.pos[0]}:${node.pos[1]})`);
+	} else {
+		throw new Error(message);
+	}
 }
