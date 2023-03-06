@@ -111,7 +111,7 @@ function getTypeName(value: Value): string {
 	}
 }
 
-type Symbol = { defined: true, value: Value } | { defined: false };
+type Symbol = { defined: true, value: Value } | { defined: false, value: undefined };
 
 export class RunningEnv {
 	layers: Map<string, Symbol>[];
@@ -126,7 +126,7 @@ export class RunningEnv {
 
 	declare(name: string) {
 		trace.log(`declare symbol: ${name}`);
-		this.layers[0].set(name, { defined: false });
+		this.layers[0].set(name, { defined: false, value: undefined });
 	}
 
 	define(name: string, value: Value) {
@@ -153,7 +153,7 @@ export class RunningEnv {
 	leave() {
 		trace.log(`leave scope`);
 		if (this.layers.length <= 1) {
-			throw new Error('leave root layer');
+			throw new Error('Left the root layer.');
 		}
 		this.layers.shift();
 	}
@@ -306,9 +306,6 @@ function execStatement(statement: StatementNode, env: RunningEnv): StatementResu
 				if (symbol == null) {
 					throw new Error('unknown identifier');
 				}
-				if (!symbol.defined) {
-					throw new Error('symbol is not defined');
-				}
 				const bodyValue = evalExpr(statement.body, env);
 				if (isNoneValue(bodyValue)) {
 					throw new Error('no values');
@@ -374,6 +371,7 @@ function execStatement(statement: StatementNode, env: RunningEnv): StatementResu
 						break;
 					}
 				}
+				symbol.defined = true;
 				return newNoneResult();
 			}
 		}
