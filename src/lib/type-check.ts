@@ -86,7 +86,7 @@ export function typeCheck(source: SourceFile, env: AnalysisEnv) {
 		setDeclaration(n, env);
 	}
 	for (const n of source.funcs) {
-		validateNode(n, env);
+		validateNode(n, env, false);
 	}
 }
 
@@ -120,7 +120,7 @@ function setDeclaration(node: AstNode, env: AnalysisEnv) {
 	}
 }
 
-function validateNode(node: AstNode, env: AnalysisEnv) {
+function validateNode(node: AstNode, env: AnalysisEnv, allowJump: boolean): void {
 	switch (node.kind) {
 		case 'FunctionDecl': {
 			// define function
@@ -141,7 +141,7 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 				env.set(node.params[i].name, paramSymbol);
 			}
 			for (const statement of node.body) {
-				validateNode(statement, env);
+				validateNode(statement, env, false);
 			}
 			env.leave();
 			symbol.defined = true;
@@ -201,12 +201,12 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 		case 'IfStatement': {
 			const condTy = inferType(node.cond, env);
 			assertType(condTy, 'bool', node.cond);
-			checkBlock(node.thenBlock, env);
-			checkBlock(node.elseBlock, env);
+			checkBlock(node.thenBlock, env, allowJump);
+			checkBlock(node.elseBlock, env, allowJump);
 			return;
 		}
 		case 'LoopStatement': {
-			checkBlock(node.block, env);
+			checkBlock(node.block, env, true);
 			return;
 		}
 		case 'ReturnStatement': {
@@ -219,6 +219,9 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 			return;
 		}
 		case 'BreakStatement': {
+			if (!allowJump) {
+				dispatchError('invalid break statement');
+			}
 			return;
 		}
 		case 'NumberLiteral':
@@ -346,10 +349,10 @@ function lookupSymbolWithNode(node: AstNode, env: AnalysisEnv): Symbol {
 	return symbol;
 }
 
-function checkBlock(block: StatementNode[], env: AnalysisEnv) {
+function checkBlock(block: StatementNode[], env: AnalysisEnv, allowControlStatement: boolean) {
 	env.enter();
 	for (const statement of block) {
-		validateNode(statement, env);
+		validateNode(statement, env, allowControlStatement);
 	}
 	env.leave();
 }
