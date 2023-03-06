@@ -349,10 +349,10 @@ function lookupSymbolWithNode(node: AstNode, env: AnalysisEnv): Symbol {
 	return symbol;
 }
 
-function checkBlock(block: StatementNode[], env: AnalysisEnv, allowControlStatement: boolean) {
+function checkBlock(block: StatementNode[], env: AnalysisEnv, allowJump: boolean) {
 	env.enter();
 	for (const statement of block) {
-		validateNode(statement, env, allowControlStatement);
+		validateNode(statement, env, allowJump);
 	}
 	env.leave();
 }
