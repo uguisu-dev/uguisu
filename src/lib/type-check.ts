@@ -8,7 +8,7 @@ import {
 	SourceFile,
 	StatementNode,
 	TyLabel,
-} from '../syntax/ast';
+} from './ast';
 
 export type Type = 'void' | 'number' | 'bool' | 'string' | 'function';
 

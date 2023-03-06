@@ -10,7 +10,7 @@ import {
 	isOrderingOperator,
 	SourceFile,
 	StatementNode,
-} from './syntax/ast';
+} from './ast';
 import { Trace } from './trace';
 
 const trace = Trace.getDefault().createChild(false);

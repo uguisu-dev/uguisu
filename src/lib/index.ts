@@ -1,8 +1,8 @@
-import { Scanner } from './syntax/scan';
-import { Parser } from './syntax/parse';
+import { Scanner } from './scan';
+import { Parser } from './parse';
 import { Runner, RunningEnv } from './run';
-import { SourceFile } from './syntax/ast';
-import { AnalysisEnv, typeCheck } from './semantics/type-check';
+import { SourceFile } from './ast';
+import { AnalysisEnv, typeCheck } from './type-check';
 import { setDeclarations } from './builtins';
 
 export {

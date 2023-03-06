@@ -1,4 +1,4 @@
-import { Trace } from '../trace';
+import { Trace } from './trace';
 
 const trace = Trace.getDefault().createChild(false);
 
