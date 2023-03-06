@@ -81,7 +81,7 @@ export class AnalysisEnv {
 	}
 }
 
-export function typeCheck(source: SourceFile, env: AnalysisEnv) {
+export function analyze(source: SourceFile, env: AnalysisEnv) {
 	for (const n of source.funcs) {
 		setDeclaration(n, env);
 	}

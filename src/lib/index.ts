@@ -2,7 +2,7 @@ import { Scanner } from './scan';
 import { Parser } from './parse';
 import { Runner, RunningEnv } from './run';
 import { SourceFile } from './ast';
-import { AnalysisEnv, typeCheck } from './type-check';
+import { AnalysisEnv, analyze } from './analyze';
 import { setDeclarations } from './builtins';
 
 export {
@@ -32,7 +32,7 @@ export class Uguisu {
 
 		const analysisEnv = new AnalysisEnv();
 		setDeclarations(analysisEnv);
-		typeCheck(ast, analysisEnv);
+		analyze(ast, analysisEnv);
 
 		const runningEnv = new RunningEnv();
 		this._runner.run(ast, runningEnv, this._stdout);

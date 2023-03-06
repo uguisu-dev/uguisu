@@ -9,7 +9,7 @@ import {
 	newString,
 } from './run';
 
-import { AnalysisEnv, NativeFnSymbol, Type } from './type-check';
+import { AnalysisEnv, NativeFnSymbol, Type } from './analyze';
 
 function nativeFnSymbol(paramsTy: Type[], returnTy: Type): NativeFnSymbol {
 	return { kind: 'NativeFnSymbol', paramsTy, returnTy };
