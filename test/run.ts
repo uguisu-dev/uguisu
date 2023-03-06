@@ -1,9 +1,9 @@
 import assert from 'assert';
 import { SourceFile } from '../src/lib';
-import { Scanner } from '../src/lib/syntax/scan';
-import { Parser } from '../src/lib/syntax/parse';
+import { Scanner } from '../src/lib/scan';
+import { Parser } from '../src/lib/parse';
 import { Runner, RunningEnv } from '../src/lib/run';
-import { AnalysisEnv, typeCheck } from '../src/lib/semantics/type-check';
+import { AnalysisEnv, typeCheck } from '../src/lib/type-check';
 import { setDeclarations } from '../src/lib/builtins';
 
 function runTest(sourceCode: string) {

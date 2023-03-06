@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { Scanner, LiteralValue, LiteralKind, Token } from '../src/lib/syntax/scan';
+import { Scanner, LiteralValue, LiteralKind, Token } from '../src/lib/scan';
 
 function setupTest(input: string) {
 	const s = new Scanner();
