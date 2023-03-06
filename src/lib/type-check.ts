@@ -13,6 +13,9 @@ import {
 export type Type = 'void' | 'number' | 'bool' | 'string' | 'function';
 
 function assertType(actual: Type, expected: Type, errorNode: AstNode) {
+	if (actual == 'void') {
+		dispatchError(`A function call that does not return a value cannot be used as an expression.`, errorNode);
+	}
 	if (actual != expected) {
 		dispatchError(`type mismatched. expected \`${expected}\`, found \`${actual}\``, errorNode);
 	}
@@ -35,7 +38,7 @@ export type NativeFnSymbol = {
 export type VariableSymbol = {
 	kind: 'VariableSymbol',
 	defined: boolean,
-	ty?: Type
+	ty?: Type,
 };
 
 export type Symbol = FunctionSymbol | NativeFnSymbol | VariableSymbol;
@@ -154,6 +157,9 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 				if (ty != null) {
 					assertType(bodyTy, ty, node.body);
 				} else {
+					if (bodyTy == 'void') {
+						dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
+					}
 					ty = bodyTy;
 				}
 			}
@@ -205,7 +211,10 @@ function validateNode(node: AstNode, env: AnalysisEnv) {
 		}
 		case 'ReturnStatement': {
 			if (node.expr != null) {
-				inferType(node.expr, env);
+				const ty = inferType(node.expr, env);
+				if (ty == 'void') {
+					dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
+				}
 			}
 			return;
 		}
@@ -291,8 +300,14 @@ function inferType(node: AstNode, env: AnalysisEnv): Type {
 		}
 		case 'Call': {
 			const callee = lookupSymbolWithNode(node.callee, env);
-			if (callee.kind != 'FunctionSymbol' && callee.kind != 'NativeFnSymbol') {
-				dispatchError('function expected.', node.callee);
+			switch (callee.kind) {
+				case 'FunctionSymbol':
+				case 'NativeFnSymbol': {
+					break;
+				}
+				default: {
+					throw new Error('function expected');
+				}
 			}
 			if (node.args.length != callee.paramsTy.length) {
 				dispatchError('argument count incorrect.', node);
