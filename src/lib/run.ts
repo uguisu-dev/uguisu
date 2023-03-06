@@ -189,7 +189,7 @@ export class Runner {
 		evalSourceFile(source, env);
 		const symbol = env.get('main');
 		if (symbol == null || !symbol.defined) {
-			throw new Error('function `main` is not defined');
+			throw new Error('function `main` is not found');
 		}
 		assertFunction(symbol.value);
 		call(symbol.value, []);
