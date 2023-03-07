@@ -62,6 +62,11 @@ fn main() {
 `;
 
 const uguisu = new Uguisu();
+
+uguisu.setStdout((str) => {
+    console.log(str);
+});
+
 uguisu.run(sourceCode);
 ```
 
