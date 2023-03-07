@@ -62,7 +62,7 @@ fn main() {
 `;
 
 const uguisu = new Uguisu();
-uguisu.exec(sourceCode);
+uguisu.run(sourceCode);
 ```
 
 ## License
