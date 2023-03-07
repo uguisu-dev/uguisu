@@ -58,4 +58,9 @@ export class Uguisu {
 		const code = codegen(this._source.ast);
 		console.log(code);
 	}
+
+	run(sourceCode: string) {
+		this.load(sourceCode);
+		this.exec();
+	}
 }
