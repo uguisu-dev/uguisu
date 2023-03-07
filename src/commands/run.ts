@@ -74,6 +74,7 @@ export function command(args: string[]) {
 	try {
 		uguisu.load(sourceCode);
 		uguisu.exec();
+		//uguisu.genWasmText();
 	}
 	catch (e) {
 		console.log(e);

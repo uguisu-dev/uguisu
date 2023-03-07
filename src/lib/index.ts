@@ -4,6 +4,7 @@ import { Runner, RunningEnv } from './run.js';
 import { SourceFile } from './ast.js';
 import { AnalysisEnv, analyze } from './analyze.js';
 import { setDeclarations } from './builtins.js';
+import { codegen } from './wasm/codegen.js';
 
 export {
 	SourceFile,
@@ -47,5 +48,14 @@ export class Uguisu {
 		}
 		const runningEnv = new RunningEnv();
 		this._runner.run(this._source.ast, runningEnv, this._stdout);
+	}
+
+	/** very experimental */
+	genWasmText() {
+		if (this._source == null) {
+			throw new Error('source is not loaded');
+		}
+		const code = codegen(this._source.ast);
+		console.log(code);
 	}
 }
