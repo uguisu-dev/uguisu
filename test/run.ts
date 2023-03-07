@@ -7,13 +7,11 @@ import { AnalysisEnv, analyze } from '../src/lib/analyze.js';
 import { setDeclarations } from '../src/lib/builtins.js';
 
 function runTest(sourceCode: string) {
-	const scanner = new Scanner();
-	const parser = new Parser(scanner);
+	const parser = new Parser(new Scanner());
 
-	parser.setup(sourceCode, 'test.ug');
 	let ast: SourceFile;
 	try {
-		ast = parser.parse();
+		ast = parser.parse(sourceCode, 'test.ug');
 	} catch (err) {
 		if (err instanceof Error) {
 			throw new Error(`Parsing Error: ${err.message}`);

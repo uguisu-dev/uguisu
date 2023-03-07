@@ -38,16 +38,14 @@ const trace = Trace.getDefault().createChild(false);
 
 export class Parser {
 	s: Scanner;
-	filename: string;
 
 	constructor(s: Scanner) {
 		this.s = s;
-		this.filename = '';
 	}
 
-	setup(sourceCode: string, filename: string) {
-		this.filename = filename;
+	setup(sourceCode: string) {
 		this.s.setup(sourceCode);
+		this.s.next();
 	}
 
 	getPos(): [number, number] {
@@ -96,9 +94,9 @@ export class Parser {
 		this.next();
 	}
 
-	parse(): SourceFile {
-		this.next();
-		return parseSourceFile(this, this.filename);
+	parse(sourceCode: string, filename: string) {
+		this.setup(sourceCode);
+		return parseSourceFile(this, filename);
 	}
 }
 

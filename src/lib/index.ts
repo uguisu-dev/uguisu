@@ -15,6 +15,9 @@ export class Uguisu {
 	private _parser: Parser;
 	private _runner: Runner;
 	private _stdout: StdoutCallback;
+	private _source?: {
+		ast: SourceFile
+	};
 
 	constructor() {
 		this._parser = new Parser(new Scanner());
@@ -26,15 +29,23 @@ export class Uguisu {
 		this._stdout = callback;
 	}
 
-	exec(sourceCode: string) {
-		this._parser.setup(sourceCode, 'main.ug');
-		const ast = this._parser.parse();
+	load(sourceCode: string) {
+		const ast = this._parser.parse(sourceCode, 'main.ug');
 
 		const analysisEnv = new AnalysisEnv();
 		setDeclarations(analysisEnv);
 		analyze(ast, analysisEnv);
 
+		this._source = {
+			ast,
+		};
+	}
+
+	exec() {
+		if (this._source == null) {
+			throw new Error('source is not loaded');
+		}
 		const runningEnv = new RunningEnv();
-		this._runner.run(ast, runningEnv, this._stdout);
+		this._runner.run(this._source.ast, runningEnv, this._stdout);
 	}
 }

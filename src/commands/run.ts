@@ -72,7 +72,8 @@ export function command(args: string[]) {
 	// run script
 	const uguisu = new Uguisu();
 	try {
-		uguisu.exec(sourceCode);
+		uguisu.load(sourceCode);
+		uguisu.exec();
 	}
 	catch (e) {
 		console.log(e);
