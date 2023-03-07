@@ -50,6 +50,7 @@ Commands:
 ```
 
 ## JavaScript API
+Uguisu only supports the ES Modules (ESM).
 
 ```js
 import { Uguisu } from 'uguisu-js';
