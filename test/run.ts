@@ -1,10 +1,10 @@
 import assert from 'assert';
-import { SourceFile } from '../src/lib';
-import { Scanner } from '../src/lib/scan';
-import { Parser } from '../src/lib/parse';
-import { Runner, RunningEnv } from '../src/lib/run';
-import { AnalysisEnv, typeCheck } from '../src/lib/type-check';
-import { setDeclarations } from '../src/lib/builtins';
+import { SourceFile } from '../src/lib/index.js';
+import { Scanner } from '../src/lib/scan.js';
+import { Parser } from '../src/lib/parse.js';
+import { Runner, RunningEnv } from '../src/lib/run.js';
+import { AnalysisEnv, analyze } from '../src/lib/analyze.js';
+import { setDeclarations } from '../src/lib/builtins.js';
 
 function runTest(sourceCode: string) {
 	const scanner = new Scanner();
@@ -24,7 +24,7 @@ function runTest(sourceCode: string) {
 	const env = new AnalysisEnv();
 	setDeclarations(env);
 	try {
-		typeCheck(ast, env);
+		analyze(ast, env);
 	} catch (err) {
 		if (err instanceof Error) {
 			throw new Error(`Syntax Error: ${err.message}`);

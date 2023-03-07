@@ -1,4 +1,4 @@
-import { Trace } from './misc/trace';
+import { Trace } from './misc/trace.js';
 
 const trace = Trace.getDefault().createChild(false);
 

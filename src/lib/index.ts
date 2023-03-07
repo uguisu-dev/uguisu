@@ -1,9 +1,9 @@
-import { Scanner } from './scan';
-import { Parser } from './parse';
-import { Runner, RunningEnv } from './run';
-import { SourceFile } from './ast';
-import { AnalysisEnv, analyze } from './analyze';
-import { setDeclarations } from './builtins';
+import { Scanner } from './scan.js';
+import { Parser } from './parse.js';
+import { Runner, RunningEnv } from './run.js';
+import { SourceFile } from './ast.js';
+import { AnalysisEnv, analyze } from './analyze.js';
+import { setDeclarations } from './builtins.js';
 
 export {
 	SourceFile,

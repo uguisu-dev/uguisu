@@ -8,7 +8,7 @@ import {
 	SourceFile,
 	StatementNode,
 	TyLabel,
-} from './ast';
+} from './ast.js';
 
 export type Type = 'void' | 'number' | 'bool' | 'string' | 'function';
 

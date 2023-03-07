@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { Uguisu } from '../lib';
+import { Uguisu } from '../lib/index.js';
 
 type Match = {
 	help: boolean,

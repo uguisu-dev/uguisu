@@ -1,4 +1,4 @@
-import { StdoutCallback } from '.';
+import { StdoutCallback } from './index.js';
 import {
 	assertNumber,
 	assertString,
@@ -7,9 +7,8 @@ import {
 	newNoneValue,
 	newNumber,
 	newString,
-} from './run';
-
-import { AnalysisEnv, NativeFnSymbol, Type } from './analyze';
+} from './run.js';
+import { AnalysisEnv, NativeFnSymbol, Type } from './analyze.js';
 
 function nativeFnSymbol(paramsTy: Type[], returnTy: Type): NativeFnSymbol {
 	return { kind: 'NativeFnSymbol', paramsTy, returnTy };

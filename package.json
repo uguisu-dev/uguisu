@@ -3,6 +3,7 @@
   "version": "0.7.0-alpha.5",
   "description": "The Uguisu is a statically typed scripting language.",
   "main": "built/lib/index.js",
+  "type": "module",
   "bin": {
     "uguisu": "built/bin/uguisu.js"
   },
@@ -26,12 +27,11 @@
     "debug": "node ./built/debug"
   },
   "devDependencies": {
-    "@types/jest": "29.0.3",
-    "@types/node": "18.7.18",
-    "jest": "29.0.3",
-    "ts-jest": "29.0.1",
-    "ts-node": "10.9.1",
-    "typescript": "4.8.3"
+    "@types/jest": "^29.4.0",
+    "@types/node": "^18.14.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.0.0",
+    "typescript": "^4.9.0"
   },
   "files": [
     "built/**/*.js",

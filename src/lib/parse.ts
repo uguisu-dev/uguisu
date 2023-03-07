@@ -1,4 +1,4 @@
-import { Trace } from './misc/trace';
+import { Trace } from './misc/trace.js';
 import {
 	AssignMode,
 	BinaryOperator,
@@ -30,9 +30,9 @@ import {
 	StatementNode,
 	TyLabel,
 	VariableDecl,
-} from './ast';
-import { LiteralKind, LiteralValue, Scanner } from './scan';
-import { Token } from './scan';
+} from './ast.js';
+import { LiteralKind, LiteralValue, Scanner } from './scan.js';
+import { Token } from './scan.js';
 
 const trace = Trace.getDefault().createChild(false);
 

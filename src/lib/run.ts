@@ -1,5 +1,5 @@
-import { StdoutCallback } from '.';
-import * as builtins from './builtins';
+import { StdoutCallback } from './index.js';
+import * as builtins from './builtins.js';
 import {
 	AssignMode,
 	ExprNode,
@@ -10,8 +10,8 @@ import {
 	isOrderingOperator,
 	SourceFile,
 	StatementNode,
-} from './ast';
-import { Trace } from './misc/trace';
+} from './ast.js';
+import { Trace } from './misc/trace.js';
 
 const trace = Trace.getDefault().createChild(false);
 
