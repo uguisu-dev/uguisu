@@ -22,7 +22,7 @@ function runTest(sourceCode: string) {
 	const env = new AnalysisEnv();
 	setDeclarations(env);
 	try {
-		analyze(ast, env);
+		analyze({ symbolTable: new Map(), env }, ast);
 	} catch (err) {
 		if (err instanceof Error) {
 			throw new Error(`Syntax Error: ${err.message}`);

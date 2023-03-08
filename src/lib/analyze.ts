@@ -1,7 +1,6 @@
 import {
 	AssignMode,
 	AstNode,
-	FunctionDecl,
 	isEquivalentOperator,
 	isLogicalBinaryOperator,
 	isOrderingOperator,
@@ -23,7 +22,6 @@ function assertType(actual: Type, expected: Type, errorNode: AstNode) {
 
 export type FunctionSymbol = {
 	kind: 'FunctionSymbol',
-	node: FunctionDecl,
 	defined: boolean,
 	paramsTy: Type[],
 	returnTy: Type,
@@ -81,16 +79,21 @@ export class AnalysisEnv {
 	}
 }
 
-export function analyze(source: SourceFile, env: AnalysisEnv) {
+export type Context = {
+	symbolTable: Map<AstNode, Symbol>,
+	env: AnalysisEnv,
+};
+
+export function analyze(ctx: Context, source: SourceFile) {
 	for (const n of source.funcs) {
-		setDeclaration(n, env);
+		setDeclaration(ctx, n);
 	}
 	for (const n of source.funcs) {
-		validateStatement(n, env, false);
+		validateStatement(ctx, n, false);
 	}
 }
 
-function setDeclaration(node: AstNode, env: AnalysisEnv) {
+function setDeclaration(ctx: Context, node: AstNode) {
 	switch (node.kind) {
 		case 'FunctionDecl': {
 			// declare function
@@ -108,42 +111,44 @@ function setDeclaration(node: AstNode, env: AnalysisEnv) {
 				const paramTy = resolveTypeName(param.ty);
 				paramsTy.push(paramTy);
 			}
-			env.set(node.name, {
+			const symbol: FunctionSymbol = {
 				kind: 'FunctionSymbol',
-				node: node,
 				defined: false,
 				paramsTy,
 				returnTy,
-			});
+			};
+			ctx.symbolTable.set(node, symbol);
+			ctx.env.set(node.name, symbol);
 			break;
 		}
 	}
 }
 
-function validateStatement(node: AstNode, env: AnalysisEnv, allowJump: boolean): void {
+function validateStatement(ctx: Context, node: AstNode, allowJump: boolean): void {
 	switch (node.kind) {
 		case 'FunctionDecl': {
 			// define function
-			const symbol = env.get(node.name);
+			const symbol = ctx.env.get(node.name);
 			if (symbol == null) {
 				dispatchError('unknown identifier.', node);
 			}
 			if (symbol.kind != 'FunctionSymbol') {
 				dispatchError('function expected.', node);
 			}
-			env.enter();
+			ctx.env.enter();
 			for (let i = 0; i < node.params.length; i++) {
 				const paramSymbol: VariableSymbol = {
 					kind: 'VariableSymbol',
 					defined: true,
 					ty: symbol.paramsTy[i],
 				};
-				env.set(node.params[i].name, paramSymbol);
+				ctx.symbolTable.set(node.params[i], paramSymbol);
+				ctx.env.set(node.params[i].name, paramSymbol);
 			}
 			for (const statement of node.body) {
-				validateStatement(statement, env, false);
+				validateStatement(ctx, statement, false);
 			}
-			env.leave();
+			ctx.env.leave();
 			symbol.defined = true;
 			return;
 		}
@@ -153,7 +158,7 @@ function validateStatement(node: AstNode, env: AnalysisEnv, allowJump: boolean):
 				ty = resolveTypeName(node.ty);
 			}
 			if (node.body != null) {
-				const bodyTy = inferType(node.body, env);
+				const bodyTy = inferType(ctx, node.body);
 				if (ty != null) {
 					assertType(bodyTy, ty, node.body);
 				} else {
@@ -168,15 +173,16 @@ function validateStatement(node: AstNode, env: AnalysisEnv, allowJump: boolean):
 				defined: (node.body != null),
 				ty,
 			};
-			env.set(node.name, symbol);
+			ctx.symbolTable.set(node, symbol);
+			ctx.env.set(node.name, symbol);
 			return;
 		}
 		case 'AssignStatement': {
-			const symbol = lookupSymbolWithNode(node.target, env);
+			const symbol = lookupSymbolWithNode(ctx, node.target);
 			if (symbol.kind != 'VariableSymbol') {
 				dispatchError('variable expected.', node.target);
 			}
-			const bodyTy = inferType(node.body, env);
+			const bodyTy = inferType(ctx, node.body);
 			if (symbol.ty == null) {
 				symbol.ty = bodyTy;
 			}
@@ -199,19 +205,19 @@ function validateStatement(node: AstNode, env: AnalysisEnv, allowJump: boolean):
 			return;
 		}
 		case 'IfStatement': {
-			const condTy = inferType(node.cond, env);
+			const condTy = inferType(ctx, node.cond);
 			assertType(condTy, 'bool', node.cond);
-			validateBlock(node.thenBlock, env, allowJump);
-			validateBlock(node.elseBlock, env, allowJump);
+			validateBlock(ctx, node.thenBlock, allowJump);
+			validateBlock(ctx, node.elseBlock, allowJump);
 			return;
 		}
 		case 'LoopStatement': {
-			validateBlock(node.block, env, true);
+			validateBlock(ctx, node.block, true);
 			return;
 		}
 		case 'ReturnStatement': {
 			if (node.expr != null) {
-				const ty = inferType(node.expr, env);
+				const ty = inferType(ctx, node.expr);
 				if (ty == 'void') {
 					dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
 				}
@@ -231,7 +237,7 @@ function validateStatement(node: AstNode, env: AnalysisEnv, allowJump: boolean):
 		case 'UnaryOp':
 		case 'Identifier':
 		case 'Call': {
-			inferType(node, env);
+			inferType(ctx, node);
 			return;
 		}
 		case 'SourceFile':
@@ -243,15 +249,15 @@ function validateStatement(node: AstNode, env: AnalysisEnv, allowJump: boolean):
 	throw new Error('unexpected node.');
 }
 
-function validateBlock(block: StatementNode[], env: AnalysisEnv, allowJump: boolean) {
-	env.enter();
+function validateBlock(ctx: Context, block: StatementNode[], allowJump: boolean) {
+	ctx.env.enter();
 	for (const statement of block) {
-		validateStatement(statement, env, allowJump);
+		validateStatement(ctx, statement, allowJump);
 	}
-	env.leave();
+	ctx.env.leave();
 }
 
-function inferType(node: AstNode, env: AnalysisEnv): Type {
+function inferType(ctx: Context, node: AstNode): Type {
 	switch (node.kind) {
 		case 'NumberLiteral': {
 			return 'number';
@@ -263,8 +269,8 @@ function inferType(node: AstNode, env: AnalysisEnv): Type {
 			return 'string';
 		}
 		case 'BinaryOp': {
-			const leftTy = inferType(node.left, env);
-			const rightTy = inferType(node.right, env);
+			const leftTy = inferType(ctx, node.left);
+			const rightTy = inferType(ctx, node.right);
 			if (isLogicalBinaryOperator(node.operator)) {
 				// Logical Operation
 				assertType(leftTy, 'bool', node.left);
@@ -288,13 +294,13 @@ function inferType(node: AstNode, env: AnalysisEnv): Type {
 			break;
 		}
 		case 'UnaryOp': {
-			const ty = inferType(node.expr, env);
+			const ty = inferType(ctx, node.expr);
 			// Logical Operation
 			assertType(ty, 'bool', node);
 			return 'bool';
 		}
 		case 'Identifier': {
-			const symbol = lookupSymbolWithNode(node, env);
+			const symbol = lookupSymbolWithNode(ctx, node);
 			switch (symbol.kind) {
 				case 'FunctionSymbol':
 				case 'NativeFnSymbol': {
@@ -310,7 +316,7 @@ function inferType(node: AstNode, env: AnalysisEnv): Type {
 			break;
 		}
 		case 'Call': {
-			const callee = lookupSymbolWithNode(node.callee, env);
+			const callee = lookupSymbolWithNode(ctx, node.callee);
 			switch (callee.kind) {
 				case 'FunctionSymbol':
 				case 'NativeFnSymbol': {
@@ -324,7 +330,7 @@ function inferType(node: AstNode, env: AnalysisEnv): Type {
 				dispatchError('argument count incorrect.', node);
 			}
 			for (let i = 0; i < callee.paramsTy.length; i++) {
-				const argTy = inferType(node.args[i], env);
+				const argTy = inferType(ctx, node.args[i]);
 				if (argTy != callee.paramsTy[i]) {
 					assertType(argTy, callee.paramsTy[i], node.args[i]);
 				}
@@ -346,11 +352,11 @@ function resolveTypeName(node: TyLabel): Type {
 	dispatchError('unknown type name.', node);
 }
 
-function lookupSymbolWithNode(node: AstNode, env: AnalysisEnv): Symbol {
+function lookupSymbolWithNode(ctx: Context, node: AstNode): Symbol {
 	if (node.kind != 'Identifier') {
 		dispatchError('identifier expected.', node);
 	}
-	const symbol = env.get(node.name);
+	const symbol = ctx.env.get(node.name);
 	if (symbol == null) {
 		dispatchError('unknown identifier.', node);
 	}

@@ -1,7 +1,7 @@
 import { Scanner } from './scan.js';
 import { Parser } from './parse.js';
 import { Runner, RunningEnv } from './run.js';
-import { SourceFile } from './ast.js';
+import { AstNode, SourceFile } from './ast.js';
 import { AnalysisEnv, analyze } from './analyze.js';
 import { setDeclarations } from './builtins.js';
 import { codegen } from './wasm/codegen.js';
@@ -17,7 +17,8 @@ export class Uguisu {
 	private _runner: Runner;
 	private _stdout: StdoutCallback;
 	private _source?: {
-		ast: SourceFile
+		ast: SourceFile,
+		symbolTable: Map<AstNode, Symbol>,
 	};
 
 	constructor() {
@@ -35,10 +36,12 @@ export class Uguisu {
 
 		const analysisEnv = new AnalysisEnv();
 		setDeclarations(analysisEnv);
-		analyze(ast, analysisEnv);
+		const symbolTable = new Map();
+		analyze({ env: analysisEnv, symbolTable }, ast);
 
 		this._source = {
 			ast,
+			symbolTable,
 		};
 	}
 
