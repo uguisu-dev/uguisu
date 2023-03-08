@@ -23,13 +23,13 @@ function assertType(actual: Type, expected: Type, errorNode: AstNode) {
 export type FunctionSymbol = {
 	kind: 'FunctionSymbol',
 	defined: boolean,
-	paramsTy: Type[],
+	params: { name: string, ty: Type }[],
 	returnTy: Type,
 };
 
 export type NativeFnSymbol = {
 	kind: 'NativeFnSymbol',
-	paramsTy: Type[],
+	params: { name: string, ty: Type }[],
 	returnTy: Type,
 };
 
@@ -103,18 +103,18 @@ function setDeclaration(ctx: Context, node: AstNode) {
 			} else {
 				returnTy = 'void';
 			}
-			const paramsTy: Type[] = [];
+			const params: { name: string, ty: Type }[] = [];
 			for (const param of node.params) {
 				if (param.ty == null) {
 					dispatchError('parameter type missing.', param);
 				}
 				const paramTy = resolveTypeName(param.ty);
-				paramsTy.push(paramTy);
+				params.push({ name: param.name, ty: paramTy });
 			}
 			const symbol: FunctionSymbol = {
 				kind: 'FunctionSymbol',
 				defined: false,
-				paramsTy,
+				params,
 				returnTy,
 			};
 			ctx.symbolTable.set(node, symbol);
@@ -140,7 +140,7 @@ function validateStatement(ctx: Context, node: AstNode, allowJump: boolean): voi
 				const paramSymbol: VariableSymbol = {
 					kind: 'VariableSymbol',
 					defined: true,
-					ty: symbol.paramsTy[i],
+					ty: symbol.params[i].ty,
 				};
 				ctx.symbolTable.set(node.params[i], paramSymbol);
 				ctx.env.set(node.params[i].name, paramSymbol);
@@ -326,13 +326,13 @@ function inferType(ctx: Context, node: AstNode): Type {
 					throw new Error('function expected');
 				}
 			}
-			if (node.args.length != callee.paramsTy.length) {
+			if (node.args.length != callee.params.length) {
 				dispatchError('argument count incorrect.', node);
 			}
-			for (let i = 0; i < callee.paramsTy.length; i++) {
+			for (let i = 0; i < callee.params.length; i++) {
 				const argTy = inferType(ctx, node.args[i]);
-				if (argTy != callee.paramsTy[i]) {
-					assertType(argTy, callee.paramsTy[i], node.args[i]);
+				if (argTy != callee.params[i].ty) {
+					assertType(argTy, callee.params[i].ty, node.args[i]);
 				}
 			}
 			return callee.returnTy;

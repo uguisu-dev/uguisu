@@ -10,18 +10,23 @@ import {
 } from './run.js';
 import { AnalysisEnv, NativeFnSymbol, Type } from './analyze.js';
 
-function nativeFnSymbol(paramsTy: Type[], returnTy: Type): NativeFnSymbol {
-	return { kind: 'NativeFnSymbol', paramsTy, returnTy };
+function nativeFnSymbol(params: { name: string, ty: Type }[], returnTy: Type): NativeFnSymbol {
+	return { kind: 'NativeFnSymbol', params, returnTy };
+}
+
+function setDecl(name: string, paramsTy: Type[], returnTy: Type, env: AnalysisEnv) {
+	const params = paramsTy.map(ty => ({ name: 'x', ty: ty }));
+	env.set(name, nativeFnSymbol(params, returnTy));
 }
 
 export function setDeclarations(env: AnalysisEnv) {
-	env.set('printStr', nativeFnSymbol(['string'], 'void'));
-	env.set('printNum', nativeFnSymbol(['number'], 'void'));
-	env.set('printLF', nativeFnSymbol([], 'void'));
-	env.set('assertEq', nativeFnSymbol(['number', 'number'], 'void'));
-	env.set('getUnixtime', nativeFnSymbol([], 'number'));
-	env.set('concatStr', nativeFnSymbol(['string', 'string'], 'string'));
-	env.set('toString', nativeFnSymbol(['number'], 'string'));
+	setDecl('printStr', ['string'], 'void', env);
+	setDecl('printNum', ['number'], 'void', env);
+	setDecl('printLF', [], 'void', env);
+	setDecl('assertEq', ['number', 'number'], 'void', env);
+	setDecl('getUnixtime', [], 'number', env);
+	setDecl('concatStr', ['string', 'string'], 'string', env);
+	setDecl('toString', ['number'], 'string', env);
 }
 
 export function setRuntime(env: RunningEnv, stdout: StdoutCallback) {

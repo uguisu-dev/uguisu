@@ -2,7 +2,7 @@ import { Scanner } from './scan.js';
 import { Parser } from './parse.js';
 import { Runner, RunningEnv } from './run.js';
 import { AstNode, SourceFile } from './ast.js';
-import { AnalysisEnv, analyze } from './analyze.js';
+import { AnalysisEnv, analyze, Symbol } from './analyze.js';
 import { setDeclarations } from './builtins.js';
 import { codegen } from './wasm/codegen.js';
 
@@ -58,7 +58,7 @@ export class Uguisu {
 		if (this._source == null) {
 			throw new Error('source is not loaded');
 		}
-		const code = codegen(this._source.ast);
+		const code = codegen(this._source.symbolTable, this._source.ast);
 		console.log(code);
 	}
 
