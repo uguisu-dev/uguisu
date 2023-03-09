@@ -1,6 +1,8 @@
 import {
 	AssignMode,
 	AstNode,
+	FunctionDecl,
+	Identifier,
 	isEquivalentOperator,
 	isLogicalBinaryOperator,
 	isOrderingOperator,
@@ -20,16 +22,18 @@ function assertType(actual: Type, expected: Type, errorNode: AstNode) {
 	}
 }
 
+type FnVar = { name: string, isParam: boolean, ty?: Type };
+
 export type FunctionSymbol = {
-	kind: 'FunctionSymbol',
+	kind: 'FnSymbol',
 	defined: boolean,
-	params: { name: string, ty: Type }[],
+	vars: FnVar[],
 	returnTy: Type,
 };
 
 export type NativeFnSymbol = {
 	kind: 'NativeFnSymbol',
-	params: { name: string, ty: Type }[],
+	vars: { name: string, isParam: true, ty: Type }[],
 	returnTy: Type,
 };
 
@@ -89,7 +93,7 @@ export function analyze(ctx: Context, source: SourceFile) {
 		setDeclaration(ctx, n);
 	}
 	for (const n of source.funcs) {
-		validateStatement(ctx, n, false);
+		validateFunc(ctx, n);
 	}
 }
 
@@ -103,18 +107,18 @@ function setDeclaration(ctx: Context, node: AstNode) {
 			} else {
 				returnTy = 'void';
 			}
-			const params: { name: string, ty: Type }[] = [];
+			const vars: FnVar[] = [];
 			for (const param of node.params) {
 				if (param.ty == null) {
 					dispatchError('parameter type missing.', param);
 				}
 				const paramTy = resolveTypeName(param.ty);
-				params.push({ name: param.name, ty: paramTy });
+				vars.push({ name: param.name, isParam: true, ty: paramTy });
 			}
 			const symbol: FunctionSymbol = {
-				kind: 'FunctionSymbol',
+				kind: 'FnSymbol',
 				defined: false,
-				params,
+				vars,
 				returnTy,
 			};
 			ctx.symbolTable.set(node, symbol);
@@ -124,41 +128,41 @@ function setDeclaration(ctx: Context, node: AstNode) {
 	}
 }
 
-function validateStatement(ctx: Context, node: AstNode, allowJump: boolean): void {
+function validateFunc(ctx: Context, node: FunctionDecl) {
+	// define function
+	const symbol = ctx.env.get(node.name);
+	if (symbol == null) {
+		dispatchError('unknown identifier.', node);
+	}
+	if (symbol.kind != 'FnSymbol') {
+		dispatchError('function expected.', node);
+	}
+	ctx.env.enter();
+	for (let i = 0; i < node.params.length; i++) {
+		const paramSymbol: VariableSymbol = {
+			kind: 'VariableSymbol',
+			defined: true,
+			ty: symbol.vars[i].ty,
+		};
+		ctx.symbolTable.set(node.params[i], paramSymbol);
+		ctx.env.set(node.params[i].name, paramSymbol);
+	}
+	for (const statement of node.body) {
+		validateStatement(ctx, statement, false, symbol);
+	}
+	ctx.env.leave();
+	symbol.defined = true;
+}
+
+function validateStatement(ctx: Context, node: AstNode, allowJump: boolean, funcSymbol: FunctionSymbol) {
 	switch (node.kind) {
-		case 'FunctionDecl': {
-			// define function
-			const symbol = ctx.env.get(node.name);
-			if (symbol == null) {
-				dispatchError('unknown identifier.', node);
-			}
-			if (symbol.kind != 'FunctionSymbol') {
-				dispatchError('function expected.', node);
-			}
-			ctx.env.enter();
-			for (let i = 0; i < node.params.length; i++) {
-				const paramSymbol: VariableSymbol = {
-					kind: 'VariableSymbol',
-					defined: true,
-					ty: symbol.params[i].ty,
-				};
-				ctx.symbolTable.set(node.params[i], paramSymbol);
-				ctx.env.set(node.params[i].name, paramSymbol);
-			}
-			for (const statement of node.body) {
-				validateStatement(ctx, statement, false);
-			}
-			ctx.env.leave();
-			symbol.defined = true;
-			return;
-		}
 		case 'VariableDecl': {
 			let ty;
 			if (node.ty != null) {
 				ty = resolveTypeName(node.ty);
 			}
 			if (node.body != null) {
-				const bodyTy = inferType(ctx, node.body);
+				const bodyTy = inferType(ctx, node.body, funcSymbol);
 				if (ty != null) {
 					assertType(bodyTy, ty, node.body);
 				} else {
@@ -175,6 +179,12 @@ function validateStatement(ctx: Context, node: AstNode, allowJump: boolean): voi
 			};
 			ctx.symbolTable.set(node, symbol);
 			ctx.env.set(node.name, symbol);
+
+			funcSymbol.vars.push({
+				name: node.name,
+				isParam: false,
+				ty,
+			});
 			return;
 		}
 		case 'AssignStatement': {
@@ -182,9 +192,13 @@ function validateStatement(ctx: Context, node: AstNode, allowJump: boolean): voi
 			if (symbol.kind != 'VariableSymbol') {
 				dispatchError('variable expected.', node.target);
 			}
-			const bodyTy = inferType(ctx, node.body);
+			const bodyTy = inferType(ctx, node.body, funcSymbol);
 			if (symbol.ty == null) {
 				symbol.ty = bodyTy;
+
+				const target = (node.target as Identifier); // TODO: improve code
+				const variable = funcSymbol.vars.find(x => x.name == target.name);
+				variable!.ty = bodyTy;
 			}
 			switch (node.mode) {
 				case AssignMode.Assign: {
@@ -205,19 +219,19 @@ function validateStatement(ctx: Context, node: AstNode, allowJump: boolean): voi
 			return;
 		}
 		case 'IfStatement': {
-			const condTy = inferType(ctx, node.cond);
+			const condTy = inferType(ctx, node.cond, funcSymbol);
 			assertType(condTy, 'bool', node.cond);
-			validateBlock(ctx, node.thenBlock, allowJump);
-			validateBlock(ctx, node.elseBlock, allowJump);
+			validateBlock(ctx, node.thenBlock, allowJump, funcSymbol);
+			validateBlock(ctx, node.elseBlock, allowJump, funcSymbol);
 			return;
 		}
 		case 'LoopStatement': {
-			validateBlock(ctx, node.block, true);
+			validateBlock(ctx, node.block, true, funcSymbol);
 			return;
 		}
 		case 'ReturnStatement': {
 			if (node.expr != null) {
-				const ty = inferType(ctx, node.expr);
+				const ty = inferType(ctx, node.expr, funcSymbol);
 				if (ty == 'void') {
 					dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
 				}
@@ -237,10 +251,11 @@ function validateStatement(ctx: Context, node: AstNode, allowJump: boolean): voi
 		case 'UnaryOp':
 		case 'Identifier':
 		case 'Call': {
-			inferType(ctx, node);
+			inferType(ctx, node, funcSymbol);
 			return;
 		}
 		case 'SourceFile':
+		case 'FunctionDecl':
 		case 'FnDeclParam':
 		case 'TyLabel': {
 			throw new Error('unexpected node.');
@@ -249,15 +264,15 @@ function validateStatement(ctx: Context, node: AstNode, allowJump: boolean): voi
 	throw new Error('unexpected node.');
 }
 
-function validateBlock(ctx: Context, block: StatementNode[], allowJump: boolean) {
+function validateBlock(ctx: Context, block: StatementNode[], allowJump: boolean, funcSymbol: FunctionSymbol) {
 	ctx.env.enter();
 	for (const statement of block) {
-		validateStatement(ctx, statement, allowJump);
+		validateStatement(ctx, statement, allowJump, funcSymbol);
 	}
 	ctx.env.leave();
 }
 
-function inferType(ctx: Context, node: AstNode): Type {
+function inferType(ctx: Context, node: AstNode, funcSymbol: FunctionSymbol): Type {
 	switch (node.kind) {
 		case 'NumberLiteral': {
 			return 'number';
@@ -269,8 +284,8 @@ function inferType(ctx: Context, node: AstNode): Type {
 			return 'string';
 		}
 		case 'BinaryOp': {
-			const leftTy = inferType(ctx, node.left);
-			const rightTy = inferType(ctx, node.right);
+			const leftTy = inferType(ctx, node.left, funcSymbol);
+			const rightTy = inferType(ctx, node.right, funcSymbol);
 			if (isLogicalBinaryOperator(node.operator)) {
 				// Logical Operation
 				assertType(leftTy, 'bool', node.left);
@@ -294,7 +309,7 @@ function inferType(ctx: Context, node: AstNode): Type {
 			break;
 		}
 		case 'UnaryOp': {
-			const ty = inferType(ctx, node.expr);
+			const ty = inferType(ctx, node.expr, funcSymbol);
 			// Logical Operation
 			assertType(ty, 'bool', node);
 			return 'bool';
@@ -302,7 +317,7 @@ function inferType(ctx: Context, node: AstNode): Type {
 		case 'Identifier': {
 			const symbol = lookupSymbolWithNode(ctx, node);
 			switch (symbol.kind) {
-				case 'FunctionSymbol':
+				case 'FnSymbol':
 				case 'NativeFnSymbol': {
 					return 'function';
 				}
@@ -318,7 +333,7 @@ function inferType(ctx: Context, node: AstNode): Type {
 		case 'Call': {
 			const callee = lookupSymbolWithNode(ctx, node.callee);
 			switch (callee.kind) {
-				case 'FunctionSymbol':
+				case 'FnSymbol':
 				case 'NativeFnSymbol': {
 					break;
 				}
@@ -326,19 +341,30 @@ function inferType(ctx: Context, node: AstNode): Type {
 					throw new Error('function expected');
 				}
 			}
-			if (node.args.length != callee.params.length) {
+			const calleeParamsCount = getParamsCount(callee);
+			if (node.args.length != calleeParamsCount) {
 				dispatchError('argument count incorrect.', node);
 			}
-			for (let i = 0; i < callee.params.length; i++) {
-				const argTy = inferType(ctx, node.args[i]);
-				if (argTy != callee.params[i].ty) {
-					assertType(argTy, callee.params[i].ty, node.args[i]);
+			for (let i = 0; i < calleeParamsCount; i++) {
+				const argTy = inferType(ctx, node.args[i], funcSymbol);
+				if (argTy != callee.vars[i].ty) {
+					assertType(argTy, callee.vars[i].ty!, node.args[i]);
 				}
 			}
 			return callee.returnTy;
 		}
 	}
 	throw new Error('unexpected node.');
+}
+
+function getParamsCount(funcSymbol: FunctionSymbol | NativeFnSymbol) {
+	let i = 0;
+	for (const x of funcSymbol.vars) {
+		if (x.isParam) {
+			i++;
+		}
+	}
+	return i;
 }
 
 function resolveTypeName(node: TyLabel): Type {

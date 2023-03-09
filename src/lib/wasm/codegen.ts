@@ -2,9 +2,21 @@ import { AstNode, ExprNode, FunctionDecl, SourceFile, StatementNode } from '../a
 import Wasm from 'binaryen';
 import { Symbol, Type } from '../analyze.js';
 
-export function codegen(symbolTable: Map<AstNode, Symbol>, node: SourceFile) {
+export function codegenText(symbolTable: Map<AstNode, Symbol>, node: SourceFile) {
 	const mod = translate(symbolTable, node);
+
 	return mod.emitText();
+}
+
+export function codegenBinary(symbolTable: Map<AstNode, Symbol>, node: SourceFile) {
+	const mod = translate(symbolTable, node);
+
+	const binary = mod.emitBinary();
+	let buf: string[] = [];
+	for (const x of binary) {
+		buf.push(x.toString(16).padStart(2, '0'));
+	}
+	return buf.join(' ');
 }
 
 type Context = {
@@ -14,8 +26,7 @@ type Context = {
 
 type FuncInfo = {
 	name: string;
-	params: { name: string, ty: Type }[];
-	locals: { name: string, ty: Type }[];
+	vars: { name: string, ty: Type, isParam: boolean }[];
 	returnTy: Type;
 };
 
@@ -37,30 +48,43 @@ function translate(symbolTable: Map<AstNode, Symbol>, node: SourceFile): Wasm.Mo
 
 function translateFunc(ctx: Context, node: FunctionDecl) {
 	const symbol = ctx.symbolTable.get(node);
-	if (symbol == null || symbol.kind != 'FunctionSymbol') {
+	if (symbol == null || symbol.kind != 'FnSymbol') {
 		throw new Error('unknown node');
 	}
-	const params = symbol.params.map(param => ({
-		name: param.name,
-		ty: param.ty,
-	}));
-	const locals: { name: string, ty: Type }[] = [];
+
+	const vars: FuncInfo['vars'] = [];
+	for (const variable of symbol.vars) {
+		if (variable.ty != null) {
+			vars.push({
+				name: variable.name,
+				ty: variable.ty,
+				isParam: variable.isParam,
+			});
+		}
+	}
 	// set function info
 	const func: FuncInfo = {
 		name: node.name,
-		params,
-		locals,
+		vars,
 		returnTy: symbol.returnTy,
 	};
 
 	const body = translateFuncBody(ctx, node.body, func);
 	const bodyBlock = ctx.mod.block(null, body);
-	const paramsTy = Wasm.createType(func.params.map(param => mapType(param.ty)));
+	const params: number[] = [];
+	const locals: number[] = [];
+	for (const x of func.vars) {
+		if (x.isParam) {
+			params.push(mapType(x.ty));
+		} else {
+			locals.push(mapType(x.ty));
+		}
+	}
 	ctx.mod.addFunction(
 		func.name,
-		paramsTy,
+		Wasm.createType(params),
 		mapType(func.returnTy),
-		func.locals.map(param => mapType(param.ty)),
+		locals,
 		bodyBlock,
 	);
 	ctx.mod.addFunctionExport(func.name, func.name);
@@ -73,11 +97,11 @@ function translateFuncBody(ctx: Context, statements: StatementNode[], funcInfo: 
 		switch (statement.kind) {
 			case 'VariableDecl': {
 				if (statement.body != null) {
-					const [_, localIndex] = getVariableIndex(statement.name, funcInfo);
-					if (localIndex == -1) {
+					const varIndex = funcInfo.vars.findIndex(x => x.name == statement.name);
+					if (varIndex == -1) {
 						throw new Error('variable not found');
 					}
-					body.push(ctx.mod.local.set(localIndex, translateExpr(ctx, statement.body, funcInfo)));
+					body.push(ctx.mod.local.set(varIndex, translateExpr(ctx, statement.body, funcInfo)));
 				}
 				break;
 			}
@@ -85,15 +109,12 @@ function translateFuncBody(ctx: Context, statements: StatementNode[], funcInfo: 
 				if (statement.target.kind != 'Identifier') {
 					throw new Error('invalid target');
 				}
-				const [paramIndex, localIndex] = getVariableIndex(statement.target.name, funcInfo);
-				if (paramIndex == -1 && localIndex == -1) {
+				const ident = statement.target;
+				const varIndex = funcInfo.vars.findIndex(x => x.name == ident.name);
+				if (varIndex == -1) {
 					throw new Error('variable not found');
 				}
-				if (paramIndex != -1) {
-					body.push(ctx.mod.local.set(paramIndex, translateExpr(ctx, statement.body, funcInfo)));
-				} else {
-					body.push(ctx.mod.local.set(funcInfo.params.length + localIndex, translateExpr(ctx, statement.body, funcInfo)));
-				}
+				body.push(ctx.mod.local.set(varIndex, translateExpr(ctx, statement.body, funcInfo)));
 				break;
 			}
 			case 'ReturnStatement': {
@@ -117,15 +138,11 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
 		}
 		case 'Identifier': {
 			// get variable index and type
-			const [paramIndex, localIndex] = getVariableIndex(node.name, func);
-			if (paramIndex == -1 && localIndex == -1) {
+			const varIndex = func.vars.findIndex(x => x.name == node.name);
+			if (varIndex == -1) {
 				throw new Error('variable not found');
 			}
-			if (paramIndex != -1) {
-				return ctx.mod.local.get(paramIndex, mapType(func.params[paramIndex].ty));
-			} else {
-				return ctx.mod.local.get(func.params.length + localIndex, mapType(func.locals[localIndex].ty));
-			}
+			return ctx.mod.local.get(varIndex, mapType(func.vars[varIndex].ty));
 		}
 		default: {
 			throw new Error('unexpected node');
@@ -147,16 +164,4 @@ function mapType(type: Type): number {
 			throw new Error('not impelemented yet');
 		}
 	}
-}
-
-/**
- * @returns [paramIndex, localIndex]
-*/
-function getVariableIndex(name: string, func: FuncInfo): [number, number] {
-	let paramIndex = func.params.findIndex(i => i.name == name);
-	let localIndex = -1;
-	if (paramIndex == -1) {
-		localIndex = func.locals.findIndex(i => i.name == name);
-	}
-	return [paramIndex, localIndex];
 }
