@@ -1,11 +1,11 @@
-import { AstNode, ExprNode, FunctionDecl, SourceFile, StatementNode } from '../ast.js';
+import { AstNode, ExprNode, FunctionDecl, Identifier, SourceFile, StatementNode } from '../ast.js';
 import Wasm from 'binaryen';
 import { Symbol, Type } from '../analyze.js';
 
 export function codegenText(symbolTable: Map<AstNode, Symbol>, node: SourceFile) {
 	const mod = translate(symbolTable, node);
 
-	return mod.emitText();
+	return mod.emitStackIR();
 }
 
 export function codegenBinary(symbolTable: Map<AstNode, Symbol>, node: SourceFile) {
@@ -124,6 +124,14 @@ function translateFuncBody(ctx: Context, statements: StatementNode[], funcInfo: 
 				} else {
 					body.push(ctx.mod.return());
 				}
+				break;
+			}
+			case 'NumberLiteral':
+			case 'Identifier':
+			case 'BinaryOp':
+			case 'Call': {
+				// nop
+				break;
 			}
 		}
 	}
@@ -143,6 +151,37 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
 				throw new Error('variable not found');
 			}
 			return ctx.mod.local.get(varIndex, mapType(func.vars[varIndex].ty));
+		}
+		case 'BinaryOp': {
+			const left = translateExpr(ctx, node.left, func);
+			const right = translateExpr(ctx, node.right, func);
+			switch (node.operator) {
+				case '+': {
+					return ctx.mod.i32.add(left, right);
+				}
+				case '-': {
+					return ctx.mod.i32.sub(left, right);
+				}
+				case '*': {
+					return ctx.mod.i32.mul(left, right);
+				}
+				case '/': {
+					return ctx.mod.i32.div_s(left, right);
+				}
+				default: {
+					throw new Error('unsupported operation');
+				}
+			}
+			break;
+		}
+		case 'Call': {
+			const symbol = ctx.symbolTable.get(node.callee);
+			if (symbol == null || symbol.kind != 'FnSymbol') {
+				throw new Error('invalid node');
+			}
+			const callee = node.callee as Identifier;
+			const args = node.args.map(x => translateExpr(ctx, x, func));
+			return ctx.mod.call(callee.name, args, mapType(symbol.returnTy));
 		}
 		default: {
 			throw new Error('unexpected node');
