@@ -10,12 +10,12 @@ import {
 } from './run.js';
 import { AnalysisEnv, NativeFnSymbol, Type } from './analyze.js';
 
-function nativeFnSymbol(vars: { name: string, isParam: true, ty: Type }[], returnTy: Type): NativeFnSymbol {
-	return { kind: 'NativeFnSymbol', vars: vars, returnTy };
+function nativeFnSymbol(params: { name: string, ty: Type }[], returnTy: Type): NativeFnSymbol {
+	return { kind: 'NativeFnSymbol', params, returnTy };
 }
 
 function setDecl(name: string, paramsTy: Type[], returnTy: Type, env: AnalysisEnv) {
-	const params = paramsTy.map(ty => ({ name: 'x', isParam: true, ty: ty } as const));
+	const params = paramsTy.map(ty => ({ name: 'x', ty }));
 	env.set(name, nativeFnSymbol(params, returnTy));
 }
 

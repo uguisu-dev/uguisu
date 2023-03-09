@@ -27,13 +27,15 @@ type FnVar = { name: string, isParam: boolean, ty?: Type };
 export type FunctionSymbol = {
 	kind: 'FnSymbol',
 	defined: boolean,
-	vars: FnVar[],
+	params: { name: string, ty: Type }[],
 	returnTy: Type,
+	/** for wasm */
+	vars: FnVar[],
 };
 
 export type NativeFnSymbol = {
 	kind: 'NativeFnSymbol',
-	vars: { name: string, isParam: true, ty: Type }[],
+	params: { name: string, ty: Type }[],
 	returnTy: Type,
 };
 
@@ -107,19 +109,22 @@ function setDeclaration(ctx: Context, node: AstNode) {
 			} else {
 				returnTy = 'void';
 			}
+			const params: { name: string, ty: Type }[] = [];
 			const vars: FnVar[] = [];
 			for (const param of node.params) {
 				if (param.ty == null) {
 					dispatchError('parameter type missing.', param);
 				}
 				const paramTy = resolveTypeName(param.ty);
+				params.push({ name: param.name, ty: paramTy });
 				vars.push({ name: param.name, isParam: true, ty: paramTy });
 			}
 			const symbol: FunctionSymbol = {
 				kind: 'FnSymbol',
 				defined: false,
-				vars,
+				params,
 				returnTy,
+				vars,
 			};
 			ctx.symbolTable.set(node, symbol);
 			ctx.env.set(node.name, symbol);
@@ -341,30 +346,19 @@ function inferType(ctx: Context, node: AstNode, funcSymbol: FunctionSymbol): Typ
 					throw new Error('function expected');
 				}
 			}
-			const calleeParamsCount = getParamsCount(callee);
-			if (node.args.length != calleeParamsCount) {
+			if (node.args.length != callee.params.length) {
 				dispatchError('argument count incorrect.', node);
 			}
-			for (let i = 0; i < calleeParamsCount; i++) {
+			for (let i = 0; i < callee.params.length; i++) {
 				const argTy = inferType(ctx, node.args[i], funcSymbol);
-				if (argTy != callee.vars[i].ty) {
-					assertType(argTy, callee.vars[i].ty!, node.args[i]);
+				if (argTy != callee.params[i].ty) {
+					assertType(argTy, callee.params[i].ty, node.args[i]);
 				}
 			}
 			return callee.returnTy;
 		}
 	}
 	throw new Error('unexpected node.');
-}
-
-function getParamsCount(funcSymbol: FunctionSymbol | NativeFnSymbol) {
-	let i = 0;
-	for (const x of funcSymbol.vars) {
-		if (x.isParam) {
-			i++;
-		}
-	}
-	return i;
 }
 
 function resolveTypeName(node: TyLabel): Type {
