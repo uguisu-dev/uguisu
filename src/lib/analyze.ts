@@ -147,7 +147,7 @@ function validateFunc(ctx: Context, node: FunctionDecl) {
 		const paramSymbol: VariableSymbol = {
 			kind: 'VariableSymbol',
 			defined: true,
-			ty: symbol.vars[i].ty,
+			ty: symbol.params[i].ty,
 		};
 		ctx.symbolTable.set(node.params[i], paramSymbol);
 		ctx.env.set(node.params[i].name, paramSymbol);
