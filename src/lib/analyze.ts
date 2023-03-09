@@ -97,6 +97,7 @@ export function analyze(ctx: Context, source: SourceFile) {
 	for (const n of source.funcs) {
 		validateFunc(ctx, n);
 	}
+	// console.log(ctx.symbolTable);
 }
 
 function setDeclaration(ctx: Context, node: AstNode) {
@@ -194,6 +195,7 @@ function validateStatement(ctx: Context, node: AstNode, allowJump: boolean, func
 		}
 		case 'AssignStatement': {
 			const symbol = lookupSymbolWithNode(ctx, node.target);
+			ctx.symbolTable.set(node.target, symbol);
 			if (symbol.kind != 'VariableSymbol') {
 				dispatchError('variable expected.', node.target);
 			}
@@ -321,6 +323,7 @@ function inferType(ctx: Context, node: AstNode, funcSymbol: FunctionSymbol): Typ
 		}
 		case 'Identifier': {
 			const symbol = lookupSymbolWithNode(ctx, node);
+			ctx.symbolTable.set(node, symbol);
 			switch (symbol.kind) {
 				case 'FnSymbol':
 				case 'NativeFnSymbol': {
@@ -337,6 +340,7 @@ function inferType(ctx: Context, node: AstNode, funcSymbol: FunctionSymbol): Typ
 		}
 		case 'Call': {
 			const callee = lookupSymbolWithNode(ctx, node.callee);
+			ctx.symbolTable.set(node.callee, callee);
 			switch (callee.kind) {
 				case 'FnSymbol':
 				case 'NativeFnSymbol': {
