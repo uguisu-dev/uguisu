@@ -74,7 +74,8 @@ export function command(args: string[]) {
 	try {
 		uguisu.load(sourceCode);
 		uguisu.exec();
-		//uguisu.genWasmText();
+		//const buf = uguisu.genWasm();
+		//fs.writeFileSync(path.resolve('./output.wasm'), buf);
 	}
 	catch (e) {
 		console.log(e);
