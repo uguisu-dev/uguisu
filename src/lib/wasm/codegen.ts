@@ -108,7 +108,6 @@ function translateStatements(ctx: Context, nodes: StatementNode[], funcInfo: Fun
 				if (varIndex == -1) {
 					throw new Error('variable not found');
 				}
-
 				switch (node.mode) {
 					case AssignMode.Assign: {
 						body.push(ctx.mod.local.set(varIndex, translateExpr(ctx, node.body, funcInfo)));
