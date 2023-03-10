@@ -4,7 +4,7 @@ import { Runner, RunningEnv } from './run.js';
 import { AstNode, SourceFile } from './ast.js';
 import { AnalysisEnv, analyze, Symbol } from './analyze.js';
 import { setDeclarations } from './builtins.js';
-import { codegenText } from './wasm/codegen.js';
+import { codegen } from './wasm/codegen.js';
 
 export {
 	SourceFile,
@@ -54,12 +54,11 @@ export class Uguisu {
 	}
 
 	/** very experimental */
-	genWasmText() {
+	genWasm() {
 		if (this._source == null) {
 			throw new Error('source is not loaded');
 		}
-		const code = codegenText(this._source.symbolTable, this._source.ast);
-		console.log(code);
+		return codegen(this._source.symbolTable, this._source.ast);
 	}
 
 	run(sourceCode: string) {

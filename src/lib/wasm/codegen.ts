@@ -1,27 +1,17 @@
-import { AstNode, ExprNode, FunctionDecl, Identifier, SourceFile, StatementNode } from '../ast.js';
+import { AssignMode, AstNode, ExprNode, FunctionDecl, Identifier, SourceFile, StatementNode } from '../ast.js';
 import Wasm from 'binaryen';
 import { Symbol, Type } from '../analyze.js';
 
-export function codegenText(symbolTable: Map<AstNode, Symbol>, node: SourceFile) {
+export function codegen(symbolTable: Map<AstNode, Symbol>, node: SourceFile) {
 	const mod = translate(symbolTable, node);
-
-	return mod.emitStackIR();
-}
-
-export function codegenBinary(symbolTable: Map<AstNode, Symbol>, node: SourceFile) {
-	const mod = translate(symbolTable, node);
-
-	const binary = mod.emitBinary();
-	let buf: string[] = [];
-	for (const x of binary) {
-		buf.push(x.toString(16).padStart(2, '0'));
-	}
-	return buf.join(' ');
+	console.log(mod.emitStackIR());
+	return mod.emitBinary();
 }
 
 type Context = {
 	symbolTable: Map<AstNode, Symbol>,
 	mod: Wasm.Module,
+	labelCount: number;
 };
 
 type FuncInfo = {
@@ -33,7 +23,11 @@ type FuncInfo = {
 function translate(symbolTable: Map<AstNode, Symbol>, node: SourceFile): Wasm.Module {
 	const mod = new Wasm.Module();
 	mod.addDebugInfoFileName(node.filename);
-	const ctx: Context = { mod, symbolTable };
+	const ctx: Context = {
+		mod,
+		symbolTable,
+		labelCount: 0,
+	};
 
 	for (const func of node.funcs) {
 		translateFunc(ctx, func);
@@ -69,7 +63,7 @@ function translateFunc(ctx: Context, node: FunctionDecl) {
 		returnTy: symbol.returnTy,
 	};
 
-	const body = translateFuncBody(ctx, node.body, func);
+	const body = translateStatements(ctx, node.body, func, null);
 	const bodyBlock = ctx.mod.block(null, body);
 	const params: number[] = [];
 	const locals: number[] = [];
@@ -90,45 +84,105 @@ function translateFunc(ctx: Context, node: FunctionDecl) {
 	ctx.mod.addFunctionExport(func.name, func.name);
 }
 
-function translateFuncBody(ctx: Context, statements: StatementNode[], funcInfo: FuncInfo): number[] {
+function translateStatements(ctx: Context, nodes: StatementNode[], funcInfo: FuncInfo, loopLabel: number | null): number[] {
 	const body: number[] = [];
 
-	for (const statement of statements) {
-		switch (statement.kind) {
+	for (const node of nodes) {
+		switch (node.kind) {
 			case 'VariableDecl': {
-				if (statement.body != null) {
-					const varIndex = funcInfo.vars.findIndex(x => x.name == statement.name);
+				if (node.body != null) {
+					const varIndex = funcInfo.vars.findIndex(x => x.name == node.name);
 					if (varIndex == -1) {
 						throw new Error('variable not found');
 					}
-					body.push(ctx.mod.local.set(varIndex, translateExpr(ctx, statement.body, funcInfo)));
+					body.push(ctx.mod.local.set(varIndex, translateExpr(ctx, node.body, funcInfo)));
 				}
 				break;
 			}
 			case 'AssignStatement': {
-				if (statement.target.kind != 'Identifier') {
+				if (node.target.kind != 'Identifier') {
 					throw new Error('invalid target');
 				}
-				const ident = statement.target;
+				const ident = node.target;
 				const varIndex = funcInfo.vars.findIndex(x => x.name == ident.name);
 				if (varIndex == -1) {
 					throw new Error('variable not found');
 				}
-				body.push(ctx.mod.local.set(varIndex, translateExpr(ctx, statement.body, funcInfo)));
+
+				switch (node.mode) {
+					case AssignMode.Assign: {
+						body.push(ctx.mod.local.set(varIndex, translateExpr(ctx, node.body, funcInfo)));
+						break;
+					}
+					case AssignMode.AddAssign: {
+						const moment = translateExpr(ctx, node.body, funcInfo);
+						const value = ctx.mod.i32.add(ctx.mod.local.get(varIndex, Wasm.i32), moment);
+						body.push(ctx.mod.local.set(varIndex, value));
+						break;
+					}
+					case AssignMode.SubAssign: {
+						const moment = translateExpr(ctx, node.body, funcInfo);
+						const value = ctx.mod.i32.sub(ctx.mod.local.get(varIndex, Wasm.i32), moment);
+						body.push(ctx.mod.local.set(varIndex, value));
+						break;
+					}
+					case AssignMode.MultAssign: {
+						const moment = translateExpr(ctx, node.body, funcInfo);
+						const value = ctx.mod.i32.mul(ctx.mod.local.get(varIndex, Wasm.i32), moment);
+						body.push(ctx.mod.local.set(varIndex, value));
+						break;
+					}
+					case AssignMode.DivAssign: {
+						const moment = translateExpr(ctx, node.body, funcInfo);
+						const value = ctx.mod.i32.div_s(ctx.mod.local.get(varIndex, Wasm.i32), moment);
+						body.push(ctx.mod.local.set(varIndex, value));
+						break;
+					}
+					default: {
+						throw new Error('unsupported operation');
+					}
+				}
+				break;
+			}
+			case 'IfStatement': {
+				const cond = translateExpr(ctx, node.cond, funcInfo);
+				const thenRefs = translateStatements(ctx, node.thenBlock, funcInfo, loopLabel);
+				const thenBlock = ctx.mod.block(null, thenRefs);
+				const elseRefs = translateStatements(ctx, node.elseBlock, funcInfo, loopLabel);
+				const elseBlock = ctx.mod.block(null, elseRefs);
+				body.push(ctx.mod.if(cond, thenBlock, elseBlock));
+				break;
+			}
+			case 'LoopStatement': {
+				const label = ctx.labelCount;
+				ctx.labelCount++;
+				const refs = translateStatements(ctx, node.block, funcInfo, label);
+				refs.push(ctx.mod.br('L'+label));
+				body.push(ctx.mod.loop('L'+label, ctx.mod.block('B'+label, refs)));
 				break;
 			}
 			case 'ReturnStatement': {
-				if (statement.expr != null) {
-					const expr = translateExpr(ctx, statement.expr, funcInfo);
+				if (node.expr != null) {
+					const expr = translateExpr(ctx, node.expr, funcInfo);
 					body.push(ctx.mod.return(expr));
 				} else {
 					body.push(ctx.mod.return());
 				}
 				break;
 			}
+			case 'BreakStatement': {
+				if (loopLabel == null) {
+					throw new Error('invalid break target');
+				}
+				body.push(ctx.mod.br('B'+loopLabel));
+				break;
+			}
 			case 'NumberLiteral':
-			case 'Identifier':
+			case 'BoolLiteral':
+			case 'StringLiteral':
 			case 'BinaryOp':
+			case 'UnaryOp':
+			case 'Identifier':
 			case 'Call': {
 				// nop
 				break;
@@ -144,6 +198,88 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
 		case 'NumberLiteral': {
 			return ctx.mod.i32.const(node.value);
 		}
+		case 'BoolLiteral': {
+			return ctx.mod.i32.const(node.value ? 1 : 0);
+		}
+		case 'StringLiteral': {
+			throw new Error('not impelemented yet');
+		}
+		case 'BinaryOp': {
+			const symbol = ctx.symbolTable.get(node);
+			if (symbol == null || symbol.kind != 'ExprSymbol') {
+				throw new Error('invalid node');
+			}
+			const left = translateExpr(ctx, node.left, func);
+			const right = translateExpr(ctx, node.right, func);
+			if (symbol.ty == 'number') {
+				switch (node.operator) {
+					case '+': {
+						return ctx.mod.i32.add(left, right);
+					}
+					case '-': {
+						return ctx.mod.i32.sub(left, right);
+					}
+					case '*': {
+						return ctx.mod.i32.mul(left, right);
+					}
+					case '/': {
+						return ctx.mod.i32.div_s(left, right);
+					}
+					default: {
+						throw new Error('unsupported operation');
+					}
+				}
+			} else if (symbol.ty == 'bool') {
+				switch (node.operator) {
+					case '==': {
+						return ctx.mod.i32.eq(left, right);
+					}
+					case '!=': {
+						return ctx.mod.i32.ne(left, right);
+					}
+					case '<': {
+						return ctx.mod.i32.lt_s(left, right);
+					}
+					case '<=': {
+						return ctx.mod.i32.le_s(left, right);
+					}
+					case '>': {
+						return ctx.mod.i32.gt_s(left, right);
+					}
+					case '>=': {
+						return ctx.mod.i32.ge_s(left, right);
+					}
+					case '&&': {
+						return ctx.mod.i32.and(left, right);
+					}
+					case '||': {
+						return ctx.mod.i32.or(left, right);
+					}
+					default: {
+						throw new Error('unsupported operation');
+					}
+				}
+			} else {
+				throw new Error('not impelemented yet');
+			}
+			break;
+		}
+		case 'UnaryOp': {
+			const symbol = ctx.symbolTable.get(node);
+			if (symbol == null || symbol.kind != 'ExprSymbol') {
+				throw new Error('invalid node');
+			}
+			const expr = translateExpr(ctx, node.expr, func);
+			switch (node.operator) {
+				case '!': {
+					return ctx.mod.i32.eq(expr, ctx.mod.i32.const(0));
+				}
+				default: {
+					throw new Error('unsupported operation');
+				}
+			}
+			break;
+		}
 		case 'Identifier': {
 			// get variable index and type
 			const varIndex = func.vars.findIndex(x => x.name == node.name);
@@ -152,36 +288,14 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
 			}
 			return ctx.mod.local.get(varIndex, mapType(func.vars[varIndex].ty));
 		}
-		case 'BinaryOp': {
-			const left = translateExpr(ctx, node.left, func);
-			const right = translateExpr(ctx, node.right, func);
-			switch (node.operator) {
-				case '+': {
-					return ctx.mod.i32.add(left, right);
-				}
-				case '-': {
-					return ctx.mod.i32.sub(left, right);
-				}
-				case '*': {
-					return ctx.mod.i32.mul(left, right);
-				}
-				case '/': {
-					return ctx.mod.i32.div_s(left, right);
-				}
-				default: {
-					throw new Error('unsupported operation');
-				}
-			}
-			break;
-		}
 		case 'Call': {
-			const symbol = ctx.symbolTable.get(node.callee);
-			if (symbol == null || symbol.kind != 'FnSymbol') {
+			const calleeSymbol = ctx.symbolTable.get(node.callee);
+			if (calleeSymbol == null || calleeSymbol.kind != 'FnSymbol') {
 				throw new Error('invalid node');
 			}
 			const callee = node.callee as Identifier;
 			const args = node.args.map(x => translateExpr(ctx, x, func));
-			return ctx.mod.call(callee.name, args, mapType(symbol.returnTy));
+			return ctx.mod.call(callee.name, args, mapType(calleeSymbol.returnTy));
 		}
 		default: {
 			throw new Error('unexpected node');
@@ -194,10 +308,10 @@ function mapType(type: Type): number {
 		case 'void': {
 			return Wasm.none;
 		}
-		case 'number': {
+		case 'number':
+		case 'bool': {
 			return Wasm.i32;
 		}
-		case 'bool':
 		case 'string':
 		case 'function': {
 			throw new Error('not impelemented yet');
