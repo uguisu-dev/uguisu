@@ -1,4 +1,4 @@
-import { StdoutCallback } from './index.js';
+import { UguisuOptions } from './index.js';
 import {
 	assertNumber,
 	assertString,
@@ -29,14 +29,16 @@ export function setDeclarations(env: AnalysisEnv) {
 	setDecl('toString', ['number'], 'string', env);
 }
 
-export function setRuntime(env: RunningEnv, stdout: StdoutCallback) {
+export function setRuntime(env: RunningEnv, options: UguisuOptions) {
 
 	const printStr = newNativeFunction((args) => {
 		if (args.length != 1) {
 			throw new Error('invalid arguments count');
 		}
 		assertString(args[0]);
-		stdout(args[0].value);
+		if (options.stdout) {
+			options.stdout(args[0].value);
+		}
 		return newNoneValue();
 	});
 	env.define('printStr', printStr);
@@ -46,7 +48,9 @@ export function setRuntime(env: RunningEnv, stdout: StdoutCallback) {
 			throw new Error('invalid arguments count');
 		}
 		assertNumber(args[0]);
-		stdout(args[0].value.toString());
+		if (options.stdout) {
+			options.stdout(args[0].value.toString());
+		}
 		return newNoneValue();
 	});
 	env.define('printNum', printNum);
@@ -55,7 +59,9 @@ export function setRuntime(env: RunningEnv, stdout: StdoutCallback) {
 		if (args.length != 0) {
 			throw new Error('invalid arguments count');
 		}
-		stdout('\n');
+		if (options.stdout) {
+			options.stdout('\n');
+		}
 		return newNoneValue();
 	});
 	env.define('printLF', printLF);

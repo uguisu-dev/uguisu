@@ -1,5 +1,6 @@
 import fs from 'fs';
-import { Uguisu } from '../lib/index.js';
+import { UguisuInstance, Uguisu } from '../lib/index.js';
+import { newNativeFunction, newNoneValue } from '../lib/run.js';
 
 type Match = {
 	help: boolean,
@@ -70,12 +71,24 @@ export function command(args: string[]) {
 	}
 
 	// run script
-	const uguisu = new Uguisu();
 	try {
-		uguisu.load(sourceCode);
-		uguisu.exec();
-		//const buf = uguisu.genWasm();
-		//fs.writeFileSync(path.resolve('./output.wasm'), buf);
+		const uguisu = Uguisu.createInstance({
+			stdout(str) {
+				console.log(str);
+			}
+		});
+
+		uguisu.load(sourceCode, 'main.ug');
+		uguisu.call('main');
+
+		uguisu.addFunction('hello', newNativeFunction((params, options) => {
+			if (options.stdout) {
+				options.stdout('hello world');
+			}
+			return newNoneValue();
+		}));
+		uguisu.call('hello');
+
 	}
 	catch (e) {
 		console.log(e);
