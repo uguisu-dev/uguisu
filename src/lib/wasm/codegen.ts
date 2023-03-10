@@ -115,26 +115,26 @@ function translateStatements(ctx: Context, nodes: StatementNode[], funcInfo: Fun
 						break;
 					}
 					case AssignMode.AddAssign: {
-						const moment = translateExpr(ctx, node.body, funcInfo);
-						const value = ctx.mod.i32.add(ctx.mod.local.get(varIndex, Wasm.i32), moment);
+						const amount = translateExpr(ctx, node.body, funcInfo);
+						const value = ctx.mod.i32.add(ctx.mod.local.get(varIndex, Wasm.i32), amount);
 						body.push(ctx.mod.local.set(varIndex, value));
 						break;
 					}
 					case AssignMode.SubAssign: {
-						const moment = translateExpr(ctx, node.body, funcInfo);
-						const value = ctx.mod.i32.sub(ctx.mod.local.get(varIndex, Wasm.i32), moment);
+						const amount = translateExpr(ctx, node.body, funcInfo);
+						const value = ctx.mod.i32.sub(ctx.mod.local.get(varIndex, Wasm.i32), amount);
 						body.push(ctx.mod.local.set(varIndex, value));
 						break;
 					}
 					case AssignMode.MultAssign: {
-						const moment = translateExpr(ctx, node.body, funcInfo);
-						const value = ctx.mod.i32.mul(ctx.mod.local.get(varIndex, Wasm.i32), moment);
+						const amount = translateExpr(ctx, node.body, funcInfo);
+						const value = ctx.mod.i32.mul(ctx.mod.local.get(varIndex, Wasm.i32), amount);
 						body.push(ctx.mod.local.set(varIndex, value));
 						break;
 					}
 					case AssignMode.DivAssign: {
-						const moment = translateExpr(ctx, node.body, funcInfo);
-						const value = ctx.mod.i32.div_s(ctx.mod.local.get(varIndex, Wasm.i32), moment);
+						const amount = translateExpr(ctx, node.body, funcInfo);
+						const value = ctx.mod.i32.div_s(ctx.mod.local.get(varIndex, Wasm.i32), amount);
 						body.push(ctx.mod.local.set(varIndex, value));
 						break;
 					}
