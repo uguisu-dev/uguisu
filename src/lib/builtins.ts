@@ -22,7 +22,6 @@ function setDecl(name: string, paramsTy: Type[], returnTy: Type, env: AnalysisEn
 export function setDeclarations(env: AnalysisEnv) {
 	setDecl('printStr', ['string'], 'void', env);
 	setDecl('printNum', ['number'], 'void', env);
-	setDecl('printLF', [], 'void', env);
 	setDecl('assertEq', ['number', 'number'], 'void', env);
 	setDecl('getUnixtime', [], 'number', env);
 	setDecl('concatStr', ['string', 'string'], 'string', env);
@@ -54,17 +53,6 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
 		return newNoneValue();
 	});
 	env.define('printNum', printNum);
-
-	const printLF = newNativeFunction((args) => {
-		if (args.length != 0) {
-			throw new Error('invalid arguments count');
-		}
-		if (options.stdout) {
-			options.stdout('\n');
-		}
-		return newNoneValue();
-	});
-	env.define('printLF', printLF);
 
 	const assertEq = newNativeFunction((args) => {
 		if (args.length != 2) {
