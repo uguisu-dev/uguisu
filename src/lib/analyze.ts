@@ -45,7 +45,12 @@ export type VariableSymbol = {
 	ty?: Type,
 };
 
-export type Symbol = FunctionSymbol | NativeFnSymbol | VariableSymbol;
+export type ExprSymbol = {
+	kind: 'ExprSymbol',
+	ty: Type,
+};
+
+export type Symbol = FunctionSymbol | NativeFnSymbol | VariableSymbol | ExprSymbol;
 
 export class AnalysisEnv {
 	private layers: Map<string, Symbol>[];
@@ -242,6 +247,7 @@ function validateStatement(ctx: Context, node: AstNode, allowJump: boolean, func
 				if (ty == 'void') {
 					dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
 				}
+				assertType(ty, funcSymbol.returnTy, node.expr);
 			}
 			return;
 		}
@@ -297,20 +303,24 @@ function inferType(ctx: Context, node: AstNode, funcSymbol: FunctionSymbol): Typ
 				// Logical Operation
 				assertType(leftTy, 'bool', node.left);
 				assertType(rightTy, 'bool', node.right);
+				ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
 				return 'bool';
 			} else if (isEquivalentOperator(node.operator)) {
 				// Equivalent Operation
 				assertType(rightTy, leftTy, node.right);
+				ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
 				return 'bool';
 			} else if (isOrderingOperator(node.operator)) {
 				// Ordering Operation
 				assertType(leftTy, 'number', node.left);
 				assertType(rightTy, 'number', node.right);
+				ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
 				return 'bool';
 			} else {
 				// Arithmetic Operation
 				assertType(leftTy, 'number', node.left);
 				assertType(rightTy, 'number', node.right);
+				ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'number' });
 				return 'number';
 			}
 			break;
@@ -319,6 +329,7 @@ function inferType(ctx: Context, node: AstNode, funcSymbol: FunctionSymbol): Typ
 			const ty = inferType(ctx, node.expr, funcSymbol);
 			// Logical Operation
 			assertType(ty, 'bool', node);
+			ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
 			return 'bool';
 		}
 		case 'Identifier': {
@@ -359,6 +370,7 @@ function inferType(ctx: Context, node: AstNode, funcSymbol: FunctionSymbol): Typ
 					assertType(argTy, callee.params[i].ty, node.args[i]);
 				}
 			}
+			ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: callee.returnTy });
 			return callee.returnTy;
 		}
 	}
