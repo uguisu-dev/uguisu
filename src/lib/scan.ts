@@ -1,3 +1,4 @@
+import { UguisuError } from './index.js';
 import { Trace } from './misc/trace.js';
 
 const trace = Trace.getDefault().createChild(false);
@@ -384,7 +385,7 @@ export class Scanner {
 					break;
 				}
 				default: {
-					throw new Error(`invalid character: "${this.ch}"`);
+					throw new UguisuError(`invalid character: "${this.ch}"`);
 				}
 			}
 			break;
@@ -472,7 +473,7 @@ export class Scanner {
 		let buf = '';
 		while (true) {
 			if (this.ch == null) {
-				throw new Error('unexpected EOF');
+				throw new UguisuError('unexpected EOF');
 			}
 			if (this.ch == '"') {
 				this.nextChar();
@@ -481,12 +482,12 @@ export class Scanner {
 				this.nextChar();
 				const c = this.ch;
 				if (c == null) {
-					throw new Error('unexpected EOF');
+					throw new UguisuError('unexpected EOF');
 				}
 				this.nextChar();
 				const sc = spCharTable.get(c);
 				if (sc == null) {
-					throw new Error('invalid special character');
+					throw new UguisuError('invalid special character');
 				}
 				buf += sc;
 				continue;

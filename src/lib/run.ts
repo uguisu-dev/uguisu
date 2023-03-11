@@ -1,4 +1,4 @@
-import { UguisuOptions } from './index.js';
+import { UguisuError, UguisuOptions } from './index.js';
 import * as builtins from './builtins.js';
 import {
 	AssignMode,
@@ -38,7 +38,7 @@ export function newNativeFunction(native: NativeFuncHandler): FunctionValue {
 }
 export function assertFunction(value: Value): asserts value is FunctionValue {
 	if (value.kind != 'FunctionValue') {
-		throw new Error(`type mismatched. expected \`fn\`, found \`${getTypeName(value)}\``);
+		throw new UguisuError(`type mismatched. expected \`fn\`, found \`${getTypeName(value)}\``);
 	}
 }
 
@@ -51,7 +51,7 @@ export function newNumber(value: number): NumberValue {
 }
 export function assertNumber(value: Value): asserts value is NumberValue {
 	if (value.kind != 'NumberValue') {
-		throw new Error(`type mismatched. expected \`number\`, found \`${getTypeName(value)}\``);
+		throw new UguisuError(`type mismatched. expected \`number\`, found \`${getTypeName(value)}\``);
 	}
 }
 
@@ -64,7 +64,7 @@ export function newBool(value: boolean): BoolValue {
 }
 export function assertBool(value: Value): asserts value is BoolValue {
 	if (value.kind != 'BoolValue') {
-		throw new Error(`type mismatched. expected \`bool\`, found \`${getTypeName(value)}\``);
+		throw new UguisuError(`type mismatched. expected \`bool\`, found \`${getTypeName(value)}\``);
 	}
 }
 
@@ -77,7 +77,7 @@ export function newString(value: string): StringValue {
 }
 export function assertString(value: Value): asserts value is StringValue {
 	if (value.kind != 'StringValue') {
-		throw new Error(`type mismatched. expected \`string\`, found \`${getTypeName(value)}\``);
+		throw new UguisuError(`type mismatched. expected \`string\`, found \`${getTypeName(value)}\``);
 	}
 }
 
@@ -153,7 +153,7 @@ export class RunningEnv {
 	leave() {
 		trace.log(`leave scope`);
 		if (this.layers.length <= 1) {
-			throw new Error('Left the root layer.');
+			throw new UguisuError('Left the root layer.');
 		}
 		this.layers.shift();
 	}
@@ -184,19 +184,27 @@ export function newBreakResult(): BreakResult {
 }
 
 export class Runner {
-	start(env: RunningEnv, options: UguisuOptions) {
-		builtins.setRuntime(env, options);
+	env: RunningEnv;
+	options: UguisuOptions;
+
+	constructor(options: UguisuOptions) {
+		this.env = new RunningEnv();
+		this.options = options;
 	}
-	evalSourceFile(source: SourceFile, env: RunningEnv) {
-		evalSourceFile(source, env);
+
+	run(source: SourceFile) {
+		builtins.setRuntime(this.env, this.options);
+		evalSourceFile(source, this.env);
+		this.call('main');
 	}
-	call(name: string, env: RunningEnv, options: UguisuOptions) {
-		const symbol = env.get(name);
+
+	call(name: string) {
+		const symbol = this.env.get(name);
 		if (symbol == null || !symbol.defined) {
-			throw new Error(`function \`${name}\` is not found`);
+			throw new UguisuError(`function \`${name}\` is not found`);
 		}
 		assertFunction(symbol.value);
-		call(symbol.value, [], options);
+		call(symbol.value, [], this.options);
 	}
 }
 
@@ -214,7 +222,7 @@ function call(func: FunctionValue, args: Value[], options: UguisuOptions): Value
 		const env = new RunningEnv(func.env);
 		env.enter();
 		if (func.node.params.length != args.length) {
-			throw new Error('invalid arguments count');
+			throw new UguisuError('invalid arguments count');
 		}
 		let i = 0;
 		while (i < func.node.params.length) {
@@ -240,7 +248,7 @@ function call(func: FunctionValue, args: Value[], options: UguisuOptions): Value
 	} else if (func.native != null) {
 		return func.native(args, options);
 	} else {
-		throw new Error('invalid function');
+		throw new UguisuError('invalid function');
 	}
 }
 
@@ -278,7 +286,7 @@ function execStatement(statement: StatementNode, env: RunningEnv, options: Uguis
 				trace.log('IfStatement');
 				const cond = evalExpr(statement.cond, env, options);
 				if (isNoneValue(cond)) {
-					throw new Error('no values');
+					throw new UguisuError('no values');
 				}
 				assertBool(cond);
 				if (cond.value) {
@@ -292,7 +300,7 @@ function execStatement(statement: StatementNode, env: RunningEnv, options: Uguis
 				if (statement.body != null) {
 					const bodyValue = evalExpr(statement.body, env, options);
 					if (isNoneValue(bodyValue)) {
-						throw new Error('no values');
+						throw new UguisuError('no values');
 					}
 					// TODO: consider symbol system
 					env.define(statement.name, bodyValue);
@@ -304,15 +312,15 @@ function execStatement(statement: StatementNode, env: RunningEnv, options: Uguis
 			case 'AssignStatement': {
 				trace.log('AssignStatement');
 				if (statement.target.kind != 'Identifier') {
-					throw new Error('unsupported assignee');
+					throw new UguisuError('unsupported assignee');
 				}
 				const symbol = env.get(statement.target.name);
 				if (symbol == null) {
-					throw new Error('unknown identifier');
+					throw new UguisuError('unknown identifier');
 				}
 				const bodyValue = evalExpr(statement.body, env, options);
 				if (isNoneValue(bodyValue)) {
-					throw new Error('no values');
+					throw new UguisuError('no values');
 				}
 				switch (statement.mode) {
 					case AssignMode.Assign: {
@@ -322,7 +330,7 @@ function execStatement(statement: StatementNode, env: RunningEnv, options: Uguis
 					case AssignMode.AddAssign: {
 						const restored = env.get(statement.target.name);
 						if (restored == null || !restored.defined) {
-							throw new Error('variable is not defined');
+							throw new UguisuError('variable is not defined');
 						}
 						assertNumber(restored.value);
 						assertNumber(bodyValue);
@@ -333,7 +341,7 @@ function execStatement(statement: StatementNode, env: RunningEnv, options: Uguis
 					case AssignMode.SubAssign: {
 						const restored = env.get(statement.target.name);
 						if (restored == null || !restored.defined) {
-							throw new Error('variable is not defined');
+							throw new UguisuError('variable is not defined');
 						}
 						assertNumber(restored.value);
 						assertNumber(bodyValue);
@@ -344,7 +352,7 @@ function execStatement(statement: StatementNode, env: RunningEnv, options: Uguis
 					case AssignMode.MultAssign: {
 						const restored = env.get(statement.target.name);
 						if (restored == null || !restored.defined) {
-							throw new Error('variable is not defined');
+							throw new UguisuError('variable is not defined');
 						}
 						assertNumber(restored.value);
 						assertNumber(bodyValue);
@@ -355,7 +363,7 @@ function execStatement(statement: StatementNode, env: RunningEnv, options: Uguis
 					case AssignMode.DivAssign: {
 						const restored = env.get(statement.target.name);
 						if (restored == null || !restored.defined) {
-							throw new Error('variable is not defined');
+							throw new UguisuError('variable is not defined');
 						}
 						assertNumber(restored.value);
 						assertNumber(bodyValue);
@@ -366,7 +374,7 @@ function execStatement(statement: StatementNode, env: RunningEnv, options: Uguis
 					case AssignMode.ModAssign: {
 						const restored = env.get(statement.target.name);
 						if (restored == null || !restored.defined) {
-							throw new Error('variable is not defined');
+							throw new UguisuError('variable is not defined');
 						}
 						assertNumber(restored.value);
 						assertNumber(bodyValue);
@@ -388,7 +396,7 @@ function evalExpr(expr: ExprNode, env: RunningEnv, options: UguisuOptions): Valu
 			trace.log('Identifier');
 			const symbol = env.get(expr.name);
 			if (symbol == null || !symbol.defined) {
-				throw new Error(`identifier \`${expr.name}\` is not defined`);
+				throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
 			}
 			return symbol.value;
 		}
@@ -408,13 +416,13 @@ function evalExpr(expr: ExprNode, env: RunningEnv, options: UguisuOptions): Valu
 			trace.log('Call');
 			const callee = evalExpr(expr.callee, env, options);
 			if (isNoneValue(callee)) {
-				throw new Error('no values');
+				throw new UguisuError('no values');
 			}
 			assertFunction(callee);
 			const args = expr.args.map(i => {
 				const value = evalExpr(i, env, options);
 				if (isNoneValue(value)) {
-					throw new Error('no values');
+					throw new UguisuError('no values');
 				}
 				return value;
 			});
@@ -425,10 +433,10 @@ function evalExpr(expr: ExprNode, env: RunningEnv, options: UguisuOptions): Valu
 			const left = evalExpr(expr.left, env, options);
 			const right = evalExpr(expr.right, env, options);
 			if (isNoneValue(left)) {
-				throw new Error('no values');
+				throw new UguisuError('no values');
 			}
 			if (isNoneValue(left)) {
-				throw new Error('no values');
+				throw new UguisuError('no values');
 			}
 			if (isLogicalBinaryOperator(expr.operator)) {
 				// Logical Operation
@@ -518,7 +526,7 @@ function evalExpr(expr: ExprNode, env: RunningEnv, options: UguisuOptions): Valu
 					case 'BoolValue':
 					case 'StringValue':
 					case 'FunctionValue': {
-						throw new Error(`type \`${getTypeName(left)}\` cannot be used to compare large and small relations.`);
+						throw new UguisuError(`type \`${getTypeName(left)}\` cannot be used to compare large and small relations.`);
 					}
 				}
 			} else {
@@ -543,13 +551,13 @@ function evalExpr(expr: ExprNode, env: RunningEnv, options: UguisuOptions): Valu
 					}
 				}
 			}
-			throw new Error('unexpected operation');
+			throw new UguisuError('unexpected operation');
 		}
 		case 'UnaryOp': {
 			trace.log('UnaryOp');
 			const value = evalExpr(expr.expr, env, options);
 			if (isNoneValue(value)) {
-				throw new Error('no values');
+				throw new UguisuError('no values');
 			}
 			// Logical Operation
 			assertBool(value);
@@ -558,7 +566,7 @@ function evalExpr(expr: ExprNode, env: RunningEnv, options: UguisuOptions): Valu
 					return newBool(!value.value);
 				}
 			}
-			throw new Error('unexpected operation');
+			throw new UguisuError('unexpected operation');
 		}
 	}
 }

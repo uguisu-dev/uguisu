@@ -33,14 +33,15 @@ import {
 } from './ast.js';
 import { LiteralKind, LiteralValue, Scanner } from './scan.js';
 import { Token } from './scan.js';
+import { UguisuError } from './index.js';
 
 const trace = Trace.getDefault().createChild(false);
 
 export class Parser {
 	s: Scanner;
 
-	constructor(s: Scanner) {
-		this.s = s;
+	constructor() {
+		this.s = new Scanner();
 	}
 
 	setup(sourceCode: string) {
@@ -82,7 +83,7 @@ export class Parser {
 	*/
 	expect(token: Token) {
 		if (!this.tokenIs(token)) {
-			throw new Error(`unexpected token: ${Token[this.getToken()]}`);
+			throw new UguisuError(`unexpected token: ${Token[this.getToken()]}`);
 		}
 	}
 
@@ -164,7 +165,7 @@ function parseSourceFile(p: Parser, filename: string): SourceFile {
 				break;
 			}
 			default: {
-				throw new Error(`unexpected token: ${Token[p.getToken()]}`);
+				throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
 			}
 		}
 		trace.leave();
@@ -312,7 +313,7 @@ function parseStatementStartWithExpr(p: Parser): StatementNode {
 					break;
 				}
 				default: {
-					throw new Error(`unexpected token: ${Token[p.getToken()]}`);
+					throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
 				}
 			}
 			const body = parseExpr(p);
@@ -326,7 +327,7 @@ function parseStatementStartWithExpr(p: Parser): StatementNode {
 			return expr;
 		}
 		default: {
-			throw new Error(`unexpected token: ${Token[p.getToken()]}`);
+			throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
 		}
 	}
 }
@@ -564,7 +565,7 @@ function parseAtomInner(p: Parser): ExprNode {
 			if (literal.kind == LiteralKind.String) {
 				return newStringLiteral(pos, literal.value);
 			}
-			throw new Error('not implemented yet');
+			throw new UguisuError('not implemented yet');
 		}
 		case Token.Ident: {
 			const name = p.getIdentValue();
@@ -583,7 +584,7 @@ function parseAtomInner(p: Parser): ExprNode {
 			return expr;
 		}
 		default: {
-			throw new Error(`unexpected token: ${Token[p.getToken()]}`);
+			throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
 		}
 	}
 }

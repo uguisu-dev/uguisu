@@ -1,5 +1,4 @@
-import fs from 'fs';
-import { UguisuInstance, Uguisu } from '../lib/index.js';
+import { Uguisu } from '../lib/index.js';
 import { newNativeFunction, newNoneValue } from '../lib/run.js';
 
 type Match = {
@@ -60,35 +59,16 @@ export function command(args: string[]) {
 		return;
 	}
 
-	// load file
 	const filename = match.free[0];
-	let sourceCode;
-	try {
-		sourceCode = fs.readFileSync(filename, { encoding: 'utf8' });
-	} catch (err) {
-		console.log('Error: Failed to load the file.');
-		return;
-	}
 
 	// run script
 	try {
-		const uguisu = Uguisu.createInstance({
+		const uguisu = new Uguisu({
 			stdout(str) {
 				console.log(str);
 			}
 		});
-
-		uguisu.load(sourceCode, 'main.ug');
-		uguisu.call('main');
-
-		uguisu.addFunction('hello', newNativeFunction((params, options) => {
-			if (options.stdout) {
-				options.stdout('hello world');
-			}
-			return newNoneValue();
-		}));
-		uguisu.call('hello');
-
+		uguisu.runFile(filename);
 	}
 	catch (e) {
 		console.log(e);

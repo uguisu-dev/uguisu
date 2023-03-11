@@ -1,4 +1,4 @@
-import { UguisuOptions } from './index.js';
+import { UguisuError, UguisuOptions } from './index.js';
 import {
 	assertNumber,
 	assertString,
@@ -19,7 +19,7 @@ function setDecl(name: string, paramsTy: Type[], returnTy: Type, env: AnalysisEn
 	env.set(name, nativeFnSymbol(params, returnTy));
 }
 
-export function setDeclarations(env: AnalysisEnv) {
+export function declareLib(env: AnalysisEnv) {
 	setDecl('printStr', ['string'], 'void', env);
 	setDecl('printNum', ['number'], 'void', env);
 	setDecl('assertEq', ['number', 'number'], 'void', env);
@@ -32,7 +32,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
 
 	const printStr = newNativeFunction((args) => {
 		if (args.length != 1) {
-			throw new Error('invalid arguments count');
+			throw new UguisuError('invalid arguments count');
 		}
 		assertString(args[0]);
 		if (options.stdout) {
@@ -44,7 +44,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
 
 	const printNum = newNativeFunction((args) => {
 		if (args.length != 1) {
-			throw new Error('invalid arguments count');
+			throw new UguisuError('invalid arguments count');
 		}
 		assertNumber(args[0]);
 		if (options.stdout) {
@@ -56,14 +56,14 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
 
 	const assertEq = newNativeFunction((args) => {
 		if (args.length != 2) {
-			throw new Error('invalid arguments count');
+			throw new UguisuError('invalid arguments count');
 		}
 		assertNumber(args[0]);
 		assertNumber(args[1]);
 		const actual = args[0].value;
 		const expected = args[1].value;
 		if (actual != expected) {
-			throw new Error(`assertion error. expected \`${expected}\`, actual \`${actual}\`.`);
+			throw new UguisuError(`assertion error. expected \`${expected}\`, actual \`${actual}\`.`);
 		}
 		return newNoneValue();
 	});
@@ -71,7 +71,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
 
 	const getUnixtime = newNativeFunction((args) => {
 		if (args.length != 0) {
-			throw new Error('invalid arguments count');
+			throw new UguisuError('invalid arguments count');
 		}
 		const unixTime = Math.floor(Date.now() / 1000);
 		return newNumber(unixTime);
@@ -80,7 +80,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
 
 	const concatStr = newNativeFunction((args) => {
 		if (args.length != 2) {
-			throw new Error('invalid arguments count');
+			throw new UguisuError('invalid arguments count');
 		}
 		assertString(args[0]);
 		assertString(args[1]);
@@ -90,7 +90,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
 
 	const toString = newNativeFunction((args) => {
 		if (args.length != 1) {
-			throw new Error('invalid arguments count');
+			throw new UguisuError('invalid arguments count');
 		}
 		assertNumber(args[0]);
 		return newString(args[0].value.toString());

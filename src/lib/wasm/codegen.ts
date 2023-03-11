@@ -1,6 +1,7 @@
 import { AssignMode, AstNode, ExprNode, FunctionDecl, Identifier, SourceFile, StatementNode } from '../ast.js';
 import Wasm from 'binaryen';
 import { Symbol, Type } from '../analyze.js';
+import { UguisuError } from '../index.js';
 
 export function codegen(symbolTable: Map<AstNode, Symbol>, node: SourceFile) {
 	const mod = translate(symbolTable, node);
@@ -34,7 +35,7 @@ function translate(symbolTable: Map<AstNode, Symbol>, node: SourceFile): Wasm.Mo
 	}
 	//mod.optimize();
 	if (!mod.validate()) {
-		throw new Error('failed to generate the wasm code.');
+		throw new UguisuError('failed to generate the wasm code.');
 	}
 
 	return mod;
@@ -43,7 +44,7 @@ function translate(symbolTable: Map<AstNode, Symbol>, node: SourceFile): Wasm.Mo
 function translateFunc(ctx: Context, node: FunctionDecl) {
 	const symbol = ctx.symbolTable.get(node);
 	if (symbol == null || symbol.kind != 'FnSymbol') {
-		throw new Error('unknown node');
+		throw new UguisuError('unknown node');
 	}
 
 	const vars: FuncInfo['vars'] = [];
@@ -93,7 +94,7 @@ function translateStatements(ctx: Context, nodes: StatementNode[], funcInfo: Fun
 				if (node.body != null) {
 					const varIndex = funcInfo.vars.findIndex(x => x.name == node.name);
 					if (varIndex == -1) {
-						throw new Error('variable not found');
+						throw new UguisuError('variable not found');
 					}
 					body.push(ctx.mod.local.set(varIndex, translateExpr(ctx, node.body, funcInfo)));
 				}
@@ -101,12 +102,12 @@ function translateStatements(ctx: Context, nodes: StatementNode[], funcInfo: Fun
 			}
 			case 'AssignStatement': {
 				if (node.target.kind != 'Identifier') {
-					throw new Error('invalid target');
+					throw new UguisuError('invalid target');
 				}
 				const ident = node.target;
 				const varIndex = funcInfo.vars.findIndex(x => x.name == ident.name);
 				if (varIndex == -1) {
-					throw new Error('variable not found');
+					throw new UguisuError('variable not found');
 				}
 				switch (node.mode) {
 					case AssignMode.Assign: {
@@ -138,7 +139,7 @@ function translateStatements(ctx: Context, nodes: StatementNode[], funcInfo: Fun
 						break;
 					}
 					default: {
-						throw new Error('unsupported operation');
+						throw new UguisuError('unsupported operation');
 					}
 				}
 				break;
@@ -171,7 +172,7 @@ function translateStatements(ctx: Context, nodes: StatementNode[], funcInfo: Fun
 			}
 			case 'BreakStatement': {
 				if (loopLabel == null) {
-					throw new Error('invalid break target');
+					throw new UguisuError('invalid break target');
 				}
 				body.push(ctx.mod.br('B'+loopLabel));
 				break;
@@ -201,12 +202,12 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
 			return ctx.mod.i32.const(node.value ? 1 : 0);
 		}
 		case 'StringLiteral': {
-			throw new Error('not impelemented yet');
+			throw new UguisuError('not impelemented yet');
 		}
 		case 'BinaryOp': {
 			const symbol = ctx.symbolTable.get(node);
 			if (symbol == null || symbol.kind != 'ExprSymbol') {
-				throw new Error('invalid node');
+				throw new UguisuError('invalid node');
 			}
 			const left = translateExpr(ctx, node.left, func);
 			const right = translateExpr(ctx, node.right, func);
@@ -225,7 +226,7 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
 						return ctx.mod.i32.div_s(left, right);
 					}
 					default: {
-						throw new Error('unsupported operation');
+						throw new UguisuError('unsupported operation');
 					}
 				}
 			} else if (symbol.ty == 'bool') {
@@ -255,18 +256,18 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
 						return ctx.mod.i32.or(left, right);
 					}
 					default: {
-						throw new Error('unsupported operation');
+						throw new UguisuError('unsupported operation');
 					}
 				}
 			} else {
-				throw new Error('not impelemented yet');
+				throw new UguisuError('not impelemented yet');
 			}
 			break;
 		}
 		case 'UnaryOp': {
 			const symbol = ctx.symbolTable.get(node);
 			if (symbol == null || symbol.kind != 'ExprSymbol') {
-				throw new Error('invalid node');
+				throw new UguisuError('invalid node');
 			}
 			const expr = translateExpr(ctx, node.expr, func);
 			switch (node.operator) {
@@ -274,7 +275,7 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
 					return ctx.mod.i32.eq(expr, ctx.mod.i32.const(0));
 				}
 				default: {
-					throw new Error('unsupported operation');
+					throw new UguisuError('unsupported operation');
 				}
 			}
 			break;
@@ -283,21 +284,21 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
 			// get variable index and type
 			const varIndex = func.vars.findIndex(x => x.name == node.name);
 			if (varIndex == -1) {
-				throw new Error('variable not found');
+				throw new UguisuError('variable not found');
 			}
 			return ctx.mod.local.get(varIndex, mapType(func.vars[varIndex].ty));
 		}
 		case 'Call': {
 			const calleeSymbol = ctx.symbolTable.get(node.callee);
 			if (calleeSymbol == null || calleeSymbol.kind != 'FnSymbol') {
-				throw new Error('invalid node');
+				throw new UguisuError('invalid node');
 			}
 			const callee = node.callee as Identifier;
 			const args = node.args.map(x => translateExpr(ctx, x, func));
 			return ctx.mod.call(callee.name, args, mapType(calleeSymbol.returnTy));
 		}
 		default: {
-			throw new Error('unexpected node');
+			throw new UguisuError('unexpected node');
 		}
 	}
 }
@@ -313,7 +314,7 @@ function mapType(type: Type): number {
 		}
 		case 'string':
 		case 'function': {
-			throw new Error('not impelemented yet');
+			throw new UguisuError('not impelemented yet');
 		}
 	}
 }

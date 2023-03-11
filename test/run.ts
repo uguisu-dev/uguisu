@@ -1,13 +1,11 @@
 import assert from 'assert';
 import { SourceFile } from '../src/lib/index.js';
-import { Scanner } from '../src/lib/scan.js';
 import { Parser } from '../src/lib/parse.js';
-import { Runner, RunningEnv } from '../src/lib/run.js';
-import { AnalysisEnv, analyze } from '../src/lib/analyze.js';
-import { setDeclarations } from '../src/lib/builtins.js';
+import { Runner } from '../src/lib/run.js';
+import { Analyzer } from '../src/lib/analyze.js';
 
 function runTest(sourceCode: string) {
-	const parser = new Parser(new Scanner());
+	const parser = new Parser();
 
 	let ast: SourceFile;
 	try {
@@ -19,10 +17,9 @@ function runTest(sourceCode: string) {
 		throw err;
 	}
 
-	const env = new AnalysisEnv();
-	setDeclarations(env);
+	const analyzer = new Analyzer();
 	try {
-		analyze({ symbolTable: new Map(), env }, ast);
+		analyzer.analyze(ast);
 	} catch (err) {
 		if (err instanceof Error) {
 			throw new Error(`Syntax Error: ${err.message}`);
@@ -30,10 +27,9 @@ function runTest(sourceCode: string) {
 		throw err;
 	}
 
-	const runner = new Runner();
-	const runningEnv = new RunningEnv();
+	const runner = new Runner({});
 	try {
-		runner.run(ast, runningEnv, () => {});
+		runner.run(ast);
 	} catch (err) {
 		if (err instanceof Error) {
 			throw new Error(`Runtime Error: ${err.message}`);

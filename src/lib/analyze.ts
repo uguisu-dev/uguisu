@@ -10,6 +10,8 @@ import {
 	StatementNode,
 	TyLabel,
 } from './ast.js';
+import * as builtins from './builtins.js';
+import { UguisuError } from './index.js';
 
 export type Type = 'void' | 'number' | 'bool' | 'string' | 'function';
 
@@ -84,18 +86,33 @@ export class AnalysisEnv {
 
 	leave() {
 		if (this.layers.length <= 1) {
-			throw new Error('Left the root layer.');
+			throw new UguisuError('Left the root layer.');
 		}
 		this.layers.shift();
 	}
 }
 
-export type Context = {
+export class Analyzer {
+	env: AnalysisEnv;
+	symbolTable: Map<AstNode, Symbol>;
+
+	constructor() {
+		this.env = new AnalysisEnv();
+		this.symbolTable = new Map();
+	}
+
+	analyze(sourceFile: SourceFile) {
+		builtins.declareLib(this.env);
+		analyze({ env: this.env, symbolTable: this.symbolTable }, sourceFile);
+	}
+}
+
+type Context = {
 	symbolTable: Map<AstNode, Symbol>,
 	env: AnalysisEnv,
 };
 
-export function analyze(ctx: Context, source: SourceFile) {
+function analyze(ctx: Context, source: SourceFile) {
 	for (const n of source.funcs) {
 		setDeclaration(ctx, n);
 	}
@@ -271,10 +288,10 @@ function validateStatement(ctx: Context, node: AstNode, allowJump: boolean, func
 		case 'FunctionDecl':
 		case 'FnDeclParam':
 		case 'TyLabel': {
-			throw new Error('unexpected node.');
+			throw new UguisuError('unexpected node.');
 		}
 	}
-	throw new Error('unexpected node.');
+	throw new UguisuError('unexpected node.');
 }
 
 function validateBlock(ctx: Context, block: StatementNode[], allowJump: boolean, funcSymbol: FunctionSymbol) {
@@ -358,7 +375,7 @@ function inferType(ctx: Context, node: AstNode, funcSymbol: FunctionSymbol): Typ
 					break;
 				}
 				default: {
-					throw new Error('function expected');
+					throw new UguisuError('function expected');
 				}
 			}
 			if (node.args.length != callee.params.length) {
@@ -374,7 +391,7 @@ function inferType(ctx: Context, node: AstNode, funcSymbol: FunctionSymbol): Typ
 			return callee.returnTy;
 		}
 	}
-	throw new Error('unexpected node.');
+	throw new UguisuError('unexpected node.');
 }
 
 function resolveTypeName(node: TyLabel): Type {
@@ -401,8 +418,8 @@ function lookupSymbolWithNode(ctx: Context, node: AstNode): Symbol {
 
 function dispatchError(message: string, errorNode?: AstNode): never {
 	if (errorNode != null) {
-		throw new Error(`${message} (${errorNode.pos[0]}:${errorNode.pos[1]})`);
+		throw new UguisuError(`${message} (${errorNode.pos[0]}:${errorNode.pos[1]})`);
 	} else {
-		throw new Error(message);
+		throw new UguisuError(message);
 	}
 }
