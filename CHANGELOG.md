@@ -7,8 +7,9 @@
 
 - 実装がRustからNode.jsに移行されました。
 - `string`型を追加
-- 文字列リテラルを追加 `"hello"`
-- ビルトイン関数を追加: `printStr` `concatStr` `toString`
+- 文字列リテラルを追加。例 `"hello"`
+- ビルトイン関数を廃止: `printLF` `assertEq`
+- ビルトイン関数を追加: `printStr` `concatStr` `toString` `assertEqNum` `assertEqStr`
 - 構文: bool型では大小関係の比較は出来ないように仕様を変更。
 
 ## 0.6.0 (2023/02/10)
