@@ -61,7 +61,7 @@ const uguisu = new Uguisu({
     }
 });
 
-// with source code
+// Run passing a source code.
 const sourceCode = `
 fn main() {
     printStr("hello world");
@@ -69,8 +69,8 @@ fn main() {
 `;
 uguisu.runCode(sourceCode);
 
-// with filename of source code
-uguisu.runFile(filename);
+// Run passing a file path of a source code.
+uguisu.runFile('./example.ug');
 ```
 
 ## License
