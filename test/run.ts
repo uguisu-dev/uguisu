@@ -3,7 +3,7 @@ import { Uguisu } from '../src/lib/index.js';
 
 function runTest(sourceCode: string) {
     const uguisu = new Uguisu();
-    uguisu.runCode(sourceCode, 'test.ug');
+    uguisu.runCode(sourceCode);
 }
 
 // variable + number literal
