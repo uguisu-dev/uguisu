@@ -294,6 +294,14 @@ function inferType(ctx: Context, node: AstNode, funcSymbol: FunctionSymbol): Typ
 				case 'NativeFnSymbol': {
 					break;
 				}
+				case 'VariableSymbol': {
+					if (callee.ty == null) {
+						dispatchError('variable is not assigned yet.', node.callee);
+					}
+					assertType(callee.ty, 'function', node.callee);
+					throw new UguisuError('type check for a function variable is not supported.');
+					break;
+				}
 				default: {
 					throw new UguisuError('function expected');
 				}
