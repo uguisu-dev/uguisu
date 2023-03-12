@@ -1,23 +1,7 @@
 import fs from 'fs';
 import { Parser } from './parse.js';
 import { Runner } from './run.js';
-import { SourceFile } from './ast.js';
 import { Analyzer } from './analyze.js';
-
-export {
-	SourceFile,
-};
-
-export class UguisuError extends Error {
-	constructor(message: string) {
-		super(message);
-	}
-}
-
-export type UguisuOptions = {
-	stdin?: () => Promise<string>,
-	stdout?: (buf: string) => void,
-};
 
 export class Uguisu {
 	private _options: UguisuOptions;
@@ -26,6 +10,9 @@ export class Uguisu {
 		this._options = options ?? {};
 	}
 
+	/**
+	 * @throws UguisuError
+	*/
 	runFile(filename: string) {
 		// load file
 		let sourceCode;
@@ -46,5 +33,16 @@ export class Uguisu {
 		// run
 		const runner = new Runner(this._options);
 		runner.run(sourceFile);
+	}
+}
+
+export type UguisuOptions = {
+	stdin?: () => Promise<string>,
+	stdout?: (buf: string) => void,
+};
+
+export class UguisuError extends Error {
+	constructor(message: string) {
+		super(message);
 	}
 }

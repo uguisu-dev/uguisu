@@ -8,18 +8,9 @@ import {
 	newNumber,
 	newString,
 } from './run.js';
-import { AnalysisEnv, NativeFnSymbol, Type } from './analyze.js';
+import { AnalysisEnv, newNativeFnSymbol, Type } from './analyze.js';
 
-function nativeFnSymbol(params: { name: string, ty: Type }[], returnTy: Type): NativeFnSymbol {
-	return { kind: 'NativeFnSymbol', params, returnTy };
-}
-
-function setDecl(name: string, paramsTy: Type[], returnTy: Type, env: AnalysisEnv) {
-	const params = paramsTy.map(ty => ({ name: 'x', ty }));
-	env.set(name, nativeFnSymbol(params, returnTy));
-}
-
-export function declareLib(env: AnalysisEnv) {
+export function setDeclarations(env: AnalysisEnv) {
 	setDecl('printStr', ['string'], 'void', env);
 	setDecl('printNum', ['number'], 'void', env);
 	setDecl('assertEq', ['number', 'number'], 'void', env);
@@ -97,4 +88,9 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
 	});
 	env.define('toString', toString);
 
+}
+
+function setDecl(name: string, paramsTy: Type[], returnTy: Type, env: AnalysisEnv) {
+	const params = paramsTy.map(ty => ({ name: 'x', ty }));
+	env.set(name, newNativeFnSymbol(params, returnTy));
 }

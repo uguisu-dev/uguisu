@@ -1,7 +1,6 @@
 import { UguisuError, UguisuOptions } from './index.js';
 import * as builtins from './builtins.js';
 import {
-	AssignMode,
 	ExprNode,
 	FunctionDecl,
 	isEquivalentOperator,
@@ -15,9 +14,82 @@ import { Trace } from './misc/trace.js';
 
 const trace = Trace.getDefault().createChild(false);
 
-export type Value = FunctionValue | NumberValue | BoolValue | StringValue | NoneValue;
+export class Runner {
+	env: RunningEnv;
+	options: UguisuOptions;
 
-export type NativeFuncHandler = (args: Value[], options: UguisuOptions) => Value;
+	constructor(options: UguisuOptions) {
+		this.env = new RunningEnv();
+		this.options = options;
+	}
+
+	run(source: SourceFile) {
+		builtins.setRuntime(this.env, this.options);
+		evalSourceFile(source, this.env);
+		this.call('main');
+	}
+
+	call(name: string) {
+		const symbol = this.env.get(name);
+		if (symbol == null || !symbol.defined) {
+			throw new UguisuError(`function \`${name}\` is not found`);
+		}
+		assertFunction(symbol.value);
+		call(symbol.value, [], this.options);
+	}
+}
+
+export class RunningEnv {
+	layers: Map<string, Symbol>[];
+
+	constructor(baseEnv?: RunningEnv) {
+		if (baseEnv != null) {
+			this.layers = [...baseEnv.layers];
+		} else {
+			this.layers = [new Map()];
+		}
+	}
+
+	declare(name: string) {
+		trace.log(`declare symbol: ${name}`);
+		this.layers[0].set(name, { defined: false, value: undefined });
+	}
+
+	define(name: string, value: Value) {
+		trace.log(`define symbol: ${name}`, value);
+		this.layers[0].set(name, { defined: true, value });
+	}
+
+	get(name: string): Symbol | undefined {
+		trace.log(`get symbol: ${name}`);
+		for (const layer of this.layers) {
+			const symbol = layer.get(name);
+			if (symbol != null) {
+				return symbol;
+			}
+		}
+		return undefined;
+	}
+
+	enter() {
+		trace.log(`enter scope`);
+		this.layers.unshift(new Map());
+	}
+
+	leave() {
+		trace.log(`leave scope`);
+		if (this.layers.length <= 1) {
+			throw new UguisuError('Left the root layer.');
+		}
+		this.layers.shift();
+	}
+}
+
+export type Symbol = { defined: true, value: Value } | { defined: false, value: undefined };
+
+//#region Values
+
+export type Value = FunctionValue | NumberValue | BoolValue | StringValue | NoneValue;
 
 export type FunctionValue = {
 	kind: 'FunctionValue',
@@ -29,6 +101,8 @@ export type FunctionValue = {
 	node: undefined,
 	native: NativeFuncHandler,
 };
+
+export type NativeFuncHandler = (args: Value[], options: UguisuOptions) => Value;
 
 export function newFunction(node: FunctionDecl, env: RunningEnv): FunctionValue {
 	return { kind: 'FunctionValue', node, env, native: undefined };
@@ -111,102 +185,35 @@ function getTypeName(value: Value): string {
 	}
 }
 
-type Symbol = { defined: true, value: Value } | { defined: false, value: undefined };
+//#endregion Values
 
-export class RunningEnv {
-	layers: Map<string, Symbol>[];
+//#region StatementResults
 
-	constructor(baseEnv?: RunningEnv) {
-		if (baseEnv != null) {
-			this.layers = [...baseEnv.layers];
-		} else {
-			this.layers = [new Map()];
-		}
-	}
+type StatementResult = NoneResult | ReturnResult | BreakResult;
 
-	declare(name: string) {
-		trace.log(`declare symbol: ${name}`);
-		this.layers[0].set(name, { defined: false, value: undefined });
-	}
-
-	define(name: string, value: Value) {
-		trace.log(`define symbol: ${name}`, value);
-		this.layers[0].set(name, { defined: true, value });
-	}
-
-	get(name: string): Symbol | undefined {
-		trace.log(`get symbol: ${name}`);
-		for (const layer of this.layers) {
-			const symbol = layer.get(name);
-			if (symbol != null) {
-				return symbol;
-			}
-		}
-		return undefined;
-	}
-
-	enter() {
-		trace.log(`enter scope`);
-		this.layers.unshift(new Map());
-	}
-
-	leave() {
-		trace.log(`leave scope`);
-		if (this.layers.length <= 1) {
-			throw new UguisuError('Left the root layer.');
-		}
-		this.layers.shift();
-	}
-}
-
-export type StatementResult = NoneResult | ReturnResult | BreakResult;
-
-export type NoneResult = {
+type NoneResult = {
 	kind: 'NoneResult',
 };
-export function newNoneResult(): NoneResult {
+function newNoneResult(): NoneResult {
 	return { kind: 'NoneResult' };
 }
 
-export type ReturnResult = {
+type ReturnResult = {
 	kind: 'ReturnResult',
 	value: Value,
 };
-export function newReturnResult(value: Value): ReturnResult {
+function newReturnResult(value: Value): ReturnResult {
 	return { kind: 'ReturnResult', value };
 }
 
-export type BreakResult = {
+type BreakResult = {
 	kind: 'BreakResult',
 };
-export function newBreakResult(): BreakResult {
+function newBreakResult(): BreakResult {
 	return { kind: 'BreakResult' };
 }
 
-export class Runner {
-	env: RunningEnv;
-	options: UguisuOptions;
-
-	constructor(options: UguisuOptions) {
-		this.env = new RunningEnv();
-		this.options = options;
-	}
-
-	run(source: SourceFile) {
-		builtins.setRuntime(this.env, this.options);
-		evalSourceFile(source, this.env);
-		this.call('main');
-	}
-
-	call(name: string) {
-		const symbol = this.env.get(name);
-		if (symbol == null || !symbol.defined) {
-			throw new UguisuError(`function \`${name}\` is not found`);
-		}
-		assertFunction(symbol.value);
-		call(symbol.value, [], this.options);
-	}
-}
+//#endregion StatementResults
 
 function evalSourceFile(source: SourceFile, env: RunningEnv) {
 	for (const func of source.funcs) {
@@ -250,6 +257,22 @@ function call(func: FunctionValue, args: Value[], options: UguisuOptions): Value
 	} else {
 		throw new UguisuError('invalid function');
 	}
+}
+
+function execBlock(block: StatementNode[], env: RunningEnv, options: UguisuOptions): StatementResult {
+	trace.log('execBlock');
+	env.enter();
+	let result: StatementResult = newNoneResult();
+	for (const statement of block) {
+		result = execStatement(statement, env, options);
+		if (result.kind == 'ReturnResult') {
+			break;
+		} else if (result.kind == 'BreakResult') {
+			break;
+		}
+	}
+	env.leave();
+	return result;
 }
 
 function execStatement(statement: StatementNode, env: RunningEnv, options: UguisuOptions): StatementResult {
@@ -323,11 +346,11 @@ function execStatement(statement: StatementNode, env: RunningEnv, options: Uguis
 					throw new UguisuError('no values');
 				}
 				switch (statement.mode) {
-					case AssignMode.Assign: {
+					case '=': {
 						symbol.value = bodyValue;
 						break;
 					}
-					case AssignMode.AddAssign: {
+					case '+=': {
 						const restored = env.get(statement.target.name);
 						if (restored == null || !restored.defined) {
 							throw new UguisuError('variable is not defined');
@@ -338,7 +361,7 @@ function execStatement(statement: StatementNode, env: RunningEnv, options: Uguis
 						symbol.value = value;
 						break;
 					}
-					case AssignMode.SubAssign: {
+					case '-=': {
 						const restored = env.get(statement.target.name);
 						if (restored == null || !restored.defined) {
 							throw new UguisuError('variable is not defined');
@@ -349,7 +372,7 @@ function execStatement(statement: StatementNode, env: RunningEnv, options: Uguis
 						symbol.value = value;
 						break;
 					}
-					case AssignMode.MultAssign: {
+					case '*=': {
 						const restored = env.get(statement.target.name);
 						if (restored == null || !restored.defined) {
 							throw new UguisuError('variable is not defined');
@@ -360,7 +383,7 @@ function execStatement(statement: StatementNode, env: RunningEnv, options: Uguis
 						symbol.value = value;
 						break;
 					}
-					case AssignMode.DivAssign: {
+					case '/=': {
 						const restored = env.get(statement.target.name);
 						if (restored == null || !restored.defined) {
 							throw new UguisuError('variable is not defined');
@@ -371,7 +394,7 @@ function execStatement(statement: StatementNode, env: RunningEnv, options: Uguis
 						symbol.value = value;
 						break;
 					}
-					case AssignMode.ModAssign: {
+					case '%=': {
 						const restored = env.get(statement.target.name);
 						if (restored == null || !restored.defined) {
 							throw new UguisuError('variable is not defined');
@@ -569,20 +592,4 @@ function evalExpr(expr: ExprNode, env: RunningEnv, options: UguisuOptions): Valu
 			throw new UguisuError('unexpected operation');
 		}
 	}
-}
-
-function execBlock(block: StatementNode[], env: RunningEnv, options: UguisuOptions): StatementResult {
-	trace.log('execBlock');
-	env.enter();
-	let result: StatementResult = newNoneResult();
-	for (const statement of block) {
-		result = execStatement(statement, env, options);
-		if (result.kind == 'ReturnResult') {
-			break;
-		} else if (result.kind == 'BreakResult') {
-			break;
-		}
-	}
-	env.leave();
-	return result;
 }

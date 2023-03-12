@@ -1,5 +1,4 @@
 import {
-	AssignMode,
 	AstNode,
 	FunctionDecl,
 	Identifier,
@@ -13,46 +12,20 @@ import {
 import * as builtins from './builtins.js';
 import { UguisuError } from './index.js';
 
-export type Type = 'void' | 'number' | 'bool' | 'string' | 'function';
+export class Analyzer {
+	env: AnalysisEnv;
+	symbolTable: Map<AstNode, Symbol>;
 
-function assertType(actual: Type, expected: Type, errorNode: AstNode) {
-	if (actual == 'void') {
-		dispatchError(`A function call that does not return a value cannot be used as an expression.`, errorNode);
+	constructor() {
+		this.env = new AnalysisEnv();
+		this.symbolTable = new Map();
 	}
-	if (actual != expected) {
-		dispatchError(`type mismatched. expected \`${expected}\`, found \`${actual}\``, errorNode);
+
+	analyze(sourceFile: SourceFile) {
+		builtins.setDeclarations(this.env);
+		analyze({ env: this.env, symbolTable: this.symbolTable }, sourceFile);
 	}
 }
-
-type FnVar = { name: string, isParam: boolean, ty?: Type };
-
-export type FunctionSymbol = {
-	kind: 'FnSymbol',
-	defined: boolean,
-	params: { name: string, ty: Type }[],
-	returnTy: Type,
-	/** for wasm */
-	vars: FnVar[],
-};
-
-export type NativeFnSymbol = {
-	kind: 'NativeFnSymbol',
-	params: { name: string, ty: Type }[],
-	returnTy: Type,
-};
-
-export type VariableSymbol = {
-	kind: 'VariableSymbol',
-	defined: boolean,
-	ty?: Type,
-};
-
-export type ExprSymbol = {
-	kind: 'ExprSymbol',
-	ty: Type,
-};
-
-export type Symbol = FunctionSymbol | NativeFnSymbol | VariableSymbol | ExprSymbol;
 
 export class AnalysisEnv {
 	private layers: Map<string, Symbol>[];
@@ -67,7 +40,6 @@ export class AnalysisEnv {
 
 	set(name: string, symbol: Symbol) {
 		this.layers[0].set(name, symbol);
-		return symbol;
 	}
 
 	get(name: string): Symbol | undefined {
@@ -92,20 +64,41 @@ export class AnalysisEnv {
 	}
 }
 
-export class Analyzer {
-	env: AnalysisEnv;
-	symbolTable: Map<AstNode, Symbol>;
+export type Symbol = FunctionSymbol | NativeFnSymbol | VariableSymbol | ExprSymbol;
 
-	constructor() {
-		this.env = new AnalysisEnv();
-		this.symbolTable = new Map();
-	}
+export type FunctionSymbol = {
+	kind: 'FnSymbol',
+	defined: boolean,
+	params: { name: string, ty: Type }[],
+	returnTy: Type,
+	/** for wasm */
+	vars: FnVar[],
+};
 
-	analyze(sourceFile: SourceFile) {
-		builtins.declareLib(this.env);
-		analyze({ env: this.env, symbolTable: this.symbolTable }, sourceFile);
-	}
+export type NativeFnSymbol = {
+	kind: 'NativeFnSymbol',
+	params: { name: string, ty: Type }[],
+	returnTy: Type,
+};
+
+export function newNativeFnSymbol(params: { name: string, ty: Type }[], returnTy: Type): NativeFnSymbol {
+	return { kind: 'NativeFnSymbol', params, returnTy };
 }
+
+export type VariableSymbol = {
+	kind: 'VariableSymbol',
+	defined: boolean,
+	ty?: Type,
+};
+
+export type ExprSymbol = {
+	kind: 'ExprSymbol',
+	ty: Type,
+};
+
+export type Type = 'void' | 'number' | 'bool' | 'string' | 'function';
+
+export type FnVar = { name: string, isParam: boolean, ty?: Type };
 
 type Context = {
 	symbolTable: Map<AstNode, Symbol>,
@@ -120,6 +113,15 @@ function analyze(ctx: Context, source: SourceFile) {
 		validateFunc(ctx, n);
 	}
 	// console.log(ctx.symbolTable);
+}
+
+function assertType(actual: Type, expected: Type, errorNode: AstNode) {
+	if (actual == 'void') {
+		dispatchError(`A function call that does not return a value cannot be used as an expression.`, errorNode);
+	}
+	if (actual != expected) {
+		dispatchError(`type mismatched. expected \`${expected}\`, found \`${actual}\``, errorNode);
+	}
 }
 
 function setDeclaration(ctx: Context, node: AstNode) {
@@ -230,15 +232,15 @@ function validateStatement(ctx: Context, node: AstNode, allowJump: boolean, func
 				variable!.ty = bodyTy;
 			}
 			switch (node.mode) {
-				case AssignMode.Assign: {
+				case '=': {
 					assertType(bodyTy, symbol.ty, node.body);
 					break;
 				}
-				case AssignMode.AddAssign:
-				case AssignMode.SubAssign:
-				case AssignMode.MultAssign:
-				case AssignMode.DivAssign:
-				case AssignMode.ModAssign: {
+				case '+=':
+				case '-=':
+				case '*=':
+				case '/=':
+				case '%=': {
 					assertType(symbol.ty, 'number', node.target);
 					assertType(bodyTy, 'number', node.body);
 					break;

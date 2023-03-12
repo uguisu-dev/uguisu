@@ -3,15 +3,6 @@ import { Trace } from './misc/trace.js';
 
 const trace = Trace.getDefault().createChild(false);
 
-export enum LiteralKind {
-	None,
-	Number,
-	String,
-	Bool,
-}
-
-export type LiteralValue = { kind: LiteralKind, value: string };
-
 const space = [' ', '\t', '\r', '\n'];
 const digit = /^[0-9]$/;
 const wordChar = /^[A-Za-z0-9_]$/;
@@ -20,6 +11,15 @@ const spCharTable = new Map([
 	['n', '\n'],
 	['t', '\t'],
 ]);
+
+export type LiteralValue = { kind: LiteralKind, value: string };
+
+export enum LiteralKind {
+	None,
+	Number,
+	String,
+	Bool,
+}
 
 export enum Token {
 	EOF,

@@ -95,7 +95,7 @@ export class Parser {
 		this.next();
 	}
 
-	parse(sourceCode: string, filename: string) {
+	parse(sourceCode: string, filename: string): SourceFile {
 		this.setup(sourceCode);
 		return parseSourceFile(this, filename);
 	}
@@ -289,27 +289,27 @@ function parseStatementStartWithExpr(p: Parser): StatementNode {
 			let mode: AssignMode;
 			switch (modeToken) {
 				case Token.Assign: {
-					mode = AssignMode.Assign;
+					mode = '=';
 					break;
 				}
 				case Token.AddAssign: {
-					mode = AssignMode.AddAssign;
+					mode = '+=';
 					break;
 				}
 				case Token.SubAssign: {
-					mode = AssignMode.SubAssign;
+					mode = '-=';
 					break;
 				}
 				case Token.MultAssign: {
-					mode = AssignMode.MultAssign;
+					mode = '*=';
 					break;
 				}
 				case Token.DivAssign: {
-					mode = AssignMode.DivAssign;
+					mode = '/=';
 					break;
 				}
 				case Token.ModAssign: {
-					mode = AssignMode.ModAssign;
+					mode = '%=';
 					break;
 				}
 				default: {
@@ -446,13 +446,13 @@ function parseLoopStatement(p: Parser): LoopStatement {
 
 //#region Expressions
 
-export function parseExpr(p: Parser): ExprNode {
+function parseExpr(p: Parser): ExprNode {
 	return parseInfix(p, 0);
 }
 
 type OpInfo = { prec: number, assoc: 'left' | 'right', op: BinaryOperator };
 
-const opTable: Map<number, OpInfo> = new Map([
+const opTable: Map<Token, OpInfo> = new Map([
 	// 1
 	[Token.Or2, { prec: 1, assoc: 'left', op: '||' }],
 	// 2

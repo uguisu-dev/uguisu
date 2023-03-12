@@ -260,14 +260,7 @@ export function newLoopStatement(pos: Pos, block: StatementNode[]): LoopStatemen
 	return { kind: 'LoopStatement', pos, block };
 }
 
-export enum AssignMode {
-	Assign,
-	AddAssign,
-	SubAssign,
-	MultAssign,
-	DivAssign,
-	ModAssign,
-}
+export type AssignMode = '=' | '+=' | '-=' | '*=' | '/=' | '%=';
 
 export type AssignStatement = {
 	kind: 'AssignStatement',

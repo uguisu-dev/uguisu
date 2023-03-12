@@ -1,5 +1,4 @@
 import { Uguisu } from '../lib/index.js';
-import { newNativeFunction, newNoneValue } from '../lib/run.js';
 
 type Match = {
 	help: boolean,

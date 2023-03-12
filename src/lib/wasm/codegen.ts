@@ -1,4 +1,4 @@
-import { AssignMode, AstNode, ExprNode, FunctionDecl, Identifier, SourceFile, StatementNode } from '../ast.js';
+import { AstNode, ExprNode, FunctionDecl, Identifier, SourceFile, StatementNode } from '../ast.js';
 import Wasm from 'binaryen';
 import { Symbol, Type } from '../analyze.js';
 import { UguisuError } from '../index.js';
@@ -110,29 +110,29 @@ function translateStatements(ctx: Context, nodes: StatementNode[], funcInfo: Fun
 					throw new UguisuError('variable not found');
 				}
 				switch (node.mode) {
-					case AssignMode.Assign: {
+					case '=': {
 						body.push(ctx.mod.local.set(varIndex, translateExpr(ctx, node.body, funcInfo)));
 						break;
 					}
-					case AssignMode.AddAssign: {
+					case '+=': {
 						const amount = translateExpr(ctx, node.body, funcInfo);
 						const value = ctx.mod.i32.add(ctx.mod.local.get(varIndex, Wasm.i32), amount);
 						body.push(ctx.mod.local.set(varIndex, value));
 						break;
 					}
-					case AssignMode.SubAssign: {
+					case '-=': {
 						const amount = translateExpr(ctx, node.body, funcInfo);
 						const value = ctx.mod.i32.sub(ctx.mod.local.get(varIndex, Wasm.i32), amount);
 						body.push(ctx.mod.local.set(varIndex, value));
 						break;
 					}
-					case AssignMode.MultAssign: {
+					case '*=': {
 						const amount = translateExpr(ctx, node.body, funcInfo);
 						const value = ctx.mod.i32.mul(ctx.mod.local.get(varIndex, Wasm.i32), amount);
 						body.push(ctx.mod.local.set(varIndex, value));
 						break;
 					}
-					case AssignMode.DivAssign: {
+					case '/=': {
 						const amount = translateExpr(ctx, node.body, funcInfo);
 						const value = ctx.mod.i32.div_s(ctx.mod.local.get(varIndex, Wasm.i32), amount);
 						body.push(ctx.mod.local.set(varIndex, value));
