@@ -1,104 +1,104 @@
 import { UguisuError } from '../misc/errors.js';
 import { Trace } from '../misc/trace.js';
 import {
-	AssignMode,
-	BinaryOperator,
-	BreakStatement,
-	ExprNode,
-	FnDeclParam,
-	FunctionDecl,
-	IfStatement,
-	LoopStatement,
-	newAssignStatement,
-	newBinaryOp,
-	newBoolLiteral,
-	newBreakStatement,
-	newCall,
-	newFnDeclParam,
-	newFunctionDecl,
-	newIdentifier,
-	newIfStatement,
-	newLoopStatement,
-	newNumberLiteral,
-	newReturnStatement,
-	newSourceFile,
-	newStringLiteral,
-	newTyLabel,
-	newUnaryOp,
-	newVariableDecl,
-	ReturnStatement,
-	SourceFile,
-	StatementNode,
-	TyLabel,
-	VariableDecl
+    AssignMode,
+    BinaryOperator,
+    BreakStatement,
+    ExprNode,
+    FnDeclParam,
+    FunctionDecl,
+    IfStatement,
+    LoopStatement,
+    newAssignStatement,
+    newBinaryOp,
+    newBoolLiteral,
+    newBreakStatement,
+    newCall,
+    newFnDeclParam,
+    newFunctionDecl,
+    newIdentifier,
+    newIfStatement,
+    newLoopStatement,
+    newNumberLiteral,
+    newReturnStatement,
+    newSourceFile,
+    newStringLiteral,
+    newTyLabel,
+    newUnaryOp,
+    newVariableDecl,
+    ReturnStatement,
+    SourceFile,
+    StatementNode,
+    TyLabel,
+    VariableDecl
 } from './tools.js';
 import { LiteralValue, Scanner, Token } from './scan.js';
 
 const trace = Trace.getDefault().createChild(false);
 
 export function parse(sourceCode: string, filename: string): SourceFile {
-	const parser = new Parser(new Scanner());
-	parser.setup(sourceCode);
-	return parseSourceFile(parser, filename);
+    const parser = new Parser(new Scanner());
+    parser.setup(sourceCode);
+    return parseSourceFile(parser, filename);
 }
 
 class Parser {
-	s: Scanner;
+    s: Scanner;
 
-	constructor(s: Scanner) {
-		this.s = s;
-	}
+    constructor(s: Scanner) {
+        this.s = s;
+    }
 
-	setup(sourceCode: string) {
-		this.s.setup(sourceCode);
-		this.s.next();
-	}
+    setup(sourceCode: string) {
+        this.s.setup(sourceCode);
+        this.s.next();
+    }
 
-	getPos(): [number, number] {
-		return this.s.getPos();
-	}
+    getPos(): [number, number] {
+        return this.s.getPos();
+    }
 
-	getToken(): Token {
-		return this.s.getToken();
-	}
+    getToken(): Token {
+        return this.s.getToken();
+    }
 
-	getIdentValue(): string {
-		return this.s.getIdentValue();
-	}
+    getIdentValue(): string {
+        return this.s.getIdentValue();
+    }
 
-	getLiteralValue(): LiteralValue {
-		return this.s.getLiteralValue();
-	}
+    getLiteralValue(): LiteralValue {
+        return this.s.getLiteralValue();
+    }
 
-	/**
-	 * Move to the next token.
-	*/
-	next() {
-		trace.log(`[parse] next`);
-		this.s.next();
-	}
+    /**
+     * Move to the next token.
+    */
+    next() {
+        trace.log(`[parse] next`);
+        this.s.next();
+    }
 
-	tokenIs(token: Token): boolean {
-		trace.log(`[parse] tokenIs ${Token[token]} (${this.getToken() == token})`);
-		return (this.getToken() == token);
-	}
+    tokenIs(token: Token): boolean {
+        trace.log(`[parse] tokenIs ${Token[token]} (${this.getToken() == token})`);
+        return (this.getToken() == token);
+    }
 
-	/**
-	 * Expect the current token.
-	*/
-	expect(token: Token) {
-		if (!this.tokenIs(token)) {
-			throw new UguisuError(`unexpected token: ${Token[this.getToken()]}`);
-		}
-	}
+    /**
+     * Expect the current token.
+    */
+    expect(token: Token) {
+        if (!this.tokenIs(token)) {
+            throw new UguisuError(`unexpected token: ${Token[this.getToken()]}`);
+        }
+    }
 
-	/**
-	 * Expect the current token and move to the next token.
-	*/
-	expectAndNext(token: Token) {
-		this.expect(token);
-		this.next();
-	}
+    /**
+     * Expect the current token and move to the next token.
+    */
+    expectAndNext(token: Token) {
+        this.expect(token);
+        this.next();
+    }
 }
 
 //#region General
@@ -109,17 +109,17 @@ class Parser {
  * ```
 */
 function parseBlock(p: Parser): StatementNode[] {
-	trace.enter('[parse] parseBlock');
+    trace.enter('[parse] parseBlock');
 
-	p.expectAndNext(Token.BeginBrace);
-	const statements: StatementNode[] = [];
-	while (!p.tokenIs(Token.EndBrace)) {
-		statements.push(parseStatement(p));
-	}
-	p.expectAndNext(Token.EndBrace);
+    p.expectAndNext(Token.BeginBrace);
+    const statements: StatementNode[] = [];
+    while (!p.tokenIs(Token.EndBrace)) {
+        statements.push(parseStatement(p));
+    }
+    p.expectAndNext(Token.EndBrace);
 
-	trace.leave();
-	return statements;
+    trace.leave();
+    return statements;
 }
 
 /**
@@ -128,16 +128,16 @@ function parseBlock(p: Parser): StatementNode[] {
  * ```
 */
 function parseTyLabel(p: Parser): TyLabel {
-	trace.enter('[parse] parseTyLabel');
+    trace.enter('[parse] parseTyLabel');
 
-	p.expectAndNext(Token.Colon);
-	const pos = p.getPos();
-	p.expect(Token.Ident);
-	const name = p.getIdentValue();
-	p.next();
+    p.expectAndNext(Token.Colon);
+    const pos = p.getPos();
+    p.expect(Token.Ident);
+    const name = p.getIdentValue();
+    p.next();
 
-	trace.leave();
-	return newTyLabel(pos, name);
+    trace.leave();
+    return newTyLabel(pos, name);
 }
 
 //#endregion General
@@ -150,29 +150,29 @@ function parseTyLabel(p: Parser): TyLabel {
  * ```
 */
 function parseSourceFile(p: Parser, filename: string): SourceFile {
-	let funcs: FunctionDecl[] = [];
-	trace.enter('[parse] parseSourceFile');
+    let funcs: FunctionDecl[] = [];
+    trace.enter('[parse] parseSourceFile');
 
-	while (true) {
-		trace.enter('[parse] declaration item');
-		if (p.tokenIs(Token.EOF)) {
-			trace.leave();
-			break;
-		}
-		switch (p.getToken()) {
-			case Token.Fn: {
-				funcs.push(parseFunctionDecl(p));
-				break;
-			}
-			default: {
-				throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
-			}
-		}
-		trace.leave();
-	}
+    while (true) {
+        trace.enter('[parse] declaration item');
+        if (p.tokenIs(Token.EOF)) {
+            trace.leave();
+            break;
+        }
+        switch (p.getToken()) {
+            case Token.Fn: {
+                funcs.push(parseFunctionDecl(p));
+                break;
+            }
+            default: {
+                throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
+            }
+        }
+        trace.leave();
+    }
 
-	trace.leave();
-	return newSourceFile([1, 1], filename, funcs);
+    trace.leave();
+    return newSourceFile([1, 1], filename, funcs);
 }
 
 /**
@@ -182,34 +182,34 @@ function parseSourceFile(p: Parser, filename: string): SourceFile {
  * ```
 */
 function parseFunctionDecl(p: Parser): FunctionDecl {
-	trace.enter('[parse] parseFunctionDecl');
+    trace.enter('[parse] parseFunctionDecl');
 
-	const pos = p.getPos();
-	p.next();
-	p.expect(Token.Ident);
-	const name = p.getIdentValue();
-	p.next();
-	p.expectAndNext(Token.BeginParen);
-	let params: FnDeclParam[] = [];
-	if (!p.tokenIs(Token.EndParen)) {
-		params.push(parseFnDeclParam(p));
-		while (p.tokenIs(Token.Comma)) {
-			p.next();
-			if (p.tokenIs(Token.EndParen)) {
-				break;
-			}
-			params.push(parseFnDeclParam(p));
-		}
-	}
-	p.expectAndNext(Token.EndParen);
-	let returnTy;
-	if (p.tokenIs(Token.Colon)) {
-		returnTy = parseTyLabel(p);
-	}
-	const body = parseBlock(p);
+    const pos = p.getPos();
+    p.next();
+    p.expect(Token.Ident);
+    const name = p.getIdentValue();
+    p.next();
+    p.expectAndNext(Token.BeginParen);
+    let params: FnDeclParam[] = [];
+    if (!p.tokenIs(Token.EndParen)) {
+        params.push(parseFnDeclParam(p));
+        while (p.tokenIs(Token.Comma)) {
+            p.next();
+            if (p.tokenIs(Token.EndParen)) {
+                break;
+            }
+            params.push(parseFnDeclParam(p));
+        }
+    }
+    p.expectAndNext(Token.EndParen);
+    let returnTy;
+    if (p.tokenIs(Token.Colon)) {
+        returnTy = parseTyLabel(p);
+    }
+    const body = parseBlock(p);
 
-	trace.leave();
-	return newFunctionDecl(pos, name, params, body, returnTy);
+    trace.leave();
+    return newFunctionDecl(pos, name, params, body, returnTy);
 }
 
 /**
@@ -218,20 +218,20 @@ function parseFunctionDecl(p: Parser): FunctionDecl {
  * ```
 */
 function parseFnDeclParam(p: Parser): FnDeclParam {
-	trace.enter('[parse] parseFnDeclParam');
+    trace.enter('[parse] parseFnDeclParam');
 
-	const pos = p.getPos();
-	p.expect(Token.Ident);
-	const name = p.getIdentValue();
-	p.next();
+    const pos = p.getPos();
+    p.expect(Token.Ident);
+    const name = p.getIdentValue();
+    p.next();
 
-	let ty;
-	if (p.tokenIs(Token.Colon)) {
-		ty = parseTyLabel(p);
-	}
+    let ty;
+    if (p.tokenIs(Token.Colon)) {
+        ty = parseTyLabel(p);
+    }
 
-	trace.leave();
-	return newFnDeclParam(pos, name, ty);
+    trace.leave();
+    return newFnDeclParam(pos, name, ty);
 }
 
 //#endregion SourceFile
@@ -244,26 +244,26 @@ function parseFnDeclParam(p: Parser): FnDeclParam {
  * ```
 */
 function parseStatement(p: Parser): StatementNode {
-	switch (p.getToken()) {
-		case Token.Var: {
-			return parseVariableDecl(p);
-		}
-		case Token.If: {
-			return parseIfStatement(p);
-		}
-		case Token.Loop: {
-			return parseLoopStatement(p);
-		}
-		case Token.Return: {
-			return parseReturnStatement(p);
-		}
-		case Token.Break: {
-			return parseBreakStatement(p);
-		}
-		default: {
-			return parseStatementStartWithExpr(p);
-		}
-	}
+    switch (p.getToken()) {
+        case Token.Var: {
+            return parseVariableDecl(p);
+        }
+        case Token.If: {
+            return parseIfStatement(p);
+        }
+        case Token.Loop: {
+            return parseLoopStatement(p);
+        }
+        case Token.Return: {
+            return parseReturnStatement(p);
+        }
+        case Token.Break: {
+            return parseBreakStatement(p);
+        }
+        default: {
+            return parseStatementStartWithExpr(p);
+        }
+    }
 }
 
 /**
@@ -274,62 +274,62 @@ function parseStatement(p: Parser): StatementNode {
  * ```
 */
 function parseStatementStartWithExpr(p: Parser): StatementNode {
-	trace.enter('[parse] parseStatementStartWithExpr');
+    trace.enter('[parse] parseStatementStartWithExpr');
 
-	const expr = parseExpr(p);
-	switch (p.getToken()) {
-		case Token.Assign:
-		case Token.AddAssign:
-		case Token.SubAssign:
-		case Token.MultAssign:
-		case Token.DivAssign:
-		case Token.ModAssign: {
-			const modeToken = p.getToken();
-			p.next();
-			let mode: AssignMode;
-			switch (modeToken) {
-				case Token.Assign: {
-					mode = '=';
-					break;
-				}
-				case Token.AddAssign: {
-					mode = '+=';
-					break;
-				}
-				case Token.SubAssign: {
-					mode = '-=';
-					break;
-				}
-				case Token.MultAssign: {
-					mode = '*=';
-					break;
-				}
-				case Token.DivAssign: {
-					mode = '/=';
-					break;
-				}
-				case Token.ModAssign: {
-					mode = '%=';
-					break;
-				}
-				default: {
-					throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
-				}
-			}
-			const body = parseExpr(p);
-			p.expectAndNext(Token.Semi);
-			trace.leave();
-			return newAssignStatement(expr.pos, expr, body, mode);
-		}
-		case Token.Semi: {
-			p.next();
-			trace.leave();
-			return expr;
-		}
-		default: {
-			throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
-		}
-	}
+    const expr = parseExpr(p);
+    switch (p.getToken()) {
+        case Token.Assign:
+        case Token.AddAssign:
+        case Token.SubAssign:
+        case Token.MultAssign:
+        case Token.DivAssign:
+        case Token.ModAssign: {
+            const modeToken = p.getToken();
+            p.next();
+            let mode: AssignMode;
+            switch (modeToken) {
+                case Token.Assign: {
+                    mode = '=';
+                    break;
+                }
+                case Token.AddAssign: {
+                    mode = '+=';
+                    break;
+                }
+                case Token.SubAssign: {
+                    mode = '-=';
+                    break;
+                }
+                case Token.MultAssign: {
+                    mode = '*=';
+                    break;
+                }
+                case Token.DivAssign: {
+                    mode = '/=';
+                    break;
+                }
+                case Token.ModAssign: {
+                    mode = '%=';
+                    break;
+                }
+                default: {
+                    throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
+                }
+            }
+            const body = parseExpr(p);
+            p.expectAndNext(Token.Semi);
+            trace.leave();
+            return newAssignStatement(expr.pos, expr, body, mode);
+        }
+        case Token.Semi: {
+            p.next();
+            trace.leave();
+            return expr;
+        }
+        default: {
+            throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
+        }
+    }
 }
 
 /**
@@ -338,28 +338,28 @@ function parseStatementStartWithExpr(p: Parser): StatementNode {
  * ```
 */
 function parseVariableDecl(p: Parser): VariableDecl {
-	trace.enter('[parse] parseVariableDecl');
+    trace.enter('[parse] parseVariableDecl');
 
-	p.next();
-	const pos = p.getPos();
-	p.expect(Token.Ident);
-	const name = p.getIdentValue();
-	p.next();
+    p.next();
+    const pos = p.getPos();
+    p.expect(Token.Ident);
+    const name = p.getIdentValue();
+    p.next();
 
-	let ty;
-	if (p.tokenIs(Token.Colon)) {
-		ty = parseTyLabel(p);
-	}
+    let ty;
+    if (p.tokenIs(Token.Colon)) {
+        ty = parseTyLabel(p);
+    }
 
-	let body;
-	if (p.tokenIs(Token.Assign)) {
-		p.next();
-		body = parseExpr(p);
-	}
-	p.expectAndNext(Token.Semi);
+    let body;
+    if (p.tokenIs(Token.Assign)) {
+        p.next();
+        body = parseExpr(p);
+    }
+    p.expectAndNext(Token.Semi);
 
-	trace.leave();
-	return newVariableDecl(pos, name, ty, body);
+    trace.leave();
+    return newVariableDecl(pos, name, ty, body);
 }
 
 /**
@@ -368,14 +368,14 @@ function parseVariableDecl(p: Parser): VariableDecl {
  * ```
 */
 function parseBreakStatement(p: Parser): BreakStatement {
-	trace.enter('[parse] parseBreakStatement');
+    trace.enter('[parse] parseBreakStatement');
 
-	const pos = p.getPos();
-	p.expectAndNext(Token.Break);
-	p.expectAndNext(Token.Semi);
+    const pos = p.getPos();
+    p.expectAndNext(Token.Break);
+    p.expectAndNext(Token.Semi);
 
-	trace.leave();
-	return newBreakStatement(pos);
+    trace.leave();
+    return newBreakStatement(pos);
 }
 
 /**
@@ -384,18 +384,18 @@ function parseBreakStatement(p: Parser): BreakStatement {
  * ```
 */
 function parseReturnStatement(p: Parser): ReturnStatement {
-	trace.enter('[parse] parseReturnStatement');
+    trace.enter('[parse] parseReturnStatement');
 
-	const pos = p.getPos();
-	p.expectAndNext(Token.Return);
-	let expr;
-	if (!p.tokenIs(Token.Semi)) {
-		expr = parseExpr(p);
-	}
-	p.expectAndNext(Token.Semi);
+    const pos = p.getPos();
+    p.expectAndNext(Token.Return);
+    let expr;
+    if (!p.tokenIs(Token.Semi)) {
+        expr = parseExpr(p);
+    }
+    p.expectAndNext(Token.Semi);
 
-	trace.leave();
-	return newReturnStatement(pos, expr);
+    trace.leave();
+    return newReturnStatement(pos, expr);
 }
 
 /**
@@ -404,26 +404,26 @@ function parseReturnStatement(p: Parser): ReturnStatement {
  * ```
 */
 function parseIfStatement(p: Parser): IfStatement {
-	trace.enter('[parse] parseIfStatement');
+    trace.enter('[parse] parseIfStatement');
 
-	const pos = p.getPos();
-	p.next();
-	const cond = parseExpr(p);
-	const thenBlock = parseBlock(p);
-	let elseBlock: StatementNode[];
-	if (p.tokenIs(Token.Else)) {
-		p.next();
-		if (p.tokenIs(Token.If)) {
-			elseBlock = [parseIfStatement(p)];
-		} else {
-			elseBlock = parseBlock(p);
-		}
-	} else {
-		elseBlock = [];
-	}
+    const pos = p.getPos();
+    p.next();
+    const cond = parseExpr(p);
+    const thenBlock = parseBlock(p);
+    let elseBlock: StatementNode[];
+    if (p.tokenIs(Token.Else)) {
+        p.next();
+        if (p.tokenIs(Token.If)) {
+            elseBlock = [parseIfStatement(p)];
+        } else {
+            elseBlock = parseBlock(p);
+        }
+    } else {
+        elseBlock = [];
+    }
 
-	trace.leave();
-	return newIfStatement(pos, cond, thenBlock, elseBlock);
+    trace.leave();
+    return newIfStatement(pos, cond, thenBlock, elseBlock);
 }
 
 /**
@@ -432,14 +432,14 @@ function parseIfStatement(p: Parser): IfStatement {
  * ```
 */
 function parseLoopStatement(p: Parser): LoopStatement {
-	trace.enter('[parse] parseLoopStatement');
+    trace.enter('[parse] parseLoopStatement');
 
-	const pos = p.getPos();
-	p.expectAndNext(Token.Loop);
-	const block = parseBlock(p);
+    const pos = p.getPos();
+    p.expectAndNext(Token.Loop);
+    const block = parseBlock(p);
 
-	trace.leave();
-	return newLoopStatement(pos, block);
+    trace.leave();
+    return newLoopStatement(pos, block);
 }
 
 //#endregion Statements
@@ -447,55 +447,55 @@ function parseLoopStatement(p: Parser): LoopStatement {
 //#region Expressions
 
 function parseExpr(p: Parser): ExprNode {
-	return parseInfix(p, 0);
+    return parseInfix(p, 0);
 }
 
 type OpInfo = { prec: number, assoc: 'left' | 'right', op: BinaryOperator };
 
 const opTable: Map<Token, OpInfo> = new Map([
-	// 1
-	[Token.Or2, { prec: 1, assoc: 'left', op: '||' }],
-	// 2
-	[Token.And2, { prec: 2, assoc: 'left', op: '&&' }],
-	// 3
-	[Token.Eq, { prec: 3, assoc: 'left', op: '==' }],
-	[Token.NotEq, { prec: 3, assoc: 'left', op: '!=' }],
-	// 4
-	[Token.LessThan, { prec: 4, assoc: 'left', op: '<' }],
-	[Token.LessThanEq, { prec: 4, assoc: 'left', op: '<=' }],
-	[Token.GreaterThan, { prec: 4, assoc: 'left', op: '>' }],
-	[Token.GreaterThanEq, { prec: 4, assoc: 'left', op: '>=' }],
-	// 5
-	[Token.Plus, { prec: 5, assoc: 'left', op: '+' }],
-	[Token.Minus, { prec: 5, assoc: 'left', op: '-' }],
-	// 6
-	[Token.Asterisk, { prec: 6, assoc: 'left', op: '*' }],
-	[Token.Slash, { prec: 6, assoc: 'left', op: '/' }],
-	[Token.Percent, { prec: 6, assoc: 'left', op: '%' }],
+    // 1
+    [Token.Or2, { prec: 1, assoc: 'left', op: '||' }],
+    // 2
+    [Token.And2, { prec: 2, assoc: 'left', op: '&&' }],
+    // 3
+    [Token.Eq, { prec: 3, assoc: 'left', op: '==' }],
+    [Token.NotEq, { prec: 3, assoc: 'left', op: '!=' }],
+    // 4
+    [Token.LessThan, { prec: 4, assoc: 'left', op: '<' }],
+    [Token.LessThanEq, { prec: 4, assoc: 'left', op: '<=' }],
+    [Token.GreaterThan, { prec: 4, assoc: 'left', op: '>' }],
+    [Token.GreaterThanEq, { prec: 4, assoc: 'left', op: '>=' }],
+    // 5
+    [Token.Plus, { prec: 5, assoc: 'left', op: '+' }],
+    [Token.Minus, { prec: 5, assoc: 'left', op: '-' }],
+    // 6
+    [Token.Asterisk, { prec: 6, assoc: 'left', op: '*' }],
+    [Token.Slash, { prec: 6, assoc: 'left', op: '/' }],
+    [Token.Percent, { prec: 6, assoc: 'left', op: '%' }],
 ]);
 
 function parseInfix(p: Parser, minPrec: number): ExprNode {
-	// precedence climbing
-	// https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
-	let expr = parseAtom(p);
-	while (true) {
-		const pos = p.getPos();
-		const op = p.getToken();
-		const info = opTable.get(op);
-		if (info == null || info.prec < minPrec) {
-			break;
-		}
-		let nextMinPrec;
-		if (info.assoc == 'left') {
-			nextMinPrec = info.prec + 1;
-		} else {
-			nextMinPrec = info.prec;
-		}
-		p.next();
-		const rightExpr = parseInfix(p, nextMinPrec);
-		expr = newBinaryOp(pos, info.op, expr, rightExpr);
-	}
-	return expr;
+    // precedence climbing
+    // https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
+    let expr = parseAtom(p);
+    while (true) {
+        const pos = p.getPos();
+        const op = p.getToken();
+        const info = opTable.get(op);
+        if (info == null || info.prec < minPrec) {
+            break;
+        }
+        let nextMinPrec;
+        if (info.assoc == 'left') {
+            nextMinPrec = info.prec + 1;
+        } else {
+            nextMinPrec = info.prec;
+        }
+        p.next();
+        const rightExpr = parseInfix(p, nextMinPrec);
+        expr = newBinaryOp(pos, info.op, expr, rightExpr);
+    }
+    return expr;
 }
 
 /**
@@ -504,8 +504,8 @@ function parseInfix(p: Parser, minPrec: number): ExprNode {
  * ```
 */
 function parseAtom(p: Parser): ExprNode {
-	const expr = parseAtomInner(p);
-	return parseSuffixChain(p, expr);
+    const expr = parseAtomInner(p);
+    return parseSuffixChain(p, expr);
 }
 
 /**
@@ -513,36 +513,36 @@ function parseAtom(p: Parser): ExprNode {
  * If there is no suffix, the target is returned as is.
 */
 function parseSuffixChain(p: Parser, target: ExprNode): ExprNode {
-	switch (p.getToken()) {
-		case Token.BeginParen: {
-			break;
-		}
-		default: {
-			return target;
-		}
-	}
+    switch (p.getToken()) {
+        case Token.BeginParen: {
+            break;
+        }
+        default: {
+            return target;
+        }
+    }
 
-	const pos = p.getPos();
-	switch (p.getToken()) {
-		case Token.BeginParen: { // call
-			p.next();
-			const args: ExprNode[] = [];
-			if (!p.tokenIs(Token.EndParen)) {
-				args.push(parseExpr(p));
-				while (p.tokenIs(Token.Comma)) {
-					p.next();
-					if (p.tokenIs(Token.EndParen)) {
-						break;
-					}
-					args.push(parseExpr(p));
-				}
-			}
-			p.expectAndNext(Token.EndParen);
-			target = newCall(pos, target, args);
-		}
-	}
+    const pos = p.getPos();
+    switch (p.getToken()) {
+        case Token.BeginParen: { // call
+            p.next();
+            const args: ExprNode[] = [];
+            if (!p.tokenIs(Token.EndParen)) {
+                args.push(parseExpr(p));
+                while (p.tokenIs(Token.Comma)) {
+                    p.next();
+                    if (p.tokenIs(Token.EndParen)) {
+                        break;
+                    }
+                    args.push(parseExpr(p));
+                }
+            }
+            p.expectAndNext(Token.EndParen);
+            target = newCall(pos, target, args);
+        }
+    }
 
-	return parseSuffixChain(p, target);
+    return parseSuffixChain(p, target);
 }
 
 /**
@@ -551,42 +551,42 @@ function parseSuffixChain(p: Parser, target: ExprNode): ExprNode {
  * ```
 */
 function parseAtomInner(p: Parser): ExprNode {
-	const pos = p.getPos();
-	switch (p.getToken()) {
-		case Token.Literal: {
-			const literal = p.getLiteralValue();
-			p.next();
-			if (literal.kind == 'number') {
-				return newNumberLiteral(pos, parseInt(literal.value));
-			}
-			if (literal.kind == 'bool') {
-				return newBoolLiteral(pos, (literal.value == 'true'));
-			}
-			if (literal.kind == 'string') {
-				return newStringLiteral(pos, literal.value);
-			}
-			throw new UguisuError('not implemented yet');
-		}
-		case Token.Ident: {
-			const name = p.getIdentValue();
-			p.next();
-			return newIdentifier(pos, name);
-		}
-		case Token.Not: {
-			p.next();
-			const expr = parseAtom(p);
-			return newUnaryOp(pos, '!', expr);
-		}
-		case Token.BeginParen: {
-			p.next();
-			const expr = parseExpr(p);
-			p.expectAndNext(Token.EndParen);
-			return expr;
-		}
-		default: {
-			throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
-		}
-	}
+    const pos = p.getPos();
+    switch (p.getToken()) {
+        case Token.Literal: {
+            const literal = p.getLiteralValue();
+            p.next();
+            if (literal.kind == 'number') {
+                return newNumberLiteral(pos, parseInt(literal.value));
+            }
+            if (literal.kind == 'bool') {
+                return newBoolLiteral(pos, (literal.value == 'true'));
+            }
+            if (literal.kind == 'string') {
+                return newStringLiteral(pos, literal.value);
+            }
+            throw new UguisuError('not implemented yet');
+        }
+        case Token.Ident: {
+            const name = p.getIdentValue();
+            p.next();
+            return newIdentifier(pos, name);
+        }
+        case Token.Not: {
+            p.next();
+            const expr = parseAtom(p);
+            return newUnaryOp(pos, '!', expr);
+        }
+        case Token.BeginParen: {
+            p.next();
+            const expr = parseExpr(p);
+            p.expectAndNext(Token.EndParen);
+            return expr;
+        }
+        default: {
+            throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
+        }
+    }
 }
 
 //#endregion Expressions
