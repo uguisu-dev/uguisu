@@ -24,12 +24,10 @@ export class Uguisu {
 	runCode(sourceCode: string, filename: string) {
 		// parse
 		const sourceFile = parse(sourceCode, filename);
-
 		// static analysis
 		const analysisEnv = new AnalysisEnv();
 		const symbolTable = new Map();
 		analyze(sourceFile, analysisEnv, symbolTable);
-
 		// run
 		const runningEnv = new RunningEnv();
 		run(sourceFile, runningEnv, this._options);
@@ -39,14 +37,12 @@ export class Uguisu {
 	 * @throws UguisuError
 	*/
 	runFile(filename: string) {
-		// load file
 		let sourceCode;
 		try {
 			sourceCode = fs.readFileSync(filename, { encoding: 'utf8' });
 		} catch (err) {
 			throw new UguisuError('Failed to load the file.');
 		}
-
 		this.runCode(sourceCode, filename);
 	}
 }
