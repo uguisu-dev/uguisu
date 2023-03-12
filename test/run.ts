@@ -347,166 +347,122 @@ fn main() {
 }
 `));
 
-// function identifier
+// function
 
-test('should generate error with function name 1', () => {
-	const input = `
-	fn main() {
-		main = 1;
-	}
-	`;
-	try {
-		runTest(input);
-	} catch (err) {
-		return;
-	}
-	assert.fail();
-});
-
-test('should generate error with function name 2', () => {
-	const input = `
-	fn main() {
-		var x = 1;
-		x = main;
-	}
-	`;
-	try {
-		runTest(input);
-	} catch (err) {
-		return;
-	}
-	assert.fail();
-});
-
-test('should generate error with function name 3', () => {
-	const input = `
+describe('function', () => {
+	test('assign', () => runTest(`
 	fn main() {
 		var x = main;
 	}
-	`;
-	try {
-		runTest(input);
-	} catch (err) {
-		return;
-	}
-	assert.fail();
-});
+	`));
 
-test('should generate error with function name 4', () => {
-	const input = `
-	fn f(): number {
+	test('return', () => runTest(`
+	fn f(): () => void {
 		return f;
 	}
 	fn main() {
 		f();
 	}
-	`;
-	try {
-		runTest(input);
-	} catch (err) {
-		return;
-	}
-	assert.fail();
-});
+	`));
 
-test('should generate error with function name 5', () => {
-	const input = `
+	test('compare', () => runTest(`
 	fn main() {
 		if main == main { }
 	}
-	`;
-	try {
-		runTest(input);
-	} catch (err) {
-		return;
-	}
-	assert.fail();
-});
+	`));
 
-test('should generate error with function name 6', () => {
-	const input = `
+	test('expr statement', () => runTest(`
 	fn main() {
 		main;
 	}
-	`;
-	try {
-		runTest(input);
-	} catch (err) {
-		return;
-	}
-	assert.fail();
-});
+	`));
 
-test('should generate error with function name 7', () => {
-	const input = `
-	fn main() {
-		var x = !main;
-	}
-	`;
-	try {
-		runTest(input);
-	} catch (err) {
-		return;
-	}
-	assert.fail();
-});
+	test('generate error 1', () => {
+		const input = `
+		fn main() {
+			main = 1;
+		}
+		`;
+		try {
+			runTest(input);
+		} catch (err) {
+			return;
+		}
+		assert.fail();
+	});
 
-test('should generate error with function name 8', () => {
-	const input = `
-	fn main() {
-		var x = main + main;
-	}
-	`;
-	try {
-		runTest(input);
-	} catch (err) {
-		return;
-	}
-	assert.fail();
-});
+	test('generate error 2', () => {
+		const input = `
+		fn main() {
+			var x = 1;
+			x = main;
+		}
+		`;
+		try {
+			runTest(input);
+		} catch (err) {
+			return;
+		}
+		assert.fail();
+	});
 
-test('should generate error with function name 9', () => {
-	const input = `
-	fn main() {
-		var x = main == main;
-	}
-	`;
-	try {
-		runTest(input);
-	} catch (err) {
-		return;
-	}
-	assert.fail();
-});
+	test('generate error 3', () => {
+		const input = `
+		fn main() {
+			var x = !main;
+		}
+		`;
+		try {
+			runTest(input);
+		} catch (err) {
+			return;
+		}
+		assert.fail();
+	});
 
-test('should generate error with function name 10', () => {
-	const input = `
-	fn main() {
-		var x = main && main;
-	}
-	`;
-	try {
-		runTest(input);
-	} catch (err) {
-		return;
-	}
-	assert.fail();
-});
+	test('generate error 4', () => {
+		const input = `
+		fn main() {
+			var x = main + main;
+		}
+		`;
+		try {
+			runTest(input);
+		} catch (err) {
+			return;
+		}
+		assert.fail();
+	});
 
-test('should generate error with function name 11', () => {
-	const input = `
-	fn f() {
-	}
-	fn main() {
-		var x = f(main);
-	}
-	`;
-	try {
-		runTest(input);
-	} catch (err) {
-		return;
-	}
-	assert.fail();
+	test('generate error 5', () => {
+		const input = `
+		fn main() {
+			var x = main && main;
+		}
+		`;
+		try {
+			runTest(input);
+		} catch (err) {
+			return;
+		}
+		assert.fail();
+	});
+
+	test('generate error 6', () => {
+		const input = `
+		fn f() {
+		}
+		fn main() {
+			var x = f(main);
+		}
+		`;
+		try {
+			runTest(input);
+		} catch (err) {
+			return;
+		}
+		assert.fail();
+	});
 });
 
 // comments
