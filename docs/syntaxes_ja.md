@@ -193,27 +193,25 @@ comment
 ```
 fn printStr(value: string);
 ```
-文字列を標準出力に出力します。  
-改行されません。
+文字列を標準出力に出力します。
 
 ### printNum
 ```
 fn printNum(value: number);
 ```
-数値を標準出力に出力します。  
-改行されません。
+数値を標準出力に出力します。
 
 ### assertEqNum
 ```
 fn assertEqNum(actual: number, expected: number);
 ```
-与えられた値と期待する値を比較して、値が異なる場合にランタイムエラーを発生させます。
+与えられた数値と期待する数値を比較して、値が異なる場合にランタイムエラーを発生させます。
 
 ### assertEqStr
 ```
 fn assertEqStr(actual: string, expected: string);
 ```
-与えられた値と期待する値を比較して、値が異なる場合にランタイムエラーを発生させます。
+与えられた文字列と期待する文字列を比較して、値が異なる場合にランタイムエラーを発生させます。
 
 ### getUnixtime
 ```
