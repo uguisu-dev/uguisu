@@ -1,9 +1,10 @@
 # 文法
-対象バージョン: Uguisu 0.6
+対象バージョン: Uguisu 0.7
 
 ## 式 (expression)
 - 数値リテラル
 - bool値リテラル
+- 文字列リテラル
 - 単項演算式
 - 二項演算式
 - 変数の参照
@@ -28,6 +29,9 @@
 ### bool
 真または偽の値を表します。
 
+### string
+文字列を表します。
+
 ## 数値リテラル
 ```
 123
@@ -40,6 +44,11 @@ true
 or
 ```
 false
+```
+
+## 文字列リテラル
+```
+"hello"
 ```
 
 ## 単項演算式
@@ -71,6 +80,8 @@ expression + expression
 演算子の左右には同じ型の式を与える必要があります。
 
 `==` `!=` `<` `<=` `>` `>=`
+
+※`<` `<=` `>` `>=`の場合、左右の式はnumber型である必要があります。
 
 ### 論理演算子
 論理演算を行ってbool値を返します。  
@@ -178,31 +189,44 @@ comment
 
 ## ビルトイン関数
 
+### printStr
+```
+fn printStr(value: string);
+```
+文字列を標準出力に出力します。
+
 ### printNum
-関数シグネチャ:
 ```
 fn printNum(value: number);
 ```
-数値を標準出力に出力します。  
-改行されません。
+数値を標準出力に出力します。
 
-### printLF
-関数シグネチャ:
+### assertEqNum
 ```
-fn printLF();
-```
-改行コード(LF)を標準出力に出力します。
-
-### assertEq
-関数シグネチャ:
-```
-fn assertEq(actual: number, expected: number);
+fn assertEqNum(actual: number, expected: number);
 ```
 与えられた数値と期待する数値を比較して、値が異なる場合にランタイムエラーを発生させます。
 
+### assertEqStr
+```
+fn assertEqStr(actual: string, expected: string);
+```
+与えられた文字列と期待する文字列を比較して、値が異なる場合にランタイムエラーを発生させます。
+
 ### getUnixtime
-関数シグネチャ:
 ```
 fn getUnixtime(): number;
 ```
 現在の時刻をUnixtimeの形式で取得します(単位は秒)。
+
+### concatStr
+```
+fn concatStr(x: string, y: string): string;
+```
+2つの文字列を連結して新しい文字列を生成します。
+
+### toString
+```
+fn toString(source: number): string;
+```
+数値を文字列に変換します。

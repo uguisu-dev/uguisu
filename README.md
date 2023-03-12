@@ -1,4 +1,4 @@
-<img alt="uguisu logo" width="100px" align="right" src="https://raw.githubusercontent.com/uguisu-dev/uguisu/master/uguisu-logo.png" />
+<img alt="uguisu logo" width="100px" align="right" src="https://raw.githubusercontent.com/uguisu-dev/uguisu/v0.7.0/uguisu-logo.png" />
 
 # Uguisu
 The Uguisu is a statically typed scripting language.  
@@ -21,9 +21,17 @@ fn main() {
 ```
 
 ## Syntaxes
-See [syntaxes (日本語)](https://github.com/uguisu-dev/uguisu/tree/master/docs/syntaxes_ja.md)
+- English (Not translated yet.)
+- [日本語](https://github.com/uguisu-dev/uguisu/blob/v0.7.0/docs/syntaxes_ja.md)
 
-## Usage
+## Install
+Node.js and npm installation is required.  
+Local installation is also ok if only the JavaScript API is used.
+```
+$ npm i -g uguisu-js
+```
+
+## Command line
 ```
 Usage: uguisu [options] [commands]
 
@@ -39,6 +47,30 @@ Options:
 Commands:
     run                 Run a script file.
 
+```
+
+## JavaScript API
+Uguisu only supports the ES Modules (ESM).
+
+```js
+import { Uguisu } from 'uguisu-js';
+
+const uguisu = new Uguisu({
+    stdout(str) {
+        console.log(str);
+    }
+});
+
+// Run passing a source code.
+const sourceCode = `
+fn main() {
+    printStr("hello world");
+}
+`;
+uguisu.runCode(sourceCode);
+
+// Run passing a file path of a source code.
+uguisu.runFile('./example.ug');
 ```
 
 ## License
