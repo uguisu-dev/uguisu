@@ -203,12 +203,6 @@ fn printNum(value: number);
 数値を標準出力に出力します。  
 改行されません。
 
-### printLF
-```
-fn printLF();
-```
-改行コード(LF)を標準出力に出力します。
-
 ### assertEq
 ```
 fn assertEq(actual: number, expected: number);
