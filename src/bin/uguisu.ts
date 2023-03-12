@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { command as root } from '../commands/root.js';
-import { command as run } from '../commands/run.js';
+import { command as root } from './uguisu/root.js';
+import { command as run } from './uguisu/run.js';
 
 const args = process.argv.slice(2);
 

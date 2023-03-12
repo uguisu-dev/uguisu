@@ -4,7 +4,9 @@
 # editor
 /.vscode
 
-# app dir
+# user
 /built
+/bin
+/lib
 /temp
 /release

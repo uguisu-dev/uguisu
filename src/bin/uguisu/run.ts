@@ -1,4 +1,4 @@
-import { Uguisu } from '../lib/index.js';
+import { Uguisu } from '../../lib/index.js';
 
 type Match = {
 	help: boolean,
