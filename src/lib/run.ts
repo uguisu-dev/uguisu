@@ -1,5 +1,3 @@
-import { UguisuError, UguisuOptions } from './index.js';
-import * as builtins from './builtins.js';
 import {
 	ExprNode,
 	FunctionDecl,
@@ -8,8 +6,11 @@ import {
 	isLogicalBinaryOperator,
 	isOrderingOperator,
 	SourceFile,
-	StatementNode,
+	StatementNode
 } from './ast.js';
+import * as builtins from './builtins.js';
+import { UguisuError } from './misc/errors.js';
+import { UguisuOptions } from './misc/options.js';
 import { Trace } from './misc/trace.js';
 
 const trace = Trace.getDefault().createChild(false);

@@ -1,4 +1,3 @@
-import { Trace } from './misc/trace.js';
 import {
 	AssignMode,
 	BinaryOperator,
@@ -29,11 +28,11 @@ import {
 	SourceFile,
 	StatementNode,
 	TyLabel,
-	VariableDecl,
+	VariableDecl
 } from './ast.js';
-import { LiteralKind, LiteralValue, Scanner } from './scan.js';
-import { Token } from './scan.js';
-import { UguisuError } from './index.js';
+import { UguisuError } from './misc/errors';
+import { Trace } from './misc/trace.js';
+import { LiteralKind, LiteralValue, Scanner, Token } from './scan.js';
 
 const trace = Trace.getDefault().createChild(false);
 

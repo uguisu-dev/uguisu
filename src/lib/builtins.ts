@@ -1,14 +1,13 @@
-import { UguisuError, UguisuOptions } from './index.js';
+import { AnalysisEnv, newNativeFnSymbol, Type } from './analyze.js';
+import { UguisuError } from './misc/errors.js';
+import { UguisuOptions } from './misc/options.js';
 import {
 	assertNumber,
-	assertString,
-	RunningEnv,
-	newNativeFunction,
+	assertString, newNativeFunction,
 	newNoneValue,
 	newNumber,
-	newString,
+	newString, RunningEnv
 } from './run.js';
-import { AnalysisEnv, newNativeFnSymbol, Type } from './analyze.js';
 
 export function setDeclarations(env: AnalysisEnv) {
 	setDecl('printStr', ['string'], 'void', env);

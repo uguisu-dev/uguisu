@@ -1,8 +1,8 @@
 import assert from 'assert';
-import { Parser } from '../src/lib/parse.js';
-import { Runner } from '../src/lib/run.js';
 import { Analyzer } from '../src/lib/analyze.js';
 import { SourceFile } from '../src/lib/ast.js';
+import { Parser } from '../src/lib/parse.js';
+import { Runner } from '../src/lib/run.js';
 
 function runTest(sourceCode: string) {
 	const parser = new Parser();

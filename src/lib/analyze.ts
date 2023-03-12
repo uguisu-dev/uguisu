@@ -7,10 +7,10 @@ import {
 	isOrderingOperator,
 	SourceFile,
 	StatementNode,
-	TyLabel,
+	TyLabel
 } from './ast.js';
 import * as builtins from './builtins.js';
-import { UguisuError } from './index.js';
+import { UguisuError } from './misc/errors.js';
 
 export class Analyzer {
 	env: AnalysisEnv;

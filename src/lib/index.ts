@@ -1,7 +1,9 @@
 import fs from 'fs';
+import { Analyzer } from './analyze.js';
+import { UguisuError } from './misc/errors.js';
+import { UguisuOptions } from './misc/options.js';
 import { Parser } from './parse.js';
 import { Runner } from './run.js';
-import { Analyzer } from './analyze.js';
 
 export class Uguisu {
 	private _options: UguisuOptions;
@@ -33,16 +35,5 @@ export class Uguisu {
 		// run
 		const runner = new Runner(this._options);
 		runner.run(sourceFile);
-	}
-}
-
-export type UguisuOptions = {
-	stdin?: () => Promise<string>,
-	stdout?: (buf: string) => void,
-};
-
-export class UguisuError extends Error {
-	constructor(message: string) {
-		super(message);
 	}
 }
