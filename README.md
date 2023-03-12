@@ -55,19 +55,22 @@ Uguisu only supports the ES Modules (ESM).
 ```js
 import { Uguisu } from 'uguisu-js';
 
+const uguisu = new Uguisu({
+	stdout(str) {
+		console.log(str);
+	}
+});
+
+// with source code
 const sourceCode = `
 fn main() {
     printStr("hello world");
 }
 `;
+uguisu.runCode(sourceCode);
 
-const uguisu = new Uguisu();
-
-uguisu.setStdout((str) => {
-    console.log(str);
-});
-
-uguisu.run(sourceCode);
+// with filename of source code
+uguisu.runFile(filename);
 ```
 
 ## License
