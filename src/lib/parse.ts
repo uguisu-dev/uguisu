@@ -32,7 +32,7 @@ import {
 } from './ast.js';
 import { UguisuError } from './misc/errors';
 import { Trace } from './misc/trace.js';
-import { LiteralKind, LiteralValue, Scanner, Token } from './scan.js';
+import { LiteralValue, Scanner, Token } from './scan.js';
 
 const trace = Trace.getDefault().createChild(false);
 
