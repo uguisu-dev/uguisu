@@ -203,11 +203,17 @@ fn printNum(value: number);
 数値を標準出力に出力します。  
 改行されません。
 
-### assertEq
+### assertEqNum
 ```
-fn assertEq(actual: number, expected: number);
+fn assertEqNum(actual: number, expected: number);
 ```
-与えられた数値と期待する数値を比較して、値が異なる場合にランタイムエラーを発生させます。
+与えられた値と期待する値を比較して、値が異なる場合にランタイムエラーを発生させます。
+
+### assertEqStr
+```
+fn assertEqStr(actual: string, expected: string);
+```
+与えられた値と期待する値を比較して、値が異なる場合にランタイムエラーを発生させます。
 
 ### getUnixtime
 ```

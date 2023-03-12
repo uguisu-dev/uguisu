@@ -36,7 +36,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
 	});
 	env.define('printNum', printNum);
 
-	const assertEq = newNativeFunction((args) => {
+	const assertEqNum = newNativeFunction((args) => {
 		if (args.length != 2) {
 			throw new UguisuError('invalid arguments count');
 		}
@@ -49,7 +49,22 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
 		}
 		return newNoneValue();
 	});
-	env.define('assertEq', assertEq);
+	env.define('assertEqNum', assertEqNum);
+
+	const assertEqStr = newNativeFunction((args) => {
+		if (args.length != 2) {
+			throw new UguisuError('invalid arguments count');
+		}
+		assertString(args[0]);
+		assertString(args[1]);
+		const actual = args[0].value;
+		const expected = args[1].value;
+		if (actual != expected) {
+			throw new UguisuError(`assertion error. expected \`${expected}\`, actual \`${actual}\`.`);
+		}
+		return newNoneValue();
+	});
+	env.define('assertEqStr', assertEqStr);
 
 	const getUnixtime = newNativeFunction((args) => {
 		if (args.length != 0) {
