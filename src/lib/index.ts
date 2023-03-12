@@ -1,15 +1,38 @@
 import fs from 'fs';
-import { Analyzer } from './analyze.js';
 import { UguisuError } from './misc/errors.js';
 import { UguisuOptions } from './misc/options.js';
-import { Parser } from './parse.js';
-import { Runner } from './run.js';
+import { run } from './running/run.js';
+import { RunningEnv } from './running/tools.js';
+import { analyze } from './semantics/analyze.js';
+import { AnalysisEnv } from './semantics/tools.js';
+import { parse } from './syntax/parse.js';
+
+export {
+	UguisuError
+};
 
 export class Uguisu {
 	private _options: UguisuOptions;
 
 	constructor(options?: UguisuOptions) {
 		this._options = options ?? {};
+	}
+
+	/**
+	 * @throws UguisuError
+	*/
+	runCode(sourceCode: string, filename: string) {
+		// parse
+		const sourceFile = parse(sourceCode, filename);
+
+		// static analysis
+		const analysisEnv = new AnalysisEnv();
+		const symbolTable = new Map();
+		analyze(sourceFile, analysisEnv, symbolTable);
+
+		// run
+		const runningEnv = new RunningEnv();
+		run(sourceFile, runningEnv, this._options);
 	}
 
 	/**
@@ -24,16 +47,6 @@ export class Uguisu {
 			throw new UguisuError('Failed to load the file.');
 		}
 
-		// parse
-		const parser = new Parser();
-		const sourceFile = parser.parse(sourceCode, filename);
-
-		// static analysis
-		const analyzer = new Analyzer();
-		analyzer.analyze(sourceFile);
-
-		// run
-		const runner = new Runner(this._options);
-		runner.run(sourceFile);
+		this.runCode(sourceCode, filename);
 	}
 }

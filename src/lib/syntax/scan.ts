@@ -1,5 +1,5 @@
-import { UguisuError } from './misc/errors.js';
-import { Trace } from './misc/trace.js';
+import { UguisuError } from '../misc/errors.js';
+import { Trace } from '../misc/trace.js';
 
 const trace = Trace.getDefault().createChild(false);
 

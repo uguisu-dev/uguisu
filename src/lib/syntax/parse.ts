@@ -1,3 +1,5 @@
+import { UguisuError } from '../misc/errors.js';
+import { Trace } from '../misc/trace.js';
 import {
 	AssignMode,
 	BinaryOperator,
@@ -29,18 +31,22 @@ import {
 	StatementNode,
 	TyLabel,
 	VariableDecl
-} from './ast.js';
-import { UguisuError } from './misc/errors';
-import { Trace } from './misc/trace.js';
+} from './tools.js';
 import { LiteralValue, Scanner, Token } from './scan.js';
 
 const trace = Trace.getDefault().createChild(false);
 
-export class Parser {
+export function parse(sourceCode: string, filename: string): SourceFile {
+	const parser = new Parser(new Scanner());
+	parser.setup(sourceCode);
+	return parseSourceFile(parser, filename);
+}
+
+class Parser {
 	s: Scanner;
 
-	constructor() {
-		this.s = new Scanner();
+	constructor(s: Scanner) {
+		this.s = s;
 	}
 
 	setup(sourceCode: string) {
@@ -92,11 +98,6 @@ export class Parser {
 	expectAndNext(token: Token) {
 		this.expect(token);
 		this.next();
-	}
-
-	parse(sourceCode: string, filename: string): SourceFile {
-		this.setup(sourceCode);
-		return parseSourceFile(this, filename);
 	}
 }
 

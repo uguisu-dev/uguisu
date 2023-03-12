@@ -1,7 +1,7 @@
 import Wasm from 'binaryen';
-import { Symbol, Type } from '../analyze.js';
-import { AstNode, ExprNode, FunctionDecl, Identifier, SourceFile, StatementNode } from '../ast.js';
+import { Symbol, Type } from '../semantics/tools.js';
 import { UguisuError } from '../misc/errors.js';
+import { AstNode, ExprNode, FunctionDecl, Identifier, SourceFile, StatementNode } from '../syntax/tools.js';
 
 export function codegen(symbolTable: Map<AstNode, Symbol>, node: SourceFile) {
 	const mod = translate(symbolTable, node);

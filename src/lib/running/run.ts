@@ -1,192 +1,49 @@
+import { UguisuError } from '../misc/errors.js';
+import { UguisuOptions } from '../misc/options.js';
+import { Trace } from '../misc/trace.js';
 import {
 	ExprNode,
-	FunctionDecl,
 	isEquivalentOperator,
 	isExprNode,
 	isLogicalBinaryOperator,
 	isOrderingOperator,
 	SourceFile,
 	StatementNode
-} from './ast.js';
+} from '../syntax/tools.js';
 import * as builtins from './builtins.js';
-import { UguisuError } from './misc/errors.js';
-import { UguisuOptions } from './misc/options.js';
-import { Trace } from './misc/trace.js';
+import {
+	assertBool,
+	assertFunction,
+	assertNumber,
+	assertString,
+	FunctionValue,
+	getTypeName,
+	isNoneValue,
+	newBool,
+	newFunction,
+	newNoneValue,
+	newNumber,
+	newString,
+	RunningEnv,
+	Value
+} from './tools.js';
 
 const trace = Trace.getDefault().createChild(false);
 
-export class Runner {
-	env: RunningEnv;
-	options: UguisuOptions;
+export function run(source: SourceFile, env: RunningEnv, options: UguisuOptions) {
+	builtins.setRuntime(env, options);
+	evalSourceFile(source, env);
+	call('main', env, options);
+}
 
-	constructor(options: UguisuOptions) {
-		this.env = new RunningEnv();
-		this.options = options;
+function call(name: string, env: RunningEnv, options: UguisuOptions) {
+	const symbol = env.get(name);
+	if (symbol == null || !symbol.defined) {
+		throw new UguisuError(`function \`${name}\` is not found`);
 	}
-
-	run(source: SourceFile) {
-		builtins.setRuntime(this.env, this.options);
-		evalSourceFile(source, this.env);
-		this.call('main');
-	}
-
-	call(name: string) {
-		const symbol = this.env.get(name);
-		if (symbol == null || !symbol.defined) {
-			throw new UguisuError(`function \`${name}\` is not found`);
-		}
-		assertFunction(symbol.value);
-		call(symbol.value, [], this.options);
-	}
+	assertFunction(symbol.value);
+	callFunc(symbol.value, [], options);
 }
-
-export class RunningEnv {
-	layers: Map<string, Symbol>[];
-
-	constructor(baseEnv?: RunningEnv) {
-		if (baseEnv != null) {
-			this.layers = [...baseEnv.layers];
-		} else {
-			this.layers = [new Map()];
-		}
-	}
-
-	declare(name: string) {
-		trace.log(`declare symbol: ${name}`);
-		this.layers[0].set(name, { defined: false, value: undefined });
-	}
-
-	define(name: string, value: Value) {
-		trace.log(`define symbol: ${name}`, value);
-		this.layers[0].set(name, { defined: true, value });
-	}
-
-	get(name: string): Symbol | undefined {
-		trace.log(`get symbol: ${name}`);
-		for (const layer of this.layers) {
-			const symbol = layer.get(name);
-			if (symbol != null) {
-				return symbol;
-			}
-		}
-		return undefined;
-	}
-
-	enter() {
-		trace.log(`enter scope`);
-		this.layers.unshift(new Map());
-	}
-
-	leave() {
-		trace.log(`leave scope`);
-		if (this.layers.length <= 1) {
-			throw new UguisuError('Left the root layer.');
-		}
-		this.layers.shift();
-	}
-}
-
-export type Symbol = { defined: true, value: Value } | { defined: false, value: undefined };
-
-//#region Values
-
-export type Value = FunctionValue | NumberValue | BoolValue | StringValue | NoneValue;
-
-export type FunctionValue = {
-	kind: 'FunctionValue',
-	node: FunctionDecl,
-	native: undefined,
-	env: RunningEnv, // lexical scope
-} | {
-	kind: 'FunctionValue',
-	node: undefined,
-	native: NativeFuncHandler,
-};
-
-export type NativeFuncHandler = (args: Value[], options: UguisuOptions) => Value;
-
-export function newFunction(node: FunctionDecl, env: RunningEnv): FunctionValue {
-	return { kind: 'FunctionValue', node, env, native: undefined };
-}
-export function newNativeFunction(native: NativeFuncHandler): FunctionValue {
-	return { kind: 'FunctionValue', native, node: undefined };
-}
-export function assertFunction(value: Value): asserts value is FunctionValue {
-	if (value.kind != 'FunctionValue') {
-		throw new UguisuError(`type mismatched. expected \`fn\`, found \`${getTypeName(value)}\``);
-	}
-}
-
-export type NumberValue = {
-	kind: 'NumberValue',
-	value: number,
-};
-export function newNumber(value: number): NumberValue {
-	return { kind: 'NumberValue', value };
-}
-export function assertNumber(value: Value): asserts value is NumberValue {
-	if (value.kind != 'NumberValue') {
-		throw new UguisuError(`type mismatched. expected \`number\`, found \`${getTypeName(value)}\``);
-	}
-}
-
-export type BoolValue = {
-	kind: 'BoolValue',
-	value: boolean,
-};
-export function newBool(value: boolean): BoolValue {
-	return { kind: 'BoolValue', value };
-}
-export function assertBool(value: Value): asserts value is BoolValue {
-	if (value.kind != 'BoolValue') {
-		throw new UguisuError(`type mismatched. expected \`bool\`, found \`${getTypeName(value)}\``);
-	}
-}
-
-export type StringValue = {
-	kind: 'StringValue',
-	value: string,
-};
-export function newString(value: string): StringValue {
-	return { kind: 'StringValue', value };
-}
-export function assertString(value: Value): asserts value is StringValue {
-	if (value.kind != 'StringValue') {
-		throw new UguisuError(`type mismatched. expected \`string\`, found \`${getTypeName(value)}\``);
-	}
-}
-
-export type NoneValue = {
-	kind: 'NoneValue',
-}
-export function newNoneValue(): NoneValue {
-	return { kind: 'NoneValue' };
-}
-export function isNoneValue(value: Value): value is NoneValue {
-	return (value.kind == 'NoneValue');
-}
-
-function getTypeName(value: Value): string {
-	switch (value.kind) {
-		case 'NoneValue': {
-			return 'none';
-		}
-		case 'FunctionValue': {
-			return 'fn';
-		}
-		case 'NumberValue': {
-			return 'number';
-		}
-		case 'BoolValue': {
-			return 'bool';
-		}
-		case 'StringValue': {
-			return 'string';
-		}
-	}
-}
-
-//#endregion Values
 
 //#region StatementResults
 
@@ -225,7 +82,7 @@ function evalSourceFile(source: SourceFile, env: RunningEnv) {
 	}
 }
 
-function call(func: FunctionValue, args: Value[], options: UguisuOptions): Value {
+function callFunc(func: FunctionValue, args: Value[], options: UguisuOptions): Value {
 	if (func.node != null) {
 		const env = new RunningEnv(func.env);
 		env.enter();
@@ -450,7 +307,7 @@ function evalExpr(expr: ExprNode, env: RunningEnv, options: UguisuOptions): Valu
 				}
 				return value;
 			});
-			return call(callee, args, options);
+			return callFunc(callee, args, options);
 		}
 		case 'BinaryOp': {
 			trace.log('BinaryOp');

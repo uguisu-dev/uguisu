@@ -1,22 +1,14 @@
-import { AnalysisEnv, newNativeFnSymbol, Type } from './analyze.js';
-import { UguisuError } from './misc/errors.js';
-import { UguisuOptions } from './misc/options.js';
+import { UguisuError } from '../misc/errors.js';
+import { UguisuOptions } from '../misc/options.js';
 import {
 	assertNumber,
-	assertString, newNativeFunction,
+	assertString,
+	newNativeFunction,
 	newNoneValue,
 	newNumber,
-	newString, RunningEnv
-} from './run.js';
-
-export function setDeclarations(env: AnalysisEnv) {
-	setDecl('printStr', ['string'], 'void', env);
-	setDecl('printNum', ['number'], 'void', env);
-	setDecl('assertEq', ['number', 'number'], 'void', env);
-	setDecl('getUnixtime', [], 'number', env);
-	setDecl('concatStr', ['string', 'string'], 'string', env);
-	setDecl('toString', ['number'], 'string', env);
-}
+	newString,
+	RunningEnv
+} from './tools';
 
 export function setRuntime(env: RunningEnv, options: UguisuOptions) {
 
@@ -87,9 +79,4 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
 	});
 	env.define('toString', toString);
 
-}
-
-function setDecl(name: string, paramsTy: Type[], returnTy: Type, env: AnalysisEnv) {
-	const params = paramsTy.map(ty => ({ name: 'x', ty }));
-	env.set(name, newNativeFnSymbol(params, returnTy));
 }
