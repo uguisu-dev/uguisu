@@ -555,13 +555,13 @@ function parseAtomInner(p: Parser): ExprNode {
 		case Token.Literal: {
 			const literal = p.getLiteralValue();
 			p.next();
-			if (literal.kind == LiteralKind.Number) {
+			if (literal.kind == 'number') {
 				return newNumberLiteral(pos, parseInt(literal.value));
 			}
-			if (literal.kind == LiteralKind.Bool) {
+			if (literal.kind == 'bool') {
 				return newBoolLiteral(pos, (literal.value == 'true'));
 			}
-			if (literal.kind == LiteralKind.String) {
+			if (literal.kind == 'string') {
 				return newStringLiteral(pos, literal.value);
 			}
 			throw new UguisuError('not implemented yet');

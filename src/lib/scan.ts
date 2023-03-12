@@ -14,12 +14,7 @@ const spCharTable = new Map([
 
 export type LiteralValue = { kind: LiteralKind, value: string };
 
-export enum LiteralKind {
-	None,
-	Number,
-	String,
-	Bool,
-}
+export type LiteralKind = 'none' | 'number' | 'string' | 'bool';
 
 export enum Token {
 	EOF,
@@ -125,7 +120,7 @@ export class Scanner {
 		this.ch = null;
 		this.token = Token.EOF;
 		this.tokenValue = '';
-		this.literalKind = LiteralKind.None;
+		this.literalKind = 'none';
 	}
 
 	setup(sourceCode: string) {
@@ -404,7 +399,7 @@ export class Scanner {
 		}
 		this.token = Token.Literal;
 		this.tokenValue = buf;
-		this.literalKind = LiteralKind.Number;
+		this.literalKind = 'number';
 	}
 
 	private readWord() {
@@ -451,13 +446,13 @@ export class Scanner {
 			}
 			case 'true': {
 				this.token = Token.Literal;
-				this.literalKind = LiteralKind.Bool;
+				this.literalKind = 'bool';
 				this.tokenValue = buf;
 				break;
 			}
 			case 'false': {
 				this.token = Token.Literal;
-				this.literalKind = LiteralKind.Bool;
+				this.literalKind = 'bool';
 				this.tokenValue = buf;
 				break;
 			}
@@ -497,7 +492,7 @@ export class Scanner {
 		}
 		this.token = Token.Literal;
 		this.tokenValue = buf;
-		this.literalKind = LiteralKind.String;
+		this.literalKind = 'string';
 	}
 
 	private skipCommentLine() {

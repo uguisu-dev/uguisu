@@ -41,9 +41,9 @@ describe('literal token', () => {
 	test('number literal', () => {
 		const input = '123 456';
 		const s = setupTest(input);
-		assertLiteralToken(s, LiteralKind.Number, '123');
+		assertLiteralToken(s, 'number', '123');
 		s.next();
-		assertLiteralToken(s, LiteralKind.Number, '456');
+		assertLiteralToken(s, 'number', '456');
 		s.next();
 		assertToken(s, Token.EOF);
 	});
@@ -51,9 +51,9 @@ describe('literal token', () => {
 	test('string literal', () => {
 		const input = '"abc123" "xyz456"';
 		const s = setupTest(input);
-		assertLiteralToken(s, LiteralKind.String, 'abc123');
+		assertLiteralToken(s, 'string', 'abc123');
 		s.next();
-		assertLiteralToken(s, LiteralKind.String, 'xyz456');
+		assertLiteralToken(s, 'string', 'xyz456');
 		s.next();
 		assertToken(s, Token.EOF);
 	});
@@ -61,9 +61,9 @@ describe('literal token', () => {
 	test('bool literal', () => {
 		const input = 'true false';
 		const s = setupTest(input);
-		assertLiteralToken(s, LiteralKind.Bool, 'true');
+		assertLiteralToken(s, 'bool', 'true');
 		s.next();
-		assertLiteralToken(s, LiteralKind.Bool, 'false');
+		assertLiteralToken(s, 'bool', 'false');
 		s.next();
 		assertToken(s, Token.EOF);
 	});
@@ -73,11 +73,11 @@ describe('token sequence', () => {
 	test('add expr', () => {
 		const input = '1 + 2';
 		const s = setupTest(input);
-		assertLiteralToken(s, LiteralKind.Number, '1');
+		assertLiteralToken(s, 'number', '1');
 		s.next();
 		assertToken(s, Token.Plus);
 		s.next();
-		assertLiteralToken(s, LiteralKind.Number, '2');
+		assertLiteralToken(s, 'number', '2');
 		s.next();
 		assertToken(s, Token.EOF);
 	});
