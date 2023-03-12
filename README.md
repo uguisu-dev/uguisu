@@ -56,9 +56,9 @@ Uguisu only supports the ES Modules (ESM).
 import { Uguisu } from 'uguisu-js';
 
 const uguisu = new Uguisu({
-	stdout(str) {
-		console.log(str);
-	}
+    stdout(str) {
+        console.log(str);
+    }
 });
 
 // with source code
