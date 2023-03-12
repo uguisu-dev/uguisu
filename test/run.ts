@@ -11,14 +11,14 @@ function runTest(sourceCode: string) {
 test('variable arith 1', () => runTest(`
 fn main() {
 	var x = 1;
-	assertEq(x, 1);
+	assertEqNum(x, 1);
 }
 `));
 
 test('variable arith 2', () => runTest(`
 fn main() {
 	var x = 1 + 2;
-	assertEq(x, 3);
+	assertEqNum(x, 3);
 }
 `));
 
@@ -34,7 +34,7 @@ fn add(x: number, y: number): number {
 	return x + y;
 }
 fn main() {
-	assertEq(add(1, 2), 3);
+	assertEqNum(add(1, 2), 3);
 }
 `));
 
@@ -42,7 +42,7 @@ test('subrutine', () => runTest(`
 fn subrutine(x: number) {
 	var y = x + x;
 	var z = y + 1;
-	assertEq(z, 7);
+	assertEqNum(z, 7);
 }
 fn main() {
 	var x = 1;
@@ -61,7 +61,7 @@ fn square(x: number): number {
 	return x * x;
 }
 fn main() {
-	assertEq(add(square(2), 3), 7);
+	assertEqNum(add(square(2), 3), 7);
 }
 `));
 
@@ -73,7 +73,7 @@ fn calc(x: number, y: number): number {
 	return square(x) + y;
 }
 fn main() {
-	assertEq(calc(2, 3), 7);
+	assertEqNum(calc(2, 3), 7);
 }
 `));
 
@@ -86,7 +86,7 @@ fn calc(x: number): number {
 	}
 }
 fn main() {
-	assertEq(calc(8), 256);
+	assertEqNum(calc(8), 256);
 }
 `));
 
@@ -99,7 +99,7 @@ fn calc(x: number, y: number): number {
 }
 fn main() {
 	var a = 2;
-	assertEq(calc(a, 3), 25);
+	assertEqNum(calc(a, 3), 25);
 }
 `));
 
@@ -113,10 +113,10 @@ fn gen_result(x: number): number {
 	return 1;
 }
 fn main() {
-	assertEq(gen_result(1), 0);
-	assertEq(gen_result(2), 0);
-	assertEq(gen_result(3), 1);
-	assertEq(gen_result(4), 0);
+	assertEqNum(gen_result(1), 0);
+	assertEqNum(gen_result(2), 0);
+	assertEqNum(gen_result(3), 1);
+	assertEqNum(gen_result(4), 0);
 }
 `));
 
@@ -137,11 +137,11 @@ fn main() {
 	if true {
 		x = 1;
 	}
-	assertEq(x, 1);
+	assertEqNum(x, 1);
 	if false {
 		x = 2;
 	}
-	assertEq(x, 1);
+	assertEqNum(x, 1);
 }
 `));
 
@@ -153,13 +153,13 @@ fn main() {
 	} else {
 		x = 3;
 	}
-	assertEq(x, 2);
+	assertEqNum(x, 2);
 	if false {
 		x = 4;
 	} else {
 		x = 5;
 	}
-	assertEq(x, 5);
+	assertEqNum(x, 5);
 }
 `));
 
@@ -173,7 +173,7 @@ fn main() {
 	} else {
 		x = 4;
 	}
-	assertEq(x, 2);
+	assertEqNum(x, 2);
 	if false {
 		x = 2;
 	} else if true {
@@ -181,7 +181,7 @@ fn main() {
 	} else {
 		x = 4;
 	}
-	assertEq(x, 3);
+	assertEqNum(x, 3);
 	if false {
 		x = 3;
 	} else if false {
@@ -189,7 +189,7 @@ fn main() {
 	} else {
 		x = 5;
 	}
-	assertEq(x, 5);
+	assertEqNum(x, 5);
 }
 `));
 
@@ -201,23 +201,23 @@ fn main() {
 	if true && false {
 		x = 2;
 	}
-	assertEq(x, 1);
+	assertEqNum(x, 1);
 	if true && true {
 		x = 3;
 	}
-	assertEq(x, 3);
+	assertEqNum(x, 3);
 	if false || false {
 		x = 4;
 	}
-	assertEq(x, 3);
+	assertEqNum(x, 3);
 	if false || true {
 		x = 5;
 	}
-	assertEq(x, 5);
+	assertEqNum(x, 5);
 	if false && true || true && true {
 		x = 6;
 	}
-	assertEq(x, 6);
+	assertEqNum(x, 6);
 }
 `));
 
@@ -227,7 +227,7 @@ fn main() {
 	if false && true || true && true {
 		x = 2;
 	}
-	assertEq(x, 2);
+	assertEqNum(x, 2);
 }
 `));
 
@@ -237,7 +237,7 @@ fn main() {
 	if !false {
 		x = 2;
 	}
-	assertEq(x, 2);
+	assertEqNum(x, 2);
 }
 `));
 
@@ -249,11 +249,11 @@ fn main() {
 	if x == 1 {
 		x = 2;
 	}
-	assertEq(x, 2);
+	assertEqNum(x, 2);
 	if x == 1 {
 		x = 3;
 	}
-	assertEq(x, 2);
+	assertEqNum(x, 2);
 }
 `));
 
@@ -263,11 +263,11 @@ fn main() {
 	if 1 + 2 == 3 {
 		x = 2;
 	}
-	assertEq(x, 2);
+	assertEqNum(x, 2);
 	if 2 - 1 == 0 {
 		x = 3;
 	}
-	assertEq(x, 2);
+	assertEqNum(x, 2);
 }
 `));
 
@@ -282,7 +282,7 @@ fn main() {
 		x = x * 2;
 		i = i + 1;
 	}
-	assertEq(x, 1024);
+	assertEqNum(x, 1024);
 }
 `));
 
@@ -324,26 +324,26 @@ test('break no target nested', () => {
 test('assignment', () => runTest(`
 fn main() {
 	var x = 0;
-	assertEq(x, 0);
+	assertEqNum(x, 0);
 	x = 1;
-	assertEq(x, 1);
+	assertEqNum(x, 1);
 	x = 2;
-	assertEq(x, 2);
+	assertEqNum(x, 2);
 }
 `));
 
 test('assignment_modes', () => runTest(`
 fn main() {
 	var x = 0;
-	assertEq(x, 0);
+	assertEqNum(x, 0);
 	x += 10;
-	assertEq(x, 10);
+	assertEqNum(x, 10);
 	x -= 2;
-	assertEq(x, 8);
+	assertEqNum(x, 8);
 	x *= 2;
-	assertEq(x, 16);
+	assertEqNum(x, 16);
 	x /= 4;
-	assertEq(x, 4);
+	assertEqNum(x, 4);
 }
 `));
 
@@ -512,6 +512,6 @@ fn calc(x: number): number {
 }
 fn main() {
 	var value = 10;
-	assertEq(calc(value), 1024);
+	assertEqNum(calc(value), 1024);
 }
 `));
