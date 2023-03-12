@@ -1,7 +1,7 @@
-import { UguisuError } from '../misc/errors';
-import { UguisuOptions } from '../misc/options';
-import { Trace } from '../misc/trace';
-import { FunctionDecl } from '../syntax/tools';
+import { UguisuError } from '../misc/errors.js';
+import { UguisuOptions } from '../misc/options.js';
+import { Trace } from '../misc/trace.js';
+import { FunctionDecl } from '../syntax/tools.js';
 
 export class RunningEnv {
 	layers: Map<string, Symbol>[];

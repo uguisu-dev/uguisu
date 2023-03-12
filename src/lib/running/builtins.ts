@@ -8,7 +8,7 @@ import {
 	newNumber,
 	newString,
 	RunningEnv
-} from './tools';
+} from './tools.js';
 
 export function setRuntime(env: RunningEnv, options: UguisuOptions) {
 
