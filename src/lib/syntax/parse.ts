@@ -160,8 +160,14 @@ function parseSourceFile(p: Parser, filename: string): SourceFile {
             break;
         }
         switch (p.getToken()) {
+            case Token.Export: {
+                p.next();
+                p.expect(Token.Fn);
+                funcs.push(parseFunctionDecl(p, true));
+                break;
+            }
             case Token.Fn: {
-                funcs.push(parseFunctionDecl(p));
+                funcs.push(parseFunctionDecl(p, false));
                 break;
             }
             default: {
@@ -181,7 +187,7 @@ function parseSourceFile(p: Parser, filename: string): SourceFile {
  * <FnDeclParams> = <FnDeclParam> ("," <FnDeclParam>)*
  * ```
 */
-function parseFunctionDecl(p: Parser): FunctionDecl {
+function parseFunctionDecl(p: Parser, exported: boolean): FunctionDecl {
     trace.enter('[parse] parseFunctionDecl');
 
     const pos = p.getPos();
@@ -209,7 +215,7 @@ function parseFunctionDecl(p: Parser): FunctionDecl {
     const body = parseBlock(p);
 
     trace.leave();
-    return newFunctionDecl(pos, name, params, body, returnTy);
+    return newFunctionDecl(pos, name, params, body, returnTy, exported);
 }
 
 /**

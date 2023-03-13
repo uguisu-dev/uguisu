@@ -96,6 +96,10 @@ export enum Token {
     Loop,
     /** "break" */
     Break,
+    /** "import" */
+    Import,
+    /** "export" */
+    Export,
 }
 
 export class Scanner {
@@ -454,6 +458,14 @@ export class Scanner {
                 this.token = Token.Literal;
                 this.literalKind = 'bool';
                 this.tokenValue = buf;
+                break;
+            }
+            case 'import': {
+                this.token = Token.Import;
+                break;
+            }
+            case 'export': {
+                this.token = Token.Export;
                 break;
             }
             default: {

@@ -40,7 +40,9 @@ export class Uguisu {
         // static analysis
         const analysisEnv = new AnalysisEnv();
         const symbolTable = new Map();
-        analyze(sourceFile, analysisEnv, symbolTable);
+        if (!analyze(sourceFile, analysisEnv, symbolTable)) {
+            return;
+        }
         // run
         const runningEnv = new RunningEnv();
         run(sourceFile, runningEnv, this._options);
@@ -66,7 +68,9 @@ export class Uguisu {
         // static analysis
         const analysisEnv = new AnalysisEnv();
         const symbolTable = new Map();
-        analyze(sourceFile, analysisEnv, symbolTable);
+        if (!analyze(sourceFile, analysisEnv, symbolTable)) {
+            return;
+        }
         // run
         const runningEnv = new RunningEnv();
         run(sourceFile, runningEnv, this._options);

@@ -75,15 +75,17 @@ export type FunctionDecl = {
     params: FnDeclParam[],
     body: StatementNode[],
     returnTy?: TyLabel,
+    exported: boolean,
 };
 export function newFunctionDecl(
     pos: Pos,
     name: string,
     params: FnDeclParam[],
     body: StatementNode[],
-    returnTy?: TyLabel,
+    returnTy: TyLabel | undefined,
+    exported: boolean,
 ): FunctionDecl {
-    return { kind: 'FunctionDecl', pos, name, params, body, returnTy };
+    return { kind: 'FunctionDecl', pos, name, params, body, returnTy, exported };
 }
 
 export type FnDeclParam = {
