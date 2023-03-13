@@ -17,10 +17,9 @@ import {
     FnVar,
     FunctionSymbol,
     Symbol,
-    Type,
-    MaybeType,
+    MaybeValidType,
     VariableSymbol,
-    isType,
+    isValidType,
     assertType
 } from './tools.js';
 
@@ -52,7 +51,7 @@ function setDeclaration(ctx: AnalysisContext, node: AstNode) {
             const vars: FnVar[] = [];
 
             // return type
-            let returnTy: MaybeType;
+            let returnTy: MaybeValidType;
             if (node.returnTy != null) {
                 returnTy = resolveTypeName(ctx, node.returnTy);
             } else {
@@ -60,7 +59,7 @@ function setDeclaration(ctx: AnalysisContext, node: AstNode) {
             }
 
             // params
-            const params: { name: string, ty: MaybeType }[] = [];
+            const params: { name: string, ty: MaybeValidType }[] = [];
             for (const param of node.params) {
                 // invalid parameter
                 if (param.ty == null) {
@@ -125,7 +124,7 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
     switch (node.kind) {
         case 'VariableDecl': {
             // specified type
-            let ty: MaybeType;
+            let ty: MaybeValidType;
             if (node.ty != null) {
                 ty = resolveTypeName(ctx, node.ty);
             } else {
@@ -142,7 +141,7 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
                     }
                     ty = bodyTy;
                 } else {
-                    if (isType(ty) && isType(bodyTy)) {
+                    if (isValidType(ty) && isValidType(bodyTy)) {
                         assertType(ctx, bodyTy, ty, node.body);
                     }
                 }
@@ -191,7 +190,7 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
                 const variable = funcSymbol.vars.find(x => x.name == target.name);
                 variable!.ty = bodyTy;
             }
-            if (isType(bodyTy) && isType(symbol.ty)) {
+            if (isValidType(bodyTy) && isValidType(symbol.ty)) {
                 switch (node.mode) {
                     case '=': {
                         assertType(ctx, bodyTy, symbol.ty, node.body);
@@ -213,7 +212,7 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
         }
         case 'IfStatement': {
             const condTy = inferType(ctx, node.cond, funcSymbol);
-            if (isType(condTy)) {
+            if (isValidType(condTy)) {
                 assertType(ctx, condTy, 'bool', node.cond);
             }
             validateBlock(ctx, node.thenBlock, allowJump, funcSymbol);
@@ -232,7 +231,7 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
                     ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
                     ty = '(invalid)';
                 }
-                if (isType(ty) && isType(funcSymbol.returnTy)) {
+                if (isValidType(ty) && isValidType(funcSymbol.returnTy)) {
                     assertType(ctx, ty, funcSymbol.returnTy, node.expr);
                 }
             }
@@ -272,7 +271,7 @@ function validateBlock(ctx: AnalysisContext, block: StatementNode[], allowJump: 
     ctx.env.leave();
 }
 
-function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymbol): MaybeType {
+function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymbol): MaybeValidType {
     switch (node.kind) {
         case 'NumberLiteral': {
             return 'number';
@@ -288,7 +287,7 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
             const rightTy = inferType(ctx, node.right, funcSymbol);
             if (isLogicalBinaryOperator(node.operator)) {
                 // Logical Operation
-                if (isType(leftTy) && isType(rightTy)) {
+                if (isValidType(leftTy) && isValidType(rightTy)) {
                     assertType(ctx, leftTy, 'bool', node.left);
                     assertType(ctx, rightTy, 'bool', node.right);
                     ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
@@ -299,7 +298,7 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
                 }
             } else if (isEquivalentOperator(node.operator)) {
                 // Equivalent Operation
-                if (isType(leftTy) && isType(rightTy)) {
+                if (isValidType(leftTy) && isValidType(rightTy)) {
                     assertType(ctx, rightTy, leftTy, node.right);
                     ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
                     return 'bool';
@@ -309,7 +308,7 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
                 }
             } else if (isOrderingOperator(node.operator)) {
                 // Ordering Operation
-                if (isType(leftTy) && isType(rightTy)) {
+                if (isValidType(leftTy) && isValidType(rightTy)) {
                     assertType(ctx, leftTy, 'number', node.left);
                     assertType(ctx, rightTy, 'number', node.right);
                     ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
@@ -320,7 +319,7 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
                 }
             } else {
                 // Arithmetic Operation
-                if (isType(leftTy) && isType(rightTy)) {
+                if (isValidType(leftTy) && isValidType(rightTy)) {
                     assertType(ctx, leftTy, 'number', node.left);
                     assertType(ctx, rightTy, 'number', node.right);
                     ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'number' });
@@ -335,7 +334,7 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
         case 'UnaryOp': {
             const ty = inferType(ctx, node.expr, funcSymbol);
             // Logical Operation
-            if (isType(ty)) {
+            if (isValidType(ty)) {
                 assertType(ctx, ty, 'bool', node);
                 ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
                 return 'bool';
@@ -397,7 +396,7 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
                         ctx.dispatchError('variable is not assigned yet.', node.callee);
                         return '(invalid)';
                     }
-                    if (isType(calleeSymbol.ty)) {
+                    if (isValidType(calleeSymbol.ty)) {
                         assertType(ctx, calleeSymbol.ty, 'function', node.callee);
                     }
                     ctx.dispatchError('type check for a function variable is not supported.', node.callee);
@@ -411,7 +410,7 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
                 for (let i = 0; i < calleeSymbol.params.length; i++) {
                     const param = calleeSymbol.params[i];
                     const argTy = inferType(ctx, node.args[i], funcSymbol);
-                    if (isType(argTy) && isType(param.ty)) {
+                    if (isValidType(argTy) && isValidType(param.ty)) {
                         assertType(ctx, argTy, param.ty, node.args[i]);
                     }
                 }
@@ -425,7 +424,7 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
     throw new UguisuError('unexpected node.');
 }
 
-function resolveTypeName(ctx: AnalysisContext, node: TyLabel): MaybeType {
+function resolveTypeName(ctx: AnalysisContext, node: TyLabel): MaybeValidType {
     switch (node.name) {
         case 'number':
         case 'bool':

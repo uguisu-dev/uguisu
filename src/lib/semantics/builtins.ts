@@ -1,4 +1,4 @@
-import { AnalysisEnv, newNativeFnSymbol, Type } from './tools.js';
+import { AnalysisEnv, newNativeFnSymbol, ValidType } from './tools.js';
 
 export function setDeclarations(env: AnalysisEnv) {
     setDecl('printStr', ['string'], 'void', env);
@@ -10,7 +10,7 @@ export function setDeclarations(env: AnalysisEnv) {
     setDecl('toString', ['number'], 'string', env);
 }
 
-function setDecl(name: string, paramsTy: Type[], returnTy: Type, env: AnalysisEnv) {
+function setDecl(name: string, paramsTy: ValidType[], returnTy: ValidType, env: AnalysisEnv) {
     const params = paramsTy.map(ty => ({ name: 'x', ty }));
     env.set(name, newNativeFnSymbol(params, returnTy));
 }

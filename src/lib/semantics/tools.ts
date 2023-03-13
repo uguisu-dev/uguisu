@@ -73,48 +73,49 @@ export type Symbol = FunctionSymbol | NativeFnSymbol | VariableSymbol | ExprSymb
 export type FunctionSymbol = {
     kind: 'FnSymbol',
     defined: boolean,
-    params: { name: string, ty: MaybeType }[],
-    returnTy: MaybeType,
+    params: { name: string, ty: MaybeValidType }[],
+    returnTy: MaybeValidType,
     /** for wasm */
     vars: FnVar[],
 };
 
-export type FnVar = { name: string, isParam: boolean, ty: MaybeType };
+export type FnVar = { name: string, isParam: boolean, ty: MaybeValidType };
 
 export type NativeFnSymbol = {
     kind: 'NativeFnSymbol',
-    params: { name: string, ty: MaybeType }[],
-    returnTy: MaybeType,
+    params: { name: string, ty: MaybeValidType }[],
+    returnTy: MaybeValidType,
 };
 
-export function newNativeFnSymbol(params: { name: string, ty: MaybeType }[], returnTy: MaybeType): NativeFnSymbol {
+export function newNativeFnSymbol(params: { name: string, ty: MaybeValidType }[], returnTy: MaybeValidType): NativeFnSymbol {
     return { kind: 'NativeFnSymbol', params, returnTy };
 }
 
 export type VariableSymbol = {
     kind: 'VariableSymbol',
     defined: boolean,
-    ty: MaybeType,
+    ty: MaybeValidType,
 };
 
 export type ExprSymbol = {
     kind: 'ExprSymbol',
-    ty: MaybeType,
+    ty: MaybeValidType,
 };
 
-export type MaybeType = Type | '(unresolved)' | '(invalid)';
-export type Type = 'void' | 'number' | 'bool' | 'string' | 'function';
+export type MaybeValidType = ValidType | '(unresolved)' | '(invalid)';
+export type ValidType = 'void' | 'number' | 'bool' | 'string' | 'function';
 
-export function isType(x: MaybeType): x is Type {
+export function isValidType(x: MaybeValidType): x is ValidType {
     if (x == '(invalid)' || x == '(unresolved)') {
         return false;
     }
     return true;
 }
 
-export function assertType(ctx: AnalysisContext, actual: Type, expected: Type, errorNode: AstNode) {
+export function assertType(ctx: AnalysisContext, actual: ValidType, expected: ValidType, errorNode: AstNode) {
     if (actual == 'void') {
         ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, errorNode);
+        // TODO: should set the (invalid) type
     }
     if (actual != expected) {
         ctx.dispatchError(`type mismatched. expected \`${expected}\`, found \`${actual}\``, errorNode);

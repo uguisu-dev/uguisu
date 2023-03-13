@@ -1,5 +1,5 @@
 import Wasm from 'binaryen';
-import { MaybeType, Symbol } from '../semantics/tools.js';
+import { MaybeValidType, Symbol } from '../semantics/tools.js';
 import { UguisuError } from '../misc/errors.js';
 import { AstNode, ExprNode, FunctionDecl, Identifier, SourceFile, StatementNode } from '../syntax/tools.js';
 
@@ -17,8 +17,8 @@ type Context = {
 
 type FuncInfo = {
     name: string;
-    vars: { name: string, ty: MaybeType, isParam: boolean }[];
-    returnTy: MaybeType;
+    vars: { name: string, ty: MaybeValidType, isParam: boolean }[];
+    returnTy: MaybeValidType;
 };
 
 function translate(symbolTable: Map<AstNode, Symbol>, node: SourceFile): Wasm.Module {
@@ -303,7 +303,7 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
     }
 }
 
-function mapType(type: MaybeType): number {
+function mapType(type: MaybeValidType): number {
     switch (type) {
         case 'void': {
             return Wasm.none;
