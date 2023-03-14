@@ -2,7 +2,6 @@ import { UguisuError } from '../misc/errors.js';
 import {
     AstNode,
     FunctionDecl,
-    Identifier,
     isEquivalentOperator,
     isLogicalBinaryOperator,
     isOrderingOperator,
@@ -133,12 +132,12 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
             // if it has an initial value
             if (node.body != null) {
                 let bodyTy = inferType(ctx, node.body, funcSymbol);
+                // if the body returns nothing
+                if (bodyTy == 'void') {
+                    ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
+                    bodyTy = '(invalid)';
+                }
                 if (ty == '(unresolved)') {
-                    // if the body returns nothing
-                    if (bodyTy == 'void') {
-                        ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
-                        bodyTy = '(invalid)';
-                    }
                     ty = bodyTy;
                 } else {
                     if (isValidType(ty) && isValidType(bodyTy)) {
@@ -185,10 +184,12 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
             // if it was the first assignment
             if (symbol.ty == '(unresolved)') {
                 symbol.ty = bodyTy;
-
-                const target = (node.target as Identifier); // TODO: improve code
+                const target = node.target;
                 const variable = funcSymbol.vars.find(x => x.name == target.name);
-                variable!.ty = bodyTy;
+                if (variable == null) {
+                    throw new UguisuError('variable not found');
+                }
+                variable.ty = bodyTy;
             }
             if (isValidType(bodyTy) && isValidType(symbol.ty)) {
                 switch (node.mode) {
@@ -211,7 +212,12 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
             return;
         }
         case 'IfStatement': {
-            const condTy = inferType(ctx, node.cond, funcSymbol);
+            let condTy = inferType(ctx, node.cond, funcSymbol);
+            // if the condition returns nothing
+            if (condTy == 'void') {
+                ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.cond);
+                condTy = '(invalid)';
+            }
             if (isValidType(condTy)) {
                 assertType(ctx, condTy, 'bool', node.cond);
             }
@@ -283,8 +289,18 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
             return 'string';
         }
         case 'BinaryOp': {
-            const leftTy = inferType(ctx, node.left, funcSymbol);
-            const rightTy = inferType(ctx, node.right, funcSymbol);
+            let leftTy = inferType(ctx, node.left, funcSymbol);
+            let rightTy = inferType(ctx, node.right, funcSymbol);
+            // if the left expr returns nothing
+            if (leftTy == 'void') {
+                ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.left);
+                leftTy = '(invalid)';
+            }
+            // if the right expr returns nothing
+            if (rightTy == 'void') {
+                ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.right);
+                rightTy = '(invalid)';
+            }
             if (isLogicalBinaryOperator(node.operator)) {
                 // Logical Operation
                 if (isValidType(leftTy) && isValidType(rightTy)) {
@@ -332,7 +348,12 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
             break;
         }
         case 'UnaryOp': {
-            const ty = inferType(ctx, node.expr, funcSymbol);
+            let ty = inferType(ctx, node.expr, funcSymbol);
+            // if the expr returns nothing
+            if (ty == 'void') {
+                ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
+                ty = '(invalid)';
+            }
             // Logical Operation
             if (isValidType(ty)) {
                 assertType(ctx, ty, 'bool', node);
@@ -409,7 +430,12 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
             if (node.args.length == calleeSymbol.params.length) {
                 for (let i = 0; i < calleeSymbol.params.length; i++) {
                     const param = calleeSymbol.params[i];
-                    const argTy = inferType(ctx, node.args[i], funcSymbol);
+                    let argTy = inferType(ctx, node.args[i], funcSymbol);
+                    // if the argument returns nothing
+                    if (argTy == 'void') {
+                        ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.args[i]);
+                        argTy = '(invalid)';
+                    }
                     if (isValidType(argTy) && isValidType(param.ty)) {
                         assertType(ctx, argTy, param.ty, node.args[i]);
                     }

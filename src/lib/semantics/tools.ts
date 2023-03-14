@@ -113,10 +113,6 @@ export function isValidType(x: MaybeValidType): x is ValidType {
 }
 
 export function assertType(ctx: AnalysisContext, actual: ValidType, expected: ValidType, errorNode: AstNode) {
-    if (actual == 'void') {
-        ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, errorNode);
-        // TODO: should set the (invalid) type
-    }
     if (actual != expected) {
         ctx.dispatchError(`type mismatched. expected \`${expected}\`, found \`${actual}\``, errorNode);
     }
