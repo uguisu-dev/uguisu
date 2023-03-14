@@ -49,6 +49,11 @@ Commands:
 
 ```
 
+Run the basic example:
+```
+$ uguisu run ./examples/basic/main.ug
+```
+
 ## JavaScript API
 Uguisu only supports the ES Modules (ESM).
 
@@ -70,7 +75,7 @@ fn main() {
 uguisu.runCode(sourceCode);
 
 // Run passing a file path of a source code.
-uguisu.runFile('./example.ug');
+uguisu.runFile('./examples/basic/example.ug');
 ```
 
 ## License
