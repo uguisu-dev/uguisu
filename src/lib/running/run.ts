@@ -1,6 +1,7 @@
 import { UguisuError } from '../misc/errors.js';
 import { UguisuOptions } from '../misc/options.js';
 import { Trace } from '../misc/trace.js';
+import { ProjectFile } from '../project-file.js';
 import {
     ExprNode,
     isEquivalentOperator,
@@ -30,7 +31,7 @@ import {
 
 const trace = Trace.getDefault().createChild(false);
 
-export function run(source: SourceFile, env: RunningEnv, options: UguisuOptions) {
+export function run(source: SourceFile, env: RunningEnv, options: UguisuOptions, projectFile: ProjectFile) {
     builtins.setRuntime(env, options);
     evalSourceFile(source, env);
     call('main', env, options);

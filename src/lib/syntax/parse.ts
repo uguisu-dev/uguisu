@@ -33,10 +33,11 @@ import {
     VariableDecl
 } from './tools.js';
 import { LiteralValue, Scanner, Token } from './scan.js';
+import { ProjectFile } from '../project-file.js';
 
 const trace = Trace.getDefault().createChild(false);
 
-export function parse(sourceCode: string, filename: string): SourceFile {
+export function parse(sourceCode: string, filename: string, projectFile: ProjectFile): SourceFile {
     const parser = new Parser(new Scanner());
     parser.setup(sourceCode);
     return parseSourceFile(parser, filename);

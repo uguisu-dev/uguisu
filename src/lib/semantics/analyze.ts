@@ -1,4 +1,5 @@
 import { UguisuError } from '../misc/errors.js';
+import { ProjectFile } from '../project-file.js';
 import {
     AstNode,
     FunctionDecl,
@@ -22,7 +23,7 @@ import {
     assertType
 } from './tools.js';
 
-export function analyze(source: SourceFile, env: AnalysisEnv, symbolTable: Map<AstNode, Symbol>): boolean {
+export function analyze(source: SourceFile, env: AnalysisEnv, symbolTable: Map<AstNode, Symbol>, projectFile: ProjectFile): boolean {
     const ctx = new AnalysisContext(env, symbolTable);
     builtins.setDeclarations(ctx.env);
     for (const n of source.funcs) {
