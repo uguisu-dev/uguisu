@@ -5,14 +5,15 @@ export type AstNode
     | FileNode
     | StatementNode
     | TyLabel
-    | FnDeclParam;
-    // StructDeclField
-    // StructExprField
+    | FnDeclParam
+    | StructDeclField
+    | StructExprField;
 
 export type FileNode = FunctionDecl;
 
 export type StatementNode
     = VariableDecl
+    | StructDecl
     | AssignStatement
     | IfStatement
     | LoopStatement
@@ -27,8 +28,9 @@ export type ExprNode
     | BinaryOp
     | UnaryOp
     | Identifier
-    | Call;
-    // FieldAccess
+    | Call
+    | StructExpr
+    | FieldAccess;
 
 export type NodeOf<T extends AstNode['kind']>
     = T extends 'SourceFile' ? SourceFile
@@ -49,6 +51,11 @@ export type NodeOf<T extends AstNode['kind']>
     : T extends 'LoopStatement' ? LoopStatement
     : T extends 'AssignStatement' ? AssignStatement
     : T extends 'VariableDecl' ? VariableDecl
+    : T extends 'StructDeclField' ? StructDeclField
+    : T extends 'StructExprField' ? StructExprField
+    : T extends 'StructDecl' ? StructDecl
+    : T extends 'StructExpr' ? StructExpr
+    : T extends 'FieldAccess' ? FieldAccess
     : never;
 
 const exprNodeKind: AstNode['kind'][] = [
@@ -289,4 +296,56 @@ export type VariableDecl = {
 };
 export function newVariableDecl(pos: Pos, name: string, ty?: TyLabel, body?: ExprNode): VariableDecl {
     return { kind: 'VariableDecl', pos, name, ty, body };
+}
+
+// struct
+
+export type StructDecl = {
+    kind: 'StructDecl',
+    pos: Pos,
+    name: string,
+    fields: StructDeclField[],
+};
+export function newStructDecl(pos: Pos, name: string, fields: StructDeclField[]): StructDecl {
+    return { kind: 'StructDecl', pos, name, fields };
+}
+
+export type StructDeclField = {
+    kind: 'StructDeclField',
+    pos: Pos,
+    name: string,
+    ty: TyLabel,
+};
+export function newStructDeclField(pos: Pos, name: string, ty: TyLabel): StructDeclField {
+    return { kind: 'StructDeclField', pos, name, ty };
+}
+
+export type StructExpr = {
+    kind: 'StructExpr',
+    pos: Pos,
+    name: string,
+    fields: StructExprField[],
+};
+export function newStructExpr(pos: Pos, name: string, fields: StructExprField[]): StructExpr {
+    return { kind: 'StructExpr', pos, name, fields };
+}
+
+export type StructExprField = {
+    kind: 'StructExprField',
+    pos: Pos,
+    name: string,
+    body: ExprNode,
+};
+export function newStructExprField(pos: Pos, name: string, body: ExprNode): StructExprField {
+    return { kind: 'StructExprField', pos, name, body };
+}
+
+export type FieldAccess = {
+    kind: 'FieldAccess',
+    pos: Pos,
+    name: string,
+    target: ExprNode,
+};
+export function newFieldAccess(pos: Pos, name: string, target: ExprNode): FieldAccess {
+    return { kind: 'FieldAccess', pos, name, target };
 }
