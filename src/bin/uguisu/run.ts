@@ -2,18 +2,23 @@ import { Uguisu } from '../../lib/index.js';
 
 type Match = {
     help: boolean,
+    lint: boolean,
     free: string[],
 };
 
 function getopts(args: string[]): Match {
     const match: Match = {
         help: false,
+        lint: false,
         free: [],
     };
 
     for (const arg of args) {
         if (arg === '-h' || arg === '--help') {
             match.help = true;
+        }
+        if (arg === '-l' || arg === '--lint') {
+            match.lint = true;
         }
         else if (arg.startsWith('-')) {
             throw `unknown option: ${arg}`;
@@ -31,9 +36,10 @@ function showHelp() {
         'Usage: uguisu run [options] [projectDir]',
         '',
         'Examples:',
-        '    uguisu run <projectDir>',
+        '    uguisu run -l <projectDir>',
         '',
         'Options:',
+        '    -l, --lint          Run with static analysis.',
         '    -h, --help          Print help message.',
     ];
     console.log(lines.join('\n'));
@@ -67,6 +73,9 @@ export function command(args: string[]) {
                 console.log(str);
             }
         });
+        if (match.lint) {
+            uguisu.lint(dirPath);
+        }
         uguisu.run(dirPath);
         // process.exitCode = 1;
         // process.exit();
