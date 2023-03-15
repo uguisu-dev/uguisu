@@ -72,10 +72,10 @@ fn main() {
     printStr("hello world");
 }
 `;
-uguisu.runCode(sourceCode);
+uguisu.runCode(sourceCode, { langVersion: 'uguisu2023-1' });
 
-// Run passing a file path of a source code.
-uguisu.runFile('./examples/basic/example.ug');
+// Run passing a directory path of a project.
+uguisu.run('./examples/basic');
 ```
 
 ## License

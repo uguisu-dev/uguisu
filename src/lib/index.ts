@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { UguisuError } from './misc/errors.js';
 import { UguisuOptions } from './misc/options.js';
-import { generateDefaultProjectInfo, parseProjectFile, ProjectInfo } from './project-file.js';
+import { generateDefaultProjectInfo, parseProjectFile, ProjectFile, ProjectInfo } from './project-file.js';
 import { run } from './running/run.js';
 import { RunningEnv } from './running/tools.js';
 import { analyze } from './semantics/analyze.js';
@@ -33,20 +33,20 @@ export class Uguisu {
      * @throws TypeError (Invalid arguments)
      * @throws UguisuError
     */
-    runCode(sourceCode: string, projectFile?: ProjectInfo) {
+    runCode(sourceCode: string, projectFile?: ProjectFile) {
         if (typeof sourceCode != 'string') {
             throw new TypeError('Invalid arguments');
         }
         // project file
-        let projectInfo;
+        let projectInfo: ProjectInfo;
         if (projectFile != null) {
-            projectInfo = parseProjectFile(projectFile ?? {});
+            projectInfo = parseProjectFile(projectFile);
         } else {
             projectInfo = generateDefaultProjectInfo();
         }
 
         // parse
-        const sourceFile = parse(sourceCode, 'main.ug', projectInfo);
+        const sourceFile = parse(sourceCode, projectInfo.filename, projectInfo);
         // static analysis
         const analysisEnv = new AnalysisEnv();
         const symbolTable = new Map();
@@ -62,21 +62,21 @@ export class Uguisu {
      * @throws TypeError (Invalid arguments)
      * @throws UguisuError
     */
-    runFile(projectPath: string) {
-        if (typeof projectPath != 'string') {
+    run(dirPath: string) {
+        if (typeof dirPath != 'string') {
             throw new TypeError('Invalid arguments.');
         }
         // project file
-        const projectFilePath = path.resolve(projectPath, './uguisu.json');
-        let projectFileExists;
+        const projectFilePath = path.resolve(dirPath, './uguisu.json');
+        let existsProjectFile: boolean;
         try {
             fs.accessSync(projectFilePath, fs.constants.R_OK);
-            projectFileExists = true;
+            existsProjectFile = true;
         } catch (err) {
-            projectFileExists = false;
+            existsProjectFile = false;
         }
-        let projectInfo;
-        if (projectFileExists) {
+        let projectInfo: ProjectInfo;
+        if (existsProjectFile) {
             let projectFile: Record<string, any>;
             try {
                 const json = fs.readFileSync(projectFilePath, { encoding: 'utf8' });
@@ -90,7 +90,7 @@ export class Uguisu {
         }
 
         // load
-        const scriptFilePath = path.resolve(projectPath, './main.ug');
+        const scriptFilePath = path.resolve(dirPath, projectInfo.filename);
         let sourceCode;
         try {
             sourceCode = fs.readFileSync(scriptFilePath, { encoding: 'utf8' });

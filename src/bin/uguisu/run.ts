@@ -58,7 +58,7 @@ export function command(args: string[]) {
         return;
     }
 
-    const filename = match.free[0];
+    const dirPath = match.free[0];
 
     // run script
     try {
@@ -67,7 +67,7 @@ export function command(args: string[]) {
                 console.log(str);
             }
         });
-        uguisu.runFile(filename);
+        uguisu.run(dirPath);
     }
     catch (e) {
         console.log(e);

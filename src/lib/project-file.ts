@@ -4,6 +4,12 @@ export type LangVersion = 'uguisu2023-1';
 
 export type ProjectInfo = {
     langVersion: LangVersion,
+    filename: string,
+};
+
+export type ProjectFile = {
+    langVersion?: LangVersion,
+    filename?: string,
 };
 
 export function parseProjectFile(source: Record<string, any>): ProjectInfo {
@@ -27,13 +33,29 @@ export function parseProjectFile(source: Record<string, any>): ProjectInfo {
         langVersion = 'uguisu2023-1';
     }
 
+    // filename
+    let filename: string;
+    if (source.filename != null) {
+        if (typeof source.filename != 'string') {
+            throw new UguisuError('filename invalid');
+        }
+        if (source.filename.length == 0) {
+            throw new UguisuError('filename invalid');
+        }
+        filename = source.filename;
+    } else {
+        filename = 'main.ug';
+    }
+
     return {
         langVersion,
+        filename,
     };
 }
 
 export function generateDefaultProjectInfo(): ProjectInfo {
     return {
         langVersion: 'uguisu2023-1',
+        filename: 'main.ug',
     };
 }
