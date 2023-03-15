@@ -1,3 +1,5 @@
+import fs from 'fs';
+
 type Match = {
     help: boolean,
     version: boolean,
@@ -51,7 +53,8 @@ function showHelp() {
 }
 
 function showVersion() {
-    const info = require('../../package.json');
+    const json = fs.readFileSync('package.json', { encoding: 'utf8' });
+    const info = JSON.parse(json);
     console.log(`uguisu ${info.version}`);
 }
 
