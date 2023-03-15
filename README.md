@@ -36,6 +36,7 @@ $ npm i -g uguisu-js
 Usage: uguisu [options] [commands]
 
 Examples:
+    uguisu lint <projectDir>
     uguisu run <projectDir>
     uguisu <command> -h
     uguisu -v
@@ -45,6 +46,7 @@ Options:
     -v, --version       Print Uguisu version.
 
 Commands:
+    lint                Perform the lint for a project.
     run                 Run a uguisu project.
 
 ```
@@ -66,16 +68,13 @@ const uguisu = new Uguisu({
     }
 });
 
-// Run passing a source code.
-const sourceCode = `
-fn main() {
-    printStr("hello world");
-}
-`;
-uguisu.runCode(sourceCode);
+const projectDir = './examples/basic';
 
-// Run passing a directory path of a project.
-uguisu.run('./examples/basic');
+// lint (static analysis)
+uguisu.lint(projectDir);
+
+// Run
+uguisu.run(projectDir);
 ```
 
 ## License
