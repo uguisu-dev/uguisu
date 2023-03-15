@@ -25,12 +25,12 @@ import {
 
 export function analyze(source: SourceFile, env: AnalysisEnv, symbolTable: Map<AstNode, Symbol>, projectInfo: ProjectInfo): boolean {
     const a = new AnalyzeContext(env, symbolTable, projectInfo);
-    builtins.setDeclarations(a.env);
-    for (const n of source.funcs) {
-        setDeclaration(a, n);
+    builtins.setDeclarations(a);
+    for (const func of source.funcs) {
+        setDeclaration(a, func);
     }
-    for (const n of source.funcs) {
-        validateFunc(a, n);
+    for (const func of source.funcs) {
+        validateFunc(a, func);
     }
     // console.log(ctx.symbolTable);
 

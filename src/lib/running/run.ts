@@ -196,7 +196,6 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                     if (isNoneValue(bodyValue)) {
                         throw new UguisuError('no values');
                     }
-                    // TODO: consider symbol system
                     r.env.define(statement.name, bodyValue);
                 } else {
                     r.env.declare(statement.name);
