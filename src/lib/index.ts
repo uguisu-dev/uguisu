@@ -62,13 +62,12 @@ export class Uguisu {
      * @throws TypeError (Invalid arguments)
      * @throws UguisuError
     */
-    runFile(filename: string) {
-        if (typeof filename != 'string') {
+    runFile(projectPath: string) {
+        if (typeof projectPath != 'string') {
             throw new TypeError('Invalid arguments.');
         }
         // project file
-        let projectFile: Record<string, any>;
-        const projectFilePath = path.resolve(path.dirname(filename), './uguisu.json');
+        const projectFilePath = path.resolve(projectPath, './uguisu.json');
         let projectFileExists;
         try {
             fs.accessSync(projectFilePath, fs.constants.R_OK);
@@ -78,6 +77,7 @@ export class Uguisu {
         }
         let projectFileNorm;
         if (projectFileExists) {
+            let projectFile: Record<string, any>;
             try {
                 const json = fs.readFileSync(projectFilePath, { encoding: 'utf8' });
                 projectFile = JSON.parse(json);
@@ -90,14 +90,15 @@ export class Uguisu {
         }
 
         // load
+        const scriptFilePath = path.resolve(projectPath, './main.ug');
         let sourceCode;
         try {
-            sourceCode = fs.readFileSync(filename, { encoding: 'utf8' });
+            sourceCode = fs.readFileSync(scriptFilePath, { encoding: 'utf8' });
         } catch (err) {
             throw new UguisuError('Failed to load the script file.');
         }
         // parse
-        const sourceFile = parse(sourceCode, filename, projectFileNorm);
+        const sourceFile = parse(sourceCode, scriptFilePath, projectFileNorm);
         // static analysis
         const analysisEnv = new AnalysisEnv();
         const symbolTable = new Map();

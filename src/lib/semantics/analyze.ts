@@ -24,7 +24,7 @@ import {
 } from './tools.js';
 
 export function analyze(source: SourceFile, env: AnalysisEnv, symbolTable: Map<AstNode, Symbol>, projectFile: ProjectFile): boolean {
-    const ctx = new AnalysisContext(env, symbolTable);
+    const ctx = new AnalysisContext(env, symbolTable, projectFile);
     builtins.setDeclarations(ctx.env);
     for (const n of source.funcs) {
         setDeclaration(ctx, n);

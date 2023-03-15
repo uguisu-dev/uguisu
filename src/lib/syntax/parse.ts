@@ -38,16 +38,18 @@ import { ProjectFile } from '../project-file.js';
 const trace = Trace.getDefault().createChild(false);
 
 export function parse(sourceCode: string, filename: string, projectFile: ProjectFile): SourceFile {
-    const parser = new Parser(new Scanner());
+    const parser = new Parser(new Scanner(), projectFile);
     parser.setup(sourceCode);
     return parseSourceFile(parser, filename);
 }
 
 class Parser {
     s: Scanner;
+    projectFile: ProjectFile;
 
-    constructor(s: Scanner) {
+    constructor(s: Scanner, projectFile: ProjectFile) {
         this.s = s;
+        this.projectFile = projectFile;
     }
 
     setup(sourceCode: string) {

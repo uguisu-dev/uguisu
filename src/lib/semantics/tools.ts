@@ -1,15 +1,18 @@
 import { UguisuError } from '../misc/errors.js';
+import { ProjectFile } from '../project-file.js';
 import { AstNode } from '../syntax/tools.js';
 
 export class AnalysisContext {
     env: AnalysisEnv;
     symbolTable: Map<AstNode, Symbol>;
+    projectFile: ProjectFile;
     warn: string[];
     error: string[];
 
-    constructor(env: AnalysisEnv, symbolTable: Map<AstNode, Symbol>) {
+    constructor(env: AnalysisEnv, symbolTable: Map<AstNode, Symbol>, projectFile: ProjectFile) {
         this.env = env;
         this.symbolTable = symbolTable;
+        this.projectFile = projectFile;
         this.warn = [];
         this.error = [];
     }
