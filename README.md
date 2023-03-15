@@ -36,7 +36,7 @@ $ npm i -g uguisu-js
 Usage: uguisu [options] [commands]
 
 Examples:
-    uguisu run <filename>
+    uguisu run <projectDir>
     uguisu <command> -h
     uguisu -v
 
@@ -45,13 +45,13 @@ Options:
     -v, --version       Print Uguisu version.
 
 Commands:
-    run                 Run a script file.
+    run                 Run a uguisu project.
 
 ```
 
 Run the basic example:
 ```
-$ uguisu run ./examples/basic/main.ug
+$ uguisu run ./examples/basic
 ```
 
 ## JavaScript API
@@ -72,7 +72,7 @@ fn main() {
     printStr("hello world");
 }
 `;
-uguisu.runCode(sourceCode, { langVersion: 'uguisu2023-1' });
+uguisu.runCode(sourceCode);
 
 // Run passing a directory path of a project.
 uguisu.run('./examples/basic');

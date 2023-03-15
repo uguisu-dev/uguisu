@@ -34,7 +34,7 @@ function showHelp() {
         'Usage: uguisu [options] [commands]',
         '',
         'Examples:',
-        '    uguisu run <filename>',
+        '    uguisu run <projectDir>',
         '    uguisu <command> -h',
         '    uguisu -v',
         '',
@@ -43,7 +43,7 @@ function showHelp() {
         '    -v, --version       Print Uguisu version.',
         '',
         'Commands:',
-        '    run                 Run a script file.',
+        '    run                 Run a uguisu project.',
     ];
     console.log(lines.join('\n'));
 }
