@@ -12,7 +12,7 @@ import {
 } from '../syntax/tools.js';
 import * as builtins from './builtins.js';
 import {
-    AnalysisContext,
+    AnalyzeContext,
     AnalysisEnv,
     FnVar,
     FunctionSymbol,
@@ -24,28 +24,28 @@ import {
 } from './tools.js';
 
 export function analyze(source: SourceFile, env: AnalysisEnv, symbolTable: Map<AstNode, Symbol>, projectInfo: ProjectInfo): boolean {
-    const ctx = new AnalysisContext(env, symbolTable, projectInfo);
-    builtins.setDeclarations(ctx.env);
+    const a = new AnalyzeContext(env, symbolTable, projectInfo);
+    builtins.setDeclarations(a.env);
     for (const n of source.funcs) {
-        setDeclaration(ctx, n);
+        setDeclaration(a, n);
     }
     for (const n of source.funcs) {
-        validateFunc(ctx, n);
+        validateFunc(a, n);
     }
     // console.log(ctx.symbolTable);
 
     // print errors
-    for (const message of ctx.error) {
+    for (const message of a.error) {
         console.log(`Syntax Error: ${message}`);
     }
-    for (const warn of ctx.warn) {
+    for (const warn of a.warn) {
         console.log(`Warning: ${warn}`);
     }
 
-    return (ctx.error.length == 0);
+    return (a.error.length == 0);
 }
 
-function setDeclaration(ctx: AnalysisContext, node: AstNode) {
+function setDeclaration(a: AnalyzeContext, node: AstNode) {
     switch (node.kind) {
         case 'FunctionDecl': { // declare function
             const vars: FnVar[] = [];
@@ -53,7 +53,7 @@ function setDeclaration(ctx: AnalysisContext, node: AstNode) {
             // return type
             let returnTy: MaybeValidType;
             if (node.returnTy != null) {
-                returnTy = resolveTypeName(ctx, node.returnTy);
+                returnTy = resolveTypeName(a, node.returnTy);
             } else {
                 returnTy = 'void';
             }
@@ -63,19 +63,19 @@ function setDeclaration(ctx: AnalysisContext, node: AstNode) {
             for (const param of node.params) {
                 // invalid parameter
                 if (param.ty == null) {
-                    ctx.dispatchError('parameter type missing.', param);
+                    a.dispatchError('parameter type missing.', param);
                     params.push({ name: param.name, ty: '(invalid)' });
                     vars.push({ name: param.name, isParam: true, ty: '(invalid)' });
                     continue;
                 }
-                const paramTy = resolveTypeName(ctx, param.ty);
+                const paramTy = resolveTypeName(a, param.ty);
                 params.push({ name: param.name, ty: paramTy });
                 vars.push({ name: param.name, isParam: true, ty: paramTy });
             }
 
             // export specifier
             if (node.exported) {
-                ctx.dispatchWarn('exported function is not supported yet.', node);
+                a.dispatchWarn('exported function is not supported yet.', node);
             }
 
             const symbol: FunctionSymbol = {
@@ -85,64 +85,64 @@ function setDeclaration(ctx: AnalysisContext, node: AstNode) {
                 returnTy,
                 vars,
             };
-            ctx.symbolTable.set(node, symbol);
-            ctx.env.set(node.name, symbol);
+            a.symbolTable.set(node, symbol);
+            a.env.set(node.name, symbol);
             break;
         }
     }
 }
 
-function validateFunc(ctx: AnalysisContext, node: FunctionDecl) {
+function validateFunc(a: AnalyzeContext, node: FunctionDecl) {
     // define function
-    const symbol = ctx.env.get(node.name);
+    const symbol = a.env.get(node.name);
     if (symbol == null) {
-        ctx.dispatchError('undefined symbol.', node);
+        a.dispatchError('undefined symbol.', node);
         return;
     }
     if (symbol.kind != 'FnSymbol') {
-        ctx.dispatchError('function expected.', node);
+        a.dispatchError('function expected.', node);
         return;
     }
-    ctx.env.enter();
+    a.env.enter();
     for (let i = 0; i < node.params.length; i++) {
         const paramSymbol: VariableSymbol = {
             kind: 'VariableSymbol',
             defined: true,
             ty: symbol.params[i].ty,
         };
-        ctx.symbolTable.set(node.params[i], paramSymbol);
-        ctx.env.set(node.params[i].name, paramSymbol);
+        a.symbolTable.set(node.params[i], paramSymbol);
+        a.env.set(node.params[i].name, paramSymbol);
     }
     for (const statement of node.body) {
-        validateStatement(ctx, statement, false, symbol);
+        validateStatement(a, statement, false, symbol);
     }
-    ctx.env.leave();
+    a.env.leave();
     symbol.defined = true;
 }
 
-function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boolean, funcSymbol: FunctionSymbol) {
+function validateStatement(a: AnalyzeContext, node: AstNode, allowJump: boolean, funcSymbol: FunctionSymbol) {
     switch (node.kind) {
         case 'VariableDecl': {
             // specified type
             let ty: MaybeValidType;
             if (node.ty != null) {
-                ty = resolveTypeName(ctx, node.ty);
+                ty = resolveTypeName(a, node.ty);
             } else {
                 ty = '(unresolved)';
             }
             // if it has an initial value
             if (node.body != null) {
-                let bodyTy = inferType(ctx, node.body, funcSymbol);
+                let bodyTy = inferType(a, node.body, funcSymbol);
                 // if the body returns nothing
                 if (bodyTy == 'void') {
-                    ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
+                    a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
                     bodyTy = '(invalid)';
                 }
                 if (ty == '(unresolved)') {
                     ty = bodyTy;
                 } else {
                     if (isValidType(ty) && isValidType(bodyTy)) {
-                        assertType(ctx, bodyTy, ty, node.body);
+                        assertType(a, bodyTy, ty, node.body);
                     }
                 }
             }
@@ -151,8 +151,8 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
                 defined: (node.body != null),
                 ty,
             };
-            ctx.symbolTable.set(node, symbol);
-            ctx.env.set(node.name, symbol);
+            a.symbolTable.set(node, symbol);
+            a.env.set(node.name, symbol);
 
             funcSymbol.vars.push({
                 name: node.name,
@@ -163,23 +163,23 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
         }
         case 'AssignStatement': {
             if (node.target.kind != 'Identifier') {
-                ctx.dispatchError('identifier expected.', node.target);
+                a.dispatchError('identifier expected.', node.target);
                 return;
             }
-            const symbol = ctx.env.get(node.target.name);
+            const symbol = a.env.get(node.target.name);
             if (symbol == null) {
-                ctx.dispatchError('unknown identifier.', node.target);
+                a.dispatchError('unknown identifier.', node.target);
                 return;
             }
-            ctx.symbolTable.set(node.target, symbol);
+            a.symbolTable.set(node.target, symbol);
             if (symbol.kind != 'VariableSymbol') {
-                ctx.dispatchError('variable expected.', node.target);
+                a.dispatchError('variable expected.', node.target);
                 return;
             }
-            let bodyTy = inferType(ctx, node.body, funcSymbol);
+            let bodyTy = inferType(a, node.body, funcSymbol);
             // if the body returns nothing
             if (bodyTy == 'void') {
-                ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
+                a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
                 bodyTy = '(invalid)';
             }
             // if it was the first assignment
@@ -195,7 +195,7 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
             if (isValidType(bodyTy) && isValidType(symbol.ty)) {
                 switch (node.mode) {
                     case '=': {
-                        assertType(ctx, bodyTy, symbol.ty, node.body);
+                        assertType(a, bodyTy, symbol.ty, node.body);
                         break;
                     }
                     case '+=':
@@ -203,8 +203,8 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
                     case '*=':
                     case '/=':
                     case '%=': {
-                        assertType(ctx, symbol.ty, 'number', node.target);
-                        assertType(ctx, bodyTy, 'number', node.body);
+                        assertType(a, symbol.ty, 'number', node.target);
+                        assertType(a, bodyTy, 'number', node.body);
                         break;
                     }
                 }
@@ -213,40 +213,40 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
             return;
         }
         case 'IfStatement': {
-            let condTy = inferType(ctx, node.cond, funcSymbol);
+            let condTy = inferType(a, node.cond, funcSymbol);
             // if the condition returns nothing
             if (condTy == 'void') {
-                ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.cond);
+                a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.cond);
                 condTy = '(invalid)';
             }
             if (isValidType(condTy)) {
-                assertType(ctx, condTy, 'bool', node.cond);
+                assertType(a, condTy, 'bool', node.cond);
             }
-            validateBlock(ctx, node.thenBlock, allowJump, funcSymbol);
-            validateBlock(ctx, node.elseBlock, allowJump, funcSymbol);
+            validateBlock(a, node.thenBlock, allowJump, funcSymbol);
+            validateBlock(a, node.elseBlock, allowJump, funcSymbol);
             return;
         }
         case 'LoopStatement': {
-            validateBlock(ctx, node.block, true, funcSymbol);
+            validateBlock(a, node.block, true, funcSymbol);
             return;
         }
         case 'ReturnStatement': {
             if (node.expr != null) {
-                let ty = inferType(ctx, node.expr, funcSymbol);
+                let ty = inferType(a, node.expr, funcSymbol);
                 // if the expr returns nothing
                 if (ty == 'void') {
-                    ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
+                    a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
                     ty = '(invalid)';
                 }
                 if (isValidType(ty) && isValidType(funcSymbol.returnTy)) {
-                    assertType(ctx, ty, funcSymbol.returnTy, node.expr);
+                    assertType(a, ty, funcSymbol.returnTy, node.expr);
                 }
             }
             return;
         }
         case 'BreakStatement': {
             if (!allowJump) {
-                ctx.dispatchError('invalid break statement');
+                a.dispatchError('invalid break statement');
             }
             return;
         }
@@ -257,7 +257,7 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
         case 'UnaryOp':
         case 'Identifier':
         case 'Call': {
-            inferType(ctx, node, funcSymbol);
+            inferType(a, node, funcSymbol);
             return;
         }
         case 'SourceFile':
@@ -270,15 +270,15 @@ function validateStatement(ctx: AnalysisContext, node: AstNode, allowJump: boole
     throw new UguisuError('unexpected node.');
 }
 
-function validateBlock(ctx: AnalysisContext, block: StatementNode[], allowJump: boolean, funcSymbol: FunctionSymbol) {
-    ctx.env.enter();
+function validateBlock(a: AnalyzeContext, block: StatementNode[], allowJump: boolean, funcSymbol: FunctionSymbol) {
+    a.env.enter();
     for (const statement of block) {
-        validateStatement(ctx, statement, allowJump, funcSymbol);
+        validateStatement(a, statement, allowJump, funcSymbol);
     }
-    ctx.env.leave();
+    a.env.leave();
 }
 
-function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymbol): MaybeValidType {
+function inferType(a: AnalyzeContext, node: AstNode, funcSymbol: FunctionSymbol): MaybeValidType {
     switch (node.kind) {
         case 'NumberLiteral': {
             return 'number';
@@ -290,93 +290,93 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
             return 'string';
         }
         case 'BinaryOp': {
-            let leftTy = inferType(ctx, node.left, funcSymbol);
-            let rightTy = inferType(ctx, node.right, funcSymbol);
+            let leftTy = inferType(a, node.left, funcSymbol);
+            let rightTy = inferType(a, node.right, funcSymbol);
             // if the left expr returns nothing
             if (leftTy == 'void') {
-                ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.left);
+                a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.left);
                 leftTy = '(invalid)';
             }
             // if the right expr returns nothing
             if (rightTy == 'void') {
-                ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.right);
+                a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.right);
                 rightTy = '(invalid)';
             }
             if (isLogicalBinaryOperator(node.operator)) {
                 // Logical Operation
                 if (isValidType(leftTy) && isValidType(rightTy)) {
-                    assertType(ctx, leftTy, 'bool', node.left);
-                    assertType(ctx, rightTy, 'bool', node.right);
-                    ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
+                    assertType(a, leftTy, 'bool', node.left);
+                    assertType(a, rightTy, 'bool', node.right);
+                    a.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
                     return 'bool';
                 } else {
-                    ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: '(invalid)' });
+                    a.symbolTable.set(node, { kind: 'ExprSymbol', ty: '(invalid)' });
                     return '(invalid)';
                 }
             } else if (isEquivalentOperator(node.operator)) {
                 // Equivalent Operation
                 if (isValidType(leftTy) && isValidType(rightTy)) {
-                    assertType(ctx, rightTy, leftTy, node.right);
-                    ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
+                    assertType(a, rightTy, leftTy, node.right);
+                    a.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
                     return 'bool';
                 } else {
-                    ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: '(invalid)' });
+                    a.symbolTable.set(node, { kind: 'ExprSymbol', ty: '(invalid)' });
                     return '(invalid)';
                 }
             } else if (isOrderingOperator(node.operator)) {
                 // Ordering Operation
                 if (isValidType(leftTy) && isValidType(rightTy)) {
-                    assertType(ctx, leftTy, 'number', node.left);
-                    assertType(ctx, rightTy, 'number', node.right);
-                    ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
+                    assertType(a, leftTy, 'number', node.left);
+                    assertType(a, rightTy, 'number', node.right);
+                    a.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
                     return 'bool';
                 } else {
-                    ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: '(invalid)' });
+                    a.symbolTable.set(node, { kind: 'ExprSymbol', ty: '(invalid)' });
                     return '(invalid)';
                 }
             } else {
                 // Arithmetic Operation
                 if (isValidType(leftTy) && isValidType(rightTy)) {
-                    assertType(ctx, leftTy, 'number', node.left);
-                    assertType(ctx, rightTy, 'number', node.right);
-                    ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'number' });
+                    assertType(a, leftTy, 'number', node.left);
+                    assertType(a, rightTy, 'number', node.right);
+                    a.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'number' });
                     return 'number';
                 } else {
-                    ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: '(invalid)' });
+                    a.symbolTable.set(node, { kind: 'ExprSymbol', ty: '(invalid)' });
                     return '(invalid)';
                 }
             }
             break;
         }
         case 'UnaryOp': {
-            let ty = inferType(ctx, node.expr, funcSymbol);
+            let ty = inferType(a, node.expr, funcSymbol);
             // if the expr returns nothing
             if (ty == 'void') {
-                ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
+                a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
                 ty = '(invalid)';
             }
             // Logical Operation
             if (isValidType(ty)) {
-                assertType(ctx, ty, 'bool', node);
-                ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
+                assertType(a, ty, 'bool', node);
+                a.symbolTable.set(node, { kind: 'ExprSymbol', ty: 'bool' });
                 return 'bool';
             } else {
-                ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: '(invalid)' });
+                a.symbolTable.set(node, { kind: 'ExprSymbol', ty: '(invalid)' });
                 return '(invalid)';
             }
             break;
         }
         case 'Identifier': {
             if (node.kind != 'Identifier') {
-                ctx.dispatchError('identifier expected.', node);
+                a.dispatchError('identifier expected.', node);
                 return '(invalid)';
             }
-            const symbol = ctx.env.get(node.name);
+            const symbol = a.env.get(node.name);
             if (symbol == null) {
-                ctx.dispatchError('unknown identifier.', node);
+                a.dispatchError('unknown identifier.', node);
                 return '(invalid)';
             }
-            ctx.symbolTable.set(node, symbol);
+            a.symbolTable.set(node, symbol);
             switch (symbol.kind) {
                 case 'FnSymbol':
                 case 'NativeFnSymbol': {
@@ -385,7 +385,7 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
                 case 'VariableSymbol': {
                     // if the variable is not assigned
                     if (symbol.ty == '(unresolved)') {
-                        ctx.dispatchError('variable is not assigned yet.', node);
+                        a.dispatchError('variable is not assigned yet.', node);
                         return '(invalid)';
                     }
                     return symbol.ty;
@@ -398,15 +398,15 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
         }
         case 'Call': {
             if (node.callee.kind != 'Identifier') {
-                ctx.dispatchError('identifier expected.', node.callee);
+                a.dispatchError('identifier expected.', node.callee);
                 return '(invalid)';
             }
-            const calleeSymbol = ctx.env.get(node.callee.name);
+            const calleeSymbol = a.env.get(node.callee.name);
             if (calleeSymbol == null) {
-                ctx.dispatchError('unknown identifier.', node);
+                a.dispatchError('unknown identifier.', node);
                 return '(invalid)';
             }
-            ctx.symbolTable.set(node.callee, calleeSymbol);
+            a.symbolTable.set(node.callee, calleeSymbol);
             switch (calleeSymbol.kind) {
                 case 'FnSymbol':
                 case 'NativeFnSymbol': {
@@ -415,13 +415,13 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
                 case 'VariableSymbol': {
                     // if the variable is not assigned
                     if (calleeSymbol.ty == '(unresolved)') {
-                        ctx.dispatchError('variable is not assigned yet.', node.callee);
+                        a.dispatchError('variable is not assigned yet.', node.callee);
                         return '(invalid)';
                     }
                     if (isValidType(calleeSymbol.ty)) {
-                        assertType(ctx, calleeSymbol.ty, 'function', node.callee);
+                        assertType(a, calleeSymbol.ty, 'function', node.callee);
                     }
-                    ctx.dispatchError('type check for a function variable is not supported.', node.callee);
+                    a.dispatchError('type check for a function variable is not supported.', node.callee);
                     return '(invalid)';
                 }
                 case 'ExprSymbol': {
@@ -431,27 +431,27 @@ function inferType(ctx: AnalysisContext, node: AstNode, funcSymbol: FunctionSymb
             if (node.args.length == calleeSymbol.params.length) {
                 for (let i = 0; i < calleeSymbol.params.length; i++) {
                     const param = calleeSymbol.params[i];
-                    let argTy = inferType(ctx, node.args[i], funcSymbol);
+                    let argTy = inferType(a, node.args[i], funcSymbol);
                     // if the argument returns nothing
                     if (argTy == 'void') {
-                        ctx.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.args[i]);
+                        a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.args[i]);
                         argTy = '(invalid)';
                     }
                     if (isValidType(argTy) && isValidType(param.ty)) {
-                        assertType(ctx, argTy, param.ty, node.args[i]);
+                        assertType(a, argTy, param.ty, node.args[i]);
                     }
                 }
             } else {
-                ctx.dispatchError('argument count incorrect.', node);
+                a.dispatchError('argument count incorrect.', node);
             }
-            ctx.symbolTable.set(node, { kind: 'ExprSymbol', ty: calleeSymbol.returnTy });
+            a.symbolTable.set(node, { kind: 'ExprSymbol', ty: calleeSymbol.returnTy });
             return calleeSymbol.returnTy;
         }
     }
     throw new UguisuError('unexpected node.');
 }
 
-function resolveTypeName(ctx: AnalysisContext, node: TyLabel): MaybeValidType {
+function resolveTypeName(a: AnalyzeContext, node: TyLabel): MaybeValidType {
     switch (node.name) {
         case 'number':
         case 'bool':
@@ -459,6 +459,6 @@ function resolveTypeName(ctx: AnalysisContext, node: TyLabel): MaybeValidType {
             return node.name;
         }
     }
-    ctx.dispatchError('unknown type name.', node);
+    a.dispatchError('unknown type name.', node);
     return '(invalid)';
 }

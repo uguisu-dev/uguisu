@@ -2,7 +2,7 @@ import { UguisuError } from '../misc/errors.js';
 import { ProjectInfo } from '../project-file.js';
 import { AstNode } from '../syntax/tools.js';
 
-export class AnalysisContext {
+export class AnalyzeContext {
     env: AnalysisEnv;
     symbolTable: Map<AstNode, Symbol>;
     projectInfo: ProjectInfo;
@@ -115,7 +115,7 @@ export function isValidType(x: MaybeValidType): x is ValidType {
     return true;
 }
 
-export function assertType(ctx: AnalysisContext, actual: ValidType, expected: ValidType, errorNode: AstNode) {
+export function assertType(ctx: AnalyzeContext, actual: ValidType, expected: ValidType, errorNode: AstNode) {
     if (actual != expected) {
         ctx.dispatchError(`type mismatched. expected \`${expected}\`, found \`${actual}\``, errorNode);
     }

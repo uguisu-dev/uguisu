@@ -38,12 +38,12 @@ import { ProjectInfo } from '../project-file.js';
 const trace = Trace.getDefault().createChild(false);
 
 export function parse(sourceCode: string, filename: string, projectInfo: ProjectInfo): SourceFile {
-    const parser = new Parser(new Scanner(), projectInfo);
-    parser.setup(sourceCode);
-    return parseSourceFile(parser, filename);
+    const p = new ParseContext(new Scanner(), projectInfo);
+    p.setup(sourceCode);
+    return parseSourceFile(p, filename);
 }
 
-class Parser {
+class ParseContext {
     s: Scanner;
     projectInfo: ProjectInfo;
 
@@ -111,7 +111,7 @@ class Parser {
  * <Block> = "{" <Statement>* "}"
  * ```
 */
-function parseBlock(p: Parser): StatementNode[] {
+function parseBlock(p: ParseContext): StatementNode[] {
     trace.enter('[parse] parseBlock');
 
     p.expectAndNext(Token.BeginBrace);
@@ -130,7 +130,7 @@ function parseBlock(p: Parser): StatementNode[] {
  * <TyLabel> = ":" <identifier>
  * ```
 */
-function parseTyLabel(p: Parser): TyLabel {
+function parseTyLabel(p: ParseContext): TyLabel {
     trace.enter('[parse] parseTyLabel');
 
     p.expectAndNext(Token.Colon);
@@ -152,7 +152,7 @@ function parseTyLabel(p: Parser): TyLabel {
  * <SourceFile> = (<FunctionDecl>)*
  * ```
 */
-function parseSourceFile(p: Parser, filename: string): SourceFile {
+function parseSourceFile(p: ParseContext, filename: string): SourceFile {
     let funcs: FunctionDecl[] = [];
     trace.enter('[parse] parseSourceFile');
 
@@ -190,7 +190,7 @@ function parseSourceFile(p: Parser, filename: string): SourceFile {
  * <FnDeclParams> = <FnDeclParam> ("," <FnDeclParam>)*
  * ```
 */
-function parseFunctionDecl(p: Parser, exported: boolean): FunctionDecl {
+function parseFunctionDecl(p: ParseContext, exported: boolean): FunctionDecl {
     trace.enter('[parse] parseFunctionDecl');
 
     const pos = p.getPos();
@@ -226,7 +226,7 @@ function parseFunctionDecl(p: Parser, exported: boolean): FunctionDecl {
  * <FnDeclParam> = <identifier> <TyLabel>?
  * ```
 */
-function parseFnDeclParam(p: Parser): FnDeclParam {
+function parseFnDeclParam(p: ParseContext): FnDeclParam {
     trace.enter('[parse] parseFnDeclParam');
 
     const pos = p.getPos();
@@ -252,7 +252,7 @@ function parseFnDeclParam(p: Parser): FnDeclParam {
  * <Statement> = <VariableDecl> / <AssignStatement> / <IfStatement> / <LoopStatement> / <ReturnStatement> / <BreakStatement> / <ExprNode>
  * ```
 */
-function parseStatement(p: Parser): StatementNode {
+function parseStatement(p: ParseContext): StatementNode {
     switch (p.getToken()) {
         case Token.Var: {
             return parseVariableDecl(p);
@@ -282,7 +282,7 @@ function parseStatement(p: Parser): StatementNode {
  *   / <Expr> ";"
  * ```
 */
-function parseStatementStartWithExpr(p: Parser): StatementNode {
+function parseStatementStartWithExpr(p: ParseContext): StatementNode {
     trace.enter('[parse] parseStatementStartWithExpr');
 
     const expr = parseExpr(p);
@@ -346,7 +346,7 @@ function parseStatementStartWithExpr(p: Parser): StatementNode {
  * <VariableDecl> = "var" <identifier> <TyLabel>? ("=" <Expr>)? ";"
  * ```
 */
-function parseVariableDecl(p: Parser): VariableDecl {
+function parseVariableDecl(p: ParseContext): VariableDecl {
     trace.enter('[parse] parseVariableDecl');
 
     p.next();
@@ -376,7 +376,7 @@ function parseVariableDecl(p: Parser): VariableDecl {
  * <BreakStatement> = "break" ";"
  * ```
 */
-function parseBreakStatement(p: Parser): BreakStatement {
+function parseBreakStatement(p: ParseContext): BreakStatement {
     trace.enter('[parse] parseBreakStatement');
 
     const pos = p.getPos();
@@ -392,7 +392,7 @@ function parseBreakStatement(p: Parser): BreakStatement {
  * <ReturnStatement> = "return" <Expr>? ";"
  * ```
 */
-function parseReturnStatement(p: Parser): ReturnStatement {
+function parseReturnStatement(p: ParseContext): ReturnStatement {
     trace.enter('[parse] parseReturnStatement');
 
     const pos = p.getPos();
@@ -412,7 +412,7 @@ function parseReturnStatement(p: Parser): ReturnStatement {
  * <IfStatement> = "if" <Expr> <Block> ("else" (<IfStatement> / <Block>))?
  * ```
 */
-function parseIfStatement(p: Parser): IfStatement {
+function parseIfStatement(p: ParseContext): IfStatement {
     trace.enter('[parse] parseIfStatement');
 
     const pos = p.getPos();
@@ -440,7 +440,7 @@ function parseIfStatement(p: Parser): IfStatement {
  * <LoopStatement> = "loop" <Block>
  * ```
 */
-function parseLoopStatement(p: Parser): LoopStatement {
+function parseLoopStatement(p: ParseContext): LoopStatement {
     trace.enter('[parse] parseLoopStatement');
 
     const pos = p.getPos();
@@ -455,7 +455,7 @@ function parseLoopStatement(p: Parser): LoopStatement {
 
 //#region Expressions
 
-function parseExpr(p: Parser): ExprNode {
+function parseExpr(p: ParseContext): ExprNode {
     return parseInfix(p, 0);
 }
 
@@ -483,7 +483,7 @@ const opTable: Map<Token, OpInfo> = new Map([
     [Token.Percent, { prec: 6, assoc: 'left', op: '%' }],
 ]);
 
-function parseInfix(p: Parser, minPrec: number): ExprNode {
+function parseInfix(p: ParseContext, minPrec: number): ExprNode {
     // precedence climbing
     // https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
     let expr = parseAtom(p);
@@ -512,7 +512,7 @@ function parseInfix(p: Parser, minPrec: number): ExprNode {
  * <Atom> = <AtomInner> <SuffixChain>
  * ```
 */
-function parseAtom(p: Parser): ExprNode {
+function parseAtom(p: ParseContext): ExprNode {
     const expr = parseAtomInner(p);
     return parseSuffixChain(p, expr);
 }
@@ -521,7 +521,7 @@ function parseAtom(p: Parser): ExprNode {
  * Consumes a one suffix and the remaining of the chain is consumed in a recursive call.
  * If there is no suffix, the target is returned as is.
 */
-function parseSuffixChain(p: Parser, target: ExprNode): ExprNode {
+function parseSuffixChain(p: ParseContext, target: ExprNode): ExprNode {
     switch (p.getToken()) {
         case Token.BeginParen: {
             break;
@@ -559,7 +559,7 @@ function parseSuffixChain(p: Parser, target: ExprNode): ExprNode {
  * <AtomInner> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <Identifier> / <Prefix> <Atom> / "(" <Expr> ")"
  * ```
 */
-function parseAtomInner(p: Parser): ExprNode {
+function parseAtomInner(p: ParseContext): ExprNode {
     const pos = p.getPos();
     switch (p.getToken()) {
         case Token.Literal: {
