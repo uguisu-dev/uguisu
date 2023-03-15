@@ -36,8 +36,8 @@ $ npm i -g uguisu-js
 Usage: uguisu [options] [commands]
 
 Examples:
-    uguisu run -l <projectDir>
-    uguisu lint <projectDir>
+    uguisu run -c <projectDir>
+    uguisu check <projectDir>
     uguisu <command> -h
     uguisu -v
 
@@ -47,13 +47,13 @@ Options:
 
 Commands:
     run                 Run a uguisu project.
-    lint                Perform the lint for a project.
+    check               Perform the check for a project.
 
 ```
 
 Run the basic example:
 ```
-$ uguisu run -l ./examples/basic
+$ uguisu run -c ./examples/basic
 ```
 
 ## JavaScript API
@@ -70,8 +70,8 @@ const uguisu = new Uguisu({
 
 const projectDir = './examples/basic';
 
-// lint (static analysis)
-uguisu.lint(projectDir);
+// static analysis
+uguisu.check(projectDir);
 
 // Run
 uguisu.run(projectDir);
