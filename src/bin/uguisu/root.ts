@@ -1,3 +1,7 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 type Match = {
     help: boolean,
     version: boolean,
@@ -51,7 +55,11 @@ function showHelp() {
 }
 
 function showVersion() {
-    console.log(`uguisu ${process.env.npm_package_version}`);
+    const currFilePath = fileURLToPath(import.meta.url);
+    const infoPath = path.resolve(path.dirname(currFilePath), './info.json');
+    const json = fs.readFileSync(infoPath, { encoding: 'utf8' });
+    const info = JSON.parse(json);
+    console.log(`uguisu ${info.version}`);
 }
 
 export function command(args: string[]) {
