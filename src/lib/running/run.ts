@@ -131,7 +131,6 @@ function callFunc(r: RunContext, func: FunctionValue, args: Value[]): Value {
 }
 
 function execBlock(r: RunContext, block: StatementNode[]): StatementResult {
-    trace.log('execBlock');
     r.env.enter();
     let result: StatementResult = newNoneResult();
     for (const statement of block) {
@@ -153,7 +152,6 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
     } else {
         switch (statement.kind) {
             case 'ReturnStatement': {
-                trace.log('ReturnStatement');
                 if (statement.expr != null) {
                     return newReturnResult(evalExpr(r, statement.expr));
                 } else {
@@ -161,11 +159,9 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                 }
             }
             case 'BreakStatement': {
-                trace.log('BreakStatement');
                 return newBreakResult();
             }
             case 'LoopStatement': {
-                trace.log('LoopStatement');
                 while (true) {
                     const result = execBlock(r, statement.block);
                     if (result.kind == 'ReturnResult') {
@@ -177,7 +173,6 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                 return newNoneResult();
             }
             case 'IfStatement': {
-                trace.log('IfStatement');
                 const cond = evalExpr(r, statement.cond);
                 if (isNoneValue(cond)) {
                     throw new UguisuError('no values');
@@ -190,7 +185,6 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                 }
             }
             case 'VariableDecl': {
-                trace.log('VariableDecl');
                 if (statement.body != null) {
                     const bodyValue = evalExpr(r, statement.body);
                     if (isNoneValue(bodyValue)) {
@@ -203,7 +197,6 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                 return newNoneResult();
             }
             case 'AssignStatement': {
-                trace.log('AssignStatement');
                 if (statement.target.kind != 'Identifier') {
                     throw new UguisuError('unsupported assignee');
                 }
@@ -286,7 +279,6 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
 function evalExpr(r: RunContext, expr: ExprNode): Value {
     switch (expr.kind) {
         case 'Identifier': {
-            trace.log('Identifier');
             const symbol = r.env.get(expr.name);
             if (symbol == null || !symbol.defined) {
                 throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
@@ -294,19 +286,15 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
             return symbol.value;
         }
         case 'NumberLiteral': {
-            trace.log('NumberLiteral');
             return newNumber(expr.value);
         }
         case 'BoolLiteral': {
-            trace.log('BoolLiteral');
             return newBool(expr.value);
         }
         case 'StringLiteral': {
-            trace.log('StringLiteral');
             return newString(expr.value);
         }
         case 'Call': {
-            trace.log('Call');
             const callee = evalExpr(r, expr.callee);
             if (isNoneValue(callee)) {
                 throw new UguisuError('no values');
@@ -322,7 +310,6 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
             return callFunc(r, callee, args);
         }
         case 'BinaryOp': {
-            trace.log('BinaryOp');
             const left = evalExpr(r, expr.left);
             const right = evalExpr(r, expr.right);
             if (isNoneValue(left)) {
@@ -447,7 +434,6 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
             throw new UguisuError('unexpected operation');
         }
         case 'UnaryOp': {
-            trace.log('UnaryOp');
             const value = evalExpr(r, expr.expr);
             if (isNoneValue(value)) {
                 throw new UguisuError('no values');

@@ -32,7 +32,6 @@ export function analyze(source: SourceFile, env: AnalysisEnv, symbolTable: Map<A
     for (const func of source.funcs) {
         validateFunc(a, func);
     }
-    // console.log(ctx.symbolTable);
 
     // print errors
     for (const message of a.error) {
