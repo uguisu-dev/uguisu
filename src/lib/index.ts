@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { UguisuError } from './misc/errors.js';
 import { UguisuOptions } from './misc/options.js';
-import { generateDefaultProjectInfo, parseProjectFile, ProjectFile, ProjectInfo } from './project-file.js';
+import { getDefaultProjectInfo, parseProjectFile, ProjectInfo } from './project-file.js';
 import { run } from './running/run.js';
 import { RunningEnv } from './running/tools.js';
 import { analyze } from './semantics/analyze.js';
@@ -33,41 +33,9 @@ export class Uguisu {
      * @throws TypeError (Invalid arguments)
      * @throws UguisuError
     */
-    runCode(sourceCode: string, projectFile?: ProjectFile) {
-        if (typeof sourceCode != 'string') {
-            throw new TypeError('Invalid arguments');
-        }
-
-        // project file
-        let projectInfo: ProjectInfo;
-        if (projectFile != null) {
-            projectInfo = parseProjectFile(projectFile);
-        } else {
-            projectInfo = generateDefaultProjectInfo();
-        }
-
-        // parse
-        const sourceFile = parse(sourceCode, projectInfo.filename, projectInfo);
-
-        // lint
-        const analysisEnv = new AnalysisEnv();
-        const symbolTable = new Map();
-        if (!analyze(sourceFile, analysisEnv, symbolTable, projectInfo)) {
-            return;
-        }
-
-        // run
-        const runningEnv = new RunningEnv();
-        run(sourceFile, runningEnv, this._options, projectInfo);
-    }
-
-    /**
-     * @throws TypeError (Invalid arguments)
-     * @throws UguisuError
-    */
-    lint(dirPath: string) {
+    check(dirPath: string) {
         this._perform(dirPath, {
-            lint: true,
+            check: true,
             run: false,
         });
     }
@@ -78,12 +46,12 @@ export class Uguisu {
     */
     run(dirPath: string) {
         this._perform(dirPath, {
-            lint: false,
+            check: false,
             run: true,
         });
     }
 
-    private _perform(dirPath: string, tasks: { lint: boolean, run: boolean }) {
+    private _perform(dirPath: string, tasks: { check: boolean, run: boolean }) {
         if (typeof dirPath != 'string') {
             throw new TypeError('Invalid arguments.');
         }
@@ -108,7 +76,7 @@ export class Uguisu {
             }
             projectInfo = parseProjectFile(projectFile);
         } else {
-            projectInfo = generateDefaultProjectInfo();
+            projectInfo = getDefaultProjectInfo();
         }
 
         // load
@@ -123,8 +91,8 @@ export class Uguisu {
         // parse
         const sourceFile = parse(sourceCode, scriptFilePath, projectInfo);
 
-        // lint
-        if (tasks.lint) {
+        // static analysis
+        if (tasks.check) {
             const analysisEnv = new AnalysisEnv();
             const symbolTable = new Map();
             if (!analyze(sourceFile, analysisEnv, symbolTable, projectInfo)) {

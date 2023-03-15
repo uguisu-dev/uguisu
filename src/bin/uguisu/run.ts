@@ -2,14 +2,14 @@ import { Uguisu } from '../../lib/index.js';
 
 type Match = {
     help: boolean,
-    lint: boolean,
+    check: boolean,
     free: string[],
 };
 
 function getopts(args: string[]): Match {
     const match: Match = {
         help: false,
-        lint: false,
+        check: false,
         free: [],
     };
 
@@ -17,8 +17,8 @@ function getopts(args: string[]): Match {
         if (arg === '-h' || arg === '--help') {
             match.help = true;
         }
-        if (arg === '-l' || arg === '--lint') {
-            match.lint = true;
+        if (arg === '-c' || arg === '--check') {
+            match.check = true;
         }
         else if (arg.startsWith('-')) {
             throw `unknown option: ${arg}`;
@@ -36,10 +36,10 @@ function showHelp() {
         'Usage: uguisu run [options] [projectDir]',
         '',
         'Examples:',
-        '    uguisu run -l <projectDir>',
+        '    uguisu run -c <projectDir>',
         '',
         'Options:',
-        '    -l, --lint          Run with static analysis.',
+        '    -c, --check         Run with static analysis.',
         '    -h, --help          Print help message.',
     ];
     console.log(lines.join('\n'));
@@ -73,8 +73,8 @@ export function command(args: string[]) {
                 console.log(str);
             }
         });
-        if (match.lint) {
-            uguisu.lint(dirPath);
+        if (match.check) {
+            uguisu.check(dirPath);
         }
         uguisu.run(dirPath);
         // process.exitCode = 1;

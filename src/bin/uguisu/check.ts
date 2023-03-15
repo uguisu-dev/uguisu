@@ -28,10 +28,10 @@ function getopts(args: string[]): Match {
 
 function showHelp() {
     const lines = [
-        'Usage: uguisu lint [options] [projectDir]',
+        'Usage: uguisu check [options] [projectDir]',
         '',
         'Examples:',
-        '    uguisu lint <projectDir>',
+        '    uguisu check <projectDir>',
         '',
         'Options:',
         '    -h, --help          Print help message.',
@@ -63,7 +63,7 @@ export function command(args: string[]) {
     // lint
     try {
         const uguisu = new Uguisu();
-        uguisu.lint(dirPath);
+        uguisu.check(dirPath);
         // process.exitCode = 1;
         // process.exit();
     }

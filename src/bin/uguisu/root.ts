@@ -34,8 +34,8 @@ function showHelp() {
         'Usage: uguisu [options] [commands]',
         '',
         'Examples:',
-        '    uguisu run -l <projectDir>',
-        '    uguisu lint <projectDir>',
+        '    uguisu run -c <projectDir>',
+        '    uguisu check <projectDir>',
         '    uguisu <command> -h',
         '    uguisu -v',
         '',
@@ -45,7 +45,7 @@ function showHelp() {
         '',
         'Commands:',
         '    run                 Run a uguisu project.',
-        '    lint                Perform the lint for a project.',
+        '    check               Perform the check for a project.',
     ];
     console.log(lines.join('\n'));
 }

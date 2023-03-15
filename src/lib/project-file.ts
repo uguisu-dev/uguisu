@@ -53,7 +53,7 @@ export function parseProjectFile(source: Record<string, any>): ProjectInfo {
     };
 }
 
-export function generateDefaultProjectInfo(): ProjectInfo {
+export function getDefaultProjectInfo(): ProjectInfo {
     return {
         langVersion: 'uguisu2023-1',
         filename: 'main.ug',
