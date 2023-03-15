@@ -56,8 +56,8 @@ function showHelp() {
 
 function showVersion() {
     const currFilePath = fileURLToPath(import.meta.url);
-    const infoPath = path.resolve(path.dirname(currFilePath), './info.json');
-    const json = fs.readFileSync(infoPath, { encoding: 'utf8' });
+    const filePath = path.resolve(path.dirname(currFilePath), '../../package.json');
+    const json = fs.readFileSync(filePath, { encoding: 'utf8' });
     const info = JSON.parse(json);
     console.log(`uguisu ${info.version}`);
 }

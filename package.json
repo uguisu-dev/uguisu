@@ -21,7 +21,7 @@
   "author": "marihachi",
   "license": "MIT",
   "scripts": {
-    "build": "tsc && node scripts/copy.js",
+    "build": "tsc",
     "test": "jest --verbose",
     "cli": "node bin/uguisu.js"
   },
