@@ -88,11 +88,14 @@ function newBreakResult(): BreakResult {
 //#endregion StatementResults
 
 function evalSourceFile(r: RunContext, source: SourceFile) {
-    for (const func of source.funcs) {
-        r.env.declare(func.name);
+    for (const decl of source.funcs) {
+        r.env.declare(decl.name);
     }
-    for (const func of source.funcs) {
-        r.env.define(func.name, newFunction(func, r.env));
+    for (const decl of source.funcs) {
+        r.env.define(decl.name, newFunction(decl, r.env));
+    }
+    for (const decl of source.structs) {
+        // TODO
     }
 }
 
@@ -448,6 +451,12 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                 }
             }
             throw new UguisuError('unexpected operation');
+        }
+        case 'StructExpr': {
+            throw new UguisuError('not implemented yet.'); // TODO
+        }
+        case 'FieldAccess': {
+            throw new UguisuError('not implemented yet.'); // TODO
         }
     }
 }

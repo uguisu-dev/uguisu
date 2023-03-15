@@ -29,6 +29,8 @@ import {
     ReturnStatement,
     SourceFile,
     StatementNode,
+    StructDecl,
+    StructDeclField,
     TyLabel,
     VariableDecl
 } from './tools.js';
@@ -154,6 +156,7 @@ function parseTyLabel(p: ParseContext): TyLabel {
 */
 function parseSourceFile(p: ParseContext, filename: string): SourceFile {
     let funcs: FunctionDecl[] = [];
+    let structs: StructDecl[] = [];
     trace.enter('[parse] parseSourceFile');
 
     while (true) {
@@ -162,15 +165,18 @@ function parseSourceFile(p: ParseContext, filename: string): SourceFile {
             trace.leave();
             break;
         }
+        let exported = false;
+        if (p.getToken() == Token.Export) {
+            p.next();
+            exported = true;
+        }
         switch (p.getToken()) {
-            case Token.Export: {
-                p.next();
-                p.expect(Token.Fn);
-                funcs.push(parseFunctionDecl(p, true));
+            case Token.Fn: {
+                funcs.push(parseFunctionDecl(p, exported));
                 break;
             }
-            case Token.Fn: {
-                funcs.push(parseFunctionDecl(p, false));
+            case Token.Struct: {
+                structs.push(parseStructDecl(p));
                 break;
             }
             default: {
@@ -181,7 +187,7 @@ function parseSourceFile(p: ParseContext, filename: string): SourceFile {
     }
 
     trace.leave();
-    return newSourceFile([1, 1], filename, funcs);
+    return newSourceFile([1, 1], filename, funcs, structs);
 }
 
 /**
@@ -241,6 +247,21 @@ function parseFnDeclParam(p: ParseContext): FnDeclParam {
 
     trace.leave();
     return newFnDeclParam(pos, name, ty);
+}
+
+/**
+ * <StructDecl> = "struct" <identifier> "{" <StructDeclFields>? "}"
+ * <StructDeclFields> = <StructDeclField> ("," <StructDeclField>)*
+*/
+function parseStructDecl(p: ParseContext): StructDecl {
+    throw new UguisuError('not implemented yet');
+}
+
+/**
+ * <StructDeclField>
+*/
+function parseStructDeclField(p: ParseContext): StructDeclField {
+    throw new UguisuError('not implemented yet');
 }
 
 //#endregion SourceFile

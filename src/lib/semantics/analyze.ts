@@ -2,6 +2,7 @@ import { UguisuError } from '../misc/errors.js';
 import { ProjectInfo } from '../project-file.js';
 import {
     AstNode,
+    FileNode,
     FunctionDecl,
     isEquivalentOperator,
     isLogicalBinaryOperator,
@@ -26,8 +27,11 @@ import {
 export function analyze(source: SourceFile, env: AnalysisEnv, symbolTable: Map<AstNode, Symbol>, projectInfo: ProjectInfo): boolean {
     const a = new AnalyzeContext(env, symbolTable, projectInfo);
     builtins.setDeclarations(a);
-    for (const func of source.funcs) {
-        setDeclaration(a, func);
+    for (const decl of source.funcs) {
+        setDeclaration(a, decl);
+    }
+    for (const decl of source.structs) {
+        setDeclaration(a, decl);
     }
     for (const func of source.funcs) {
         validateFunc(a, func);
@@ -44,7 +48,7 @@ export function analyze(source: SourceFile, env: AnalysisEnv, symbolTable: Map<A
     return (a.error.length == 0);
 }
 
-function setDeclaration(a: AnalyzeContext, node: AstNode) {
+function setDeclaration(a: AnalyzeContext, node: FileNode) {
     switch (node.kind) {
         case 'FunctionDecl': { // declare function
             const vars: FnVar[] = [];
@@ -88,6 +92,10 @@ function setDeclaration(a: AnalyzeContext, node: AstNode) {
             a.env.set(node.name, symbol);
             break;
         }
+        case 'StructDecl': {
+            // TODO
+            break;
+        }
     }
 }
 
@@ -119,7 +127,7 @@ function validateFunc(a: AnalyzeContext, node: FunctionDecl) {
     symbol.defined = true;
 }
 
-function validateStatement(a: AnalyzeContext, node: AstNode, allowJump: boolean, funcSymbol: FunctionSymbol) {
+function validateStatement(a: AnalyzeContext, node: StatementNode, allowJump: boolean, funcSymbol: FunctionSymbol) {
     switch (node.kind) {
         case 'VariableDecl': {
             // specified type
@@ -259,11 +267,13 @@ function validateStatement(a: AnalyzeContext, node: AstNode, allowJump: boolean,
             inferType(a, node, funcSymbol);
             return;
         }
-        case 'SourceFile':
-        case 'FunctionDecl':
-        case 'FnDeclParam':
-        case 'TyLabel': {
-            throw new UguisuError('unexpected node.');
+        case 'StructExpr': {
+            // TODO
+            return;
+        }
+        case 'FieldAccess': {
+            // TODO
+            return;
         }
     }
     throw new UguisuError('unexpected node.');
@@ -445,6 +455,12 @@ function inferType(a: AnalyzeContext, node: AstNode, funcSymbol: FunctionSymbol)
             }
             a.symbolTable.set(node, { kind: 'ExprSymbol', ty: calleeSymbol.returnTy });
             return calleeSymbol.returnTy;
+        }
+        case 'StructExpr': {
+            throw new UguisuError('not implemented yet.'); // TODO
+        }
+        case 'FieldAccess': {
+            throw new UguisuError('not implemented yet.'); // TODO
         }
     }
     throw new UguisuError('unexpected node.');

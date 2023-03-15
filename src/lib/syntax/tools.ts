@@ -9,11 +9,10 @@ export type AstNode
     | StructDeclField
     | StructExprField;
 
-export type FileNode = FunctionDecl;
+export type FileNode = FunctionDecl | StructDecl;
 
 export type StatementNode
     = VariableDecl
-    | StructDecl
     | AssignStatement
     | IfStatement
     | LoopStatement
@@ -70,9 +69,10 @@ export type SourceFile = {
     pos: Pos;
     filename: string;
     funcs: FunctionDecl[],
+    structs: StructDecl[],
 };
-export function newSourceFile(pos: Pos, filename: string, funcs: FunctionDecl[]): SourceFile {
-    return { kind: 'SourceFile', pos, filename, funcs };
+export function newSourceFile(pos: Pos, filename: string, funcs: FunctionDecl[], structs: StructDecl[]): SourceFile {
+    return { kind: 'SourceFile', pos, filename, funcs, structs };
 }
 
 export type FunctionDecl = {
