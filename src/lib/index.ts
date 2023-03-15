@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { UguisuError } from './misc/errors.js';
 import { UguisuOptions } from './misc/options.js';
-import { generateDefaultProjectFile, parseProjectFile, ProjectFile } from './project-file.js';
+import { generateDefaultProjectInfo, parseProjectFile, ProjectInfo } from './project-file.js';
 import { run } from './running/run.js';
 import { RunningEnv } from './running/tools.js';
 import { analyze } from './semantics/analyze.js';
@@ -33,29 +33,29 @@ export class Uguisu {
      * @throws TypeError (Invalid arguments)
      * @throws UguisuError
     */
-    runCode(sourceCode: string, projectFile?: ProjectFile) {
+    runCode(sourceCode: string, projectFile?: ProjectInfo) {
         if (typeof sourceCode != 'string') {
             throw new TypeError('Invalid arguments');
         }
         // project file
-        let projectFileNorm;
+        let projectInfo;
         if (projectFile != null) {
-            projectFileNorm = parseProjectFile(projectFile ?? {});
+            projectInfo = parseProjectFile(projectFile ?? {});
         } else {
-            projectFileNorm = generateDefaultProjectFile();
+            projectInfo = generateDefaultProjectInfo();
         }
 
         // parse
-        const sourceFile = parse(sourceCode, 'main.ug', projectFileNorm);
+        const sourceFile = parse(sourceCode, 'main.ug', projectInfo);
         // static analysis
         const analysisEnv = new AnalysisEnv();
         const symbolTable = new Map();
-        if (!analyze(sourceFile, analysisEnv, symbolTable, projectFileNorm)) {
+        if (!analyze(sourceFile, analysisEnv, symbolTable, projectInfo)) {
             return;
         }
         // run
         const runningEnv = new RunningEnv();
-        run(sourceFile, runningEnv, this._options, projectFileNorm);
+        run(sourceFile, runningEnv, this._options, projectInfo);
     }
 
     /**
@@ -75,7 +75,7 @@ export class Uguisu {
         } catch (err) {
             projectFileExists = false;
         }
-        let projectFileNorm;
+        let projectInfo;
         if (projectFileExists) {
             let projectFile: Record<string, any>;
             try {
@@ -84,9 +84,9 @@ export class Uguisu {
             } catch (err) {
                 throw new UguisuError('Failed to load the project file.');
             }
-            projectFileNorm = parseProjectFile(projectFile);
+            projectInfo = parseProjectFile(projectFile);
         } else {
-            projectFileNorm = generateDefaultProjectFile();
+            projectInfo = generateDefaultProjectInfo();
         }
 
         // load
@@ -98,15 +98,15 @@ export class Uguisu {
             throw new UguisuError('Failed to load the script file.');
         }
         // parse
-        const sourceFile = parse(sourceCode, scriptFilePath, projectFileNorm);
+        const sourceFile = parse(sourceCode, scriptFilePath, projectInfo);
         // static analysis
         const analysisEnv = new AnalysisEnv();
         const symbolTable = new Map();
-        if (!analyze(sourceFile, analysisEnv, symbolTable, projectFileNorm)) {
+        if (!analyze(sourceFile, analysisEnv, symbolTable, projectInfo)) {
             return;
         }
         // run
         const runningEnv = new RunningEnv();
-        run(sourceFile, runningEnv, this._options, projectFileNorm);
+        run(sourceFile, runningEnv, this._options, projectInfo);
     }
 }

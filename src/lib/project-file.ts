@@ -2,11 +2,11 @@ import { UguisuError } from './misc/errors.js';
 
 export type LangVersion = 'uguisu2023-1';
 
-export type ProjectFile = {
+export type ProjectInfo = {
     langVersion: LangVersion,
 };
 
-export function parseProjectFile(source: Record<string, any>): ProjectFile {
+export function parseProjectFile(source: Record<string, any>): ProjectInfo {
     // langVersion
     let langVersion: LangVersion;
     if (source.langVersion != null) {
@@ -32,7 +32,7 @@ export function parseProjectFile(source: Record<string, any>): ProjectFile {
     };
 }
 
-export function generateDefaultProjectFile(): ProjectFile {
+export function generateDefaultProjectInfo(): ProjectInfo {
     return {
         langVersion: 'uguisu2023-1',
     };
