@@ -1,22 +1,19 @@
+import { Uguisu } from '../../lib/index.js';
+
 type Match = {
     help: boolean,
-    version: boolean,
     free: string[],
 };
 
 function getopts(args: string[]): Match {
     const match: Match = {
         help: false,
-        version: false,
         free: [],
     };
 
     for (const arg of args) {
         if (arg === '-h' || arg === '--help') {
             match.help = true;
-        }
-        else if (arg === '-v' || arg === '--version') {
-            match.version = true;
         }
         else if (arg.startsWith('-')) {
             throw `unknown option: ${arg}`;
@@ -31,28 +28,15 @@ function getopts(args: string[]): Match {
 
 function showHelp() {
     const lines = [
-        'Usage: uguisu [options] [commands]',
+        'Usage: uguisu lint [options] [projectDir]',
         '',
         'Examples:',
         '    uguisu lint <projectDir>',
-        '    uguisu run <projectDir>',
-        '    uguisu <command> -h',
-        '    uguisu -v',
         '',
         'Options:',
         '    -h, --help          Print help message.',
-        '    -v, --version       Print Uguisu version.',
-        '',
-        'Commands:',
-        '    lint                Perform the lint for a project.',
-        '    run                 Run a uguisu project.',
     ];
     console.log(lines.join('\n'));
-}
-
-function showVersion() {
-    const info = require('../../package.json');
-    console.log(`uguisu ${info.version}`);
 }
 
 export function command(args: string[]) {
@@ -69,10 +53,21 @@ export function command(args: string[]) {
         return;
     }
 
-    if (match.version) {
-        showVersion();
+    if (match.free.length == 0) {
+        showHelp();
         return;
     }
 
-    showHelp();
+    const dirPath = match.free[0];
+
+    // lint
+    try {
+        const uguisu = new Uguisu();
+        uguisu.lint(dirPath);
+        // process.exitCode = 1;
+        // process.exit();
+    }
+    catch (e) {
+        console.log(e);
+    }
 }

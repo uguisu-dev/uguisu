@@ -37,6 +37,7 @@ export class Uguisu {
         if (typeof sourceCode != 'string') {
             throw new TypeError('Invalid arguments');
         }
+
         // project file
         let projectInfo: ProjectInfo;
         if (projectFile != null) {
@@ -47,12 +48,14 @@ export class Uguisu {
 
         // parse
         const sourceFile = parse(sourceCode, projectInfo.filename, projectInfo);
-        // static analysis
+
+        // lint
         const analysisEnv = new AnalysisEnv();
         const symbolTable = new Map();
         if (!analyze(sourceFile, analysisEnv, symbolTable, projectInfo)) {
             return;
         }
+
         // run
         const runningEnv = new RunningEnv();
         run(sourceFile, runningEnv, this._options, projectInfo);
@@ -62,10 +65,29 @@ export class Uguisu {
      * @throws TypeError (Invalid arguments)
      * @throws UguisuError
     */
+    lint(dirPath: string) {
+        this._perform(dirPath, {
+            lint: true,
+            run: false,
+        });
+    }
+
+    /**
+     * @throws TypeError (Invalid arguments)
+     * @throws UguisuError
+    */
     run(dirPath: string) {
+        this._perform(dirPath, {
+            lint: false,
+            run: true,
+        });
+    }
+
+    private _perform(dirPath: string, tasks: { lint: boolean, run: boolean }) {
         if (typeof dirPath != 'string') {
             throw new TypeError('Invalid arguments.');
         }
+
         // project file
         const projectFilePath = path.resolve(dirPath, './uguisu.json');
         let existsProjectFile: boolean;
@@ -97,16 +119,23 @@ export class Uguisu {
         } catch (err) {
             throw new UguisuError('Failed to load the script file.');
         }
+
         // parse
         const sourceFile = parse(sourceCode, scriptFilePath, projectInfo);
-        // static analysis
-        const analysisEnv = new AnalysisEnv();
-        const symbolTable = new Map();
-        if (!analyze(sourceFile, analysisEnv, symbolTable, projectInfo)) {
-            return;
+
+        // lint
+        if (tasks.lint) {
+            const analysisEnv = new AnalysisEnv();
+            const symbolTable = new Map();
+            if (!analyze(sourceFile, analysisEnv, symbolTable, projectInfo)) {
+                return;
+            }
         }
+
         // run
-        const runningEnv = new RunningEnv();
-        run(sourceFile, runningEnv, this._options, projectInfo);
+        if (tasks.run) {
+            const runningEnv = new RunningEnv();
+            run(sourceFile, runningEnv, this._options, projectInfo);
+        }
     }
 }

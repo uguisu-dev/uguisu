@@ -68,6 +68,8 @@ export function command(args: string[]) {
             }
         });
         uguisu.run(dirPath);
+        // process.exitCode = 1;
+        // process.exit();
     }
     catch (e) {
         console.log(e);
