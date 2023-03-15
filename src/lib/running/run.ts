@@ -32,7 +32,7 @@ import {
 const trace = Trace.getDefault().createChild(false);
 
 export function run(source: SourceFile, env: RunningEnv, options: UguisuOptions, projectInfo: ProjectInfo) {
-    const r = new RunContext(env, options);
+    const r = new RunContext(env, options, projectInfo);
     builtins.setRuntime(env, options);
     evalSourceFile(r, source);
     call(r, 'main');
@@ -41,10 +41,12 @@ export function run(source: SourceFile, env: RunningEnv, options: UguisuOptions,
 class RunContext {
     env: RunningEnv;
     options: UguisuOptions;
+    projectInfo: ProjectInfo;
 
-    constructor(env: RunningEnv, options: UguisuOptions) {
+    constructor(env: RunningEnv, options: UguisuOptions, projectInfo: ProjectInfo) {
         this.env = env;
         this.options = options;
+        this.projectInfo = projectInfo;
     }
 }
 
@@ -97,7 +99,7 @@ function evalSourceFile(r: RunContext, source: SourceFile) {
 function callFunc(r: RunContext, func: FunctionValue, args: Value[]): Value {
     if (func.node != null) {
         const env = new RunningEnv(func.env);
-        const ctx = new RunContext(env, r.options);
+        const ctx = new RunContext(env, r.options, r.projectInfo);
         ctx.env.enter();
         if (func.node.params.length != args.length) {
             throw new UguisuError('invalid arguments count');
