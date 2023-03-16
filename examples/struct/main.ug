@@ -1,0 +1,15 @@
+struct User {
+    id: string,
+    name: string,
+    createdAt: number,
+}
+
+fn main() {
+    var x = User {
+        id: "kani",
+        name: "kani san",
+        createdAt: 12345,
+    };
+
+    printStr(x.name);
+}
