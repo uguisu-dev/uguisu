@@ -305,9 +305,10 @@ export type StructDecl = {
     pos: Pos,
     name: string,
     fields: StructDeclField[],
+    exported: boolean,
 };
-export function newStructDecl(pos: Pos, name: string, fields: StructDeclField[]): StructDecl {
-    return { kind: 'StructDecl', pos, name, fields };
+export function newStructDecl(pos: Pos, name: string, fields: StructDeclField[], exported: boolean): StructDecl {
+    return { kind: 'StructDecl', pos, name, fields, exported };
 }
 
 export type StructDeclField = {

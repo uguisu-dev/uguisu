@@ -39,6 +39,8 @@ export enum Token {
     BeginParen,
     /** ")" */
     EndParen,
+    /** "." */
+    Dot,
     /** "," */
     Comma,
     /** ":" */
@@ -298,6 +300,11 @@ export class Scanner {
                 }
                 case ')': {
                     this.token = Token.EndParen;
+                    this.nextChar();
+                    break;
+                }
+                case '.': {
+                    this.token = Token.Dot;
                     this.nextChar();
                     break;
                 }
