@@ -31,6 +31,8 @@ import {
     stringType,
     isValidType,
     getTypeString,
+    newSimpleType,
+    newStructSymbol,
 } from './tools.js';
 
 export function analyze(
@@ -112,7 +114,22 @@ function setDeclaration(a: AnalyzeContext, node: FileNode) {
             break;
         }
         case 'StructDecl': {
-            // TODO
+            // params
+            const fields: { name: string, ty: Type }[] = node.fields.map(x => {
+                return {
+                    name: x.name,
+                    ty: resolveTypeName(a, x.ty),
+                };
+            });
+
+            // export specifier
+            if (node.exported) {
+                a.dispatchWarn('`export` keyword is not supported for a struct.', node);
+            }
+
+            const symbol = newStructSymbol(fields);
+            a.symbolTable.set(node, symbol);
+            a.env.set(node.name, symbol);
             break;
         }
     }
@@ -293,16 +310,10 @@ function validateStatement(a: AnalyzeContext, node: StatementNode, allowJump: bo
         case 'BinaryOp':
         case 'UnaryOp':
         case 'Identifier':
-        case 'Call': {
-            inferType(a, node, funcSymbol);
-            return;
-        }
-        case 'StructExpr': {
-            // TODO
-            return;
-        }
+        case 'Call':
+        case 'StructExpr':
         case 'FieldAccess': {
-            // TODO
+            inferType(a, node, funcSymbol);
             return;
         }
     }
@@ -442,6 +453,9 @@ function inferType(a: AnalyzeContext, node: AstNode, funcSymbol: FunctionSymbol)
                 case 'NativeFnSymbol': {
                     return symbol.ty;
                 }
+                case 'StructSymbol': {
+                    return newSimpleType(node.name);
+                }
                 case 'VariableSymbol': {
                     // if the variable is not assigned
                     if (symbol.ty.kind == 'PendingType') {
@@ -471,6 +485,10 @@ function inferType(a: AnalyzeContext, node: AstNode, funcSymbol: FunctionSymbol)
                 case 'FnSymbol':
                 case 'NativeFnSymbol': {
                     break;
+                }
+                case 'StructSymbol': {
+                    a.dispatchError('struct is not callable.', node.callee);
+                    return badType;
                 }
                 case 'VariableSymbol': {
                     // if the variable is not assigned
@@ -517,10 +535,47 @@ function inferType(a: AnalyzeContext, node: AstNode, funcSymbol: FunctionSymbol)
             }
         }
         case 'StructExpr': {
-            throw new UguisuError('not implemented yet.'); // TODO
+            const symbol = a.env.get(node.name);
+            if (symbol == null) {
+                a.dispatchError('unknown identifier.', node);
+                return badType;
+            }
+            if (symbol.kind != 'StructSymbol') {
+                a.dispatchError('struct expected.', node);
+                return badType;
+            }
+            // TODO: check fields
+            return newSimpleType(node.name);
         }
         case 'FieldAccess': {
-            throw new UguisuError('not implemented yet.'); // TODO
+            const targetTy = inferType(a, node.target, funcSymbol);
+            if (!isValidType(targetTy)) {
+                return badType;
+            }
+            switch (targetTy.kind) {
+                case 'SimpleType': {
+                    const symbol = a.env.get(targetTy.name);
+                    if (symbol == null) {
+                        a.dispatchError('unknown type name.', node.target);
+                        return badType;
+                    }
+                    if (symbol.kind != 'StructSymbol') {
+                        a.dispatchError('struct expected.', node);
+                        return badType;
+                    }
+                    const field = symbol.fields.find(x => x.name == node.name);
+                    if (field == null) {
+                        a.dispatchError('unknown field name.', node);
+                        return badType;
+                    }
+                    return field.ty;
+                }
+                case 'FunctionType':
+                case 'GenericType': {
+                    throw new UguisuError('not implemented yet.'); // TODO
+                }
+            }
+            break;
         }
     }
     throw new UguisuError('unexpected node.');
@@ -528,16 +583,27 @@ function inferType(a: AnalyzeContext, node: AstNode, funcSymbol: FunctionSymbol)
 
 function resolveTypeName(a: AnalyzeContext, node: TyLabel): Type {
     switch (node.name) {
-        case 'number': {
-            return numberType;
-        }
-        case 'bool': {
-            return boolType;
-        }
+        case 'number':
+        case 'bool':
         case 'string': {
-            return stringType;
+            return newSimpleType(node.name);
         }
     }
-    a.dispatchError('unknown type name.', node);
-    return badType;
+    const symbol = a.env.get(node.name);
+    if (symbol == null) {
+        a.dispatchError('unknown type name.', node);
+        return badType;
+    }
+    switch (symbol.kind) {
+        case 'StructSymbol': {
+            return newSimpleType(node.name);
+        }
+        case 'FnSymbol':
+        case 'NativeFnSymbol':
+        case 'VariableSymbol':
+        case 'ExprSymbol': {
+            a.dispatchError('unknown type name.', node);
+            return badType;
+        }
+    }
 }
