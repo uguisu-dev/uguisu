@@ -1,5 +1,5 @@
 import Wasm from 'binaryen';
-import { MaybeValidType, Symbol } from '../semantics/tools.js';
+import { boolType, compareType, FunctionType, numberType, Symbol, Type, voidType } from '../semantics/tools.js';
 import { UguisuError } from '../misc/errors.js';
 import { AstNode, ExprNode, FunctionDecl, Identifier, SourceFile, StatementNode } from '../syntax/tools.js';
 
@@ -17,8 +17,8 @@ type Context = {
 
 type FuncInfo = {
     name: string;
-    vars: { name: string, ty: MaybeValidType, isParam: boolean }[];
-    returnTy: MaybeValidType;
+    vars: { name: string, ty: Type, isParam: boolean }[];
+    returnTy: Type;
 };
 
 function translate(symbolTable: Map<AstNode, Symbol>, node: SourceFile): Wasm.Module {
@@ -61,7 +61,7 @@ function translateFunc(ctx: Context, node: FunctionDecl) {
     const func: FuncInfo = {
         name: node.name,
         vars,
-        returnTy: symbol.returnTy,
+        returnTy: (symbol.ty as FunctionType).returnType,
     };
 
     const body = translateStatements(ctx, node.body, func, null);
@@ -211,7 +211,7 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
             }
             const left = translateExpr(ctx, node.left, func);
             const right = translateExpr(ctx, node.right, func);
-            if (symbol.ty == 'number') {
+            if (compareType(symbol.ty, numberType) == 'compatible') {
                 switch (node.operator) {
                     case '+': {
                         return ctx.mod.i32.add(left, right);
@@ -229,7 +229,7 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
                         throw new UguisuError('unsupported operation');
                     }
                 }
-            } else if (symbol.ty == 'bool') {
+            } else if (compareType(symbol.ty, boolType) == 'compatible') {
                 switch (node.operator) {
                     case '==': {
                         return ctx.mod.i32.eq(left, right);
@@ -295,7 +295,7 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
             }
             const callee = node.callee as Identifier;
             const args = node.args.map(x => translateExpr(ctx, x, func));
-            return ctx.mod.call(callee.name, args, mapType(calleeSymbol.returnTy));
+            return ctx.mod.call(callee.name, args, mapType((calleeSymbol.ty as FunctionType).returnType));
         }
         default: {
             throw new UguisuError('unexpected node');
@@ -303,21 +303,12 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
     }
 }
 
-function mapType(type: MaybeValidType): number {
-    switch (type) {
-        case 'void': {
-            return Wasm.none;
-        }
-        case 'number':
-        case 'bool': {
-            return Wasm.i32;
-        }
-        case 'string':
-        case 'function': {
-            throw new UguisuError('not impelemented yet');
-        }
-        default: {
-            throw new UguisuError('unexpected type');
-        }
+function mapType(type: Type): number {
+    if (compareType(type, voidType)) {
+        return Wasm.none;
     }
+    if (compareType(type, numberType) || compareType(type, boolType)) {
+        return Wasm.i32;
+    }
+    throw new UguisuError('not impelemented yet');
 }

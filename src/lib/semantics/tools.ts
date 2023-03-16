@@ -76,47 +76,180 @@ export type Symbol = FunctionSymbol | NativeFnSymbol | VariableSymbol | ExprSymb
 export type FunctionSymbol = {
     kind: 'FnSymbol',
     defined: boolean,
-    params: { name: string, ty: MaybeValidType }[],
-    returnTy: MaybeValidType,
+    params: { name: string }[],
+    ty: FunctionType | InvalidType,
     /** for wasm */
     vars: FnVar[],
 };
 
-export type FnVar = { name: string, isParam: boolean, ty: MaybeValidType };
+export type FnVar = { name: string, isParam: boolean, ty: Type };
 
 export type NativeFnSymbol = {
     kind: 'NativeFnSymbol',
-    params: { name: string, ty: MaybeValidType }[],
-    returnTy: MaybeValidType,
+    params: { name: string }[],
+    ty: FunctionType | InvalidType,
 };
 
-export function newNativeFnSymbol(params: { name: string, ty: MaybeValidType }[], returnTy: MaybeValidType): NativeFnSymbol {
-    return { kind: 'NativeFnSymbol', params, returnTy };
+export function newNativeFnSymbol(params: { name: string }[], ty: FunctionType | InvalidType): NativeFnSymbol {
+    return { kind: 'NativeFnSymbol', params, ty };
 }
 
 export type VariableSymbol = {
     kind: 'VariableSymbol',
     defined: boolean,
-    ty: MaybeValidType,
+    ty: Type,
 };
 
 export type ExprSymbol = {
     kind: 'ExprSymbol',
-    ty: MaybeValidType,
+    ty: Type,
 };
 
-export type MaybeValidType = ValidType | '(unresolved)' | '(invalid)';
-export type ValidType = 'void' | 'number' | 'bool' | 'string' | 'function';
+// types
 
-export function isValidType(x: MaybeValidType): x is ValidType {
-    if (x == '(invalid)' || x == '(unresolved)') {
-        return false;
-    }
-    return true;
+export type Type = InvalidType | ValidType;
+
+export type InvalidType = BadType | PendingType;
+
+export function isValidType(ty: Type): ty is ValidType {
+    return ty.kind != 'BadType' && ty.kind != 'PendingType';
 }
 
-export function assertType(ctx: AnalyzeContext, actual: ValidType, expected: ValidType, errorNode: AstNode) {
-    if (actual != expected) {
-        ctx.dispatchError(`type mismatched. expected \`${expected}\`, found \`${actual}\``, errorNode);
+export type ValidType = SimpleType | FunctionType | GenericType;
+
+export type BadType = {
+    kind: 'BadType',
+};
+function newBadType(): BadType {
+    return { kind: 'BadType' };
+}
+
+export type PendingType = {
+    kind: 'PendingType',
+};
+function newPendingType(): PendingType {
+    return { kind: 'PendingType' };
+}
+
+export type SimpleType = {
+    kind: 'SimpleType',
+    name: string,
+};
+export function newSimpleType(name: string): SimpleType {
+    return { kind: 'SimpleType', name };
+}
+
+export type GenericType = {
+    kind: 'GenericType',
+    name: string,
+    innerTypes: Type[],
+};
+export function newGenericType(name: string, innerTypes: Type[]): GenericType {
+    return { kind: 'GenericType', name, innerTypes };
+}
+
+export type FunctionType = {
+    kind: 'FunctionType',
+    paramTypes: Type[],
+    returnType: Type,
+};
+export function newFunctionType(paramTypes: Type[], returnType: Type): FunctionType {
+    return { kind: 'FunctionType', paramTypes, returnType };
+}
+
+// builtin types
+export const badType = newBadType();
+export const pendingType = newPendingType();
+export const voidType = newSimpleType('void');
+export const numberType = newSimpleType('number');
+export const boolType = newSimpleType('bool');
+export const stringType = newSimpleType('string');
+
+export type CompareTypeResult = 'unknown' | 'compatible' | 'incompatible';
+
+export function compareType(x: Type, y: Type): CompareTypeResult {
+    if (!isValidType(x) || !isValidType(y)) {
+        return 'unknown';
+    }
+    if (x.kind != y.kind) {
+        return 'incompatible';
+    }
+    switch (x.kind) {
+        case 'SimpleType': {
+            if (x.name == (y as SimpleType).name) {
+                return 'compatible';
+            } else {
+                return 'incompatible';
+            }
+            break;
+        }
+        case 'FunctionType': {
+            y = y as FunctionType;
+            if (!isValidType(x.returnType) || !isValidType(y.returnType)) {
+                return 'unknown';
+            }
+            for (const ty of [...x.paramTypes, ...y.paramTypes]) {
+                if (!isValidType(ty)) {
+                    return 'unknown';
+                }
+            }
+            if (compareType(x.returnType, y.returnType) == 'incompatible') {
+                return 'incompatible';
+            }
+            if (x.paramTypes.length != y.paramTypes.length) {
+                return 'incompatible';
+            }
+            for (let i = 0; i < x.paramTypes.length; i++) {
+                if (compareType(x.paramTypes[i], y.paramTypes[i]) == 'incompatible') {
+                    return 'incompatible';
+                }
+            }
+            return 'compatible';
+        }
+        case 'GenericType': {
+            y = y as GenericType;
+            for (const ty of [...x.innerTypes, ...y.innerTypes]) {
+                if (!isValidType(ty)) {
+                    return 'unknown';
+                }
+            }
+            if (x.name != y.name) {
+                return 'incompatible';
+            }
+            if (x.innerTypes.length != y.innerTypes.length) {
+                return 'incompatible';
+            }
+            for (let i = 0; i < x.innerTypes.length; i++) {
+                if (compareType(x.innerTypes[i], y.innerTypes[i]) == 'incompatible') {
+                    return 'incompatible';
+                }
+            }
+            return 'compatible';
+        }
+    }
+}
+
+export function dispatchTypeError(ctx: AnalyzeContext, actual: Type, expected: Type, errorNode: AstNode) {
+    ctx.dispatchError(`type mismatched. expected \`${getTypeString(expected)}\`, found \`${getTypeString(actual)}\``, errorNode);
+}
+
+export function getTypeString(ty: Type): string {
+    switch (ty.kind) {
+        case 'BadType':
+        case 'PendingType': {
+            return '?';
+        }
+        case 'SimpleType': {
+            return ty.name;
+        }
+        case 'FunctionType': {
+            const params = ty.paramTypes.map(x => getTypeString(x)).join(', ');
+            const returnType = getTypeString(ty.returnType);
+            return `(${params}) => ${returnType}`;
+        }
+        case 'GenericType': {
+            const inner = ty.innerTypes.map(x => getTypeString(x)).join(', ');
+            return `${ty.name}<${inner}>`;
+        }
     }
 }
