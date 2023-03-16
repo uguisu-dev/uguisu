@@ -1,16 +1,60 @@
-import { AnalyzeContext, newNativeFnSymbol, ValidType } from './tools.js';
+import {
+    AnalyzeContext,
+    newFunctionType,
+    newNativeFnSymbol,
+    numberType,
+    stringType,
+    ValidType,
+    voidType
+} from './tools.js';
 
 export function setDeclarations(a: AnalyzeContext) {
-    setDecl('printStr', ['string'], 'void', a);
-    setDecl('printNum', ['number'], 'void', a);
-    setDecl('assertEqNum', ['number', 'number'], 'void', a);
-    setDecl('assertEqStr', ['string', 'string'], 'void', a);
-    setDecl('getUnixtime', [], 'number', a);
-    setDecl('concatStr', ['string', 'string'], 'string', a);
-    setDecl('toString', ['number'], 'string', a);
+    setDecl(
+        'printStr',
+        [stringType],
+        voidType,
+        a
+    );
+    setDecl(
+        'printNum',
+        [numberType],
+        voidType,
+        a
+    );
+    setDecl(
+        'assertEqNum',
+        [numberType, numberType],
+        voidType,
+        a
+    );
+    setDecl(
+        'assertEqStr',
+        [stringType, stringType],
+        voidType,
+        a
+    );
+    setDecl(
+        'getUnixtime',
+        [],
+        numberType,
+        a
+    );
+    setDecl(
+        'concatStr',
+        [stringType, stringType],
+        stringType,
+        a
+    );
+    setDecl(
+        'toString',
+        [numberType],
+        stringType,
+        a
+    );
 }
 
 function setDecl(name: string, paramsTy: ValidType[], returnTy: ValidType, a: AnalyzeContext) {
-    const params = paramsTy.map(ty => ({ name: 'x', ty }));
-    a.env.set(name, newNativeFnSymbol(params, returnTy));
+    const params = Array(paramsTy.length).map(() => ({ name: 'x' }));
+    const ty = newFunctionType(paramsTy, returnTy);
+    a.env.set(name, newNativeFnSymbol(params, ty));
 }
