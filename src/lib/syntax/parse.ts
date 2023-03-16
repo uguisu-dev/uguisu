@@ -578,9 +578,9 @@ function parseAtom(p: ParseContext): ExprNode {
  * If there is no suffix, the target is returned as is.
 */
 function parseSuffixChain(p: ParseContext, target: ExprNode): ExprNode {
-    const pos = p.getPos();
     switch (p.getToken()) {
         case Token.BeginParen: { // call
+            const pos = p.getPos();
             p.next();
             const args: ExprNode[] = [];
             if (!p.tokenIs(Token.EndParen)) {
@@ -598,6 +598,7 @@ function parseSuffixChain(p: ParseContext, target: ExprNode): ExprNode {
         }
         case Token.Dot: { // field access
             p.next();
+            const pos = p.getPos();
             p.expect(Token.Ident);
             const name = p.getIdentValue();
             p.next();
