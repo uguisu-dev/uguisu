@@ -556,6 +556,8 @@ function inferType(a: AnalyzeContext, node: AstNode, funcSymbol: FunctionSymbol)
                 } else {
                     defined[fieldIndex] = true;
                 }
+
+                // check type
                 let bodyTy = inferType(a, field.body, funcSymbol);
                 // if the expr returns nothing
                 if (compareType(bodyTy, voidType) == 'compatible') {
@@ -566,6 +568,13 @@ function inferType(a: AnalyzeContext, node: AstNode, funcSymbol: FunctionSymbol)
                     if (compareType(bodyTy, symbol.fields[fieldIndex].ty) == 'incompatible') {
                         dispatchTypeError(a, bodyTy, symbol.fields[fieldIndex].ty, field.body);
                     }
+                }
+            }
+            // check fields are all defined
+            for (let i = 0; i < symbol.fields.length; i++) {
+                if (!defined[i]) {
+                    const field = symbol.fields[i];
+                    a.dispatchError(`field \`${field.name}\` is not initialized.`, node);
                 }
             }
             return newSimpleType(node.name);
