@@ -544,7 +544,30 @@ function inferType(a: AnalyzeContext, node: AstNode, funcSymbol: FunctionSymbol)
                 a.dispatchError('struct expected.', node);
                 return badType;
             }
-            // TODO: check fields
+            const defined: Record<number, boolean> = {};
+            for (const field of node.fields) {
+                const fieldIndex = symbol.fields.findIndex(x => x.name == field.name);
+                if (fieldIndex == -1) {
+                    a.dispatchError(`field \`${field.name}\` is unknown.`, field);
+                    continue;
+                }
+                if (defined[fieldIndex]) {
+                    a.dispatchError(`field \`${field.name}\` is duplicated.`, field);
+                } else {
+                    defined[fieldIndex] = true;
+                }
+                let bodyTy = inferType(a, field.body, funcSymbol);
+                // if the expr returns nothing
+                if (compareType(bodyTy, voidType) == 'compatible') {
+                    a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, field.body);
+                    bodyTy = badType;
+                }
+                if (isValidType(bodyTy)) {
+                    if (compareType(bodyTy, symbol.fields[fieldIndex].ty) == 'incompatible') {
+                        dispatchTypeError(a, bodyTy, symbol.fields[fieldIndex].ty, field.body);
+                    }
+                }
+            }
             return newSimpleType(node.name);
         }
         case 'FieldAccess': {
