@@ -638,7 +638,7 @@ function parseAtomInner(p: ParseContext): ExprNode {
             if (p.getToken() == Token.BeginBrace) {
                 p.next();
                 const fields: StructExprField[] = [];
-                if (!p.tokenIs(Token.EndParen)) {
+                if (!p.tokenIs(Token.EndBrace)) {
                     fields.push(parseStructExprField(p));
                     while (p.tokenIs(Token.Comma)) {
                         p.next();
