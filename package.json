@@ -23,7 +23,8 @@
   "scripts": {
     "build": "tsc",
     "test": "jest --verbose",
-    "cli": "node bin/uguisu.js"
+    "cli": "node bin/uguisu.js",
+    "nightly": "node scripts/nightly.js"
   },
   "devDependencies": {
     "@types/jest": "^29.4.0",
