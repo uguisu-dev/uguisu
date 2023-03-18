@@ -17,6 +17,7 @@ import {
     assertFunction,
     assertNumber,
     assertString,
+    assertStruct,
     FunctionValue,
     getTypeName,
     isNoneValue,
@@ -25,6 +26,7 @@ import {
     newNoneValue,
     newNumber,
     newString,
+    newStruct,
     RunningEnv,
     Value
 } from './tools.js';
@@ -453,10 +455,20 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
             throw new UguisuError('unexpected operation');
         }
         case 'StructExpr': {
-            throw new UguisuError('not implemented yet.'); // TODO
+            const fields = new Map<string, Value>();
+            for (const field of expr.fields) {
+                fields.set(field.name, evalExpr(r, field.body));
+            }
+            return newStruct(fields);
         }
         case 'FieldAccess': {
-            throw new UguisuError('not implemented yet.'); // TODO
+            const target = evalExpr(r, expr.target);
+            assertStruct(target);
+            const field = target.fields.get(expr.name);
+            if (field == null) {
+                throw new UguisuError('field not found');
+            }
+            return field;
         }
     }
 }

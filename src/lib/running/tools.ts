@@ -55,7 +55,7 @@ export type Symbol = { defined: true, value: Value } | { defined: false, value: 
 
 //#region Values
 
-export type Value = FunctionValue | NumberValue | BoolValue | StringValue | NoneValue;
+export type Value = FunctionValue | StructValue | NumberValue | BoolValue | StringValue | NoneValue;
 
 export type FunctionValue = {
     kind: 'FunctionValue',
@@ -79,6 +79,19 @@ export function newNativeFunction(native: NativeFuncHandler): FunctionValue {
 export function assertFunction(value: Value): asserts value is FunctionValue {
     if (value.kind != 'FunctionValue') {
         throw new UguisuError(`type mismatched. expected \`fn\`, found \`${getTypeName(value)}\``);
+    }
+}
+
+export type StructValue = {
+    kind: 'StructValue',
+    fields: Map<string, Value>,
+};
+export function newStruct(fields: Map<string, Value>): StructValue {
+    return { kind: 'StructValue', fields };
+}
+export function assertStruct(value: Value): asserts value is StructValue {
+    if (value.kind != 'StructValue') {
+        throw new UguisuError(`type mismatched. expected struct, found \`${getTypeName(value)}\``);
     }
 }
 
@@ -138,6 +151,9 @@ export function getTypeName(value: Value): string {
         }
         case 'FunctionValue': {
             return 'fn';
+        }
+        case 'StructValue': {
+            return 'struct';
         }
         case 'NumberValue': {
             return 'number';
