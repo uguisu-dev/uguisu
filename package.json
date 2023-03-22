@@ -2,6 +2,15 @@
   "name": "uguisu-js",
   "version": "0.8.0-alpha.6",
   "description": "The Uguisu is a statically typed scripting language.",
+  "keywords": [
+    "language",
+    "programmimg-language",
+    "typescript",
+    "interpreter",
+    "static-analysis",
+    "script-engine",
+    "uguisu"
+  ]
   "main": "lib/index.js",
   "type": "module",
   "bin": {
