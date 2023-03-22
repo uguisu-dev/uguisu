@@ -15,7 +15,6 @@ import * as builtins from './builtins.js';
 import {
     AnalyzeContext,
     AnalysisEnv,
-    FnVar,
     FunctionSymbol,
     Symbol,
     VariableSymbol,
@@ -32,7 +31,7 @@ import {
     isValidType,
     getTypeString,
     newSimpleType,
-    newStructSymbol,
+    newFunctionSymbol,
 } from './tools.js';
 
 export function analyze(
@@ -43,14 +42,16 @@ export function analyze(
 ): boolean {
     const a = new AnalyzeContext(env, symbolTable, projectInfo);
     builtins.setDeclarations(a);
-    for (const decl of source.funcs) {
-        setDeclaration(a, decl);
+
+    for (const decl of [...source.funcs, ...source.structs]) {
+        collectDecl(a, decl);
     }
-    for (const decl of source.structs) {
-        setDeclaration(a, decl);
+    for (const decl of [...source.funcs, ...source.structs]) {
+        resolveFileNodeType(a, decl);
     }
+
     for (const func of source.funcs) {
-        validateFunc(a, func);
+        checkFuncBody(a, func);
     }
 
     // print errors
@@ -64,70 +65,40 @@ export function analyze(
     return (a.error.length == 0);
 }
 
-function setDeclaration(a: AnalyzeContext, node: FileNode) {
+// collect names
+function collectDecl(a: AnalyzeContext, node: FileNode) {
     switch (node.kind) {
-        case 'FunctionDecl': { // declare function
-            const vars: FnVar[] = [];
-
-            // params
-            const params: { name: string }[] = [];
-            for (const param of node.params) {
-                params.push({ name: param.name });
+        case 'FunctionDecl': {
+            if (a.env.get(node.name) != null) {
+                a.dispatchError(`identifier \`${node.name}\` is already declared.`);
+                return;
             }
-
-            // type
-            let returnTy: Type;
-            if (node.returnTy != null) {
-                returnTy = resolveTypeName(a, node.returnTy);
-            } else {
-                returnTy = voidType;
-            }
-            let paramTypes: Type[] = [];
-            for (const param of node.params) {
-                // invalid parameter
-                if (param.ty == null) {
-                    a.dispatchError('parameter type missing.', param);
-                    paramTypes.push(badType);
-                    vars.push({ name: param.name, isParam: true, ty: badType });
-                    continue;
-                }
-                const paramTy = resolveTypeName(a, param.ty);
-                paramTypes.push(paramTy);
-                vars.push({ name: param.name, isParam: true, ty: paramTy });
-            }
-            const ty = newFunctionType(paramTypes, returnTy);
 
             // export specifier
             if (node.exported) {
                 a.dispatchWarn('exported function is not supported yet.', node);
             }
 
-            const symbol: FunctionSymbol = {
-                kind: 'FnSymbol',
-                defined: false,
-                params,
-                ty,
-                vars,
-            };
+            const params = node.params.map(x => ({ name: x.name }));
+            const vars = node.params.map(x => ({ name: x.name, isParam: true, ty: pendingType }));
+            const symbol = newFunctionSymbol(params,  pendingType, vars);
             a.symbolTable.set(node, symbol);
             a.env.set(node.name, symbol);
             break;
         }
         case 'StructDecl': {
-            // params
-            const fields: { name: string, ty: Type }[] = node.fields.map(x => {
-                return {
-                    name: x.name,
-                    ty: resolveTypeName(a, x.ty),
-                };
-            });
+            if (a.env.get(node.name) != null) {
+                a.dispatchError(`identifier \`${node.name}\` is already declared.`);
+                return;
+            }
 
             // export specifier
             if (node.exported) {
                 a.dispatchWarn('`export` keyword is not supported for a struct.', node);
             }
 
-            const symbol = newStructSymbol(fields);
+            const fields = node.fields.map(x => ({ name: x.name, ty: pendingType }));
+            const symbol: Symbol = { kind: 'StructSymbol', fields };
             a.symbolTable.set(node, symbol);
             a.env.set(node.name, symbol);
             break;
@@ -135,7 +106,65 @@ function setDeclaration(a: AnalyzeContext, node: FileNode) {
     }
 }
 
-function validateFunc(a: AnalyzeContext, node: FunctionDecl) {
+function resolveFileNodeType(a: AnalyzeContext, node: FileNode) {
+    switch (node.kind) {
+        case 'FunctionDecl': {
+            const symbol = a.env.get(node.name);
+            if (symbol == null) {
+                throw new Error('symbol not found.');
+            }
+            if (symbol.kind != 'FnSymbol') {
+                a.dispatchError('function expected.', node);
+                return;
+            }
+            // resolve type
+            if (symbol.ty.kind == 'PendingType') {
+                let returnType: Type;
+                if (node.returnTy != null) {
+                    returnType = resolveTypeName(a, node.returnTy);
+                } else {
+                    returnType = voidType;
+                }
+                let paramTypes: Type[] = [];
+                for (let i = 0; i < symbol.params.length; i++) {
+                    const paramNode = node.params[i];
+                    // invalid parameter
+                    if (paramNode.ty == null) {
+                        a.dispatchError('parameter type missing.', paramNode);
+                        paramTypes.push(badType);
+                        continue;
+                    }
+                    const paramType = resolveTypeName(a, paramNode.ty);
+                    paramTypes.push(paramType);
+                }
+                symbol.ty = newFunctionType(paramTypes, returnType);
+                for (let i = 0; i < symbol.params.length; i++) {
+                    symbol.vars[i].ty = paramTypes[i];
+                }
+            }
+            break;
+        }
+        case 'StructDecl': {
+            const symbol = a.env.get(node.name);
+            if (symbol == null) {
+                throw new Error('symbol not found.');
+            }
+            if (symbol.kind != 'StructSymbol') {
+                a.dispatchError('struct expected.', node);
+                return;
+            }
+            for (let i = 0; i < symbol.fields.length; i++) {
+                // resolve type
+                if (symbol.fields[i].ty.kind == 'PendingType') {
+                    symbol.fields[i].ty = resolveTypeName(a, node.fields[i].ty);
+                }
+            }
+            break;
+        }
+    }
+}
+
+function checkFuncBody(a: AnalyzeContext, node: FunctionDecl) {
     // define function
     const symbol = a.env.get(node.name);
     if (symbol == null) {
@@ -153,7 +182,6 @@ function validateFunc(a: AnalyzeContext, node: FunctionDecl) {
     for (let i = 0; i < node.params.length; i++) {
         const paramSymbol: VariableSymbol = {
             kind: 'VariableSymbol',
-            defined: true,
             ty: symbol.ty.paramTypes[i],
         };
         a.symbolTable.set(node.params[i], paramSymbol);
@@ -163,7 +191,6 @@ function validateFunc(a: AnalyzeContext, node: FunctionDecl) {
         validateStatement(a, statement, false, symbol);
     }
     a.env.leave();
-    symbol.defined = true;
 }
 
 function validateStatement(a: AnalyzeContext, node: StatementNode, allowJump: boolean, funcSymbol: FunctionSymbol) {
@@ -194,7 +221,6 @@ function validateStatement(a: AnalyzeContext, node: StatementNode, allowJump: bo
             }
             const symbol: VariableSymbol = {
                 kind: 'VariableSymbol',
-                defined: (node.body != null),
                 ty,
             };
             a.symbolTable.set(node, symbol);
@@ -261,7 +287,6 @@ function validateStatement(a: AnalyzeContext, node: StatementNode, allowJump: bo
                 }
             }
 
-            symbol.defined = true;
             return;
         }
         case 'IfStatement': {

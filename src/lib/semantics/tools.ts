@@ -75,12 +75,15 @@ export type Symbol = FunctionSymbol | NativeFnSymbol | StructSymbol | VariableSy
 
 export type FunctionSymbol = {
     kind: 'FnSymbol',
-    defined: boolean,
     params: { name: string }[],
     ty: FunctionType | InvalidType,
     /** for wasm */
     vars: FnVar[],
 };
+
+export function newFunctionSymbol(params: { name: string }[], ty: FunctionType | InvalidType, vars: FnVar[]): FunctionSymbol {
+    return { kind: 'FnSymbol', params, ty, vars };
+}
 
 export type FnVar = { name: string, isParam: boolean, ty: Type };
 
@@ -108,7 +111,6 @@ export function newStructSymbol(fields: { name: string, ty: Type }[]): StructSym
 
 export type VariableSymbol = {
     kind: 'VariableSymbol',
-    defined: boolean,
     ty: Type,
 };
 
