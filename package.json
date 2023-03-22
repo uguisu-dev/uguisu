@@ -10,7 +10,7 @@
     "static-analysis",
     "script-engine",
     "uguisu"
-  ]
+  ],
   "main": "lib/index.js",
   "type": "module",
   "bin": {
