@@ -635,23 +635,27 @@ function parseAtomInner(p: ParseContext): ExprNode {
         case Token.Ident: {
             const name = p.getIdentValue();
             p.next();
-            if (p.getToken() == Token.BeginBrace) {
-                p.next();
-                const fields: StructExprField[] = [];
-                if (!p.tokenIs(Token.EndBrace)) {
-                    fields.push(parseStructExprField(p));
-                    while (p.tokenIs(Token.Comma)) {
-                        p.next();
-                        if (p.tokenIs(Token.EndBrace)) {
-                            break;
-                        }
-                        fields.push(parseStructExprField(p));
-                    }
-                }
-                p.expectAndNext(Token.EndBrace);
-                return newStructExpr(pos, name, fields);
-            }
             return newIdentifier(pos, name);
+        }
+        case Token.New: {
+            p.next();
+            p.expect(Token.Ident);
+            const name = p.getIdentValue();
+            p.next();
+            p.expectAndNext(Token.BeginBrace);
+            const fields: StructExprField[] = [];
+            if (!p.tokenIs(Token.EndBrace)) {
+                fields.push(parseStructExprField(p));
+                while (p.tokenIs(Token.Comma)) {
+                    p.next();
+                    if (p.tokenIs(Token.EndBrace)) {
+                        break;
+                    }
+                    fields.push(parseStructExprField(p));
+                }
+            }
+            p.expectAndNext(Token.EndBrace);
+            return newStructExpr(pos, name, fields);
         }
         case Token.Not: {
             p.next();

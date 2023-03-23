@@ -88,6 +88,8 @@ export enum Token {
     Var,
     /** "struct" */
     Struct,
+    /** "new" */
+    New,
     /** "return" */
     Return,
     /** "if" */
@@ -433,6 +435,10 @@ export class Scanner {
             }
             case 'struct': {
                 this.token = Token.Struct;
+                break;
+            }
+            case 'new': {
+                this.token = Token.New;
                 break;
             }
             case 'return': {
