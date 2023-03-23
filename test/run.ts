@@ -370,6 +370,22 @@ fn main() {
 }
 `));
 
+// struct
+
+test('struct', () => runTest(`
+struct A {
+    value: number,
+}
+fn main() {
+    var x = new A {
+        value: 1,
+    };
+    assertEqNum(x.value, 1);
+    x.value = 2;
+    assertEqNum(x.value, 2);
+}
+`));
+
 // function
 
 describe('function', () => {
