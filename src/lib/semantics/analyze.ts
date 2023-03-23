@@ -50,6 +50,9 @@ export function analyze(
         resolveFileNodeType(a, decl);
     }
 
+    for (const struct of source.structs) {
+        checkInfinityNest(a, newSimpleType(struct.name), []);
+    }
     for (const func of source.funcs) {
         checkFuncBody(a, func);
     }
@@ -160,6 +163,23 @@ function resolveFileNodeType(a: AnalyzeContext, node: FileNode) {
                 }
             }
             break;
+        }
+    }
+}
+
+function checkInfinityNest(a: AnalyzeContext, ty: Type, path: Type[]) {
+    if (ty.kind == 'SimpleType') {
+        if (path.find(x => compareType(x, ty) == 'compatible') != null) {
+            a.dispatchError('struct loop is detected.');
+            return;
+        }
+        const nextPath = [...path, ty];
+        const symbol = a.env.get(ty.name);
+        if (symbol == null || symbol.kind != 'StructSymbol') {
+            return;
+        }
+        for (let i = 0; i < symbol.fields.length; i++) {
+            checkInfinityNest(a, symbol.fields[i].ty, nextPath);
         }
     }
 }
