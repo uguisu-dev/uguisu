@@ -42,18 +42,18 @@ export function analyze(
 ): boolean {
     const a = new AnalyzeContext(env, symbolTable, projectInfo);
     builtins.setDeclarations(a);
-    // 1st phase
+    // 1st phase: collect
     for (const decl of source.decls) {
-        collectDecl(a, decl);
+        collectFileNode(a, decl);
     }
-    // 2nd phase
+    // 2nd phase: resolve
     for (const decl of source.decls) {
-        resolveFileNodeType(a, decl);
+        resolveFileNode(a, decl);
     }
-
+    // 3rd phase: validate
     for (const decl of source.decls) {
-        checkInfinityNest(a, newSimpleType(decl.name), []);
-        checkFuncBody(a, decl);
+        detectInfinityNest(a, newSimpleType(decl.name), []);
+        validateFuncBody(a, decl);
     }
 
     // print errors
@@ -68,7 +68,7 @@ export function analyze(
 }
 
 // collect names
-function collectDecl(a: AnalyzeContext, node: FileNode) {
+function collectFileNode(a: AnalyzeContext, node: FileNode) {
     switch (node.kind) {
         case 'FunctionDecl': {
             if (a.env.get(node.name) != null) {
@@ -107,7 +107,7 @@ function collectDecl(a: AnalyzeContext, node: FileNode) {
     }
 }
 
-function resolveFileNodeType(a: AnalyzeContext, node: FileNode) {
+function resolveFileNode(a: AnalyzeContext, node: FileNode) {
     switch (node.kind) {
         case 'FunctionDecl': {
             const symbol = a.env.get(node.name);
@@ -167,7 +167,7 @@ function resolveFileNodeType(a: AnalyzeContext, node: FileNode) {
     }
 }
 
-function checkInfinityNest(a: AnalyzeContext, ty: Type, path: Type[]) {
+function detectInfinityNest(a: AnalyzeContext, ty: Type, path: Type[]) {
     if (ty.kind == 'SimpleType') {
         if (path.find(x => compareType(x, ty) == 'compatible') != null) {
             a.dispatchError('struct loop is detected.');
@@ -179,12 +179,12 @@ function checkInfinityNest(a: AnalyzeContext, ty: Type, path: Type[]) {
             return;
         }
         for (const [_key, field] of symbol.fields) {
-            checkInfinityNest(a, field.ty, nextPath);
+            detectInfinityNest(a, field.ty, nextPath);
         }
     }
 }
 
-function checkFuncBody(a: AnalyzeContext, node: FileNode) {
+function validateFuncBody(a: AnalyzeContext, node: FileNode) {
     if (node.kind != 'FunctionDecl') {
         return;
     }
