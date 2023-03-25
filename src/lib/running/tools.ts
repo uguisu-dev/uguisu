@@ -53,9 +53,17 @@ export class RunningEnv {
 
 export type Symbol = { defined: true, value: Value } | { defined: false, value: undefined };
 
+export function newDefinedSymbol(value: Value): Symbol {
+    return { defined: true, value };
+}
+
+export function newDeclaredSymbol(): Symbol {
+    return { defined: false, value: undefined };
+}
+
 //#region Values
 
-export type Value = FunctionValue | StructValue | NumberValue | BoolValue | StringValue | NoneValue;
+export type Value = NoneValue | NumberValue | BoolValue | FunctionValue | StringValue | StructValue;
 
 export type FunctionValue = {
     kind: 'FunctionValue',
@@ -84,9 +92,9 @@ export function assertFunction(value: Value): asserts value is FunctionValue {
 
 export type StructValue = {
     kind: 'StructValue',
-    fields: Map<string, Value>,
+    fields: Map<string, Symbol>,
 };
-export function newStruct(fields: Map<string, Value>): StructValue {
+export function newStruct(fields: Map<string, Symbol>): StructValue {
     return { kind: 'StructValue', fields };
 }
 export function assertStruct(value: Value): asserts value is StructValue {

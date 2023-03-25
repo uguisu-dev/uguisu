@@ -22,12 +22,14 @@ import {
     getTypeName,
     isNoneValue,
     newBool,
+    newDefinedSymbol,
     newFunction,
     newNoneValue,
     newNumber,
     newString,
     newStruct,
     RunningEnv,
+    Symbol,
     Value
 } from './tools.js';
 
@@ -90,14 +92,22 @@ function newBreakResult(): BreakResult {
 //#endregion StatementResults
 
 function evalSourceFile(r: RunContext, source: SourceFile) {
-    for (const decl of source.funcs) {
-        r.env.declare(decl.name);
+    for (const decl of source.decls) {
+        if (decl.kind == 'FunctionDecl') {
+            r.env.declare(decl.name);
+        }
     }
-    for (const decl of source.funcs) {
-        r.env.define(decl.name, newFunction(decl, r.env));
-    }
-    for (const decl of source.structs) {
-        // TODO
+    for (const decl of source.decls) {
+        switch (decl.kind) {
+            case 'FunctionDecl': {
+                r.env.define(decl.name, newFunction(decl, r.env));
+                break;
+            }
+            case 'StructDecl': {
+                // TODO
+                break;
+            }
+        }
     }
 }
 
@@ -204,12 +214,11 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                 return newNoneResult();
             }
             case 'AssignStatement': {
-                if (statement.target.kind != 'Identifier') {
+                let symbol;
+                if (statement.target.kind == 'Identifier' || statement.target.kind == 'FieldAccess') {
+                    symbol = lookupSymbol(r, statement.target);
+                } else {
                     throw new UguisuError('unsupported assignee');
-                }
-                const symbol = r.env.get(statement.target.name);
-                if (symbol == null) {
-                    throw new UguisuError('unknown identifier');
                 }
                 const bodyValue = evalExpr(r, statement.body);
                 if (isNoneValue(bodyValue)) {
@@ -286,8 +295,8 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
 function evalExpr(r: RunContext, expr: ExprNode): Value {
     switch (expr.kind) {
         case 'Identifier': {
-            const symbol = r.env.get(expr.name);
-            if (symbol == null || !symbol.defined) {
+            const symbol = lookupSymbol(r, expr);
+            if (!symbol.defined) {
                 throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
             }
             return symbol.value;
@@ -455,20 +464,42 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
             throw new UguisuError('unexpected operation');
         }
         case 'StructExpr': {
-            const fields = new Map<string, Value>();
+            const fields = new Map<string, Symbol>();
             for (const field of expr.fields) {
-                fields.set(field.name, evalExpr(r, field.body));
+                fields.set(field.name, newDefinedSymbol(evalExpr(r, field.body)));
             }
             return newStruct(fields);
+        }
+        case 'FieldAccess': {
+            const field = lookupSymbol(r, expr);
+            if (!field.defined) {
+                throw new UguisuError('field not defined');
+            }
+            return field.value;
+        }
+    }
+}
+
+function lookupSymbol(r: RunContext, expr: ExprNode): Symbol {
+    switch (expr.kind) {
+        case 'Identifier': {
+            const symbol = r.env.get(expr.name);
+            if (symbol == null) {
+                throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
+            }
+            return symbol;
         }
         case 'FieldAccess': {
             const target = evalExpr(r, expr.target);
             assertStruct(target);
             const field = target.fields.get(expr.name);
             if (field == null) {
-                throw new UguisuError('field not found');
+                throw new UguisuError('unknown field');
             }
             return field;
+        }
+        default: {
+            throw new UguisuError('unexpected expression');
         }
     }
 }
