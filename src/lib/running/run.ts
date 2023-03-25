@@ -115,25 +115,6 @@ function lookupSymbol(r: RunContext, expr: ExprNode): Symbol {
     }
 }
 
-function evalSourceFile(r: RunContext, source: SourceFile) {
-    for (const decl of source.decls) {
-        if (decl.kind == 'FunctionDecl') {
-            r.env.declare(decl.name);
-        }
-    }
-    for (const decl of source.decls) {
-        switch (decl.kind) {
-            case 'FunctionDecl': {
-                r.env.define(decl.name, newFunction(decl, r.env));
-                break;
-            }
-            case 'StructDecl': {
-                break;
-            }
-        }
-    }
-}
-
 function callFunc(r: RunContext, func: FunctionValue, args: Value[]): Value {
     if (func.node != null) {
         const env = new RunningEnv(func.env);
@@ -183,6 +164,20 @@ function execBlock(r: RunContext, block: StatementNode[]): StatementResult {
     }
     r.env.leave();
     return result;
+}
+
+function evalSourceFile(r: RunContext, source: SourceFile) {
+    for (const decl of source.decls) {
+        switch (decl.kind) {
+            case 'FunctionDecl': {
+                r.env.define(decl.name, newFunction(decl, r.env));
+                break;
+            }
+            case 'StructDecl': {
+                break;
+            }
+        }
+    }
 }
 
 function execStatement(r: RunContext, statement: StatementNode): StatementResult {
