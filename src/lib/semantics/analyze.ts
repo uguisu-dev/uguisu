@@ -31,6 +31,7 @@ import {
     getTypeString,
     newSimpleType,
     newFunctionSymbol,
+    newStructSymbol,
 } from './tools.js';
 
 export function analyze(
@@ -41,10 +42,11 @@ export function analyze(
 ): boolean {
     const a = new AnalyzeContext(env, symbolTable, projectInfo);
     builtins.setDeclarations(a);
-
+    // 1st phase
     for (const decl of source.decls) {
         collectDecl(a, decl);
     }
+    // 2nd phase
     for (const decl of source.decls) {
         resolveFileNodeType(a, decl);
     }
@@ -73,15 +75,13 @@ function collectDecl(a: AnalyzeContext, node: FileNode) {
                 a.dispatchError(`identifier \`${node.name}\` is already declared.`);
                 return;
             }
-
             // export specifier
             if (node.exported) {
                 a.dispatchWarn('exported function is not supported yet.', node);
             }
-
             const params = node.params.map(x => ({ name: x.name }));
             const vars = node.params.map(x => ({ name: x.name, isParam: true, ty: pendingType }));
-            const symbol = newFunctionSymbol(params,  pendingType, vars);
+            const symbol = newFunctionSymbol(params, pendingType, vars);
             a.symbolTable.set(node, symbol);
             a.env.set(node.name, symbol);
             break;
@@ -91,17 +91,15 @@ function collectDecl(a: AnalyzeContext, node: FileNode) {
                 a.dispatchError(`identifier \`${node.name}\` is already declared.`);
                 return;
             }
-
             // export specifier
             if (node.exported) {
                 a.dispatchWarn('`export` keyword is not supported for a struct.', node);
             }
-
             const fields = new Map<string, { ty: Type }>();
             for (const field of node.fields) {
                 fields.set(field.name, { ty: pendingType });
             }
-            const symbol: Symbol = { kind: 'StructSymbol', fields };
+            const symbol: Symbol = newStructSymbol(fields);
             a.symbolTable.set(node, symbol);
             a.env.set(node.name, symbol);
             break;
