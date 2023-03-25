@@ -91,6 +91,30 @@ function newBreakResult(): BreakResult {
 
 //#endregion StatementResults
 
+function lookupSymbol(r: RunContext, expr: ExprNode): Symbol {
+    switch (expr.kind) {
+        case 'Identifier': {
+            const symbol = r.env.get(expr.name);
+            if (symbol == null) {
+                throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
+            }
+            return symbol;
+        }
+        case 'FieldAccess': {
+            const target = evalExpr(r, expr.target);
+            assertStruct(target);
+            const field = target.fields.get(expr.name);
+            if (field == null) {
+                throw new UguisuError('unknown field');
+            }
+            return field;
+        }
+        default: {
+            throw new UguisuError('unexpected expression');
+        }
+    }
+}
+
 function evalSourceFile(r: RunContext, source: SourceFile) {
     for (const decl of source.decls) {
         if (decl.kind == 'FunctionDecl') {
@@ -104,7 +128,6 @@ function evalSourceFile(r: RunContext, source: SourceFile) {
                 break;
             }
             case 'StructDecl': {
-                // TODO
                 break;
             }
         }
@@ -476,30 +499,6 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                 throw new UguisuError('field not defined');
             }
             return field.value;
-        }
-    }
-}
-
-function lookupSymbol(r: RunContext, expr: ExprNode): Symbol {
-    switch (expr.kind) {
-        case 'Identifier': {
-            const symbol = r.env.get(expr.name);
-            if (symbol == null) {
-                throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
-            }
-            return symbol;
-        }
-        case 'FieldAccess': {
-            const target = evalExpr(r, expr.target);
-            assertStruct(target);
-            const field = target.fields.get(expr.name);
-            if (field == null) {
-                throw new UguisuError('unknown field');
-            }
-            return field;
-        }
-        default: {
-            throw new UguisuError('unexpected expression');
         }
     }
 }
