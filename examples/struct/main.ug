@@ -5,7 +5,7 @@ struct User {
 }
 
 fn main() {
-    var x = User {
+    var x = new User {
         id: "kani",
         name: "kani san",
         createdAt: 12345,
