@@ -5,6 +5,7 @@ import {
     BinaryOperator,
     BreakStatement,
     ExprNode,
+    FileNode,
     FnDeclParam,
     FunctionDecl,
     IfStatement,
@@ -14,6 +15,7 @@ import {
     newBoolLiteral,
     newBreakStatement,
     newCall,
+    newFieldAccess,
     newFnDeclParam,
     newFunctionDecl,
     newIdentifier,
@@ -23,12 +25,19 @@ import {
     newReturnStatement,
     newSourceFile,
     newStringLiteral,
+    newStructDecl,
+    newStructDeclField,
+    newStructExpr,
+    newStructExprField,
     newTyLabel,
     newUnaryOp,
     newVariableDecl,
     ReturnStatement,
     SourceFile,
     StatementNode,
+    StructDecl,
+    StructDeclField,
+    StructExprField,
     TyLabel,
     VariableDecl
 } from './tools.js';
@@ -153,7 +162,7 @@ function parseTyLabel(p: ParseContext): TyLabel {
  * ```
 */
 function parseSourceFile(p: ParseContext, filename: string): SourceFile {
-    let funcs: FunctionDecl[] = [];
+    let decls: FileNode[] = [];
     trace.enter('[parse] parseSourceFile');
 
     while (true) {
@@ -162,15 +171,18 @@ function parseSourceFile(p: ParseContext, filename: string): SourceFile {
             trace.leave();
             break;
         }
+        let exported = false;
+        if (p.getToken() == Token.Export) {
+            p.next();
+            exported = true;
+        }
         switch (p.getToken()) {
-            case Token.Export: {
-                p.next();
-                p.expect(Token.Fn);
-                funcs.push(parseFunctionDecl(p, true));
+            case Token.Fn: {
+                decls.push(parseFunctionDecl(p, exported));
                 break;
             }
-            case Token.Fn: {
-                funcs.push(parseFunctionDecl(p, false));
+            case Token.Struct: {
+                decls.push(parseStructDecl(p, exported));
                 break;
             }
             default: {
@@ -181,7 +193,7 @@ function parseSourceFile(p: ParseContext, filename: string): SourceFile {
     }
 
     trace.leave();
-    return newSourceFile([1, 1], filename, funcs);
+    return newSourceFile([1, 1], filename, decls);
 }
 
 /**
@@ -241,6 +253,50 @@ function parseFnDeclParam(p: ParseContext): FnDeclParam {
 
     trace.leave();
     return newFnDeclParam(pos, name, ty);
+}
+
+/**
+ * <StructDecl> = "struct" <identifier> "{" <StructDeclFields>? "}"
+ * <StructDeclFields> = <StructDeclField> ("," <StructDeclField>)*
+*/
+function parseStructDecl(p: ParseContext, exported: boolean): StructDecl {
+    const pos = p.getPos();
+    p.next();
+
+    p.expect(Token.Ident);
+    const name = p.getIdentValue();
+    p.next();
+
+    p.expectAndNext(Token.BeginBrace);
+    let fields: StructDeclField[] = [];
+    if (!p.tokenIs(Token.EndBrace)) {
+        fields.push(parseStructDeclField(p));
+        while (p.tokenIs(Token.Comma)) {
+            p.next();
+            if (p.tokenIs(Token.EndBrace)) {
+                break;
+            }
+            fields.push(parseStructDeclField(p));
+        }
+    }
+    p.expectAndNext(Token.EndBrace);
+
+    return newStructDecl(pos, name, fields, exported);
+}
+
+/**
+ * <StructDeclField> = <identifier> <TyLabel>
+*/
+function parseStructDeclField(p: ParseContext): StructDeclField {
+    const pos = p.getPos();
+
+    p.expect(Token.Ident);
+    const name = p.getIdentValue();
+    p.next();
+
+    const ty = parseTyLabel(p);
+
+    return newStructDeclField(pos, name, ty);
 }
 
 //#endregion SourceFile
@@ -523,17 +579,8 @@ function parseAtom(p: ParseContext): ExprNode {
 */
 function parseSuffixChain(p: ParseContext, target: ExprNode): ExprNode {
     switch (p.getToken()) {
-        case Token.BeginParen: {
-            break;
-        }
-        default: {
-            return target;
-        }
-    }
-
-    const pos = p.getPos();
-    switch (p.getToken()) {
         case Token.BeginParen: { // call
+            const pos = p.getPos();
             p.next();
             const args: ExprNode[] = [];
             if (!p.tokenIs(Token.EndParen)) {
@@ -547,16 +594,25 @@ function parseSuffixChain(p: ParseContext, target: ExprNode): ExprNode {
                 }
             }
             p.expectAndNext(Token.EndParen);
-            target = newCall(pos, target, args);
+            return parseSuffixChain(p, newCall(pos, target, args));
+        }
+        case Token.Dot: { // field access
+            p.next();
+            const pos = p.getPos();
+            p.expect(Token.Ident);
+            const name = p.getIdentValue();
+            p.next();
+            return parseSuffixChain(p, newFieldAccess(pos, name, target));
+        }
+        default: {
+            return target;
         }
     }
-
-    return parseSuffixChain(p, target);
 }
 
 /**
  * ```text
- * <AtomInner> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <Identifier> / <Prefix> <Atom> / "(" <Expr> ")"
+ * <AtomInner> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <StructExpr> / <Identifier> / <Prefix> <Atom> / "(" <Expr> ")"
  * ```
 */
 function parseAtomInner(p: ParseContext): ExprNode {
@@ -581,6 +637,26 @@ function parseAtomInner(p: ParseContext): ExprNode {
             p.next();
             return newIdentifier(pos, name);
         }
+        case Token.New: {
+            p.next();
+            p.expect(Token.Ident);
+            const name = p.getIdentValue();
+            p.next();
+            p.expectAndNext(Token.BeginBrace);
+            const fields: StructExprField[] = [];
+            if (!p.tokenIs(Token.EndBrace)) {
+                fields.push(parseStructExprField(p));
+                while (p.tokenIs(Token.Comma)) {
+                    p.next();
+                    if (p.tokenIs(Token.EndBrace)) {
+                        break;
+                    }
+                    fields.push(parseStructExprField(p));
+                }
+            }
+            p.expectAndNext(Token.EndBrace);
+            return newStructExpr(pos, name, fields);
+        }
         case Token.Not: {
             p.next();
             const expr = parseAtom(p);
@@ -596,6 +672,21 @@ function parseAtomInner(p: ParseContext): ExprNode {
             throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
         }
     }
+}
+
+/**
+ * ```text
+ * <StructExprField> = <identifier> ":" <Expr>
+ * ```
+*/
+function parseStructExprField(p: ParseContext): StructExprField {
+    const pos = p.getPos();
+    p.expect(Token.Ident);
+    const name = p.getIdentValue();
+    p.next();
+    p.expectAndNext(Token.Colon);
+    const body = parseExpr(p);
+    return newStructExprField(pos, name, body);
 }
 
 //#endregion Expressions

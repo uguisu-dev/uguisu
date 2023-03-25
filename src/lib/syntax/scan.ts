@@ -39,6 +39,8 @@ export enum Token {
     BeginParen,
     /** ")" */
     EndParen,
+    /** "." */
+    Dot,
     /** "," */
     Comma,
     /** ":" */
@@ -86,6 +88,8 @@ export enum Token {
     Var,
     /** "struct" */
     Struct,
+    /** "new" */
+    New,
     /** "return" */
     Return,
     /** "if" */
@@ -301,6 +305,11 @@ export class Scanner {
                     this.nextChar();
                     break;
                 }
+                case '.': {
+                    this.token = Token.Dot;
+                    this.nextChar();
+                    break;
+                }
                 case ',': {
                     this.token = Token.Comma;
                     this.nextChar();
@@ -426,6 +435,10 @@ export class Scanner {
             }
             case 'struct': {
                 this.token = Token.Struct;
+                break;
+            }
+            case 'new': {
+                this.token = Token.New;
                 break;
             }
             case 'return': {

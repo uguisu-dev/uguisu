@@ -17,15 +17,19 @@ import {
     assertFunction,
     assertNumber,
     assertString,
+    assertStruct,
     FunctionValue,
     getTypeName,
     isNoneValue,
     newBool,
+    newDefinedSymbol,
     newFunction,
     newNoneValue,
     newNumber,
     newString,
+    newStruct,
     RunningEnv,
+    Symbol,
     Value
 } from './tools.js';
 
@@ -87,12 +91,46 @@ function newBreakResult(): BreakResult {
 
 //#endregion StatementResults
 
-function evalSourceFile(r: RunContext, source: SourceFile) {
-    for (const func of source.funcs) {
-        r.env.declare(func.name);
+function lookupSymbol(r: RunContext, expr: ExprNode): Symbol {
+    switch (expr.kind) {
+        case 'Identifier': {
+            const symbol = r.env.get(expr.name);
+            if (symbol == null) {
+                throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
+            }
+            return symbol;
+        }
+        case 'FieldAccess': {
+            const target = evalExpr(r, expr.target);
+            assertStruct(target);
+            const field = target.fields.get(expr.name);
+            if (field == null) {
+                throw new UguisuError('unknown field');
+            }
+            return field;
+        }
+        default: {
+            throw new UguisuError('unexpected expression');
+        }
     }
-    for (const func of source.funcs) {
-        r.env.define(func.name, newFunction(func, r.env));
+}
+
+function evalSourceFile(r: RunContext, source: SourceFile) {
+    for (const decl of source.decls) {
+        if (decl.kind == 'FunctionDecl') {
+            r.env.declare(decl.name);
+        }
+    }
+    for (const decl of source.decls) {
+        switch (decl.kind) {
+            case 'FunctionDecl': {
+                r.env.define(decl.name, newFunction(decl, r.env));
+                break;
+            }
+            case 'StructDecl': {
+                break;
+            }
+        }
     }
 }
 
@@ -199,12 +237,11 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                 return newNoneResult();
             }
             case 'AssignStatement': {
-                if (statement.target.kind != 'Identifier') {
-                    throw new UguisuError('unsupported assignee');
-                }
-                const symbol = r.env.get(statement.target.name);
-                if (symbol == null) {
-                    throw new UguisuError('unknown identifier');
+                let symbol;
+                if (statement.target.kind == 'Identifier' || statement.target.kind == 'FieldAccess') {
+                    symbol = lookupSymbol(r, statement.target);
+                } else {
+                    throw new UguisuError('unsupported assign target');
                 }
                 const bodyValue = evalExpr(r, statement.body);
                 if (isNoneValue(bodyValue)) {
@@ -281,8 +318,8 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
 function evalExpr(r: RunContext, expr: ExprNode): Value {
     switch (expr.kind) {
         case 'Identifier': {
-            const symbol = r.env.get(expr.name);
-            if (symbol == null || !symbol.defined) {
+            const symbol = lookupSymbol(r, expr);
+            if (!symbol.defined) {
                 throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
             }
             return symbol.value;
@@ -448,6 +485,20 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                 }
             }
             throw new UguisuError('unexpected operation');
+        }
+        case 'StructExpr': {
+            const fields = new Map<string, Symbol>();
+            for (const field of expr.fields) {
+                fields.set(field.name, newDefinedSymbol(evalExpr(r, field.body)));
+            }
+            return newStruct(fields);
+        }
+        case 'FieldAccess': {
+            const field = lookupSymbol(r, expr);
+            if (!field.defined) {
+                throw new UguisuError('field not defined');
+            }
+            return field.value;
         }
     }
 }

@@ -1,7 +1,7 @@
 import Wasm from 'binaryen';
 import { boolType, compareType, FunctionType, numberType, Symbol, Type, voidType } from '../semantics/tools.js';
 import { UguisuError } from '../misc/errors.js';
-import { AstNode, ExprNode, FunctionDecl, Identifier, SourceFile, StatementNode } from '../syntax/tools.js';
+import { AstNode, ExprNode, FileNode, FunctionDecl, Identifier, SourceFile, StatementNode } from '../syntax/tools.js';
 
 export function codegen(symbolTable: Map<AstNode, Symbol>, node: SourceFile) {
     const mod = translate(symbolTable, node);
@@ -30,8 +30,8 @@ function translate(symbolTable: Map<AstNode, Symbol>, node: SourceFile): Wasm.Mo
         labelCount: 0,
     };
 
-    for (const func of node.funcs) {
-        translateFunc(ctx, func);
+    for (const decl of node.decls) {
+        translateFunc(ctx, decl);
     }
     //mod.optimize();
     if (!mod.validate()) {
@@ -41,7 +41,10 @@ function translate(symbolTable: Map<AstNode, Symbol>, node: SourceFile): Wasm.Mo
     return mod;
 }
 
-function translateFunc(ctx: Context, node: FunctionDecl) {
+function translateFunc(ctx: Context, node: FileNode) {
+    if (node.kind != 'FunctionDecl') {
+        return;
+    }
     const symbol = ctx.symbolTable.get(node);
     if (symbol == null || symbol.kind != 'FnSymbol') {
         throw new UguisuError('unknown node');

@@ -1,9 +1,32 @@
 import assert from 'assert';
-import { Uguisu } from '../src/lib/index.js';
+import { parse } from '../src/lib/syntax/parse.js';
+import { analyze } from '../src/lib/semantics/analyze.js';
+import { AnalysisEnv } from '../src/lib/semantics/tools.js';
+import { run } from '../src/lib/running/run.js';
+import { RunningEnv } from '../src/lib/running/tools.js';
+import { ProjectInfo } from '../src/lib/project-file.js';
+import { UguisuOptions } from '../src/lib/misc/options.js';
 
 function runTest(sourceCode: string) {
-    const uguisu = new Uguisu();
-    uguisu.runCode(sourceCode);
+    const options: UguisuOptions = {};
+    const projectInfo: ProjectInfo = {
+        filename: 'main.ug',
+        langVersion: 'uguisu2023-1',
+    };
+
+    // parse
+    const sourceFile = parse(sourceCode, projectInfo.filename, projectInfo);
+
+    // static analysis
+    const analysisEnv = new AnalysisEnv();
+    const symbolTable = new Map();
+    if (!analyze(sourceFile, analysisEnv, symbolTable, projectInfo)) {
+        throw new Error('syntax error');
+    }
+
+    // run
+    const runningEnv = new RunningEnv();
+    run(sourceFile, runningEnv, options, projectInfo);
 }
 
 // variable + number literal
@@ -344,6 +367,22 @@ fn main() {
     assertEqNum(x, 16);
     x /= 4;
     assertEqNum(x, 4);
+}
+`));
+
+// struct
+
+test('struct', () => runTest(`
+struct A {
+    value: number,
+}
+fn main() {
+    var x = new A {
+        value: 1,
+    };
+    assertEqNum(x.value, 1);
+    x.value = 2;
+    assertEqNum(x.value, 2);
 }
 `));
 

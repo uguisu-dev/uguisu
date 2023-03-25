@@ -71,16 +71,19 @@ export class AnalysisEnv {
     }
 }
 
-export type Symbol = FunctionSymbol | NativeFnSymbol | VariableSymbol | ExprSymbol;
+export type Symbol = FunctionSymbol | NativeFnSymbol | StructSymbol | VariableSymbol | ExprSymbol;
 
 export type FunctionSymbol = {
     kind: 'FnSymbol',
-    defined: boolean,
     params: { name: string }[],
     ty: FunctionType | InvalidType,
     /** for wasm */
     vars: FnVar[],
 };
+
+export function newFunctionSymbol(params: { name: string }[], ty: FunctionType | InvalidType, vars: FnVar[]): FunctionSymbol {
+    return { kind: 'FnSymbol', params, ty, vars };
+}
 
 export type FnVar = { name: string, isParam: boolean, ty: Type };
 
@@ -94,9 +97,17 @@ export function newNativeFnSymbol(params: { name: string }[], ty: FunctionType |
     return { kind: 'NativeFnSymbol', params, ty };
 }
 
+export type StructSymbol = {
+    kind: 'StructSymbol',
+    fields: Map<string, { ty: Type }>,
+};
+
+export function newStructSymbol(fields: Map<string, { ty: Type }>): StructSymbol {
+    return { kind: 'StructSymbol', fields };
+}
+
 export type VariableSymbol = {
     kind: 'VariableSymbol',
-    defined: boolean,
     ty: Type,
 };
 
