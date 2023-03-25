@@ -5,6 +5,7 @@ import {
     BinaryOperator,
     BreakStatement,
     ExprNode,
+    FileNode,
     FnDeclParam,
     FunctionDecl,
     IfStatement,
@@ -161,8 +162,7 @@ function parseTyLabel(p: ParseContext): TyLabel {
  * ```
 */
 function parseSourceFile(p: ParseContext, filename: string): SourceFile {
-    let funcs: FunctionDecl[] = [];
-    let structs: StructDecl[] = [];
+    let decls: FileNode[] = [];
     trace.enter('[parse] parseSourceFile');
 
     while (true) {
@@ -178,11 +178,11 @@ function parseSourceFile(p: ParseContext, filename: string): SourceFile {
         }
         switch (p.getToken()) {
             case Token.Fn: {
-                funcs.push(parseFunctionDecl(p, exported));
+                decls.push(parseFunctionDecl(p, exported));
                 break;
             }
             case Token.Struct: {
-                structs.push(parseStructDecl(p, exported));
+                decls.push(parseStructDecl(p, exported));
                 break;
             }
             default: {
@@ -193,7 +193,7 @@ function parseSourceFile(p: ParseContext, filename: string): SourceFile {
     }
 
     trace.leave();
-    return newSourceFile([1, 1], filename, funcs, structs);
+    return newSourceFile([1, 1], filename, decls);
 }
 
 /**

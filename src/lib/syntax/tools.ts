@@ -68,11 +68,10 @@ export type SourceFile = {
     kind: 'SourceFile',
     pos: Pos;
     filename: string;
-    funcs: FunctionDecl[],
-    structs: StructDecl[],
+    decls: FileNode[],
 };
-export function newSourceFile(pos: Pos, filename: string, funcs: FunctionDecl[], structs: StructDecl[]): SourceFile {
-    return { kind: 'SourceFile', pos, filename, funcs, structs };
+export function newSourceFile(pos: Pos, filename: string, decls: FileNode[]): SourceFile {
+    return { kind: 'SourceFile', pos, filename, decls };
 }
 
 export type FunctionDecl = {

@@ -99,13 +99,10 @@ export function newNativeFnSymbol(params: { name: string }[], ty: FunctionType |
 
 export type StructSymbol = {
     kind: 'StructSymbol',
-    fields: {
-        name: string,
-        ty: Type,
-    }[],
+    fields: Map<string, { ty: Type }>,
 };
 
-export function newStructSymbol(fields: { name: string, ty: Type }[]): StructSymbol {
+export function newStructSymbol(fields: Map<string, { ty: Type }>): StructSymbol {
     return { kind: 'StructSymbol', fields };
 }
 
