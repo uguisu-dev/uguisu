@@ -241,7 +241,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                 if (statement.target.kind == 'Identifier' || statement.target.kind == 'FieldAccess') {
                     symbol = lookupSymbol(r, statement.target);
                 } else {
-                    throw new UguisuError('unsupported assignee');
+                    throw new UguisuError('unsupported assign target');
                 }
                 const bodyValue = evalExpr(r, statement.body);
                 if (isNoneValue(bodyValue)) {
