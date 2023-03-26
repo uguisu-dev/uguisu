@@ -95,8 +95,15 @@ export class Uguisu {
         if (tasks.check) {
             const analysisEnv = new AnalysisEnv();
             const symbolTable = new Map();
-            if (!analyze(sourceFile, analysisEnv, symbolTable, projectInfo)) {
-                return;
+            const result = analyze(sourceFile, analysisEnv, symbolTable, projectInfo);
+            for (const message of result.errors) {
+                console.log(`Syntax Error: ${message}`);
+            }
+            for (const warn of result.warnings) {
+                console.log(`Warning: ${warn}`);
+            }
+            if (!result.success) {
+                throw new UguisuError('Syntax error.');
             }
         }
 

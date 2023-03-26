@@ -34,12 +34,18 @@ import {
     newStructSymbol,
 } from './tools.js';
 
+export type AnalysisResult = {
+    success: boolean,
+    errors: string[],
+    warnings: string[],
+};
+
 export function analyze(
     source: SourceFile,
     env: AnalysisEnv,
     symbolTable: Map<AstNode, Symbol>,
     projectInfo: ProjectInfo
-): boolean {
+): AnalysisResult {
     const a = new AnalyzeContext(env, symbolTable, projectInfo);
     builtins.setDeclarations(a);
     // 1st phase: collect
@@ -56,15 +62,11 @@ export function analyze(
         validateFuncBody(a, decl);
     }
 
-    // print errors
-    for (const message of a.error) {
-        console.log(`Syntax Error: ${message}`);
-    }
-    for (const warn of a.warn) {
-        console.log(`Warning: ${warn}`);
-    }
-
-    return (a.error.length == 0);
+    return {
+        success: (a.error.length == 0),
+        errors: a.error,
+        warnings: a.warn,
+    };
 }
 
 // collect names

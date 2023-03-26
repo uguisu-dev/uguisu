@@ -77,10 +77,10 @@ export function command(args: string[]) {
             uguisu.check(dirPath);
         }
         uguisu.run(dirPath);
-        // process.exitCode = 1;
-        // process.exit();
     }
     catch (e) {
         console.log(e);
+        process.exitCode = -1;
+        process.exit();
     }
 }
