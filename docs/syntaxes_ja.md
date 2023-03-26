@@ -1,97 +1,80 @@
-# 文法
-言語バージョン: Uguisu2023-1
+# 言語バージョン
+Uguisu2023-1
 
-## 式 (expression)
-- 数値リテラル
-- bool値リテラル
-- 文字列リテラル
-- 単項演算式
-- 二項演算式
-- 変数の参照
-- 関数の呼び出し
+# 型 (type)
+名前   | 説明
+-------|------------------------
+number | 数値を表します。
+bool   | 真または偽の値を表します。
+string | 文字列を表します。
 
-この他に、式では`()`を使ってグループ化ができます。グループ化するとその部分の評価が優先的に行われます。
+# リテラル値
+式ではリテラル値を使用できます。
 
-## 文 (statement)
-- 変数宣言
-- 関数宣言
-- break文
-- return文
-- 代入文
-- if文
-- loop文
+名称     | 型     | 例
+--------|---------|------
+数値     | number | `123`
+ブール値 | bool   | `true`, `false`
+文字列   | string | `"abc"`
 
-## 型 (type)
-
-### number
-数値を表します。
-
-### bool
-真または偽の値を表します。
-
-### string
-文字列を表します。
-
-## 数値リテラル
-```
-123
-```
-
-## bool値リテラル
-```
-true
-```
-or
-```
-false
-```
-
-## 文字列リテラル
-```
-"hello"
-```
-
-## 単項演算式
+# 単項演算式
 ```
 !expression
 ```
 `!`の部分では、以下に示す論理演算子が使用できます。
 
-### 論理演算子(単項)
+## 論理演算子(単項)
 論理演算を行ってbool値を返します。  
 bool型の式を与える必要があります。
 
-`!`
+論理演算子の一覧:
+- `!`
 
-## 二項演算式
+# 二項演算式
 ```
 expression + expression
 ```
 `+`の部分では、以下に示す算術演算子や比較演算子、論理演算子が使用できます。
 
-### 算術演算子
+## 算術演算子
 算術演算を行って数値を返します。  
 演算子の左右にはnumber型の式を与える必要があります。
 
-`+` `-` `*` `/` `%`
+算術演算子の一覧:
+- `+`
+- `-`
+- `*`
+- `/`
+- `%`
 
-### 比較演算子
+## 比較演算子
 比較演算を行ってbool値を返します。
 演算子の左右には同じ型の式を与える必要があります。
 
-`==` `!=` `<` `<=` `>` `>=`
+比較演算子の一覧:
+- `==`
+- `!=`
+- `<`
+- `<=`
+- `>`
+- `>=`
 
 ※`<` `<=` `>` `>=`の場合、左右の式はnumber型である必要があります。
 
-### 論理演算子
+## 論理演算子(二項)
 論理演算を行ってbool値を返します。  
 演算子の左右にはbool型の式を与える必要があります。
 
-`&&` `||`
+論理演算子の一覧:
+- `&&`
+- `||`
 
-## 変数
+# 式のグループ化
+式では`()`を使ってグループ化ができます。グループ化するとその部分の評価が優先的に行われます。
 
-### 変数の宣言
+# 変数
+
+## 変数の宣言と初期化
 ```
 var variableName: type;
 ```
@@ -102,24 +85,28 @@ var variableName: type = expression;
 ```
 宣言時に初期値を与えることもできます。
 
-### 変数の代入
+## 変数の参照
+```
+variableName
+```
+
+## 変数への代入
 ```
 variableName = expression;
 ```
 
 代入演算子の種類:
-`=` `+=` `-=` `*=` `/=` `%=`
+- `=`
+- `+=`
+- `-=`
+- `*=`
+- `/=`
+- `%=`
 
 ※`+=` `-=` `*=` `/=` `%=`の場合、変数と式はnumber型である必要があります。
 
-### 変数の参照
-```
-variableName
-```
-
-## 関数
-
-### 関数の宣言
+# 関数
+以下のようにして関数を宣言します。関数はトップレベルで宣言できます。
 ```
 fn functionName(parameterName: type, parameterName: type): type {
     statement
@@ -129,13 +116,22 @@ fn functionName(parameterName: type, parameterName: type): type {
 パラメーターの型と戻り値の型を指定します。  
 また、戻り値の型を指定しないことで戻り値が無い関数としても宣言できます。
 
-### 関数の呼び出し
+## 関数の呼び出し
 ```
 functionName(argumentName, argumentName)
 ```
 値を返さない関数の呼び出しは式としては使用できません。
 
-## if文
+## return文
+```
+return;
+```
+or
+```
+return expression;
+```
+
+# if文
 ```
 if expression {
     statement
@@ -150,7 +146,7 @@ if expression {
 ```
 条件式ではbool値を返す必要があります。
 
-## loop文
+# loop文
 ```
 loop {
     statement
@@ -158,18 +154,9 @@ loop {
 }
 ```
 
-## break文
+## breakによる中断
 ```
 break;
-```
-
-## return文
-```
-return;
-```
-or
-```
-return expression;
 ```
 
 ## コメント
@@ -184,48 +171,73 @@ comment
 */
 ```
 
-## スコープ規則
-静的スコープを採用します。
+# 構造体
+以下のようにして構造体を宣言します。構造体はトップレベルで宣言できます。
+```
+struct Human {
+    name: string,
+    age: number,
+}
+```
+※宣言した構造体は型として使用できます。
 
-## ビルトイン関数
+## 構造体のインスタンス化
+```
+var x: Human = new Human { name: "alice", age: 22 };
+```
 
-### printStr
+## フィールドの参照
+```
+var name: string = x.name;
+```
+
+## フィールドへの代入
+```
+x.age = 20;
+```
+
+# スコープ規則
+レキシカルスコープ(静的スコープ)を採用します。
+
+# ビルトイン関数
+
+## printStr
 ```
 fn printStr(value: string);
 ```
 文字列を標準出力に出力します。
 
-### printNum
+## printNum
 ```
 fn printNum(value: number);
 ```
 数値を標準出力に出力します。
 
-### assertEqNum
+## assertEqNum
 ```
 fn assertEqNum(actual: number, expected: number);
 ```
 与えられた数値と期待する数値を比較して、値が異なる場合にランタイムエラーを発生させます。
 
-### assertEqStr
+## assertEqStr
 ```
 fn assertEqStr(actual: string, expected: string);
 ```
 与えられた文字列と期待する文字列を比較して、値が異なる場合にランタイムエラーを発生させます。
 
-### getUnixtime
+## getUnixtime
 ```
 fn getUnixtime(): number;
 ```
 現在の時刻をUnixtimeの形式で取得します(単位は秒)。
 
-### concatStr
+## concatStr
 ```
 fn concatStr(x: string, y: string): string;
 ```
 2つの文字列を連結して新しい文字列を生成します。
 
-### toString
+## toString
 ```
 fn toString(source: number): string;
 ```
