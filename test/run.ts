@@ -20,7 +20,8 @@ function runTest(sourceCode: string) {
     // static analysis
     const analysisEnv = new AnalysisEnv();
     const symbolTable = new Map();
-    if (!analyze(sourceFile, analysisEnv, symbolTable, projectInfo)) {
+    const result = analyze(sourceFile, analysisEnv, symbolTable, projectInfo);
+    if (!result.success) {
         throw new Error('syntax error');
     }
 
