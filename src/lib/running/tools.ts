@@ -209,11 +209,9 @@ export class FunctionValue {
         env: RunningEnv; // lexical scope
     };
     native?: NativeFuncHandler;
-    constructor(node?: FunctionDecl, env?: RunningEnv, native?: NativeFuncHandler) {
+    constructor(user?: FunctionValue['user'], native?: NativeFuncHandler) {
         this.kind = 'FunctionValue';
-        if (node != null && env != null) {
-            this.user = { node, env };
-        }
+        this.user = user;
         this.native = native;
     }
 }
@@ -225,11 +223,11 @@ export function assertFunction(value: Value): asserts value is FunctionValue {
 }
 
 export function newFunction(node: FunctionDecl, env: RunningEnv) {
-    return new FunctionValue(node, env);
+    return new FunctionValue({ node, env });
 }
 
 export function newNativeFunction(native: NativeFuncHandler) {
-    return new FunctionValue(undefined, undefined, native);
+    return new FunctionValue(undefined, native);
 }
 
 //#endregion Values
