@@ -18,7 +18,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         }
         assertString(args[0]);
         if (options.stdout) {
-            options.stdout(args[0].value);
+            options.stdout(args[0].getValue());
         }
         return newNoneValue();
     });
@@ -30,7 +30,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         }
         assertNumber(args[0]);
         if (options.stdout) {
-            options.stdout(args[0].value.toString());
+            options.stdout(args[0].getValue().toString());
         }
         return newNoneValue();
     });
@@ -42,8 +42,8 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         }
         assertNumber(args[0]);
         assertNumber(args[1]);
-        const actual = args[0].value;
-        const expected = args[1].value;
+        const actual = args[0].getValue();
+        const expected = args[1].getValue();
         if (actual != expected) {
             throw new UguisuError(`assertion error. expected \`${expected}\`, actual \`${actual}\`.`);
         }
@@ -57,8 +57,8 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         }
         assertString(args[0]);
         assertString(args[1]);
-        const actual = args[0].value;
-        const expected = args[1].value;
+        const actual = args[0].getValue();
+        const expected = args[1].getValue();
         if (actual != expected) {
             throw new UguisuError(`assertion error. expected \`${expected}\`, actual \`${actual}\`.`);
         }
@@ -81,7 +81,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         }
         assertString(args[0]);
         assertString(args[1]);
-        return newString(args[0].value + args[1].value);
+        return newString(args[0].getValue() + args[1].getValue());
     });
     env.define('concatStr', concatStr);
 
@@ -90,7 +90,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
             throw new UguisuError('invalid arguments count');
         }
         assertNumber(args[0]);
-        return newString(args[0].value.toString());
+        return newString(args[0].getValue().toString());
     });
     env.define('toString', toString);
 

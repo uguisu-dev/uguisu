@@ -63,105 +63,12 @@ export function newDeclaredSymbol(): Symbol {
 
 //#region Values
 
-export type Value = NoneValue | NumberValue | BoolValue | FunctionValue | StringValue | StructValue;
-
-export type FunctionValue = {
-    kind: 'FunctionValue',
-    node: FunctionDecl,
-    native: undefined,
-    env: RunningEnv, // lexical scope
-} | {
-    kind: 'FunctionValue',
-    node: undefined,
-    native: NativeFuncHandler,
-};
-
-export type NativeFuncHandler = (args: Value[], options: UguisuOptions) => Value;
-
-export function newFunction(node: FunctionDecl, env: RunningEnv): FunctionValue {
-    return { kind: 'FunctionValue', node, env, native: undefined };
-}
-export function newNativeFunction(native: NativeFuncHandler): FunctionValue {
-    return { kind: 'FunctionValue', native, node: undefined };
-}
-export function assertFunction(value: Value): asserts value is FunctionValue {
-    if (value.kind != 'FunctionValue') {
-        throw new UguisuError(`type mismatched. expected \`fn\`, found \`${getTypeName(value)}\``);
-    }
-}
-
-export type StructValue = {
-    kind: 'StructValue',
-    fields: Map<string, Symbol>,
-};
-export function newStruct(fields: Map<string, Symbol>): StructValue {
-    return { kind: 'StructValue', fields };
-}
-export function assertStruct(value: Value): asserts value is StructValue {
-    if (value.kind != 'StructValue') {
-        throw new UguisuError(`type mismatched. expected struct, found \`${getTypeName(value)}\``);
-    }
-}
-
-export type NumberValue = {
-    kind: 'NumberValue',
-    value: number,
-};
-export function newNumber(value: number): NumberValue {
-    return { kind: 'NumberValue', value };
-}
-export function assertNumber(value: Value): asserts value is NumberValue {
-    if (value.kind != 'NumberValue') {
-        throw new UguisuError(`type mismatched. expected \`number\`, found \`${getTypeName(value)}\``);
-    }
-}
-
-export type BoolValue = {
-    kind: 'BoolValue',
-    value: boolean,
-};
-export function newBool(value: boolean): BoolValue {
-    return { kind: 'BoolValue', value };
-}
-export function assertBool(value: Value): asserts value is BoolValue {
-    if (value.kind != 'BoolValue') {
-        throw new UguisuError(`type mismatched. expected \`bool\`, found \`${getTypeName(value)}\``);
-    }
-}
-
-export type StringValue = {
-    kind: 'StringValue',
-    value: string,
-};
-export function newString(value: string): StringValue {
-    return { kind: 'StringValue', value };
-}
-export function assertString(value: Value): asserts value is StringValue {
-    if (value.kind != 'StringValue') {
-        throw new UguisuError(`type mismatched. expected \`string\`, found \`${getTypeName(value)}\``);
-    }
-}
-
-export type NoneValue = {
-    kind: 'NoneValue',
-}
-export function newNoneValue(): NoneValue {
-    return { kind: 'NoneValue' };
-}
-export function isNoneValue(value: Value): value is NoneValue {
-    return (value.kind == 'NoneValue');
-}
+export type Value = NoneValue | NumberValue | BoolValue | StringValue | StructValue | FunctionValue;
 
 export function getTypeName(value: Value): string {
     switch (value.kind) {
         case 'NoneValue': {
             return 'none';
-        }
-        case 'FunctionValue': {
-            return 'fn';
-        }
-        case 'StructValue': {
-            return 'struct';
         }
         case 'NumberValue': {
             return 'number';
@@ -172,7 +79,157 @@ export function getTypeName(value: Value): string {
         case 'StringValue': {
             return 'string';
         }
+        case 'StructValue': {
+            return 'struct';
+        }
+        case 'FunctionValue': {
+            return 'fn';
+        }
     }
+}
+
+export class NoneValue {
+    kind: 'NoneValue';
+    constructor() {
+        this.kind = 'NoneValue';
+    }
+}
+
+export function isNoneValue(value: Value): value is NoneValue {
+    return (value.kind == 'NoneValue');
+}
+
+export function assertNone(value: Value): asserts value is NoneValue {
+    if (!isNoneValue(value)) {
+        throw new UguisuError(`type mismatched. expected \`none\`, found \`${getTypeName(value)}\``);
+    }
+}
+
+export function newNoneValue() {
+    return new NoneValue();
+}
+
+export class NumberValue {
+    kind: 'NumberValue';
+    private _value: number;
+    constructor(value: number) {
+        this.kind = 'NumberValue';
+        this._value = value;
+    }
+    getValue(): number {
+        return this._value;
+    }
+}
+
+export function assertNumber(value: Value): asserts value is NumberValue {
+    if (value.kind != 'NumberValue') {
+        throw new UguisuError(`type mismatched. expected \`number\`, found \`${getTypeName(value)}\``);
+    }
+}
+
+export function newNumber(value: number) {
+    return new NumberValue(value);
+}
+
+export class BoolValue {
+    kind: 'BoolValue';
+    private _value: boolean;
+    constructor(value: boolean) {
+        this.kind = 'BoolValue';
+        this._value = value;
+    }
+    getValue(): boolean {
+        return this._value;
+    }
+}
+
+export function assertBool(value: Value): asserts value is BoolValue {
+    if (value.kind != 'BoolValue') {
+        throw new UguisuError(`type mismatched. expected \`bool\`, found \`${getTypeName(value)}\``);
+    }
+}
+
+export function newBool(value: boolean) {
+    return new BoolValue(value);
+}
+
+export class StringValue {
+    kind: 'StringValue';
+    private _value: string;
+    constructor(value: string) {
+        this.kind = 'StringValue';
+        this._value = value;
+    }
+    getValue(): string {
+        return this._value;
+    }
+}
+
+export function assertString(value: Value): asserts value is StringValue {
+    if (value.kind != 'StringValue') {
+        throw new UguisuError(`type mismatched. expected \`string\`, found \`${getTypeName(value)}\``);
+    }
+}
+
+export function newString(value: string) {
+    return new StringValue(value);
+}
+
+export class StructValue {
+    kind: 'StructValue';
+    private _fields: Map<string, Symbol>;
+    constructor(fields: Map<string, Symbol>) {
+        this.kind = 'StructValue';
+        this._fields = fields;
+    }
+    getFieldNames() {
+        return this._fields.keys();
+    }
+    getFieldSymbol(name: string): Symbol | undefined {
+        return this._fields.get(name);
+    }
+}
+
+export function assertStruct(value: Value): asserts value is StructValue {
+    if (value.kind != 'StructValue') {
+        throw new UguisuError(`type mismatched. expected \`struct\`, found \`${getTypeName(value)}\``);
+    }
+}
+
+export function newStruct(fields: Map<string, Symbol>) {
+    return new StructValue(fields);
+}
+
+export type NativeFuncHandler = (args: Value[], options: UguisuOptions) => Value;
+
+export class FunctionValue {
+    kind: 'FunctionValue';
+    user?: {
+        node: FunctionDecl;
+        env: RunningEnv; // lexical scope
+    };
+    native?: NativeFuncHandler;
+    constructor(node?: FunctionDecl, env?: RunningEnv, native?: NativeFuncHandler) {
+        this.kind = 'FunctionValue';
+        if (node != null && env != null) {
+            this.user = { node, env };
+        }
+        this.native = native;
+    }
+}
+
+export function assertFunction(value: Value): asserts value is FunctionValue {
+    if (value.kind != 'FunctionValue') {
+        throw new UguisuError(`type mismatched. expected \`fn\`, found \`${getTypeName(value)}\``);
+    }
+}
+
+export function newFunction(node: FunctionDecl, env: RunningEnv) {
+    return new FunctionValue(node, env);
+}
+
+export function newNativeFunction(native: NativeFuncHandler) {
+    return new FunctionValue(undefined, undefined, native);
 }
 
 //#endregion Values
