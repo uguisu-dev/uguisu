@@ -8,6 +8,12 @@ import {
     voidType
 } from './tools.js';
 
+function setDecl(name: string, paramsTy: ValidType[], returnTy: ValidType, a: AnalyzeContext) {
+    const params = Array(paramsTy.length).map(() => ({ name: 'x' }));
+    const ty = newFunctionType(paramsTy, returnTy);
+    a.env.set(name, newNativeFnSymbol(params, ty));
+}
+
 export function setDeclarations(a: AnalyzeContext) {
     setDecl(
         'printStr',
@@ -51,10 +57,4 @@ export function setDeclarations(a: AnalyzeContext) {
         stringType,
         a
     );
-}
-
-function setDecl(name: string, paramsTy: ValidType[], returnTy: ValidType, a: AnalyzeContext) {
-    const params = Array(paramsTy.length).map(() => ({ name: 'x' }));
-    const ty = newFunctionType(paramsTy, returnTy);
-    a.env.set(name, newNativeFnSymbol(params, ty));
 }

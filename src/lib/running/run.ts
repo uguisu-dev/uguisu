@@ -319,6 +319,13 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
             }
             return symbol.value;
         }
+        case 'FieldAccess': {
+            const field = lookupSymbol(r, expr);
+            if (!field.defined) {
+                throw new UguisuError('field not defined');
+            }
+            return field.value;
+        }
         case 'NumberLiteral': {
             return newNumber(expr.value);
         }
@@ -364,6 +371,7 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                         return newBool(left.value || right.value);
                     }
                 }
+                throw new UguisuError('unexpected operation');
             } else if (isEquivalentOperator(expr.operator)) {
                 // Equivalent Operation
                 switch (left.kind) {
@@ -415,7 +423,12 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                         }
                         break;
                     }
+                    case 'StructValue': {
+                        throw new UguisuError(`type \`${getTypeName(left)}\` cannot be used for equivalence comparisons.`);
+                        break;
+                    }
                 }
+                throw new UguisuError('unexpected operation');
             } else if (isOrderingOperator(expr.operator)) {
                 // Ordering Operation
                 switch (left.kind) {
@@ -439,7 +452,8 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                     }
                     case 'BoolValue':
                     case 'StringValue':
-                    case 'FunctionValue': {
+                    case 'FunctionValue':
+                    case 'StructValue': {
                         throw new UguisuError(`type \`${getTypeName(left)}\` cannot be used to compare large and small relations.`);
                     }
                 }
@@ -487,13 +501,6 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                 fields.set(field.name, newDefinedSymbol(evalExpr(r, field.body)));
             }
             return newStruct(fields);
-        }
-        case 'FieldAccess': {
-            const field = lookupSymbol(r, expr);
-            if (!field.defined) {
-                throw new UguisuError('field not defined');
-            }
-            return field.value;
         }
     }
 }
