@@ -52,7 +52,7 @@ Commands:
 
 ```
 
-Run the basic example:
+The following command runs a basic example. A code check is performed before running the code.
 ```
 $ uguisu run ./examples/basic
 ```
