@@ -14,16 +14,15 @@ import {
 import * as builtins from './builtins.js';
 import {
     assertValue,
+    BoolValue,
     FunctionValue,
     getTypeName,
-    newBool,
     newDefinedSymbol,
-    newFunction,
-    newNone,
-    newNumber,
-    newString,
-    newStruct,
+    NoneValue,
+    NumberValue,
     RunningEnv,
+    StringValue,
+    StructValue,
     Symbol,
     Value
 } from './tools.js';
@@ -138,7 +137,7 @@ function callFunc(r: RunContext, func: FunctionValue, args: Value[]): Value {
         if (result.kind == 'ReturnResult') {
             return result.value;
         }
-        return newNone();
+        return new NoneValue();
     } else if (func.native != null) {
         return func.native(args, r.options);
     } else {
@@ -165,7 +164,7 @@ function evalSourceFile(r: RunContext, source: SourceFile) {
     for (const decl of source.decls) {
         switch (decl.kind) {
             case 'FunctionDecl': {
-                r.env.define(decl.name, newFunction(decl, r.env));
+                r.env.define(decl.name, FunctionValue.create(decl, r.env));
                 break;
             }
             case 'StructDecl': {
@@ -185,7 +184,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                 if (statement.expr != null) {
                     return newReturnResult(evalExpr(r, statement.expr));
                 } else {
-                    return newReturnResult(newNone());
+                    return newReturnResult(new NoneValue());
                 }
             }
             case 'BreakStatement': {
@@ -246,7 +245,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         }
                         assertValue(restored.value, 'NumberValue');
                         assertValue(bodyValue, 'NumberValue');
-                        const value = newNumber(restored.value.getValue() + bodyValue.getValue());
+                        const value = new NumberValue(restored.value.getValue() + bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
@@ -257,7 +256,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         }
                         assertValue(restored.value, 'NumberValue');
                         assertValue(bodyValue, 'NumberValue');
-                        const value = newNumber(restored.value.getValue() - bodyValue.getValue());
+                        const value = new NumberValue(restored.value.getValue() - bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
@@ -268,7 +267,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         }
                         assertValue(restored.value, 'NumberValue');
                         assertValue(bodyValue, 'NumberValue');
-                        const value = newNumber(restored.value.getValue() * bodyValue.getValue());
+                        const value = new NumberValue(restored.value.getValue() * bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
@@ -279,7 +278,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         }
                         assertValue(restored.value, 'NumberValue');
                         assertValue(bodyValue, 'NumberValue');
-                        const value = newNumber(restored.value.getValue() / bodyValue.getValue());
+                        const value = new NumberValue(restored.value.getValue() / bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
@@ -290,7 +289,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         }
                         assertValue(restored.value, 'NumberValue');
                         assertValue(bodyValue, 'NumberValue');
-                        const value = newNumber(restored.value.getValue() % bodyValue.getValue());
+                        const value = new NumberValue(restored.value.getValue() % bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
@@ -319,13 +318,13 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
             return field.value;
         }
         case 'NumberLiteral': {
-            return newNumber(expr.value);
+            return new NumberValue(expr.value);
         }
         case 'BoolLiteral': {
-            return newBool(expr.value);
+            return new BoolValue(expr.value);
         }
         case 'StringLiteral': {
-            return newString(expr.value);
+            return new StringValue(expr.value);
         }
         case 'Call': {
             const callee = evalExpr(r, expr.callee);
@@ -354,10 +353,10 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                 assertValue(right, 'BoolValue');
                 switch (expr.operator) {
                     case '&&': {
-                        return newBool(left.getValue() && right.getValue());
+                        return new BoolValue(left.getValue() && right.getValue());
                     }
                     case '||': {
-                        return newBool(left.getValue() || right.getValue());
+                        return new BoolValue(left.getValue() || right.getValue());
                     }
                 }
                 throw new UguisuError('unexpected operation');
@@ -368,10 +367,10 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                         assertValue(right, 'NumberValue');
                         switch (expr.operator) {
                             case '==': {
-                                return newBool(left.getValue() == right.getValue());
+                                return new BoolValue(left.getValue() == right.getValue());
                             }
                             case '!=': {
-                                return newBool(left.getValue() != right.getValue());
+                                return new BoolValue(left.getValue() != right.getValue());
                             }
                         }
                         break;
@@ -380,10 +379,10 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                         assertValue(right, 'BoolValue');
                         switch (expr.operator) {
                             case '==': {
-                                return newBool(left.getValue() == right.getValue());
+                                return new BoolValue(left.getValue() == right.getValue());
                             }
                             case '!=': {
-                                return newBool(left.getValue() != right.getValue());
+                                return new BoolValue(left.getValue() != right.getValue());
                             }
                         }
                         break;
@@ -392,10 +391,10 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                         assertValue(right, 'StringValue');
                         switch (expr.operator) {
                             case '==': {
-                                return newBool(left.getValue() == right.getValue());
+                                return new BoolValue(left.getValue() == right.getValue());
                             }
                             case '!=': {
-                                return newBool(left.getValue() != right.getValue());
+                                return new BoolValue(left.getValue() != right.getValue());
                             }
                         }
                         break;
@@ -413,10 +412,10 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                         assertValue(right, 'FunctionValue');
                         switch (expr.operator) {
                             case '==': {
-                                return newBool(equalFunc(left, right));
+                                return new BoolValue(equalFunc(left, right));
                             }
                             case '!=': {
-                                return newBool(!equalFunc(left, right));
+                                return new BoolValue(!equalFunc(left, right));
                             }
                         }
                         break;
@@ -434,16 +433,16 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                         assertValue(right, 'NumberValue');
                         switch (expr.operator) {
                             case '<': {
-                                return newBool(left.getValue() < right.getValue());
+                                return new BoolValue(left.getValue() < right.getValue());
                             }
                             case '<=': {
-                                return newBool(left.getValue() <= right.getValue());
+                                return new BoolValue(left.getValue() <= right.getValue());
                             }
                             case '>': {
-                                return newBool(left.getValue() > right.getValue());
+                                return new BoolValue(left.getValue() > right.getValue());
                             }
                             case '>=': {
-                                return newBool(left.getValue() >= right.getValue());
+                                return new BoolValue(left.getValue() >= right.getValue());
                             }
                         }
                         break;
@@ -461,19 +460,19 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                 assertValue(right, 'NumberValue');
                 switch (expr.operator) {
                     case '+': {
-                        return newNumber(left.getValue() + right.getValue());
+                        return new NumberValue(left.getValue() + right.getValue());
                     }
                     case '-': {
-                        return newNumber(left.getValue() - right.getValue());
+                        return new NumberValue(left.getValue() - right.getValue());
                     }
                     case '*': {
-                        return newNumber(left.getValue() * right.getValue());
+                        return new NumberValue(left.getValue() * right.getValue());
                     }
                     case '/': {
-                        return newNumber(left.getValue() / right.getValue());
+                        return new NumberValue(left.getValue() / right.getValue());
                     }
                     case '%': {
-                        return newNumber(left.getValue() % right.getValue());
+                        return new NumberValue(left.getValue() % right.getValue());
                     }
                 }
             }
@@ -485,7 +484,7 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
             assertValue(value, 'BoolValue');
             switch (expr.operator) {
                 case '!': {
-                    return newBool(!value.getValue());
+                    return new BoolValue(!value.getValue());
                 }
             }
             throw new UguisuError('unexpected operation');
@@ -495,7 +494,7 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
             for (const field of expr.fields) {
                 fields.set(field.name, newDefinedSymbol(evalExpr(r, field.body)));
             }
-            return newStruct(fields);
+            return new StructValue(fields);
         }
     }
 }

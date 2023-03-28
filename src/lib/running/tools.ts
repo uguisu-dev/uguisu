@@ -110,10 +110,6 @@ export class NoneValue {
     }
 }
 
-export function newNone(): NoneValue {
-    return new NoneValue();
-}
-
 export class NumberValue {
     kind: 'NumberValue';
     private _value: number;
@@ -124,10 +120,6 @@ export class NumberValue {
     getValue(): number {
         return this._value;
     }
-}
-
-export function newNumber(value: number): NumberValue {
-    return new NumberValue(value);
 }
 
 export class BoolValue {
@@ -142,10 +134,6 @@ export class BoolValue {
     }
 }
 
-export function newBool(value: boolean): BoolValue {
-    return new BoolValue(value);
-}
-
 export class StringValue {
     kind: 'StringValue';
     private _value: string;
@@ -156,10 +144,6 @@ export class StringValue {
     getValue(): string {
         return this._value;
     }
-}
-
-export function newString(value: string): StringValue {
-    return new StringValue(value);
 }
 
 export class StructValue {
@@ -177,10 +161,6 @@ export class StructValue {
     }
 }
 
-export function newStruct(fields: Map<string, Symbol>): StructValue {
-    return new StructValue(fields);
-}
-
 export class FunctionValue {
     kind: 'FunctionValue';
     user?: {
@@ -193,16 +173,14 @@ export class FunctionValue {
         this.user = user;
         this.native = native;
     }
+    static create(node: FunctionDecl, env: RunningEnv): FunctionValue {
+        return new FunctionValue({ node, env }, undefined);
+    }
+    static createNative(native: NativeFuncHandler): FunctionValue {
+        return new FunctionValue(undefined, native);
+    }
 }
 
 export type NativeFuncHandler = (args: Value[], options: UguisuOptions) => Value;
-
-export function newFunction(node: FunctionDecl, env: RunningEnv): FunctionValue {
-    return new FunctionValue({ node, env });
-}
-
-export function newNativeFunction(native: NativeFuncHandler): FunctionValue {
-    return new FunctionValue(undefined, native);
-}
 
 //#endregion Values
