@@ -44,9 +44,11 @@ export class Uguisu {
      * @throws TypeError (Invalid arguments)
      * @throws UguisuError
     */
-    run(dirPath: string) {
+    run(dirPath: string, opts?: { skipCheck?: boolean }) {
+        opts = opts ?? {};
+        const skipCheck = opts.skipCheck ?? false;
         this._perform(dirPath, {
-            check: false,
+            check: !skipCheck,
             run: true,
         });
     }

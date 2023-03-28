@@ -2,14 +2,14 @@ import { Uguisu } from '../../lib/index.js';
 
 type Match = {
     help: boolean,
-    check: boolean,
+    skipCheck: boolean,
     free: string[],
 };
 
 function getopts(args: string[]): Match {
     const match: Match = {
         help: false,
-        check: false,
+        skipCheck: false,
         free: [],
     };
 
@@ -17,8 +17,8 @@ function getopts(args: string[]): Match {
         if (arg === '-h' || arg === '--help') {
             match.help = true;
         }
-        if (arg === '-c' || arg === '--check') {
-            match.check = true;
+        if (arg === '--skip-check') {
+            match.skipCheck = true;
         }
         else if (arg.startsWith('-')) {
             throw `unknown option: ${arg}`;
@@ -36,10 +36,11 @@ function showHelp() {
         'Usage: uguisu run [options] [projectDir]',
         '',
         'Examples:',
-        '    uguisu run -c <projectDir>',
+        '    uguisu run <projectDir>',
+        '    uguisu run --skip-check <projectDir>',
         '',
         'Options:',
-        '    -c, --check         Run with static analysis.',
+        '        --skip-check    Skip the static checking phase.',
         '    -h, --help          Print help message.',
     ];
     console.log(lines.join('\n'));
@@ -73,10 +74,7 @@ export function command(args: string[]) {
                 console.log(str);
             }
         });
-        if (match.check) {
-            uguisu.check(dirPath);
-        }
-        uguisu.run(dirPath);
+        uguisu.run(dirPath, { skipCheck: match.skipCheck });
     }
     catch (e) {
         console.log(e);
