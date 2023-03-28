@@ -13,18 +13,13 @@ import {
 } from '../syntax/tools.js';
 import * as builtins from './builtins.js';
 import {
-    assertBool,
-    assertFunction,
-    assertNumber,
-    assertString,
-    assertStruct,
+    assertValue,
     FunctionValue,
     getTypeName,
-    isNoneValue,
     newBool,
     newDefinedSymbol,
     newFunction,
-    newNoneValue,
+    newNone,
     newNumber,
     newString,
     newStruct,
@@ -59,7 +54,7 @@ function call(r: RunContext, name: string) {
     if (symbol == null || !symbol.defined) {
         throw new UguisuError(`function \`${name}\` is not found`);
     }
-    assertFunction(symbol.value);
+    assertValue(symbol.value, 'FunctionValue');
     callFunc(r, symbol.value, []);
 }
 
@@ -102,7 +97,7 @@ function lookupSymbol(r: RunContext, expr: ExprNode): Symbol {
         }
         case 'FieldAccess': {
             const target = evalExpr(r, expr.target);
-            assertStruct(target);
+            assertValue(target, 'StructValue');
             const field = target.getFieldSymbol(expr.name);
             if (field == null) {
                 throw new UguisuError('unknown field');
@@ -143,7 +138,7 @@ function callFunc(r: RunContext, func: FunctionValue, args: Value[]): Value {
         if (result.kind == 'ReturnResult') {
             return result.value;
         }
-        return newNoneValue();
+        return newNone();
     } else if (func.native != null) {
         return func.native(args, r.options);
     } else {
@@ -190,7 +185,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                 if (statement.expr != null) {
                     return newReturnResult(evalExpr(r, statement.expr));
                 } else {
-                    return newReturnResult(newNoneValue());
+                    return newReturnResult(newNone());
                 }
             }
             case 'BreakStatement': {
@@ -209,10 +204,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
             }
             case 'IfStatement': {
                 const cond = evalExpr(r, statement.cond);
-                if (isNoneValue(cond)) {
-                    throw new UguisuError('no values');
-                }
-                assertBool(cond);
+                assertValue(cond, 'BoolValue');
                 if (cond.getValue()) {
                     return execBlock(r, statement.thenBlock);
                 } else {
@@ -222,7 +214,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
             case 'VariableDecl': {
                 if (statement.body != null) {
                     const bodyValue = evalExpr(r, statement.body);
-                    if (isNoneValue(bodyValue)) {
+                    if (bodyValue.kind == 'NoneValue') {
                         throw new UguisuError('no values');
                     }
                     r.env.define(statement.name, bodyValue);
@@ -239,7 +231,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                     throw new UguisuError('unsupported assign target');
                 }
                 const bodyValue = evalExpr(r, statement.body);
-                if (isNoneValue(bodyValue)) {
+                if (bodyValue.kind == 'NoneValue') {
                     throw new UguisuError('no values');
                 }
                 switch (statement.mode) {
@@ -252,8 +244,8 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         if (restored == null || !restored.defined) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertNumber(restored.value);
-                        assertNumber(bodyValue);
+                        assertValue(restored.value, 'NumberValue');
+                        assertValue(bodyValue, 'NumberValue');
                         const value = newNumber(restored.value.getValue() + bodyValue.getValue());
                         symbol.value = value;
                         break;
@@ -263,8 +255,8 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         if (restored == null || !restored.defined) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertNumber(restored.value);
-                        assertNumber(bodyValue);
+                        assertValue(restored.value, 'NumberValue');
+                        assertValue(bodyValue, 'NumberValue');
                         const value = newNumber(restored.value.getValue() - bodyValue.getValue());
                         symbol.value = value;
                         break;
@@ -274,8 +266,8 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         if (restored == null || !restored.defined) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertNumber(restored.value);
-                        assertNumber(bodyValue);
+                        assertValue(restored.value, 'NumberValue');
+                        assertValue(bodyValue, 'NumberValue');
                         const value = newNumber(restored.value.getValue() * bodyValue.getValue());
                         symbol.value = value;
                         break;
@@ -285,8 +277,8 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         if (restored == null || !restored.defined) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertNumber(restored.value);
-                        assertNumber(bodyValue);
+                        assertValue(restored.value, 'NumberValue');
+                        assertValue(bodyValue, 'NumberValue');
                         const value = newNumber(restored.value.getValue() / bodyValue.getValue());
                         symbol.value = value;
                         break;
@@ -296,8 +288,8 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         if (restored == null || !restored.defined) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertNumber(restored.value);
-                        assertNumber(bodyValue);
+                        assertValue(restored.value, 'NumberValue');
+                        assertValue(bodyValue, 'NumberValue');
                         const value = newNumber(restored.value.getValue() % bodyValue.getValue());
                         symbol.value = value;
                         break;
@@ -337,13 +329,10 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
         }
         case 'Call': {
             const callee = evalExpr(r, expr.callee);
-            if (isNoneValue(callee)) {
-                throw new UguisuError('no values');
-            }
-            assertFunction(callee);
+            assertValue(callee, 'FunctionValue');
             const args = expr.args.map(i => {
                 const value = evalExpr(r, i);
-                if (isNoneValue(value)) {
+                if (value.kind == 'NoneValue') {
                     throw new UguisuError('no values');
                 }
                 return value;
@@ -353,16 +342,16 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
         case 'BinaryOp': {
             const left = evalExpr(r, expr.left);
             const right = evalExpr(r, expr.right);
-            if (isNoneValue(left)) {
+            if (left.kind == 'NoneValue') {
                 throw new UguisuError('no values');
             }
-            if (isNoneValue(left)) {
+            if (right.kind == 'NoneValue') {
                 throw new UguisuError('no values');
             }
             if (isLogicalBinaryOperator(expr.operator)) {
                 // Logical Operation
-                assertBool(left);
-                assertBool(right);
+                assertValue(left, 'BoolValue');
+                assertValue(right, 'BoolValue');
                 switch (expr.operator) {
                     case '&&': {
                         return newBool(left.getValue() && right.getValue());
@@ -376,7 +365,7 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                 // Equivalent Operation
                 switch (left.kind) {
                     case 'NumberValue': {
-                        assertNumber(right);
+                        assertValue(right, 'NumberValue');
                         switch (expr.operator) {
                             case '==': {
                                 return newBool(left.getValue() == right.getValue());
@@ -388,7 +377,7 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                         break;
                     }
                     case 'BoolValue': {
-                        assertBool(right);
+                        assertValue(right, 'BoolValue');
                         switch (expr.operator) {
                             case '==': {
                                 return newBool(left.getValue() == right.getValue());
@@ -400,7 +389,7 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                         break;
                     }
                     case 'StringValue': {
-                        assertString(right);
+                        assertValue(right, 'StringValue');
                         switch (expr.operator) {
                             case '==': {
                                 return newBool(left.getValue() == right.getValue());
@@ -421,7 +410,7 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                             }
                             return (false);
                         }
-                        assertFunction(right);
+                        assertValue(right, 'FunctionValue');
                         switch (expr.operator) {
                             case '==': {
                                 return newBool(equalFunc(left, right));
@@ -433,7 +422,7 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                         break;
                     }
                     case 'StructValue': {
-                        throw new UguisuError(`type \`${getTypeName(left)}\` cannot be used for equivalence comparisons.`);
+                        throw new UguisuError(`type \`${getTypeName(left.kind)}\` cannot be used for equivalence comparisons.`);
                         break;
                     }
                 }
@@ -442,7 +431,7 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                 // Ordering Operation
                 switch (left.kind) {
                     case 'NumberValue': {
-                        assertNumber(right);
+                        assertValue(right, 'NumberValue');
                         switch (expr.operator) {
                             case '<': {
                                 return newBool(left.getValue() < right.getValue());
@@ -463,13 +452,13 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                     case 'StringValue':
                     case 'FunctionValue':
                     case 'StructValue': {
-                        throw new UguisuError(`type \`${getTypeName(left)}\` cannot be used to compare large and small relations.`);
+                        throw new UguisuError(`type \`${getTypeName(left.kind)}\` cannot be used to compare large and small relations.`);
                     }
                 }
             } else {
                 // Arithmetic Operation
-                assertNumber(left);
-                assertNumber(right);
+                assertValue(left, 'NumberValue');
+                assertValue(right, 'NumberValue');
                 switch (expr.operator) {
                     case '+': {
                         return newNumber(left.getValue() + right.getValue());
@@ -492,11 +481,8 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
         }
         case 'UnaryOp': {
             const value = evalExpr(r, expr.expr);
-            if (isNoneValue(value)) {
-                throw new UguisuError('no values');
-            }
             // Logical Operation
-            assertBool(value);
+            assertValue(value, 'BoolValue');
             switch (expr.operator) {
                 case '!': {
                     return newBool(!value.getValue());

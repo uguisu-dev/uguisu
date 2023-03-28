@@ -1,10 +1,9 @@
 import { UguisuError } from '../misc/errors.js';
 import { UguisuOptions } from '../misc/options.js';
 import {
-    assertNumber,
-    assertString,
+    assertValue,
     newNativeFunction,
-    newNoneValue,
+    newNone,
     newNumber,
     newString,
     RunningEnv
@@ -16,11 +15,11 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         if (args.length != 1) {
             throw new UguisuError('invalid arguments count');
         }
-        assertString(args[0]);
+        assertValue(args[0], 'StringValue');
         if (options.stdout) {
             options.stdout(args[0].getValue());
         }
-        return newNoneValue();
+        return newNone();
     });
     env.define('printStr', printStr);
 
@@ -28,11 +27,11 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         if (args.length != 1) {
             throw new UguisuError('invalid arguments count');
         }
-        assertNumber(args[0]);
+        assertValue(args[0], 'NumberValue');
         if (options.stdout) {
             options.stdout(args[0].getValue().toString());
         }
-        return newNoneValue();
+        return newNone();
     });
     env.define('printNum', printNum);
 
@@ -40,14 +39,14 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         if (args.length != 2) {
             throw new UguisuError('invalid arguments count');
         }
-        assertNumber(args[0]);
-        assertNumber(args[1]);
+        assertValue(args[0], 'NumberValue');
+        assertValue(args[1], 'NumberValue');
         const actual = args[0].getValue();
         const expected = args[1].getValue();
         if (actual != expected) {
             throw new UguisuError(`assertion error. expected \`${expected}\`, actual \`${actual}\`.`);
         }
-        return newNoneValue();
+        return newNone();
     });
     env.define('assertEqNum', assertEqNum);
 
@@ -55,14 +54,14 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         if (args.length != 2) {
             throw new UguisuError('invalid arguments count');
         }
-        assertString(args[0]);
-        assertString(args[1]);
+        assertValue(args[0], 'StringValue');
+        assertValue(args[1], 'StringValue');
         const actual = args[0].getValue();
         const expected = args[1].getValue();
         if (actual != expected) {
             throw new UguisuError(`assertion error. expected \`${expected}\`, actual \`${actual}\`.`);
         }
-        return newNoneValue();
+        return newNone();
     });
     env.define('assertEqStr', assertEqStr);
 
@@ -79,8 +78,8 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         if (args.length != 2) {
             throw new UguisuError('invalid arguments count');
         }
-        assertString(args[0]);
-        assertString(args[1]);
+        assertValue(args[0], 'StringValue');
+        assertValue(args[1], 'StringValue');
         return newString(args[0].getValue() + args[1].getValue());
     });
     env.define('concatStr', concatStr);
@@ -89,7 +88,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         if (args.length != 1) {
             throw new UguisuError('invalid arguments count');
         }
-        assertNumber(args[0]);
+        assertValue(args[0], 'NumberValue');
         return newString(args[0].getValue().toString());
     });
     env.define('toString', toString);

@@ -65,8 +65,17 @@ export function newDeclaredSymbol(): Symbol {
 
 export type Value = NoneValue | NumberValue | BoolValue | StringValue | StructValue | FunctionValue;
 
-export function getTypeName(value: Value): string {
-    switch (value.kind) {
+export type ValueOf<T extends Value['kind']> =
+    T extends 'NoneValue' ? NoneValue :
+    T extends 'NumberValue' ? NumberValue :
+    T extends 'BoolValue' ? BoolValue :
+    T extends 'StringValue' ? StringValue :
+    T extends 'StructValue' ? StructValue :
+    T extends 'FunctionValue' ? FunctionValue :
+    never;
+
+export function getTypeName(valueKind: Value['kind']): string {
+    switch (valueKind) {
         case 'NoneValue': {
             return 'none';
         }
@@ -88,6 +97,12 @@ export function getTypeName(value: Value): string {
     }
 }
 
+export function assertValue<T extends Value['kind']>(value: Value, expectKind: T): asserts value is ValueOf<T> {
+    if (value.kind != expectKind) {
+        throw new UguisuError(`type mismatched. expected \`${getTypeName(expectKind)}\`, found \`${getTypeName(value.kind)}\``);
+    }
+}
+
 export class NoneValue {
     kind: 'NoneValue';
     constructor() {
@@ -95,17 +110,7 @@ export class NoneValue {
     }
 }
 
-export function isNoneValue(value: Value): value is NoneValue {
-    return (value.kind == 'NoneValue');
-}
-
-export function assertNone(value: Value): asserts value is NoneValue {
-    if (!isNoneValue(value)) {
-        throw new UguisuError(`type mismatched. expected \`none\`, found \`${getTypeName(value)}\``);
-    }
-}
-
-export function newNoneValue() {
+export function newNone(): NoneValue {
     return new NoneValue();
 }
 
@@ -121,13 +126,7 @@ export class NumberValue {
     }
 }
 
-export function assertNumber(value: Value): asserts value is NumberValue {
-    if (value.kind != 'NumberValue') {
-        throw new UguisuError(`type mismatched. expected \`number\`, found \`${getTypeName(value)}\``);
-    }
-}
-
-export function newNumber(value: number) {
+export function newNumber(value: number): NumberValue {
     return new NumberValue(value);
 }
 
@@ -143,13 +142,7 @@ export class BoolValue {
     }
 }
 
-export function assertBool(value: Value): asserts value is BoolValue {
-    if (value.kind != 'BoolValue') {
-        throw new UguisuError(`type mismatched. expected \`bool\`, found \`${getTypeName(value)}\``);
-    }
-}
-
-export function newBool(value: boolean) {
+export function newBool(value: boolean): BoolValue {
     return new BoolValue(value);
 }
 
@@ -165,13 +158,7 @@ export class StringValue {
     }
 }
 
-export function assertString(value: Value): asserts value is StringValue {
-    if (value.kind != 'StringValue') {
-        throw new UguisuError(`type mismatched. expected \`string\`, found \`${getTypeName(value)}\``);
-    }
-}
-
-export function newString(value: string) {
+export function newString(value: string): StringValue {
     return new StringValue(value);
 }
 
@@ -190,17 +177,9 @@ export class StructValue {
     }
 }
 
-export function assertStruct(value: Value): asserts value is StructValue {
-    if (value.kind != 'StructValue') {
-        throw new UguisuError(`type mismatched. expected \`struct\`, found \`${getTypeName(value)}\``);
-    }
-}
-
-export function newStruct(fields: Map<string, Symbol>) {
+export function newStruct(fields: Map<string, Symbol>): StructValue {
     return new StructValue(fields);
 }
-
-export type NativeFuncHandler = (args: Value[], options: UguisuOptions) => Value;
 
 export class FunctionValue {
     kind: 'FunctionValue';
@@ -216,17 +195,13 @@ export class FunctionValue {
     }
 }
 
-export function assertFunction(value: Value): asserts value is FunctionValue {
-    if (value.kind != 'FunctionValue') {
-        throw new UguisuError(`type mismatched. expected \`fn\`, found \`${getTypeName(value)}\``);
-    }
-}
+export type NativeFuncHandler = (args: Value[], options: UguisuOptions) => Value;
 
-export function newFunction(node: FunctionDecl, env: RunningEnv) {
+export function newFunction(node: FunctionDecl, env: RunningEnv): FunctionValue {
     return new FunctionValue({ node, env });
 }
 
-export function newNativeFunction(native: NativeFuncHandler) {
+export function newNativeFunction(native: NativeFuncHandler): FunctionValue {
     return new FunctionValue(undefined, native);
 }
 
