@@ -28,13 +28,6 @@ import {
 
 const trace = Trace.getDefault().createChild(false);
 
-export function run(source: SourceFile, env: RunningEnv, options: UguisuOptions, projectInfo: ProjectInfo) {
-    const r = new RunContext(env, options, projectInfo);
-    builtins.setRuntime(env, options);
-    evalSourceFile(r, source);
-    call(r, 'main');
-}
-
 class RunContext {
     env: RunningEnv;
     options: UguisuOptions;
@@ -45,6 +38,33 @@ class RunContext {
         this.options = options;
         this.projectInfo = projectInfo;
     }
+}
+
+type StatementResult = OkResult | ReturnResult | BreakResult;
+
+type OkResult = { kind: 'ok' };
+
+function createOkResult(): OkResult {
+    return { kind: 'ok' };
+}
+
+type ReturnResult = { kind: 'return', value: Value };
+
+function createReturnResult(value: Value): ReturnResult {
+    return { kind: 'return', value };
+}
+
+type BreakResult = { kind: 'break' };
+
+function createBreakResult(): BreakResult {
+    return { kind: 'break' };
+}
+
+export function run(source: SourceFile, env: RunningEnv, options: UguisuOptions, projectInfo: ProjectInfo) {
+    const r = new RunContext(env, options, projectInfo);
+    builtins.setRuntime(env, options);
+    evalSourceFile(r, source);
+    call(r, 'main');
 }
 
 function call(r: RunContext, name: string) {
@@ -58,34 +78,6 @@ function call(r: RunContext, name: string) {
     assertValue(symbol.value, 'FunctionValue');
     callFunc(r, symbol.value, []);
 }
-
-//#region StatementResults
-
-type StatementResult = NoneResult | ReturnResult | BreakResult;
-
-type NoneResult = {
-    kind: 'NoneResult',
-};
-function newNoneResult(): NoneResult {
-    return { kind: 'NoneResult' };
-}
-
-type ReturnResult = {
-    kind: 'ReturnResult',
-    value: Value,
-};
-function newReturnResult(value: Value): ReturnResult {
-    return { kind: 'ReturnResult', value };
-}
-
-type BreakResult = {
-    kind: 'BreakResult',
-};
-function newBreakResult(): BreakResult {
-    return { kind: 'BreakResult' };
-}
-
-//#endregion StatementResults
 
 function lookupSymbol(r: RunContext, expr: ExprNode): Symbol {
     switch (expr.kind) {
@@ -126,17 +118,17 @@ function callFunc(r: RunContext, func: FunctionValue, args: Value[]): Value {
             ctx.env.declare(param.name, arg);
             i++;
         }
-        let result: StatementResult = newNoneResult();
+        let result: StatementResult = createOkResult();
         for (const statement of func.user.node.body) {
             result = execStatement(ctx, statement);
-            if (result.kind == 'ReturnResult') {
+            if (result.kind == 'return') {
                 break;
-            } else if (result.kind == 'BreakResult') {
+            } else if (result.kind == 'break') {
                 break;
             }
         }
         ctx.env.leave();
-        if (result.kind == 'ReturnResult') {
+        if (result.kind == 'return') {
             return result.value;
         }
         return new NoneValue();
@@ -149,12 +141,12 @@ function callFunc(r: RunContext, func: FunctionValue, args: Value[]): Value {
 
 function execBlock(r: RunContext, block: StatementNode[]): StatementResult {
     r.env.enter();
-    let result: StatementResult = newNoneResult();
+    let result: StatementResult = createOkResult();
     for (const statement of block) {
         result = execStatement(r, statement);
-        if (result.kind == 'ReturnResult') {
+        if (result.kind == 'return') {
             break;
-        } else if (result.kind == 'BreakResult') {
+        } else if (result.kind == 'break') {
             break;
         }
     }
@@ -179,29 +171,29 @@ function evalSourceFile(r: RunContext, source: SourceFile) {
 function execStatement(r: RunContext, statement: StatementNode): StatementResult {
     if (isExprNode(statement)) {
         evalExpr(r, statement);
-        return newNoneResult();
+        return createOkResult();
     } else {
         switch (statement.kind) {
             case 'ReturnStatement': {
                 if (statement.expr != null) {
-                    return newReturnResult(evalExpr(r, statement.expr));
+                    return createReturnResult(evalExpr(r, statement.expr));
                 } else {
-                    return newReturnResult(new NoneValue());
+                    return createReturnResult(new NoneValue());
                 }
             }
             case 'BreakStatement': {
-                return newBreakResult();
+                return createBreakResult();
             }
             case 'LoopStatement': {
                 while (true) {
                     const result = execBlock(r, statement.block);
-                    if (result.kind == 'ReturnResult') {
+                    if (result.kind == 'return') {
                         return result;
-                    } else if (result.kind == 'BreakResult') {
+                    } else if (result.kind == 'break') {
                         break;
                     }
                 }
-                return newNoneResult();
+                return createOkResult();
             }
             case 'IfStatement': {
                 const cond = evalExpr(r, statement.cond);
@@ -222,7 +214,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                 } else {
                     r.env.declare(statement.name);
                 }
-                return newNoneResult();
+                return createOkResult();
             }
             case 'AssignStatement': {
                 let symbol;
@@ -296,7 +288,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         break;
                     }
                 }
-                return newNoneResult();
+                return createOkResult();
             }
         }
     }

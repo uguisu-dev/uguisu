@@ -164,7 +164,7 @@ export class FunctionValue {
         env: RunningEnv; // lexical scope
     };
     native?: NativeFuncHandler;
-    constructor(user?: FunctionValue['user'], native?: NativeFuncHandler) {
+    private constructor(user?: FunctionValue['user'], native?: NativeFuncHandler) {
         this.kind = 'FunctionValue';
         this.user = user;
         this.native = native;
