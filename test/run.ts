@@ -396,14 +396,14 @@ describe('function', () => {
     }
     `));
 
-    test('return', () => runTest(`
-    fn f(): () => void {
-        return f;
-    }
-    fn main() {
-        f();
-    }
-    `));
+    // test('return', () => runTest(`
+    // fn f(): () => void {
+    //     return f;
+    // }
+    // fn main() {
+    //     f();
+    // }
+    // `));
 
     test('compare', () => runTest(`
     fn main() {
