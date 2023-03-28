@@ -17,7 +17,6 @@ import {
     BoolValue,
     FunctionValue,
     getTypeName,
-    newDefinedSymbol,
     NoneValue,
     NumberValue,
     RunningEnv,
@@ -49,9 +48,12 @@ class RunContext {
 }
 
 function call(r: RunContext, name: string) {
-    const symbol = r.env.get(name);
-    if (symbol == null || !symbol.defined) {
+    const symbol = r.env.lookup(name);
+    if (symbol == null) {
         throw new UguisuError(`function \`${name}\` is not found`);
+    }
+    if (symbol.value == null) {
+        throw new UguisuError(`function \`${name}\` is not defined`);
     }
     assertValue(symbol.value, 'FunctionValue');
     callFunc(r, symbol.value, []);
@@ -88,7 +90,7 @@ function newBreakResult(): BreakResult {
 function lookupSymbol(r: RunContext, expr: ExprNode): Symbol {
     switch (expr.kind) {
         case 'Identifier': {
-            const symbol = r.env.get(expr.name);
+            const symbol = r.env.lookup(expr.name);
             if (symbol == null) {
                 throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
             }
@@ -121,7 +123,7 @@ function callFunc(r: RunContext, func: FunctionValue, args: Value[]): Value {
         while (i < func.user.node.params.length) {
             const param = func.user.node.params[i];
             const arg = args[i];
-            ctx.env.define(param.name, arg);
+            ctx.env.declare(param.name, arg);
             i++;
         }
         let result: StatementResult = newNoneResult();
@@ -164,7 +166,7 @@ function evalSourceFile(r: RunContext, source: SourceFile) {
     for (const decl of source.decls) {
         switch (decl.kind) {
             case 'FunctionDecl': {
-                r.env.define(decl.name, FunctionValue.create(decl, r.env));
+                r.env.declare(decl.name, FunctionValue.create(decl, r.env));
                 break;
             }
             case 'StructDecl': {
@@ -216,7 +218,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                     if (bodyValue.kind == 'NoneValue') {
                         throw new UguisuError('no values');
                     }
-                    r.env.define(statement.name, bodyValue);
+                    r.env.declare(statement.name, bodyValue);
                 } else {
                     r.env.declare(statement.name);
                 }
@@ -239,8 +241,8 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         break;
                     }
                     case '+=': {
-                        const restored = r.env.get(statement.target.name);
-                        if (restored == null || !restored.defined) {
+                        const restored = r.env.lookup(statement.target.name);
+                        if (restored == null || restored.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
                         assertValue(restored.value, 'NumberValue');
@@ -250,8 +252,8 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         break;
                     }
                     case '-=': {
-                        const restored = r.env.get(statement.target.name);
-                        if (restored == null || !restored.defined) {
+                        const restored = r.env.lookup(statement.target.name);
+                        if (restored == null || restored.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
                         assertValue(restored.value, 'NumberValue');
@@ -261,8 +263,8 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         break;
                     }
                     case '*=': {
-                        const restored = r.env.get(statement.target.name);
-                        if (restored == null || !restored.defined) {
+                        const restored = r.env.lookup(statement.target.name);
+                        if (restored == null || restored.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
                         assertValue(restored.value, 'NumberValue');
@@ -272,8 +274,8 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         break;
                     }
                     case '/=': {
-                        const restored = r.env.get(statement.target.name);
-                        if (restored == null || !restored.defined) {
+                        const restored = r.env.lookup(statement.target.name);
+                        if (restored == null || restored.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
                         assertValue(restored.value, 'NumberValue');
@@ -283,8 +285,8 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         break;
                     }
                     case '%=': {
-                        const restored = r.env.get(statement.target.name);
-                        if (restored == null || !restored.defined) {
+                        const restored = r.env.lookup(statement.target.name);
+                        if (restored == null || restored.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
                         assertValue(restored.value, 'NumberValue');
@@ -294,7 +296,6 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                         break;
                     }
                 }
-                symbol.defined = true;
                 return newNoneResult();
             }
         }
@@ -305,14 +306,14 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
     switch (expr.kind) {
         case 'Identifier': {
             const symbol = lookupSymbol(r, expr);
-            if (!symbol.defined) {
+            if (symbol.value == null) {
                 throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
             }
             return symbol.value;
         }
         case 'FieldAccess': {
             const field = lookupSymbol(r, expr);
-            if (!field.defined) {
+            if (field.value == null) {
                 throw new UguisuError('field not defined');
             }
             return field.value;
@@ -492,7 +493,7 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
         case 'StructExpr': {
             const fields = new Map<string, Symbol>();
             for (const field of expr.fields) {
-                fields.set(field.name, newDefinedSymbol(evalExpr(r, field.body)));
+                fields.set(field.name, new Symbol(evalExpr(r, field.body)));
             }
             return new StructValue(fields);
         }

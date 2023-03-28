@@ -16,17 +16,12 @@ export class RunningEnv {
         }
     }
 
-    declare(name: string) {
-        this.trace?.log(`declare symbol: ${name}`);
-        this.layers[0].set(name, { defined: false, value: undefined });
+    declare(name: string, initialValue?: Value) {
+        this.trace?.log(`declare symbol: ${name} ${initialValue}`);
+        this.layers[0].set(name, new Symbol(initialValue));
     }
 
-    define(name: string, value: Value) {
-        this.trace?.log(`define symbol: ${name}`, value);
-        this.layers[0].set(name, { defined: true, value });
-    }
-
-    get(name: string): Symbol | undefined {
+    lookup(name: string): Symbol | undefined {
         this.trace?.log(`get symbol: ${name}`);
         for (const layer of this.layers) {
             const symbol = layer.get(name);
@@ -51,15 +46,16 @@ export class RunningEnv {
     }
 }
 
-export type Symbol = { defined: true, value: Value } | { defined: false, value: undefined };
+//#region Symbols
 
-export function newDefinedSymbol(value: Value): Symbol {
-    return { defined: true, value };
+export class Symbol {
+    value?: Value;
+    constructor(value?: Value) {
+        this.value = value;
+    }
 }
 
-export function newDeclaredSymbol(): Symbol {
-    return { defined: false, value: undefined };
-}
+//#endregion Symbols
 
 //#region Values
 

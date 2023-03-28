@@ -21,7 +21,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         }
         return new NoneValue();
     });
-    env.define('printStr', printStr);
+    env.declare('printStr', printStr);
 
     const printNum = FunctionValue.createNative((args) => {
         if (args.length != 1) {
@@ -33,7 +33,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         }
         return new NoneValue();
     });
-    env.define('printNum', printNum);
+    env.declare('printNum', printNum);
 
     const assertEqNum = FunctionValue.createNative((args) => {
         if (args.length != 2) {
@@ -48,7 +48,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         }
         return new NoneValue();
     });
-    env.define('assertEqNum', assertEqNum);
+    env.declare('assertEqNum', assertEqNum);
 
     const assertEqStr = FunctionValue.createNative((args) => {
         if (args.length != 2) {
@@ -63,7 +63,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         }
         return new NoneValue();
     });
-    env.define('assertEqStr', assertEqStr);
+    env.declare('assertEqStr', assertEqStr);
 
     const getUnixtime = FunctionValue.createNative((args) => {
         if (args.length != 0) {
@@ -72,7 +72,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         const unixTime = Math.floor(Date.now() / 1000);
         return new NumberValue(unixTime);
     });
-    env.define('getUnixtime', getUnixtime);
+    env.declare('getUnixtime', getUnixtime);
 
     const concatStr = FunctionValue.createNative((args) => {
         if (args.length != 2) {
@@ -82,7 +82,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         assertValue(args[1], 'StringValue');
         return new StringValue(args[0].getValue() + args[1].getValue());
     });
-    env.define('concatStr', concatStr);
+    env.declare('concatStr', concatStr);
 
     const toString = FunctionValue.createNative((args) => {
         if (args.length != 1) {
@@ -91,6 +91,6 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         assertValue(args[0], 'NumberValue');
         return new StringValue(args[0].getValue().toString());
     });
-    env.define('toString', toString);
+    env.declare('toString', toString);
 
 }
