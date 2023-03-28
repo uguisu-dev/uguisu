@@ -1,7 +1,7 @@
 import {
     AnalyzeContext,
-    newFunctionType,
-    newNativeFnSymbol,
+    createFunctionType,
+    createNativeFnSymbol,
     numberType,
     stringType,
     ValidType,
@@ -10,8 +10,8 @@ import {
 
 function setDecl(name: string, paramsTy: ValidType[], returnTy: ValidType, a: AnalyzeContext) {
     const params = Array(paramsTy.length).map(() => ({ name: 'x' }));
-    const ty = newFunctionType(paramsTy, returnTy);
-    a.env.set(name, newNativeFnSymbol(params, ty));
+    const ty = createFunctionType(paramsTy, returnTy);
+    a.env.set(name, createNativeFnSymbol(params, ty));
 }
 
 export function setDeclarations(a: AnalyzeContext) {

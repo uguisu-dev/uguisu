@@ -20,7 +20,7 @@ import {
     Type,
     voidType,
     badType,
-    newFunctionType,
+    createFunctionType,
     pendingType,
     compareType,
     dispatchTypeError,
@@ -29,9 +29,9 @@ import {
     stringType,
     isValidType,
     getTypeString,
-    newSimpleType,
-    newFunctionSymbol,
-    newStructSymbol,
+    createSimpleType,
+    createFunctionSymbol,
+    createStructSymbol,
 } from './tools.js';
 
 export type AnalysisResult = {
@@ -58,7 +58,7 @@ export function analyze(
     }
     // 3rd phase: validate
     for (const decl of source.decls) {
-        detectInfinityNest(a, newSimpleType(decl.name), []);
+        detectInfinityNest(a, createSimpleType(decl.name), []);
         validateFuncBody(a, decl);
     }
 
@@ -83,7 +83,7 @@ function collectFileNode(a: AnalyzeContext, node: FileNode) {
             }
             const params = node.params.map(x => ({ name: x.name }));
             const vars = node.params.map(x => ({ name: x.name, isParam: true, ty: pendingType }));
-            const symbol = newFunctionSymbol(params, pendingType, vars);
+            const symbol = createFunctionSymbol(params, pendingType, vars);
             a.symbolTable.set(node, symbol);
             a.env.set(node.name, symbol);
             break;
@@ -101,7 +101,7 @@ function collectFileNode(a: AnalyzeContext, node: FileNode) {
             for (const field of node.fields) {
                 fields.set(field.name, { ty: pendingType });
             }
-            const symbol: Symbol = newStructSymbol(fields);
+            const symbol: Symbol = createStructSymbol(fields);
             a.symbolTable.set(node, symbol);
             a.env.set(node.name, symbol);
             break;
@@ -140,7 +140,7 @@ function resolveFileNode(a: AnalyzeContext, node: FileNode) {
                     const paramType = resolveTypeName(a, paramNode.ty);
                     paramTypes.push(paramType);
                 }
-                symbol.ty = newFunctionType(paramTypes, returnType);
+                symbol.ty = createFunctionType(paramTypes, returnType);
                 for (let i = 0; i < symbol.params.length; i++) {
                     symbol.vars[i].ty = paramTypes[i];
                 }
@@ -499,7 +499,7 @@ function inferType(a: AnalyzeContext, node: AstNode, funcSymbol: FunctionSymbol)
                     return symbol.ty;
                 }
                 case 'StructSymbol': {
-                    return newSimpleType(node.name);
+                    return createSimpleType(node.name);
                 }
                 case 'VariableSymbol': {
                     // if the variable is not assigned
@@ -616,7 +616,7 @@ function inferType(a: AnalyzeContext, node: AstNode, funcSymbol: FunctionSymbol)
                     a.dispatchError(`field \`${name}\` is not initialized.`, node);
                 }
             }
-            return newSimpleType(node.name);
+            return createSimpleType(node.name);
         }
         case 'FieldAccess': {
             const targetTy = inferType(a, node.target, funcSymbol);
@@ -654,7 +654,7 @@ function resolveTypeName(a: AnalyzeContext, node: TyLabel): Type {
         case 'number':
         case 'bool':
         case 'string': {
-            return newSimpleType(node.name);
+            return createSimpleType(node.name);
         }
     }
     const symbol = a.env.get(node.name);
@@ -664,7 +664,7 @@ function resolveTypeName(a: AnalyzeContext, node: TyLabel): Type {
     }
     switch (symbol.kind) {
         case 'StructSymbol': {
-            return newSimpleType(node.name);
+            return createSimpleType(node.name);
         }
         case 'FnSymbol':
         case 'NativeFnSymbol':

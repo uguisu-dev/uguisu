@@ -10,28 +10,28 @@ import {
     FunctionDecl,
     IfStatement,
     LoopStatement,
-    newAssignStatement,
-    newBinaryOp,
-    newBoolLiteral,
-    newBreakStatement,
-    newCall,
-    newFieldAccess,
-    newFnDeclParam,
-    newFunctionDecl,
-    newIdentifier,
-    newIfStatement,
-    newLoopStatement,
-    newNumberLiteral,
-    newReturnStatement,
-    newSourceFile,
-    newStringLiteral,
-    newStructDecl,
-    newStructDeclField,
-    newStructExpr,
-    newStructExprField,
-    newTyLabel,
-    newUnaryOp,
-    newVariableDecl,
+    createAssignStatement,
+    createBinaryOp,
+    createBoolLiteral,
+    createBreakStatement,
+    createCall,
+    createFieldAccess,
+    createFnDeclParam,
+    createFunctionDecl,
+    createIdentifier,
+    createIfStatement,
+    createLoopStatement,
+    createNumberLiteral,
+    createReturnStatement,
+    createSourceFile,
+    createStringLiteral,
+    createStructDecl,
+    createStructDeclField,
+    createStructExpr,
+    createStructExprField,
+    createTyLabel,
+    createUnaryOp,
+    createVariableDecl,
     ReturnStatement,
     SourceFile,
     StatementNode,
@@ -149,7 +149,7 @@ function parseTyLabel(p: ParseContext): TyLabel {
     p.next();
 
     trace.leave();
-    return newTyLabel(pos, name);
+    return createTyLabel(pos, name);
 }
 
 //#endregion General
@@ -193,7 +193,7 @@ function parseSourceFile(p: ParseContext, filename: string): SourceFile {
     }
 
     trace.leave();
-    return newSourceFile([1, 1], filename, decls);
+    return createSourceFile([1, 1], filename, decls);
 }
 
 /**
@@ -230,7 +230,7 @@ function parseFunctionDecl(p: ParseContext, exported: boolean): FunctionDecl {
     const body = parseBlock(p);
 
     trace.leave();
-    return newFunctionDecl(pos, name, params, body, returnTy, exported);
+    return createFunctionDecl(pos, name, params, body, returnTy, exported);
 }
 
 /**
@@ -252,7 +252,7 @@ function parseFnDeclParam(p: ParseContext): FnDeclParam {
     }
 
     trace.leave();
-    return newFnDeclParam(pos, name, ty);
+    return createFnDeclParam(pos, name, ty);
 }
 
 /**
@@ -281,7 +281,7 @@ function parseStructDecl(p: ParseContext, exported: boolean): StructDecl {
     }
     p.expectAndNext(Token.EndBrace);
 
-    return newStructDecl(pos, name, fields, exported);
+    return createStructDecl(pos, name, fields, exported);
 }
 
 /**
@@ -296,7 +296,7 @@ function parseStructDeclField(p: ParseContext): StructDeclField {
 
     const ty = parseTyLabel(p);
 
-    return newStructDeclField(pos, name, ty);
+    return createStructDeclField(pos, name, ty);
 }
 
 //#endregion SourceFile
@@ -384,7 +384,7 @@ function parseStatementStartWithExpr(p: ParseContext): StatementNode {
             const body = parseExpr(p);
             p.expectAndNext(Token.Semi);
             trace.leave();
-            return newAssignStatement(expr.pos, expr, body, mode);
+            return createAssignStatement(expr.pos, expr, body, mode);
         }
         case Token.Semi: {
             p.next();
@@ -424,7 +424,7 @@ function parseVariableDecl(p: ParseContext): VariableDecl {
     p.expectAndNext(Token.Semi);
 
     trace.leave();
-    return newVariableDecl(pos, name, ty, body);
+    return createVariableDecl(pos, name, ty, body);
 }
 
 /**
@@ -440,7 +440,7 @@ function parseBreakStatement(p: ParseContext): BreakStatement {
     p.expectAndNext(Token.Semi);
 
     trace.leave();
-    return newBreakStatement(pos);
+    return createBreakStatement(pos);
 }
 
 /**
@@ -460,7 +460,7 @@ function parseReturnStatement(p: ParseContext): ReturnStatement {
     p.expectAndNext(Token.Semi);
 
     trace.leave();
-    return newReturnStatement(pos, expr);
+    return createReturnStatement(pos, expr);
 }
 
 /**
@@ -488,7 +488,7 @@ function parseIfStatement(p: ParseContext): IfStatement {
     }
 
     trace.leave();
-    return newIfStatement(pos, cond, thenBlock, elseBlock);
+    return createIfStatement(pos, cond, thenBlock, elseBlock);
 }
 
 /**
@@ -504,7 +504,7 @@ function parseLoopStatement(p: ParseContext): LoopStatement {
     const block = parseBlock(p);
 
     trace.leave();
-    return newLoopStatement(pos, block);
+    return createLoopStatement(pos, block);
 }
 
 //#endregion Statements
@@ -558,7 +558,7 @@ function parseInfix(p: ParseContext, minPrec: number): ExprNode {
         }
         p.next();
         const rightExpr = parseInfix(p, nextMinPrec);
-        expr = newBinaryOp(pos, info.op, expr, rightExpr);
+        expr = createBinaryOp(pos, info.op, expr, rightExpr);
     }
     return expr;
 }
@@ -594,7 +594,7 @@ function parseSuffixChain(p: ParseContext, target: ExprNode): ExprNode {
                 }
             }
             p.expectAndNext(Token.EndParen);
-            return parseSuffixChain(p, newCall(pos, target, args));
+            return parseSuffixChain(p, createCall(pos, target, args));
         }
         case Token.Dot: { // field access
             p.next();
@@ -602,7 +602,7 @@ function parseSuffixChain(p: ParseContext, target: ExprNode): ExprNode {
             p.expect(Token.Ident);
             const name = p.getIdentValue();
             p.next();
-            return parseSuffixChain(p, newFieldAccess(pos, name, target));
+            return parseSuffixChain(p, createFieldAccess(pos, name, target));
         }
         default: {
             return target;
@@ -622,20 +622,20 @@ function parseAtomInner(p: ParseContext): ExprNode {
             const literal = p.getLiteralValue();
             p.next();
             if (literal.kind == 'number') {
-                return newNumberLiteral(pos, parseInt(literal.value));
+                return createNumberLiteral(pos, parseInt(literal.value));
             }
             if (literal.kind == 'bool') {
-                return newBoolLiteral(pos, (literal.value == 'true'));
+                return createBoolLiteral(pos, (literal.value == 'true'));
             }
             if (literal.kind == 'string') {
-                return newStringLiteral(pos, literal.value);
+                return createStringLiteral(pos, literal.value);
             }
             throw new UguisuError('not implemented yet');
         }
         case Token.Ident: {
             const name = p.getIdentValue();
             p.next();
-            return newIdentifier(pos, name);
+            return createIdentifier(pos, name);
         }
         case Token.New: {
             p.next();
@@ -655,12 +655,12 @@ function parseAtomInner(p: ParseContext): ExprNode {
                 }
             }
             p.expectAndNext(Token.EndBrace);
-            return newStructExpr(pos, name, fields);
+            return createStructExpr(pos, name, fields);
         }
         case Token.Not: {
             p.next();
             const expr = parseAtom(p);
-            return newUnaryOp(pos, '!', expr);
+            return createUnaryOp(pos, '!', expr);
         }
         case Token.BeginParen: {
             p.next();
@@ -686,7 +686,7 @@ function parseStructExprField(p: ParseContext): StructExprField {
     p.next();
     p.expectAndNext(Token.Colon);
     const body = parseExpr(p);
-    return newStructExprField(pos, name, body);
+    return createStructExprField(pos, name, body);
 }
 
 //#endregion Expressions

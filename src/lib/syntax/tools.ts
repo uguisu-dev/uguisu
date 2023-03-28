@@ -70,7 +70,7 @@ export type SourceFile = {
     filename: string;
     decls: FileNode[],
 };
-export function newSourceFile(pos: Pos, filename: string, decls: FileNode[]): SourceFile {
+export function createSourceFile(pos: Pos, filename: string, decls: FileNode[]): SourceFile {
     return { kind: 'SourceFile', pos, filename, decls };
 }
 
@@ -83,7 +83,7 @@ export type FunctionDecl = {
     returnTy?: TyLabel,
     exported: boolean,
 };
-export function newFunctionDecl(
+export function createFunctionDecl(
     pos: Pos,
     name: string,
     params: FnDeclParam[],
@@ -100,7 +100,7 @@ export type FnDeclParam = {
     name: string;
     ty?: TyLabel;
 };
-export function newFnDeclParam(pos: Pos, name: string, ty?: TyLabel): FnDeclParam {
+export function createFnDeclParam(pos: Pos, name: string, ty?: TyLabel): FnDeclParam {
     return { kind: 'FnDeclParam', pos, name, ty };
 }
 
@@ -111,7 +111,7 @@ export type IfStatement = {
     thenBlock: StatementNode[];
     elseBlock: StatementNode[];
 };
-export function newIfStatement(
+export function createIfStatement(
     pos: Pos,
     cond: ExprNode,
     thenBlock: StatementNode[],
@@ -125,7 +125,7 @@ export type Identifier = {
     pos: Pos;
     name: string,
 };
-export function newIdentifier(pos: Pos, name: string): Identifier {
+export function createIdentifier(pos: Pos, name: string): Identifier {
     return { kind: 'Identifier', pos, name };
 }
 
@@ -134,7 +134,7 @@ export type NumberLiteral = {
     pos: Pos;
     value: number,
 };
-export function newNumberLiteral(pos: Pos, value: number): NumberLiteral {
+export function createNumberLiteral(pos: Pos, value: number): NumberLiteral {
     return { kind: 'NumberLiteral', pos, value };
 }
 
@@ -143,7 +143,7 @@ export type BoolLiteral = {
     pos: Pos;
     value: boolean,
 };
-export function newBoolLiteral(pos: Pos, value: boolean): BoolLiteral {
+export function createBoolLiteral(pos: Pos, value: boolean): BoolLiteral {
     return { kind: 'BoolLiteral', pos, value };
 }
 
@@ -152,7 +152,7 @@ export type StringLiteral = {
     pos: Pos;
     value: string,
 };
-export function newStringLiteral(pos: Pos, value: string): StringLiteral {
+export function createStringLiteral(pos: Pos, value: string): StringLiteral {
     return { kind: 'StringLiteral', pos, value };
 }
 
@@ -162,7 +162,7 @@ export type UnaryOp = {
     operator: UnaryOperator,
     expr: ExprNode,
 };
-export function newUnaryOp(pos: Pos, operator: UnaryOperator, expr: ExprNode): UnaryOp {
+export function createUnaryOp(pos: Pos, operator: UnaryOperator, expr: ExprNode): UnaryOp {
     return { kind: 'UnaryOp', pos, operator, expr };
 }
 export type UnaryOperator = LogicalUnaryOperator;
@@ -175,7 +175,7 @@ export type BinaryOp = {
     left: ExprNode,
     right: ExprNode,
 };
-export function newBinaryOp(
+export function createBinaryOp(
     pos: Pos,
     operator: BinaryOperator,
     left: ExprNode,
@@ -221,7 +221,7 @@ export type Call = {
     callee: ExprNode,
     args: ExprNode[],
 };
-export function newCall(pos: Pos, callee: ExprNode, args: ExprNode[]): Call {
+export function createCall(pos: Pos, callee: ExprNode, args: ExprNode[]): Call {
     return { kind: 'Call', pos, callee, args };
 }
 
@@ -230,7 +230,7 @@ export type TyLabel = {
     pos: Pos;
     name: string,
 };
-export function newTyLabel(pos: Pos, name: string): TyLabel {
+export function createTyLabel(pos: Pos, name: string): TyLabel {
     return { kind: 'TyLabel', pos, name };
 }
 
@@ -238,7 +238,7 @@ export type BreakStatement = {
     kind: 'BreakStatement',
     pos: Pos,
 };
-export function newBreakStatement(pos: Pos): BreakStatement {
+export function createBreakStatement(pos: Pos): BreakStatement {
     return { kind: 'BreakStatement', pos };
 }
 
@@ -246,7 +246,7 @@ export type ContinueStatement = {
     kind: 'ContinueStatement',
     pos: Pos,
 };
-export function newContinueStatement(pos: Pos): ContinueStatement {
+export function createContinueStatement(pos: Pos): ContinueStatement {
     return { kind: 'ContinueStatement', pos };
 }
 
@@ -255,7 +255,7 @@ export type ReturnStatement = {
     pos: Pos,
     expr?: ExprNode,
 };
-export function newReturnStatement(pos: Pos, expr?: ExprNode): ReturnStatement {
+export function createReturnStatement(pos: Pos, expr?: ExprNode): ReturnStatement {
     return { kind: 'ReturnStatement', pos, expr };
 }
 
@@ -264,7 +264,7 @@ export type LoopStatement = {
     pos: Pos,
     block: StatementNode[],
 };
-export function newLoopStatement(pos: Pos, block: StatementNode[]): LoopStatement {
+export function createLoopStatement(pos: Pos, block: StatementNode[]): LoopStatement {
     return { kind: 'LoopStatement', pos, block };
 }
 
@@ -277,7 +277,7 @@ export type AssignStatement = {
     body: ExprNode,
     mode: AssignMode,
 };
-export function newAssignStatement(
+export function createAssignStatement(
     pos: Pos,
     target: ExprNode,
     body: ExprNode,
@@ -293,7 +293,7 @@ export type VariableDecl = {
     ty?: TyLabel,
     body?: ExprNode,
 };
-export function newVariableDecl(pos: Pos, name: string, ty?: TyLabel, body?: ExprNode): VariableDecl {
+export function createVariableDecl(pos: Pos, name: string, ty?: TyLabel, body?: ExprNode): VariableDecl {
     return { kind: 'VariableDecl', pos, name, ty, body };
 }
 
@@ -306,7 +306,7 @@ export type StructDecl = {
     fields: StructDeclField[],
     exported: boolean,
 };
-export function newStructDecl(pos: Pos, name: string, fields: StructDeclField[], exported: boolean): StructDecl {
+export function createStructDecl(pos: Pos, name: string, fields: StructDeclField[], exported: boolean): StructDecl {
     return { kind: 'StructDecl', pos, name, fields, exported };
 }
 
@@ -316,7 +316,7 @@ export type StructDeclField = {
     name: string,
     ty: TyLabel,
 };
-export function newStructDeclField(pos: Pos, name: string, ty: TyLabel): StructDeclField {
+export function createStructDeclField(pos: Pos, name: string, ty: TyLabel): StructDeclField {
     return { kind: 'StructDeclField', pos, name, ty };
 }
 
@@ -326,7 +326,7 @@ export type StructExpr = {
     name: string,
     fields: StructExprField[],
 };
-export function newStructExpr(pos: Pos, name: string, fields: StructExprField[]): StructExpr {
+export function createStructExpr(pos: Pos, name: string, fields: StructExprField[]): StructExpr {
     return { kind: 'StructExpr', pos, name, fields };
 }
 
@@ -336,7 +336,7 @@ export type StructExprField = {
     name: string,
     body: ExprNode,
 };
-export function newStructExprField(pos: Pos, name: string, body: ExprNode): StructExprField {
+export function createStructExprField(pos: Pos, name: string, body: ExprNode): StructExprField {
     return { kind: 'StructExprField', pos, name, body };
 }
 
@@ -346,6 +346,6 @@ export type FieldAccess = {
     name: string,
     target: ExprNode,
 };
-export function newFieldAccess(pos: Pos, name: string, target: ExprNode): FieldAccess {
+export function createFieldAccess(pos: Pos, name: string, target: ExprNode): FieldAccess {
     return { kind: 'FieldAccess', pos, name, target };
 }

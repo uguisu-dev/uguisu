@@ -81,7 +81,7 @@ export type FunctionSymbol = {
     vars: FnVar[],
 };
 
-export function newFunctionSymbol(params: { name: string }[], ty: FunctionType | InvalidType, vars: FnVar[]): FunctionSymbol {
+export function createFunctionSymbol(params: { name: string }[], ty: FunctionType | InvalidType, vars: FnVar[]): FunctionSymbol {
     return { kind: 'FnSymbol', params, ty, vars };
 }
 
@@ -93,7 +93,7 @@ export type NativeFnSymbol = {
     ty: FunctionType | InvalidType,
 };
 
-export function newNativeFnSymbol(params: { name: string }[], ty: FunctionType | InvalidType): NativeFnSymbol {
+export function createNativeFnSymbol(params: { name: string }[], ty: FunctionType | InvalidType): NativeFnSymbol {
     return { kind: 'NativeFnSymbol', params, ty };
 }
 
@@ -102,7 +102,7 @@ export type StructSymbol = {
     fields: Map<string, { ty: Type }>,
 };
 
-export function newStructSymbol(fields: Map<string, { ty: Type }>): StructSymbol {
+export function createStructSymbol(fields: Map<string, { ty: Type }>): StructSymbol {
     return { kind: 'StructSymbol', fields };
 }
 
@@ -131,14 +131,14 @@ export type ValidType = SimpleType | FunctionType | GenericType;
 export type BadType = {
     kind: 'BadType',
 };
-function newBadType(): BadType {
+function createBadType(): BadType {
     return { kind: 'BadType' };
 }
 
 export type PendingType = {
     kind: 'PendingType',
 };
-function newPendingType(): PendingType {
+function createPendingType(): PendingType {
     return { kind: 'PendingType' };
 }
 
@@ -146,7 +146,7 @@ export type SimpleType = {
     kind: 'SimpleType',
     name: string,
 };
-export function newSimpleType(name: string): SimpleType {
+export function createSimpleType(name: string): SimpleType {
     return { kind: 'SimpleType', name };
 }
 
@@ -155,7 +155,7 @@ export type GenericType = {
     name: string,
     innerTypes: Type[],
 };
-export function newGenericType(name: string, innerTypes: Type[]): GenericType {
+export function createGenericType(name: string, innerTypes: Type[]): GenericType {
     return { kind: 'GenericType', name, innerTypes };
 }
 
@@ -164,17 +164,17 @@ export type FunctionType = {
     paramTypes: Type[],
     returnType: Type,
 };
-export function newFunctionType(paramTypes: Type[], returnType: Type): FunctionType {
+export function createFunctionType(paramTypes: Type[], returnType: Type): FunctionType {
     return { kind: 'FunctionType', paramTypes, returnType };
 }
 
 // builtin types
-export const badType = newBadType();
-export const pendingType = newPendingType();
-export const voidType = newSimpleType('void');
-export const numberType = newSimpleType('number');
-export const boolType = newSimpleType('bool');
-export const stringType = newSimpleType('string');
+export const badType = createBadType();
+export const pendingType = createPendingType();
+export const voidType = createSimpleType('void');
+export const numberType = createSimpleType('number');
+export const boolType = createSimpleType('bool');
+export const stringType = createSimpleType('string');
 
 export type CompareTypeResult = 'unknown' | 'compatible' | 'incompatible';
 
