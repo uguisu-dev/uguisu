@@ -36,8 +36,9 @@ $ npm i -g uguisu-js
 Usage: uguisu [options] [commands]
 
 Examples:
-    uguisu run -c <projectDir>
+    uguisu run <projectDir>
     uguisu check <projectDir>
+    uguisu run --skip-check <projectDir>
     uguisu <command> -h
     uguisu -v
 
@@ -53,7 +54,7 @@ Commands:
 
 Run the basic example:
 ```
-$ uguisu run -c ./examples/basic
+$ uguisu run ./examples/basic
 ```
 
 ## JavaScript API
@@ -70,11 +71,17 @@ const uguisu = new Uguisu({
 
 const projectDir = './examples/basic';
 
-// static analysis
+// Check code and Run
+uguisu.run(projectDir);
+```
+
+Code checking and running can also be separated:
+```js
+// Check code
 uguisu.check(projectDir);
 
 // Run
-uguisu.run(projectDir);
+uguisu.run(projectDir, { skipCheck: true });
 ```
 
 ## License
