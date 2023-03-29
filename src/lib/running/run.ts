@@ -65,30 +65,6 @@ function getEntryPoint(r: RunContext): FunctionValue {
     return symbol.value;
 }
 
-function lookupSymbol(r: RunContext, expr: ExprNode): Symbol {
-    switch (expr.kind) {
-        case 'Identifier': {
-            const symbol = r.env.lookup(expr.name);
-            if (symbol == null) {
-                throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
-            }
-            return symbol;
-        }
-        case 'FieldAccess': {
-            const target = evalExpr(r, expr.target);
-            assertValue(target, 'StructValue');
-            const field = target.lookupField(expr.name);
-            if (field == null) {
-                throw new UguisuError('unknown field');
-            }
-            return field;
-        }
-        default: {
-            throw new UguisuError('unexpected expression');
-        }
-    }
-}
-
 function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
     if (func.user != null) {
         const env = new RunningEnv(func.user.env);
@@ -97,12 +73,10 @@ function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
         if (func.user.node.params.length != args.length) {
             throw new UguisuError('invalid arguments count');
         }
-        let i = 0;
-        while (i < func.user.node.params.length) {
+        for (let i = 0; i < func.user.node.params.length; i++) {
             const param = func.user.node.params[i];
             const arg = args[i];
             ctx.env.declare(param.name, arg);
-            i++;
         }
         let result: StatementResult = createOkResult();
         for (const statement of func.user.node.body) {
@@ -125,6 +99,20 @@ function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
     }
 }
 
+function evalSourceFile(r: RunContext, source: SourceFile) {
+    for (const decl of source.decls) {
+        switch (decl.kind) {
+            case 'FunctionDecl': {
+                r.env.declare(decl.name, FunctionValue.create(decl, r.env));
+                break;
+            }
+            case 'StructDecl': {
+                break;
+            }
+        }
+    }
+}
+
 function evalBlock(r: RunContext, block: StatementNode[]): StatementResult {
     r.env.enter();
     let result: StatementResult = createOkResult();
@@ -140,16 +128,26 @@ function evalBlock(r: RunContext, block: StatementNode[]): StatementResult {
     return result;
 }
 
-function evalSourceFile(r: RunContext, source: SourceFile) {
-    for (const decl of source.decls) {
-        switch (decl.kind) {
-            case 'FunctionDecl': {
-                r.env.declare(decl.name, FunctionValue.create(decl, r.env));
-                break;
+function evalName(r: RunContext, expr: ExprNode): Symbol {
+    switch (expr.kind) {
+        case 'Identifier': {
+            const symbol = r.env.lookup(expr.name);
+            if (symbol == null) {
+                throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
             }
-            case 'StructDecl': {
-                break;
+            return symbol;
+        }
+        case 'FieldAccess': {
+            const target = evalExpr(r, expr.target);
+            assertValue(target, 'StructValue');
+            const field = target.lookupField(expr.name);
+            if (field == null) {
+                throw new UguisuError('unknown field');
             }
+            return field;
+        }
+        default: {
+            throw new UguisuError('unexpected expression');
         }
     }
 }
@@ -205,7 +203,7 @@ function evalStatement(r: RunContext, statement: StatementNode): StatementResult
             case 'AssignStatement': {
                 let symbol;
                 if (statement.target.kind == 'Identifier' || statement.target.kind == 'FieldAccess') {
-                    symbol = lookupSymbol(r, statement.target);
+                    symbol = evalName(r, statement.target);
                 } else {
                     throw new UguisuError('unsupported assign target');
                 }
@@ -283,14 +281,14 @@ function evalStatement(r: RunContext, statement: StatementNode): StatementResult
 function evalExpr(r: RunContext, expr: ExprNode): Value {
     switch (expr.kind) {
         case 'Identifier': {
-            const symbol = lookupSymbol(r, expr);
+            const symbol = evalName(r, expr);
             if (symbol.value == null) {
                 throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
             }
             return symbol.value;
         }
         case 'FieldAccess': {
-            const field = lookupSymbol(r, expr);
+            const field = evalName(r, expr);
             if (field.value == null) {
                 throw new UguisuError('field not defined');
             }
@@ -471,7 +469,9 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
         case 'StructExpr': {
             const fields = new Map<string, Symbol>();
             for (const field of expr.fields) {
-                fields.set(field.name, new Symbol(evalExpr(r, field.body)));
+                const value = evalExpr(r, field.body);
+                const symbol = new Symbol(value);
+                fields.set(field.name, symbol);
             }
             return new StructValue(fields);
         }
