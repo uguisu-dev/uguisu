@@ -94,7 +94,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
     });
     env.declare('toString', toString);
 
-    const insert = FunctionValue.createNative((args) => {
+    const insertItem = FunctionValue.createNative((args) => {
         if (args.length != 3) {
             throw new UguisuError('invalid arguments count');
         }
@@ -106,9 +106,9 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         target.insert(index, symbol);
         return new NoneValue();
     });
-    env.declare('insert', insert);
+    env.declare('insertItem', insertItem);
 
-    const add = FunctionValue.createNative((args) => {
+    const addItem = FunctionValue.createNative((args) => {
         if (args.length != 2) {
             throw new UguisuError('invalid arguments count');
         }
@@ -118,9 +118,9 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         target.insert(target.count(), symbol);
         return new NoneValue();
     });
-    env.declare('add', add);
+    env.declare('addItem', addItem);
 
-    const removeAt = FunctionValue.createNative((args) => {
+    const removeItemAt = FunctionValue.createNative((args) => {
         if (args.length != 2) {
             throw new UguisuError('invalid arguments count');
         }
@@ -131,9 +131,9 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         target.removeAt(index);
         return new NoneValue();
     });
-    env.declare('removeAt', removeAt);
+    env.declare('removeItemAt', removeItemAt);
 
-    const count = FunctionValue.createNative((args) => {
+    const countItems = FunctionValue.createNative((args) => {
         if (args.length != 1) {
             throw new UguisuError('invalid arguments count');
         }
@@ -141,6 +141,6 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         const target = args[0];
         return new NumberValue(target.count());
     });
-    env.declare('count', count);
+    env.declare('countItems', countItems);
 
 }
