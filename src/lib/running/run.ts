@@ -15,11 +15,15 @@ import * as builtins from './builtins.js';
 import {
     assertValue,
     BoolValue,
+    createBreakResult,
+    createOkResult,
+    createReturnResult,
     FunctionValue,
     getTypeName,
     NoneValue,
     NumberValue,
     RunningEnv,
+    StatementResult,
     StringValue,
     StructValue,
     Symbol,
@@ -38,26 +42,6 @@ class RunContext {
         this.options = options;
         this.projectInfo = projectInfo;
     }
-}
-
-type StatementResult = OkResult | ReturnResult | BreakResult;
-
-type OkResult = { kind: 'ok' };
-
-function createOkResult(): OkResult {
-    return { kind: 'ok' };
-}
-
-type ReturnResult = { kind: 'return', value: Value };
-
-function createReturnResult(value: Value): ReturnResult {
-    return { kind: 'return', value };
-}
-
-type BreakResult = { kind: 'break' };
-
-function createBreakResult(): BreakResult {
-    return { kind: 'break' };
 }
 
 export function run(source: SourceFile, env: RunningEnv, options: UguisuOptions, projectInfo: ProjectInfo) {
@@ -91,7 +75,7 @@ function lookupSymbol(r: RunContext, expr: ExprNode): Symbol {
         case 'FieldAccess': {
             const target = evalExpr(r, expr.target);
             assertValue(target, 'StructValue');
-            const field = target.getFieldSymbol(expr.name);
+            const field = target.lookupField(expr.name);
             if (field == null) {
                 throw new UguisuError('unknown field');
             }

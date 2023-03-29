@@ -12,26 +12,26 @@ import {
 } from '../syntax/tools.js';
 import * as builtins from './builtins.js';
 import {
-    AnalyzeContext,
     AnalysisEnv,
-    FunctionSymbol,
-    Symbol,
-    VariableSymbol,
-    Type,
-    voidType,
+    AnalyzeContext,
     badType,
-    createFunctionType,
-    pendingType,
-    compareType,
-    dispatchTypeError,
-    numberType,
     boolType,
-    stringType,
-    isValidType,
-    getTypeString,
-    createSimpleType,
+    compareType,
     createFunctionSymbol,
+    createFunctionType,
+    createSimpleType,
     createStructSymbol,
+    dispatchTypeError,
+    FunctionSymbol,
+    getTypeString,
+    isValidType,
+    numberType,
+    pendingType,
+    stringType,
+    Symbol,
+    Type,
+    VariableSymbol,
+    voidType
 } from './tools.js';
 
 export type AnalysisResult = {

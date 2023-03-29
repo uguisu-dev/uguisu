@@ -46,8 +46,6 @@ export class RunningEnv {
     }
 }
 
-//#region Symbols
-
 export class Symbol {
     value?: Value;
     constructor(value?: Value) {
@@ -55,7 +53,25 @@ export class Symbol {
     }
 }
 
-//#endregion Symbols
+export type StatementResult = OkResult | ReturnResult | BreakResult;
+
+export type OkResult = { kind: 'ok' };
+
+export function createOkResult(): OkResult {
+    return { kind: 'ok' };
+}
+
+export type ReturnResult = { kind: 'return', value: Value };
+
+export function createReturnResult(value: Value): ReturnResult {
+    return { kind: 'return', value };
+}
+
+export type BreakResult = { kind: 'break' };
+
+export function createBreakResult(): BreakResult {
+    return { kind: 'break' };
+}
 
 //#region Values
 
@@ -152,7 +168,7 @@ export class StructValue {
     getFieldNames() {
         return this._fields.keys();
     }
-    getFieldSymbol(name: string): Symbol | undefined {
+    lookupField(name: string): Symbol | undefined {
         return this._fields.get(name);
     }
 }

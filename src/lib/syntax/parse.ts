@@ -1,15 +1,11 @@
 import { UguisuError } from '../misc/errors.js';
 import { Trace } from '../misc/trace.js';
+import { ProjectInfo } from '../project-file.js';
+import { LiteralValue, Scanner, Token } from './scan.js';
 import {
     AssignMode,
     BinaryOperator,
     BreakStatement,
-    ExprNode,
-    FileNode,
-    FnDeclParam,
-    FunctionDecl,
-    IfStatement,
-    LoopStatement,
     createAssignStatement,
     createBinaryOp,
     createBoolLiteral,
@@ -32,6 +28,12 @@ import {
     createTyLabel,
     createUnaryOp,
     createVariableDecl,
+    ExprNode,
+    FileNode,
+    FnDeclParam,
+    FunctionDecl,
+    IfStatement,
+    LoopStatement,
     ReturnStatement,
     SourceFile,
     StatementNode,
@@ -41,8 +43,6 @@ import {
     TyLabel,
     VariableDecl
 } from './tools.js';
-import { LiteralValue, Scanner, Token } from './scan.js';
-import { ProjectInfo } from '../project-file.js';
 
 const trace = Trace.getDefault().createChild(false);
 
