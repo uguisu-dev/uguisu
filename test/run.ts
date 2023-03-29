@@ -387,6 +387,20 @@ fn main() {
 }
 `));
 
+// array
+
+test('array', () => runTest(`
+fn main() {
+    var x = [1, 2];
+    assertEqNum(x[0], 1);
+    assertEqNum(x[1], 2);
+    x[0] = 3;
+    assertEqNum(x[0], 3);
+    x[1] = 4;
+    assertEqNum(x[1], 4);
+}
+`));
+
 // function
 
 describe('function', () => {
