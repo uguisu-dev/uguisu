@@ -46,21 +46,23 @@ class RunContext {
 
 export function run(source: SourceFile, env: RunningEnv, options: UguisuOptions, projectInfo: ProjectInfo) {
     const r = new RunContext(env, options, projectInfo);
-    builtins.setRuntime(env, options);
+    builtins.setRuntime(r.env, options);
     evalSourceFile(r, source);
-    call(r, 'main');
+    const entryPoint = getEntryPoint(r);
+    call(r, entryPoint, []);
 }
 
-function call(r: RunContext, name: string) {
-    const symbol = r.env.lookup(name);
+function getEntryPoint(r: RunContext): FunctionValue {
+    const entryPointName = 'main';
+    const symbol = r.env.lookup(entryPointName);
     if (symbol == null) {
-        throw new UguisuError(`function \`${name}\` is not found`);
+        throw new UguisuError(`function \`${entryPointName}\` is not found`);
     }
     if (symbol.value == null) {
-        throw new UguisuError(`function \`${name}\` is not defined`);
+        throw new UguisuError(`function \`${entryPointName}\` is not defined`);
     }
     assertValue(symbol.value, 'FunctionValue');
-    callFunc(r, symbol.value, []);
+    return symbol.value;
 }
 
 function lookupSymbol(r: RunContext, expr: ExprNode): Symbol {
@@ -87,7 +89,7 @@ function lookupSymbol(r: RunContext, expr: ExprNode): Symbol {
     }
 }
 
-function callFunc(r: RunContext, func: FunctionValue, args: Value[]): Value {
+function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
     if (func.user != null) {
         const env = new RunningEnv(func.user.env);
         const ctx = new RunContext(env, r.options, r.projectInfo);
@@ -104,7 +106,7 @@ function callFunc(r: RunContext, func: FunctionValue, args: Value[]): Value {
         }
         let result: StatementResult = createOkResult();
         for (const statement of func.user.node.body) {
-            result = execStatement(ctx, statement);
+            result = evalStatement(ctx, statement);
             if (result.kind == 'return') {
                 break;
             } else if (result.kind == 'break') {
@@ -123,11 +125,11 @@ function callFunc(r: RunContext, func: FunctionValue, args: Value[]): Value {
     }
 }
 
-function execBlock(r: RunContext, block: StatementNode[]): StatementResult {
+function evalBlock(r: RunContext, block: StatementNode[]): StatementResult {
     r.env.enter();
     let result: StatementResult = createOkResult();
     for (const statement of block) {
-        result = execStatement(r, statement);
+        result = evalStatement(r, statement);
         if (result.kind == 'return') {
             break;
         } else if (result.kind == 'break') {
@@ -152,7 +154,7 @@ function evalSourceFile(r: RunContext, source: SourceFile) {
     }
 }
 
-function execStatement(r: RunContext, statement: StatementNode): StatementResult {
+function evalStatement(r: RunContext, statement: StatementNode): StatementResult {
     if (isExprNode(statement)) {
         evalExpr(r, statement);
         return createOkResult();
@@ -170,7 +172,7 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
             }
             case 'LoopStatement': {
                 while (true) {
-                    const result = execBlock(r, statement.block);
+                    const result = evalBlock(r, statement.block);
                     if (result.kind == 'return') {
                         return result;
                     } else if (result.kind == 'break') {
@@ -183,9 +185,9 @@ function execStatement(r: RunContext, statement: StatementNode): StatementResult
                 const cond = evalExpr(r, statement.cond);
                 assertValue(cond, 'BoolValue');
                 if (cond.getValue()) {
-                    return execBlock(r, statement.thenBlock);
+                    return evalBlock(r, statement.thenBlock);
                 } else {
-                    return execBlock(r, statement.elseBlock);
+                    return evalBlock(r, statement.elseBlock);
                 }
             }
             case 'VariableDecl': {
@@ -313,7 +315,7 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                 }
                 return value;
             });
-            return callFunc(r, callee, args);
+            return call(r, callee, args);
         }
         case 'BinaryOp': {
             const left = evalExpr(r, expr.left);
