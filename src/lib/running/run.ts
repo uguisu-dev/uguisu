@@ -146,6 +146,9 @@ function evalName(r: RunContext, expr: ExprNode): Symbol {
             }
             return field;
         }
+        case 'IndexAccess': {
+            throw new UguisuError('not implemented yet'); // TODO
+        }
         default: {
             throw new UguisuError('unexpected expression');
         }
@@ -202,6 +205,7 @@ function evalStatement(r: RunContext, statement: StatementNode): StatementResult
             }
             case 'AssignStatement': {
                 let symbol;
+                // TODO: support IndexAccess
                 if (statement.target.kind == 'Identifier' || statement.target.kind == 'FieldAccess') {
                     symbol = evalName(r, statement.target);
                 } else {
@@ -293,6 +297,13 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                 throw new UguisuError('field not defined');
             }
             return field.value;
+        }
+        case 'IndexAccess': {
+            const symbol = evalName(r, expr);
+            if (symbol.value == null) {
+                throw new UguisuError('symbol not defined');
+            }
+            return symbol.value;
         }
         case 'NumberLiteral': {
             return new NumberValue(expr.value);
@@ -474,6 +485,9 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                 fields.set(field.name, symbol);
             }
             return new StructValue(fields);
+        }
+        case 'ArrayNode': {
+            throw new UguisuError('not implemented yet'); // TODO
         }
     }
 }
