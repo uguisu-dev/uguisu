@@ -75,7 +75,7 @@ export function createBreakResult(): BreakResult {
 
 //#region Values
 
-export type Value = NoneValue | NumberValue | BoolValue | StringValue | StructValue | FunctionValue;
+export type Value = NoneValue | NumberValue | BoolValue | StringValue | StructValue | ArrayValue | FunctionValue;
 
 export type ValueOf<T extends Value['kind']> =
     T extends 'NoneValue' ? NoneValue :
@@ -83,6 +83,7 @@ export type ValueOf<T extends Value['kind']> =
     T extends 'BoolValue' ? BoolValue :
     T extends 'StringValue' ? StringValue :
     T extends 'StructValue' ? StructValue :
+    T extends 'ArrayValue' ? ArrayValue :
     T extends 'FunctionValue' ? FunctionValue :
     never;
 
@@ -102,6 +103,9 @@ export function getTypeName(valueKind: Value['kind']): string {
         }
         case 'StructValue': {
             return 'struct';
+        }
+        case 'ArrayValue': {
+            return 'array';
         }
         case 'FunctionValue': {
             return 'fn';
@@ -170,6 +174,21 @@ export class StructValue {
     }
     lookupField(name: string): Symbol | undefined {
         return this._fields.get(name);
+    }
+}
+
+export class ArrayValue {
+    kind: 'ArrayValue';
+    private _items: Symbol[];
+    constructor(items: Symbol[]) {
+        this.kind = 'ArrayValue';
+        this._items = items;
+    }
+    getLength(): number {
+        return this._items.length;
+    }
+    at(index: number): Symbol | undefined {
+        return this._items.at(index);
     }
 }
 

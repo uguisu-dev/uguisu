@@ -13,6 +13,7 @@ import {
 } from '../syntax/tools.js';
 import * as builtins from './builtins.js';
 import {
+    ArrayValue,
     assertValue,
     BoolValue,
     createBreakResult,
@@ -147,7 +148,15 @@ function evalName(r: RunContext, expr: ExprNode): Symbol {
             return field;
         }
         case 'IndexAccess': {
-            throw new UguisuError('not implemented yet'); // TODO
+            const target = evalExpr(r, expr.target);
+            const index = evalExpr(r, expr.index);
+            assertValue(target, 'ArrayValue');
+            assertValue(index, 'NumberValue');
+            const symbol = target.at(index.getValue());
+            if (symbol == null) {
+                throw new UguisuError('index out of range');
+            }
+            return symbol;
         }
         default: {
             throw new UguisuError('unexpected expression');
@@ -205,8 +214,7 @@ function evalStatement(r: RunContext, statement: StatementNode): StatementResult
             }
             case 'AssignStatement': {
                 let symbol;
-                // TODO: support IndexAccess
-                if (statement.target.kind == 'Identifier' || statement.target.kind == 'FieldAccess') {
+                if (statement.target.kind == 'Identifier' || statement.target.kind == 'FieldAccess' || statement.target.kind == 'IndexAccess') {
                     symbol = evalName(r, statement.target);
                 } else {
                     throw new UguisuError('unsupported assign target');
@@ -221,57 +229,52 @@ function evalStatement(r: RunContext, statement: StatementNode): StatementResult
                         break;
                     }
                     case '+=': {
-                        const restored = r.env.lookup(statement.target.name);
-                        if (restored == null || restored.value == null) {
+                        if (symbol.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertValue(restored.value, 'NumberValue');
+                        assertValue(symbol.value, 'NumberValue');
                         assertValue(bodyValue, 'NumberValue');
-                        const value = new NumberValue(restored.value.getValue() + bodyValue.getValue());
+                        const value = new NumberValue(symbol.value.getValue() + bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
                     case '-=': {
-                        const restored = r.env.lookup(statement.target.name);
-                        if (restored == null || restored.value == null) {
+                        if (symbol.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertValue(restored.value, 'NumberValue');
+                        assertValue(symbol.value, 'NumberValue');
                         assertValue(bodyValue, 'NumberValue');
-                        const value = new NumberValue(restored.value.getValue() - bodyValue.getValue());
+                        const value = new NumberValue(symbol.value.getValue() - bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
                     case '*=': {
-                        const restored = r.env.lookup(statement.target.name);
-                        if (restored == null || restored.value == null) {
+                        if (symbol.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertValue(restored.value, 'NumberValue');
+                        assertValue(symbol.value, 'NumberValue');
                         assertValue(bodyValue, 'NumberValue');
-                        const value = new NumberValue(restored.value.getValue() * bodyValue.getValue());
+                        const value = new NumberValue(symbol.value.getValue() * bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
                     case '/=': {
-                        const restored = r.env.lookup(statement.target.name);
-                        if (restored == null || restored.value == null) {
+                        if (symbol.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertValue(restored.value, 'NumberValue');
+                        assertValue(symbol.value, 'NumberValue');
                         assertValue(bodyValue, 'NumberValue');
-                        const value = new NumberValue(restored.value.getValue() / bodyValue.getValue());
+                        const value = new NumberValue(symbol.value.getValue() / bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
                     case '%=': {
-                        const restored = r.env.lookup(statement.target.name);
-                        if (restored == null || restored.value == null) {
+                        if (symbol.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertValue(restored.value, 'NumberValue');
+                        assertValue(symbol.value, 'NumberValue');
                         assertValue(bodyValue, 'NumberValue');
-                        const value = new NumberValue(restored.value.getValue() % bodyValue.getValue());
+                        const value = new NumberValue(symbol.value.getValue() % bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
@@ -487,7 +490,11 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
             return new StructValue(fields);
         }
         case 'ArrayNode': {
-            throw new UguisuError('not implemented yet'); // TODO
+            const items = expr.items.map(x => {
+                const value = evalExpr(r, x);
+                return new Symbol(value);
+            });
+            return new ArrayValue(items);
         }
     }
 }
