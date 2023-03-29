@@ -29,7 +29,9 @@ export type ExprNode
     | Identifier
     | Call
     | StructExpr
-    | FieldAccess;
+    | FieldAccess
+    | ArrayNode
+    | IndexAccess;
 
 export type NodeOf<T extends AstNode['kind']>
     = T extends 'SourceFile' ? SourceFile
@@ -55,6 +57,8 @@ export type NodeOf<T extends AstNode['kind']>
     : T extends 'StructDecl' ? StructDecl
     : T extends 'StructExpr' ? StructExpr
     : T extends 'FieldAccess' ? FieldAccess
+    : T extends 'ArrayNode' ? ArrayNode
+    : T extends 'IndexAccess' ? IndexAccess
     : never;
 
 const exprNodeKind: AstNode['kind'][] = [
@@ -348,4 +352,25 @@ export type FieldAccess = {
 };
 export function createFieldAccess(pos: Pos, name: string, target: ExprNode): FieldAccess {
     return { kind: 'FieldAccess', pos, name, target };
+}
+
+// array
+
+export type ArrayNode = {
+    kind: 'ArrayNode',
+    pos: Pos,
+    items: ExprNode[],
+};
+export function createArrayNode(pos: Pos, items: ExprNode[]): ArrayNode {
+    return { kind: 'ArrayNode', pos, items };
+}
+
+export type IndexAccess = {
+    kind: 'IndexAccess',
+    pos: Pos,
+    target: ExprNode,
+    index: ExprNode,
+};
+export function createIndexAccess(pos: Pos, target: ExprNode, index: ExprNode): IndexAccess {
+    return { kind: 'IndexAccess', pos, target, index };
 }

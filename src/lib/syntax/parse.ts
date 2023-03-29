@@ -6,6 +6,7 @@ import {
     AssignMode,
     BinaryOperator,
     BreakStatement,
+    createArrayNode,
     createAssignStatement,
     createBinaryOp,
     createBoolLiteral,
@@ -16,6 +17,7 @@ import {
     createFunctionDecl,
     createIdentifier,
     createIfStatement,
+    createIndexAccess,
     createLoopStatement,
     createNumberLiteral,
     createReturnStatement,
@@ -604,6 +606,13 @@ function parseSuffixChain(p: ParseContext, target: ExprNode): ExprNode {
             p.next();
             return parseSuffixChain(p, createFieldAccess(pos, name, target));
         }
+        case Token.BeginBracket: { // index access
+            const pos = p.getPos();
+            p.next();
+            const index = parseExpr(p);
+            p.expectAndNext(Token.EndBracket);
+            return parseSuffixChain(p, createIndexAccess(pos, target, index));
+        }
         default: {
             return target;
         }
@@ -612,7 +621,7 @@ function parseSuffixChain(p: ParseContext, target: ExprNode): ExprNode {
 
 /**
  * ```text
- * <AtomInner> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <StructExpr> / <Identifier> / <Prefix> <Atom> / "(" <Expr> ")"
+ * <AtomInner> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <StructExpr> / <Array> / <Identifier> / <Prefix> <Atom> / "(" <Expr> ")"
  * ```
 */
 function parseAtomInner(p: ParseContext): ExprNode {
@@ -656,6 +665,20 @@ function parseAtomInner(p: ParseContext): ExprNode {
             }
             p.expectAndNext(Token.EndBrace);
             return createStructExpr(pos, name, fields);
+        }
+        case Token.BeginBracket: {
+            p.next();
+            const items: ExprNode[] = [];
+            while (!p.tokenIs(Token.EndBracket)) {
+                items.push(parseExpr(p));
+                if (p.tokenIs(Token.Comma)) {
+                    p.next();
+                } else {
+                    break;
+                }
+            }
+            p.expectAndNext(Token.EndBracket);
+            return createArrayNode(pos, items);
         }
         case Token.Not: {
             p.next();
