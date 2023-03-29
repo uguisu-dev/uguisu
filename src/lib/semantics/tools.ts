@@ -126,7 +126,7 @@ export function isValidType(ty: Type): ty is ValidType {
     return ty.kind != 'BadType' && ty.kind != 'PendingType';
 }
 
-export type ValidType = SimpleType | FunctionType | GenericType;
+export type ValidType = AnyType | VoidType | SimpleType | FunctionType | GenericType;
 
 export type BadType = {
     kind: 'BadType',
@@ -140,6 +140,20 @@ export type PendingType = {
 };
 function createPendingType(): PendingType {
     return { kind: 'PendingType' };
+}
+
+export type VoidType = {
+    kind: 'VoidType',
+};
+function createVoidType(): VoidType {
+    return { kind: 'VoidType' };
+}
+
+export type AnyType = {
+    kind: 'AnyType',
+};
+function createAnyType(): AnyType {
+    return { kind: 'AnyType' };
 }
 
 export type SimpleType = {
@@ -170,11 +184,13 @@ export function createFunctionType(paramTypes: Type[], returnType: Type): Functi
 
 // builtin types
 export const badType = createBadType();
+export const anyType = createAnyType();
 export const pendingType = createPendingType();
-export const voidType = createSimpleType('void');
+export const voidType = createVoidType();
 export const numberType = createSimpleType('number');
 export const boolType = createSimpleType('bool');
 export const stringType = createSimpleType('string');
+export const arrayType = createSimpleType('array');
 
 export type CompareTypeResult = 'unknown' | 'compatible' | 'incompatible';
 
@@ -182,10 +198,21 @@ export function compareType(x: Type, y: Type): CompareTypeResult {
     if (!isValidType(x) || !isValidType(y)) {
         return 'unknown';
     }
+    // any type
+    if (x.kind == 'AnyType' || y.kind == 'AnyType') {
+        if (x.kind == 'VoidType' || y.kind == 'VoidType') {
+            return 'incompatible';
+        } else {
+            return 'compatible';
+        }
+    }
     if (x.kind != y.kind) {
         return 'incompatible';
     }
     switch (x.kind) {
+        case 'VoidType': {
+            return 'compatible';
+        }
         case 'SimpleType': {
             if (x.name == (y as SimpleType).name) {
                 return 'compatible';
@@ -249,6 +276,12 @@ export function getTypeString(ty: Type): string {
         case 'BadType':
         case 'PendingType': {
             return '?';
+        }
+        case 'AnyType': {
+            return 'any';
+        }
+        case 'VoidType': {
+            return 'void';
         }
         case 'SimpleType': {
             return ty.name;
