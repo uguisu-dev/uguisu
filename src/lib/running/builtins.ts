@@ -108,6 +108,18 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
     });
     env.declare('insert', insert);
 
+    const add = FunctionValue.createNative((args) => {
+        if (args.length != 2) {
+            throw new UguisuError('invalid arguments count');
+        }
+        assertValue(args[0], 'ArrayValue');
+        const target = args[0];
+        const symbol = new Symbol(args[1]);
+        target.insert(target.count(), symbol);
+        return new NoneValue();
+    });
+    env.declare('add', add);
+
     const removeAt = FunctionValue.createNative((args) => {
         if (args.length != 2) {
             throw new UguisuError('invalid arguments count');
