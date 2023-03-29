@@ -398,6 +398,13 @@ fn main() {
     assertEqNum(x[0], 3);
     x[1] = 4;
     assertEqNum(x[1], 4);
+
+    // operations
+    insert(x, 2, 5);
+    assertEqNum(count(x), 3);
+    assertEqNum(x[2], 5);
+    removeAt(x, 2);
+    assertEqNum(count(x), 2);
 }
 `));
 

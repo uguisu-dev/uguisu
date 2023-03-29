@@ -184,11 +184,17 @@ export class ArrayValue {
         this.kind = 'ArrayValue';
         this._items = items;
     }
-    getLength(): number {
-        return this._items.length;
-    }
     at(index: number): Symbol | undefined {
         return this._items.at(index);
+    }
+    insert(index: number, item: Symbol) {
+        this._items.splice(index, 0, item);
+    }
+    removeAt(index: number) {
+        this._items.splice(index, 1);
+    }
+    count(): number {
+        return this._items.length;
     }
 }
 
