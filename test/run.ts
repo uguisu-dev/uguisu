@@ -7,6 +7,18 @@ import { RunningEnv } from '../src/lib/running/tools.js';
 import { ProjectInfo } from '../src/lib/project-file.js';
 import { UguisuOptions } from '../src/lib/misc/options.js';
 
+class RunTestError extends Error {
+    constructor(message: string, errors: string[], warnings: string[]) {
+        for (const error of errors) {
+            message += `\n- Error: ${error}`;
+        }
+        for (const warn of warnings) {
+            message += `\n- Warn: ${warn}`;
+        }
+        super(message);
+    }
+}
+
 function runTest(sourceCode: string) {
     const options: UguisuOptions = {};
     const projectInfo: ProjectInfo = {
@@ -22,7 +34,7 @@ function runTest(sourceCode: string) {
     const symbolTable = new Map();
     const result = analyze(sourceFile, analysisEnv, symbolTable, projectInfo);
     if (!result.success) {
-        throw new Error('syntax error');
+        throw new RunTestError('Syntax error.', result.errors, result.warnings);
     }
 
     // run
@@ -400,11 +412,11 @@ fn main() {
     assertEqNum(x[1], 4);
 
     // operations
-    insert(x, 2, 5);
-    assertEqNum(count(x), 3);
+    insertItem(x, 2, 5);
+    assertEqNum(countItems(x), 3);
     assertEqNum(x[2], 5);
-    removeAt(x, 2);
-    assertEqNum(count(x), 2);
+    removeItemAt(x, 2);
+    assertEqNum(countItems(x), 2);
 }
 `));
 
