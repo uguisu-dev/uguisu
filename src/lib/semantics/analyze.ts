@@ -64,6 +64,10 @@ export function analyze(
         validateFuncBody(a, decl);
     }
 
+    if (a.isUsedAnyType) {
+        a.dispatchWarn('type checking of array elements is not supported yet.');
+    }
+
     return {
         success: (a.error.length == 0),
         errors: a.error,
@@ -664,6 +668,7 @@ function inferType(a: AnalyzeContext, node: AstNode, funcSymbol: FunctionSymbol)
                 dispatchTypeError(a, targetTy, arrayType, node);
                 return badType;
             }
+            a.isUsedAnyType = true;
             return anyType;
         }
     }

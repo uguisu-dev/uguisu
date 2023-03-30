@@ -8,6 +8,8 @@ export class AnalyzeContext {
     projectInfo: ProjectInfo;
     warn: string[];
     error: string[];
+    // flags
+    isUsedAnyType: boolean;
 
     constructor(env: AnalysisEnv, symbolTable: Map<AstNode, Symbol>, projectInfo: ProjectInfo) {
         this.env = env;
@@ -15,6 +17,7 @@ export class AnalyzeContext {
         this.projectInfo = projectInfo;
         this.warn = [];
         this.error = [];
+        this.isUsedAnyType = false;
     }
 
     dispatchWarn(message: string, node?: AstNode) {
