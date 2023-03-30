@@ -141,16 +141,24 @@ function validateTopLevel(node: FileNode, a: AnalyzeContext) {
     }
 }
 
+function validateBlock(nodes: StatementNode[], allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
+    a.env.enter();
+    for (const node of nodes) {
+        validateNode(node, allowJump, funcSymbol, a);
+    }
+    a.env.leave();
+}
+
 function lookupSymbol(node: ExprNode, a: AnalyzeContext): Symbol | undefined {
     // TODO
     throw new UguisuError('not implemented yet');
 }
 
-function validateNode(node: StatementNode, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
+function validateNode(node: StatementNode, allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
     if (isExprNode(node)) {
         validateExpr(node, funcSymbol, a);
     } else {
-        validateStatement(node, false, funcSymbol, a);
+        validateStatement(node, allowJump, funcSymbol, a);
     }
 }
 
