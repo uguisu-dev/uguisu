@@ -1,5 +1,7 @@
 import {
     AnalyzeContext,
+    anyType,
+    arrayType,
     createFunctionType,
     createNativeFnSymbol,
     numberType,
@@ -55,6 +57,30 @@ export function setDeclarations(a: AnalyzeContext) {
         'toString',
         [numberType],
         stringType,
+        a
+    );
+    setDecl(
+        'insertItem',
+        [arrayType, numberType, anyType],
+        voidType,
+        a
+    );
+    setDecl(
+        'addItem',
+        [arrayType, anyType],
+        voidType,
+        a
+    );
+    setDecl(
+        'removeItemAt',
+        [arrayType, numberType],
+        voidType,
+        a
+    );
+    setDecl(
+        'countItems',
+        [arrayType],
+        numberType,
         a
     );
 }

@@ -14,6 +14,8 @@ import * as builtins from './builtins.js';
 import {
     AnalysisEnv,
     AnalyzeContext,
+    anyType,
+    arrayType,
     badType,
     boolType,
     compareType,
@@ -60,6 +62,10 @@ export function analyze(
     for (const decl of source.decls) {
         detectInfinityNest(a, createSimpleType(decl.name), []);
         validateFuncBody(a, decl);
+    }
+
+    if (a.isUsedAnyType) {
+        a.dispatchWarn('type checking of array elements is not supported yet.');
     }
 
     return {
@@ -260,7 +266,7 @@ function validateStatement(a: AnalyzeContext, node: StatementNode, allowJump: bo
         }
         case 'AssignStatement': {
             let leftTy;
-            if (node.target.kind == 'Identifier' || node.target.kind == 'FieldAccess') {
+            if (node.target.kind == 'Identifier' || node.target.kind == 'FieldAccess' || node.target.kind == 'IndexAccess') {
                 leftTy = inferType(a, node.target, funcSymbol);
             } else {
                 a.dispatchError('invalid target.');
@@ -357,7 +363,9 @@ function validateStatement(a: AnalyzeContext, node: StatementNode, allowJump: bo
         case 'Identifier':
         case 'Call':
         case 'StructExpr':
-        case 'FieldAccess': {
+        case 'FieldAccess':
+        case 'ArrayNode':
+        case 'IndexAccess': {
             inferType(a, node, funcSymbol);
             return;
         }
@@ -645,6 +653,24 @@ function inferType(a: AnalyzeContext, node: AstNode, funcSymbol: FunctionSymbol)
             }
             break;
         }
+        case 'ArrayNode': {
+            for (const item of node.items) {
+                inferType(a, item, funcSymbol);
+            }
+            return arrayType;
+        }
+        case 'IndexAccess': {
+            const targetTy = inferType(a, node.target, funcSymbol);
+            if (!isValidType(targetTy)) {
+                return badType;
+            }
+            if (compareType(targetTy, arrayType) == 'incompatible') {
+                dispatchTypeError(a, targetTy, arrayType, node);
+                return badType;
+            }
+            a.isUsedAnyType = true;
+            return anyType;
+        }
     }
     throw new UguisuError('unexpected node.');
 }
@@ -653,7 +679,8 @@ function resolveTypeName(a: AnalyzeContext, node: TyLabel): Type {
     switch (node.name) {
         case 'number':
         case 'bool':
-        case 'string': {
+        case 'string':
+        case 'array': {
             return createSimpleType(node.name);
         }
     }

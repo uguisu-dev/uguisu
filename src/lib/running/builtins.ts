@@ -6,7 +6,8 @@ import {
     NoneValue,
     NumberValue,
     RunningEnv,
-    StringValue
+    StringValue,
+    Symbol
 } from './tools.js';
 
 export function setRuntime(env: RunningEnv, options: UguisuOptions) {
@@ -92,5 +93,54 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         return new StringValue(args[0].getValue().toString());
     });
     env.declare('toString', toString);
+
+    const insertItem = FunctionValue.createNative((args) => {
+        if (args.length != 3) {
+            throw new UguisuError('invalid arguments count');
+        }
+        assertValue(args[0], 'ArrayValue');
+        assertValue(args[1], 'NumberValue');
+        const target = args[0];
+        const index = args[1].getValue();
+        const symbol = new Symbol(args[2]);
+        target.insert(index, symbol);
+        return new NoneValue();
+    });
+    env.declare('insertItem', insertItem);
+
+    const addItem = FunctionValue.createNative((args) => {
+        if (args.length != 2) {
+            throw new UguisuError('invalid arguments count');
+        }
+        assertValue(args[0], 'ArrayValue');
+        const target = args[0];
+        const symbol = new Symbol(args[1]);
+        target.insert(target.count(), symbol);
+        return new NoneValue();
+    });
+    env.declare('addItem', addItem);
+
+    const removeItemAt = FunctionValue.createNative((args) => {
+        if (args.length != 2) {
+            throw new UguisuError('invalid arguments count');
+        }
+        assertValue(args[0], 'ArrayValue');
+        assertValue(args[1], 'NumberValue');
+        const target = args[0];
+        const index = args[1].getValue();
+        target.removeAt(index);
+        return new NoneValue();
+    });
+    env.declare('removeItemAt', removeItemAt);
+
+    const countItems = FunctionValue.createNative((args) => {
+        if (args.length != 1) {
+            throw new UguisuError('invalid arguments count');
+        }
+        assertValue(args[0], 'ArrayValue');
+        const target = args[0];
+        return new NumberValue(target.count());
+    });
+    env.declare('countItems', countItems);
 
 }
