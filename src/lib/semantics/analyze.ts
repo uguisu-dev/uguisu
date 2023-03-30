@@ -9,6 +9,7 @@ import {
     isLogicalBinaryOperator,
     isOrderingOperator,
     SourceFile,
+    StatementCoreNode,
     StatementNode,
     TyLabel
 } from '../syntax/tools.js';
@@ -145,70 +146,108 @@ function lookupSymbol(node: ExprNode, a: AnalyzeContext): Symbol | undefined {
     throw new UguisuError('not implemented yet');
 }
 
-function validateNode(node: StatementNode, allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
+function validateNode(node: StatementNode, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
     if (isExprNode(node)) {
-        // validate expression
-        switch (node.kind) {
-            case 'Identifier': {
-                break;
-            }
-            case 'FieldAccess': {
-                break;
-            }
-            case 'IndexAccess': {
-                break;
-            }
-            case 'NumberLiteral': {
-                break;
-            }
-            case 'BoolLiteral': {
-                break;
-            }
-            case 'StringLiteral': {
-                break;
-            }
-            case 'Call': {
-                break;
-            }
-            case 'BinaryOp': {
-                break;
-            }
-            case 'UnaryOp': {
-                break;
-            }
-            case 'StructExpr': {
-                break;
-            }
-            case 'ArrayNode': {
-                break;
-            }
-        }
+        validateExpr(node, funcSymbol, a);
     } else {
-        // validate statement
-        switch (node.kind) {
-            case 'ReturnStatement': {
-                break;
-            }
-            case 'BreakStatement': {
-                break;
-            }
-            case 'LoopStatement': {
-                break;
-            }
-            case 'IfStatement': {
-                break;
-            }
-            case 'VariableDecl': {
-                break;
-            }
-            case 'AssignStatement': {
-                break;
-            }
-        }
+        validateStatement(node, false, funcSymbol, a);
     }
 }
 
-function inferType(node: AstNode, funcSymbol: FunctionSymbol, a: AnalyzeContext): Type {
-    // TODO
-    throw new UguisuError('not implemented yet');
+function validateStatement(node: StatementCoreNode, allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
+    switch (node.kind) {
+        case 'ReturnStatement': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'BreakStatement': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'LoopStatement': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'IfStatement': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'VariableDecl': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'AssignStatement': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+    }
+    throw new UguisuError('unexpected node');
+}
+
+function validateExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeContext): Type {
+    // validate expression
+    switch (node.kind) {
+        case 'Identifier': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'FieldAccess': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'IndexAccess': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'NumberLiteral': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'BoolLiteral': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'StringLiteral': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'Call': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'BinaryOp': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'UnaryOp': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'StructExpr': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'ArrayNode': {
+            // TODO
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+    }
+    throw new UguisuError('unexpected node');
 }
