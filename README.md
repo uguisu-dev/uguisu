@@ -15,8 +15,9 @@ fn calc(x: number): number {
 }
 
 fn main() {
-    var value = 10;
-    printNum(calc(value));
+    var x = 10;
+    var y = calc(x);
+    writeLine(numToStr(y));
 }
 ```
 

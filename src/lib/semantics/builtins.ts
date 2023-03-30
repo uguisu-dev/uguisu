@@ -4,8 +4,10 @@ import {
     arrayType,
     createFunctionType,
     createNativeFnSymbol,
+    createStructSymbol,
     numberType,
     stringType,
+    Type,
     ValidType,
     voidType
 } from './tools.js';
@@ -16,17 +18,40 @@ function setDecl(name: string, paramsTy: ValidType[], returnTy: ValidType, a: An
     a.env.set(name, createNativeFnSymbol(params, ty));
 }
 
+function group(name: string, a: AnalyzeContext, handler: (setItem: (name: string, paramsTy: ValidType[], returnTy: ValidType) => void) => void) {
+    const fields: Map<string, { ty: Type }> = new Map();
+    function setItem(name: string, paramsTy: ValidType[], returnTy: ValidType) {
+        const ty = createFunctionType(paramsTy, returnTy);
+        fields.set(name, { ty });
+    }
+    handler(setItem);
+    a.env.set(name, createStructSymbol(fields));
+}
+
 export function setDeclarations(a: AnalyzeContext) {
+    group('console', a, setItem => {
+        setItem(
+            'writeLine',
+            [stringType],
+            voidType
+        );
+        setItem(
+            'readLine',
+            [],
+            stringType
+        );
+    });
+
     setDecl(
-        'printStr',
+        'writeLine',
         [stringType],
         voidType,
         a
     );
     setDecl(
-        'printNum',
-        [numberType],
-        voidType,
+        'readLine',
+        [],
+        stringType,
         a
     );
     setDecl(
@@ -54,7 +79,13 @@ export function setDeclarations(a: AnalyzeContext) {
         a
     );
     setDecl(
-        'toString',
+        'parseNum',
+        [stringType],
+        numberType,
+        a
+    );
+    setDecl(
+        'numToStr',
         [numberType],
         stringType,
         a

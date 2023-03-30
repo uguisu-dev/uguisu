@@ -7,12 +7,47 @@ import {
     NumberValue,
     RunningEnv,
     StringValue,
-    Symbol
+    StructValue,
+    Symbol,
+    Value
 } from './tools.js';
 
-export function setRuntime(env: RunningEnv, options: UguisuOptions) {
+function group(name: string, env: RunningEnv, handle: (setItem: (name: string, value: Value) => void) => void) {
+    const fields = new Map<string, Symbol>();
+    function setItem(name: string, value: Value) {
+        fields.set(name, new Symbol(value));
+    }
+    handle(setItem);
+    env.declare(name, new StructValue(fields));
+}
 
-    const printStr = FunctionValue.createNative((args) => {
+export function setRuntime(env: RunningEnv, options: UguisuOptions) {
+    group('console', env, (setItem) => {
+        const writeLine = FunctionValue.createNative((args) => {
+            if (args.length != 1) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'StringValue');
+            if (options.stdout) {
+                options.stdout(args[0].getValue());
+            }
+            return new NoneValue();
+        });
+        setItem('writeLine', writeLine);
+
+        const readLine = FunctionValue.createNative((args) => {
+            if (args.length != 0) {
+                throw new UguisuError('invalid arguments count');
+            }
+            if (!options.stdin) {
+                throw new UguisuError('stdin not found');
+            }
+            return new StringValue(options.stdin());
+        });
+        setItem('readLine', readLine);
+    });
+
+    const writeLine = FunctionValue.createNative((args) => {
         if (args.length != 1) {
             throw new UguisuError('invalid arguments count');
         }
@@ -22,19 +57,18 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         }
         return new NoneValue();
     });
-    env.declare('printStr', printStr);
+    env.declare('writeLine', writeLine);
 
-    const printNum = FunctionValue.createNative((args) => {
-        if (args.length != 1) {
+    const readLine = FunctionValue.createNative((args) => {
+        if (args.length != 0) {
             throw new UguisuError('invalid arguments count');
         }
-        assertValue(args[0], 'NumberValue');
-        if (options.stdout) {
-            options.stdout(args[0].getValue().toString());
+        if (!options.stdin) {
+            throw new UguisuError('stdin not found');
         }
-        return new NoneValue();
+        return new StringValue(options.stdin());
     });
-    env.declare('printNum', printNum);
+    env.declare('readLine', readLine);
 
     const assertEqNum = FunctionValue.createNative((args) => {
         if (args.length != 2) {
@@ -85,14 +119,24 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
     });
     env.declare('concatStr', concatStr);
 
-    const toString = FunctionValue.createNative((args) => {
+    const parseNum = FunctionValue.createNative((args) => {
+        if (args.length != 1) {
+            throw new UguisuError('invalid arguments count');
+        }
+        assertValue(args[0], 'StringValue');
+        const parsedValue = Number(args[0].getValue());
+        return new NumberValue(parsedValue);
+    });
+    env.declare('parseNum', parseNum);
+
+    const numToStr = FunctionValue.createNative((args) => {
         if (args.length != 1) {
             throw new UguisuError('invalid arguments count');
         }
         assertValue(args[0], 'NumberValue');
         return new StringValue(args[0].getValue().toString());
     });
-    env.declare('toString', toString);
+    env.declare('numToStr', numToStr);
 
     const insertItem = FunctionValue.createNative((args) => {
         if (args.length != 3) {

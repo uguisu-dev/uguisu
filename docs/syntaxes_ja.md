@@ -201,17 +201,17 @@ x.age = 20;
 
 # ビルトイン関数
 
-## printStr
+## writeLine
 ```
-fn printStr(value: string);
+fn writeLine(value: string);
 ```
 文字列を標準出力に出力します。
 
-## printNum
+## readLine
 ```
-fn printNum(value: number);
+fn readLine(): string;
 ```
-数値を標準出力に出力します。
+標準入力から文字列を読み取り、その文字列を返します。
 
 ## assertEqNum
 ```
@@ -237,8 +237,13 @@ fn concatStr(x: string, y: string): string;
 ```
 2つの文字列を連結して新しい文字列を生成します。
 
-## toString
+## parseNum
 ```
-fn toString(source: number): string;
+fn parseNum(source: string): number;
+```
+
+## numToStr
+```
+fn numToStr(source: number): string;
 ```
 数値を文字列に変換します。

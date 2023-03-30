@@ -1,13 +1,13 @@
 fn main() {
     var x = [1, 2];
 
-    printNum(x[0]);
-    printNum(x[1]);
+    writeLine(numToStr(x[0]));
+    writeLine(numToStr(x[1]));
 
     x[1] = 10;
     addItem(x, 100);
 
-    printNum(x[0]);
-    printNum(x[1]);
-    printNum(x[2]);
+    writeLine(numToStr(x[0]));
+    writeLine(numToStr(x[1]));
+    writeLine(numToStr(x[2]));
 }
