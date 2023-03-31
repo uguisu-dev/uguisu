@@ -24,7 +24,7 @@ import {
     compareType,
     createFunctionSymbol,
     createFunctionType,
-    createSimpleType,
+    createNamedType,
     createStructSymbol,
     dispatchTypeError,
     FunctionSymbol,
@@ -165,9 +165,22 @@ function validateNode(node: StatementNode, allowJump: boolean, funcSymbol: Funct
 function validateStatement(node: StatementCoreNode, allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
     switch (node.kind) {
         case 'ReturnStatement': {
-            // TODO
-            throw new UguisuError('not implemented yet');
-            break;
+            if (node.expr != null) {
+                // infer expression type
+                let ty = validateExpr(node.expr, funcSymbol, a);
+                // if the expr returns nothing
+                if (compareType(ty, voidType) == 'compatible') {
+                    a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
+                    ty = badType;
+                }
+                // check type
+                if (isValidType(funcSymbol.ty)) {
+                    if (compareType(ty, funcSymbol.ty.returnType) == 'incompatible') {
+                        dispatchTypeError(a, ty, funcSymbol.ty.returnType, node.expr);
+                    }
+                }
+            }
+            return;
         }
         case 'BreakStatement': {
             // TODO
