@@ -78,9 +78,22 @@ export function analyze(
     };
 }
 
-function lookupSymbol(node: ExprNode, a: AnalyzeContext): Symbol | undefined {
-    // TODO
-    throw new UguisuError('not implemented yet');
+function analyzeReferencePath(node: ExprNode, a: AnalyzeContext): Symbol | undefined {
+    switch (node.kind) {
+        case 'Identifier': {
+            // TODO: get symbol
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+        case 'FieldAccess': {
+            // TODO: analyze target
+            // TODO: expect struct
+            // TODO: get field symbol
+            throw new UguisuError('not implemented yet');
+            break;
+        }
+    }
+    throw new UguisuError('unexpected node');
 }
 
 function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
@@ -256,15 +269,19 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
     // validate expression
     switch (node.kind) {
         case 'Identifier': {
-            // TODO: get symbol
+            const symbol = analyzeReferencePath(node, a);
+            if (symbol == null) {
+                return badType;
+            }
             // TODO: return expr type from the symbol
             throw new UguisuError('not implemented yet');
             break;
         }
         case 'FieldAccess': {
-            // TODO: analyze target
-            // TODO: expect struct
-            // TODO: get field symbol
+            const fieldSymbol = analyzeReferencePath(node, a);
+            if (fieldSymbol == null) {
+                return badType;
+            }
             // TODO: return expr type from the symbol
             throw new UguisuError('not implemented yet');
             break;
