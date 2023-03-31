@@ -78,6 +78,16 @@ export function analyze(
     };
 }
 
+function lookupSymbol(node: ExprNode, a: AnalyzeContext): Symbol | undefined {
+    // TODO
+    throw new UguisuError('not implemented yet');
+}
+
+function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
+    // TODO
+    throw new UguisuError('not implemented yet');
+}
+
 function declareTopLevel(node: FileNode, a: AnalyzeContext) {
     switch (node.kind) {
         case 'FunctionDecl': {
@@ -149,11 +159,6 @@ function analyzeBlock(nodes: StatementNode[], allowJump: boolean, funcSymbol: Fu
     a.env.leave();
 }
 
-function lookupSymbol(node: ExprNode, a: AnalyzeContext): Symbol | undefined {
-    // TODO
-    throw new UguisuError('not implemented yet');
-}
-
 function analyzeNode(node: StatementNode, allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
     if (isExprNode(node)) {
         analyzeExpr(node, funcSymbol, a);
@@ -165,6 +170,7 @@ function analyzeNode(node: StatementNode, allowJump: boolean, funcSymbol: Functi
 function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
     switch (node.kind) {
         case 'ReturnStatement': {
+            // returned value
             if (node.expr != null) {
                 let ty = analyzeExpr(node.expr, funcSymbol, a);
                 // if the expr returned nothing
@@ -210,9 +216,31 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             return;
         }
         case 'VariableDecl': {
-            // TODO
-            throw new UguisuError('not implemented yet');
-            break;
+            // get specified type
+            let ty: Type;
+            if (node.ty != null) {
+                ty = resolveTyLabel(node.ty, a);
+            } else {
+                ty = pendingType;
+            }
+            // initial value
+            if (node.body != null) {
+                let bodyTy = analyzeExpr(node.body, funcSymbol, a);
+                // if the expr returned nothing
+                if (compareType(bodyTy, voidType) == 'compatible') {
+                    a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
+                    bodyTy = badType;
+                }
+                if (ty.kind == 'PendingType') {
+                    // set inferred type
+                    ty = bodyTy;
+                } else {
+                    // check expr type
+                    // TODO
+                }
+            }
+            // TODO: set symbol
+            return;
         }
         case 'AssignStatement': {
             // TODO
