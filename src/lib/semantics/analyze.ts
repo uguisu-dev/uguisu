@@ -287,8 +287,17 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
             break;
         }
         case 'IndexAccess': {
-            // TODO: analyze target
-            // TODO: expect array
+            // analyze target
+            const targetTy = analyzeExpr(node.target, funcSymbol, a);
+            // check target type
+            if (isValidType(targetTy)) {
+                if (compareType(targetTy, arrayType) == 'incompatible') {
+                    dispatchTypeError(a, targetTy, arrayType, node);
+                    return badType;
+                }
+            } else {
+                return badType;
+            }
             // return expr type
             return anyType;
         }
