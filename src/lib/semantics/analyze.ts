@@ -166,14 +166,14 @@ function validateStatement(node: StatementCoreNode, allowJump: boolean, funcSymb
     switch (node.kind) {
         case 'ReturnStatement': {
             if (node.expr != null) {
-                // infer expression type
+                // analyze expr
                 let ty = validateExpr(node.expr, funcSymbol, a);
-                // if the expr returns nothing
+                // if the expr returned nothing
                 if (compareType(ty, voidType) == 'compatible') {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
                     ty = badType;
                 }
-                // check type
+                // check expr type
                 if (isValidType(funcSymbol.ty)) {
                     if (compareType(ty, funcSymbol.ty.returnType) == 'incompatible') {
                         dispatchTypeError(a, ty, funcSymbol.ty.returnType, node.expr);
