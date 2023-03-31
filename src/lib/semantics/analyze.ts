@@ -153,6 +153,7 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
 
 function analyzeBlock(nodes: StatementNode[], allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
     a.env.enter();
+    // analyze inner
     for (const node of nodes) {
         analyzeNode(node, allowJump, funcSymbol, a);
     }
@@ -255,31 +256,35 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
     // validate expression
     switch (node.kind) {
         case 'Identifier': {
-            // TODO
+            // TODO: get symbol
+            // TODO: return expr type from the symbol
             throw new UguisuError('not implemented yet');
             break;
         }
         case 'FieldAccess': {
-            // TODO
+            // TODO: analyze target
+            // TODO: expect struct
+            // TODO: get field symbol
+            // TODO: return expr type from the symbol
             throw new UguisuError('not implemented yet');
             break;
         }
         case 'IndexAccess': {
             // TODO: analyze target
             // TODO: expect array
-            // expr type
+            // return expr type
             return anyType;
         }
         case 'NumberLiteral': {
-            // expr type
+            // return expr type
             return numberType;
         }
         case 'BoolLiteral': {
-            // expr type
+            // return expr type
             return boolType;
         }
         case 'StringLiteral': {
-            // expr type
+            // return expr type
             return stringType;
         }
         case 'Call': {
@@ -307,7 +312,7 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
             for (const item of node.items) {
                 analyzeExpr(item, funcSymbol, a);
             }
-            // expr type
+            // return expr type
             return arrayType;
         }
     }
