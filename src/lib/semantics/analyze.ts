@@ -265,24 +265,22 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
             break;
         }
         case 'IndexAccess': {
-            // TODO
-            throw new UguisuError('not implemented yet');
-            break;
+            // TODO: analyze target
+            // TODO: expect array
+            // expr type
+            return anyType;
         }
         case 'NumberLiteral': {
-            // TODO
-            throw new UguisuError('not implemented yet');
-            break;
+            // expr type
+            return numberType;
         }
         case 'BoolLiteral': {
-            // TODO
-            throw new UguisuError('not implemented yet');
-            break;
+            // expr type
+            return boolType;
         }
         case 'StringLiteral': {
-            // TODO
-            throw new UguisuError('not implemented yet');
-            break;
+            // expr type
+            return stringType;
         }
         case 'Call': {
             // TODO
@@ -305,9 +303,12 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
             break;
         }
         case 'ArrayNode': {
-            // TODO
-            throw new UguisuError('not implemented yet');
-            break;
+            // analyze elements
+            for (const item of node.items) {
+                analyzeExpr(item, funcSymbol, a);
+            }
+            // expr type
+            return arrayType;
         }
     }
     throw new UguisuError('unexpected node');
