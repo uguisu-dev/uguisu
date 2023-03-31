@@ -62,9 +62,9 @@ export function analyze(
     for (const node of source.decls) {
         resolveTopLevel(node, a);
     }
-    // 3rd phase: validate
+    // 3rd phase: analyze
     for (const node of source.decls) {
-        validateTopLevel(node, a);
+        analyzeTopLevel(node, a);
     }
 
     if (a.isUsedAnyType) {
@@ -126,7 +126,7 @@ function resolveTopLevel(node: FileNode, a: AnalyzeContext) {
     }
 }
 
-function validateTopLevel(node: FileNode, a: AnalyzeContext) {
+function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
     switch (node.kind) {
         case 'FunctionDecl': {
             // TODO: get function symbol
@@ -141,10 +141,10 @@ function validateTopLevel(node: FileNode, a: AnalyzeContext) {
     }
 }
 
-function validateBlock(nodes: StatementNode[], allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
+function analyzeBlock(nodes: StatementNode[], allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
     a.env.enter();
     for (const node of nodes) {
-        validateNode(node, allowJump, funcSymbol, a);
+        analyzeNode(node, allowJump, funcSymbol, a);
     }
     a.env.leave();
 }
@@ -154,20 +154,19 @@ function lookupSymbol(node: ExprNode, a: AnalyzeContext): Symbol | undefined {
     throw new UguisuError('not implemented yet');
 }
 
-function validateNode(node: StatementNode, allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
+function analyzeNode(node: StatementNode, allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
     if (isExprNode(node)) {
-        validateExpr(node, funcSymbol, a);
+        analyzeExpr(node, funcSymbol, a);
     } else {
-        validateStatement(node, allowJump, funcSymbol, a);
+        analyzeStatement(node, allowJump, funcSymbol, a);
     }
 }
 
-function validateStatement(node: StatementCoreNode, allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
+function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
     switch (node.kind) {
         case 'ReturnStatement': {
             if (node.expr != null) {
-                // analyze expr
-                let ty = validateExpr(node.expr, funcSymbol, a);
+                let ty = analyzeExpr(node.expr, funcSymbol, a);
                 // if the expr returned nothing
                 if (compareType(ty, voidType) == 'compatible') {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
@@ -183,19 +182,32 @@ function validateStatement(node: StatementCoreNode, allowJump: boolean, funcSymb
             return;
         }
         case 'BreakStatement': {
-            // TODO
-            throw new UguisuError('not implemented yet');
-            break;
+            // if there is no associated loop
+            if (!allowJump) {
+                a.dispatchError('invalid break statement');
+            }
+            return;
         }
         case 'LoopStatement': {
-            // TODO
-            throw new UguisuError('not implemented yet');
-            break;
+            // allow break
+            allowJump = true;
+            analyzeBlock(node.block, allowJump, funcSymbol, a);
+            return;
         }
         case 'IfStatement': {
-            // TODO
-            throw new UguisuError('not implemented yet');
-            break;
+            let condTy = analyzeExpr(node.cond, funcSymbol, a);
+            // if the expr returned nothing
+            if (compareType(condTy, voidType) == 'compatible') {
+                a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.cond);
+                condTy = badType;
+            }
+            // check expr type
+            if (compareType(condTy, boolType) == 'incompatible') {
+                dispatchTypeError(a, condTy, boolType, node.cond);
+            }
+            analyzeBlock(node.thenBlock, allowJump, funcSymbol, a);
+            analyzeBlock(node.elseBlock, allowJump, funcSymbol, a);
+            return;
         }
         case 'VariableDecl': {
             // TODO
@@ -211,7 +223,7 @@ function validateStatement(node: StatementCoreNode, allowJump: boolean, funcSymb
     throw new UguisuError('unexpected node');
 }
 
-function validateExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeContext): Type {
+function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeContext): Type {
     // validate expression
     switch (node.kind) {
         case 'Identifier': {
