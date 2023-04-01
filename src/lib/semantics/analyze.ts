@@ -82,19 +82,24 @@ function analyzeReferencePath(node: ExprNode, funcSymbol: FunctionSymbol, a: Ana
     switch (node.kind) {
         case 'Identifier': {
             // TODO: get symbol
+
             throw new UguisuError('not implemented yet');
             break;
         }
         case 'FieldAccess': {
             // TODO: analyze target
+
             // TODO: expect struct
+
             // TODO: get field symbol
+
             throw new UguisuError('not implemented yet');
             break;
         }
         case 'IndexAccess': {
             // analyze target
             const targetTy = analyzeExpr(node.target, funcSymbol, a);
+
             // check target type
             if (isValidType(targetTy)) {
                 if (compareType(targetTy, arrayType) == 'incompatible') {
@@ -104,6 +109,7 @@ function analyzeReferencePath(node: ExprNode, funcSymbol: FunctionSymbol, a: Ana
             } else {
                 return undefined;
             }
+
             // create index symbol
             const symbol: VariableSymbol = {
                 kind: 'VariableSymbol',
@@ -133,11 +139,14 @@ function declareTopLevel(node: FileNode, a: AnalyzeContext) {
                 a.dispatchError(`\`${node.name}\` is already declared.`);
                 return;
             }
+
             // export specifier
             if (node.exported) {
                 a.dispatchWarn('exported function is not supported yet.', node);
             }
+
             // TODO: declare
+
             break;
         }
         case 'StructDecl': {
@@ -146,11 +155,14 @@ function declareTopLevel(node: FileNode, a: AnalyzeContext) {
                 a.dispatchError(`\`${node.name}\` is already declared.`);
                 return;
             }
+
             // export specifier
             if (node.exported) {
                 a.dispatchWarn('exported function is not supported yet.', node);
             }
+
             // TODO: declare
+
             break;
         }
     }
@@ -211,12 +223,14 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             // returned value
             if (node.expr != null) {
                 let ty = analyzeExpr(node.expr, funcSymbol, a);
+
                 // if the expr returned nothing
                 if (compareType(ty, voidType) == 'compatible') {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
                     ty = badType;
                 }
-                // check expr type
+
+                // check type
                 if (isValidType(funcSymbol.ty)) {
                     if (compareType(ty, funcSymbol.ty.returnType) == 'incompatible') {
                         dispatchTypeError(a, ty, funcSymbol.ty.returnType, node.expr);
@@ -242,12 +256,14 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             let condTy = analyzeExpr(node.cond, funcSymbol, a);
             analyzeBlock(node.thenBlock, allowJump, funcSymbol, a);
             analyzeBlock(node.elseBlock, allowJump, funcSymbol, a);
+
             // if the expr returned nothing
             if (compareType(condTy, voidType) == 'compatible') {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.cond);
                 condTy = badType;
             }
-            // check expr type
+
+            // check type
             if (compareType(condTy, boolType) == 'incompatible') {
                 dispatchTypeError(a, condTy, boolType, node.cond);
             }
@@ -261,9 +277,11 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             } else {
                 ty = pendingType;
             }
+
             // initial value
             if (node.body != null) {
                 let bodyTy = analyzeExpr(node.body, funcSymbol, a);
+
                 // if the expr returned nothing
                 if (compareType(bodyTy, voidType) == 'compatible') {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
@@ -273,10 +291,12 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
                     // set inferred type
                     ty = bodyTy;
                 } else {
-                    // TODO: check expr type
+                    // TODO: check type
                 }
             }
+
             // TODO: set symbol
+
             return;
         }
         case 'AssignStatement': {
@@ -400,6 +420,7 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
             for (const item of node.items) {
                 analyzeExpr(item, funcSymbol, a);
             }
+
             // return expr type
             return arrayType;
         }
