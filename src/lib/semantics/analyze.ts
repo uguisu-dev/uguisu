@@ -281,7 +281,27 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             return;
         }
         case 'AssignStatement': {
-            // TODO
+            // analyze the target, and get a symbol
+            let symbol;
+            if (node.target.kind == 'Identifier' || node.target.kind == 'FieldAccess' || node.target.kind == 'IndexAccess') {
+                symbol = analyzeReferencePath(node.target, funcSymbol, a);
+            } else {
+                a.dispatchError('invalid target.');
+            }
+            // analyze the body, and get a type
+            const bodyTy = analyzeExpr(node.body, funcSymbol, a);
+            // TODO: if the body returns nothing
+
+            // exit if failed to get the target symbol
+            if (symbol == null) {
+                return;
+            }
+            // TODO: if it was the first assignment
+
+            // get a type from the symbol
+            const targetTy = getTypeFromSymbol(symbol);
+            // TODO: check type
+
             throw new UguisuError('not implemented yet');
             break;
         }
