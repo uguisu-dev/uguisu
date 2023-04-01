@@ -261,8 +261,8 @@ export function compareType(x: Type, y: Type): CompareTypeResult {
     }
 }
 
-export function dispatchTypeError(ctx: AnalyzeContext, actual: Type, expected: Type, errorNode: AstNode) {
-    ctx.dispatchError(`type mismatched. expected \`${getTypeString(expected)}\`, found \`${getTypeString(actual)}\``, errorNode);
+export function dispatchTypeError(actual: Type, expected: Type, errorNode: AstNode, a: AnalyzeContext) {
+    a.dispatchError(`type mismatched. expected \`${getTypeString(expected)}\`, found \`${getTypeString(actual)}\``, errorNode);
 }
 
 export function getTypeString(ty: Type): string {

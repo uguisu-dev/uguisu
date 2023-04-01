@@ -78,7 +78,7 @@ export function analyze(
     };
 }
 
-function analyzeReferencePath(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeContext): Symbol | undefined {
+function analyzeLookupExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeContext): Symbol | undefined {
     switch (node.kind) {
         case 'Identifier': {
             // TODO: get symbol
@@ -103,7 +103,7 @@ function analyzeReferencePath(node: ExprNode, funcSymbol: FunctionSymbol, a: Ana
             // check target type
             if (isValidType(targetTy)) {
                 if (compareType(targetTy, arrayType) == 'incompatible') {
-                    dispatchTypeError(a, targetTy, arrayType, node);
+                    dispatchTypeError(targetTy, arrayType, node.index, a);
                     return undefined;
                 }
             } else {
@@ -233,7 +233,7 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
                 // check type
                 if (isValidType(funcSymbol.ty)) {
                     if (compareType(ty, funcSymbol.ty.returnType) == 'incompatible') {
-                        dispatchTypeError(a, ty, funcSymbol.ty.returnType, node.expr);
+                        dispatchTypeError(ty, funcSymbol.ty.returnType, node.expr, a);
                     }
                 }
             }
@@ -242,7 +242,7 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
         case 'BreakStatement': {
             // if there is no associated loop
             if (!allowJump) {
-                a.dispatchError('invalid break statement');
+                a.dispatchError('invalid break statement.');
             }
             return;
         }
@@ -265,7 +265,7 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
 
             // check type
             if (compareType(condTy, boolType) == 'incompatible') {
-                dispatchTypeError(a, condTy, boolType, node.cond);
+                dispatchTypeError(condTy, boolType, node.cond, a);
             }
             return;
         }
@@ -294,7 +294,7 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
 
                 // check type
                 if (compareType(bodyTy, ty) == 'incompatible') {
-                    dispatchTypeError(a, bodyTy, ty, node.body);
+                    dispatchTypeError(bodyTy, ty, node.body, a);
                 }
             }
 
@@ -314,9 +314,9 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             // analyze target
             let symbol;
             if (node.target.kind == 'Identifier' || node.target.kind == 'FieldAccess' || node.target.kind == 'IndexAccess') {
-                symbol = analyzeReferencePath(node.target, funcSymbol, a);
+                symbol = analyzeLookupExpr(node.target, funcSymbol, a);
             } else {
-                a.dispatchError('invalid target.');
+                a.dispatchError('invalid assign target.');
             }
 
             // exit if target symbol is invalid
@@ -335,7 +335,7 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             switch (node.mode) {
                 case '=': {
                     if (compareType(bodyTy, targetTy) == 'incompatible') {
-                        dispatchTypeError(a, bodyTy, targetTy, node.body);
+                        dispatchTypeError(bodyTy, targetTy, node.body, a);
                     }
                     break;
                 }
@@ -345,10 +345,10 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
                 case '/=':
                 case '%=': {
                     if (compareType(targetTy, numberType) == 'incompatible') {
-                        dispatchTypeError(a, targetTy, numberType, node.target);
+                        dispatchTypeError(targetTy, numberType, node.target, a);
                     }
                     if (compareType(bodyTy, numberType) == 'incompatible') {
-                        dispatchTypeError(a, bodyTy, numberType, node.body);
+                        dispatchTypeError(bodyTy, numberType, node.body, a);
                     }
                     break;
                 }
@@ -363,26 +363,29 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
     // validate expression
     switch (node.kind) {
         case 'Identifier': {
-            const symbol = analyzeReferencePath(node, funcSymbol, a);
+            const symbol = analyzeLookupExpr(node, funcSymbol, a);
             if (symbol == null) {
                 return badType;
             }
+
             // return expr type from the symbol
             return getTypeFromSymbol(symbol);
         }
         case 'FieldAccess': {
-            const symbol = analyzeReferencePath(node, funcSymbol, a);
+            const symbol = analyzeLookupExpr(node, funcSymbol, a);
             if (symbol == null) {
                 return badType;
             }
+
             // return expr type from the symbol
             return getTypeFromSymbol(symbol);
         }
         case 'IndexAccess': {
-            const symbol = analyzeReferencePath(node, funcSymbol, a);
+            const symbol = analyzeLookupExpr(node, funcSymbol, a);
             if (symbol == null) {
                 return badType;
             }
+
             // return expr type from the symbol
             return getTypeFromSymbol(symbol);
         }
