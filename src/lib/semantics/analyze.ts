@@ -302,8 +302,7 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             const targetTy = getTypeFromSymbol(symbol);
             // TODO: check type
 
-            throw new UguisuError('not implemented yet');
-            break;
+            return;
         }
     }
     throw new UguisuError('unexpected node');
