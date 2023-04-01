@@ -220,7 +220,7 @@ function analyzeNode(node: StatementNode, allowJump: boolean, funcSymbol: Functi
 function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
     switch (node.kind) {
         case 'ReturnStatement': {
-            // returned value
+            // if there is a return value
             if (node.expr != null) {
                 let ty = analyzeExpr(node.expr, funcSymbol, a);
 
@@ -270,12 +270,11 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             return;
         }
         case 'VariableDecl': {
-            // get specified type
-            let ty: Type;
+            let ty: Type = pendingType;
+
+            // if an explicit type is specified
             if (node.ty != null) {
                 ty = resolveTyLabel(node.ty, a);
-            } else {
-                ty = pendingType;
             }
 
             // initial value
@@ -287,11 +286,15 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
                     bodyTy = badType;
                 }
+
+                // if the variable type is not decided
                 if (ty.kind == 'PendingType') {
-                    // set inferred type
                     ty = bodyTy;
-                } else {
-                    // TODO: check type
+                }
+
+                // check type
+                if (compareType(bodyTy, ty) == 'incompatible') {
+                    dispatchTypeError(a, bodyTy, ty, node.body);
                 }
             }
 
