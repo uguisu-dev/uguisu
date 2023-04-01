@@ -117,6 +117,7 @@ function analyzeReferencePath(node: ExprNode, funcSymbol: FunctionSymbol, a: Ana
 
 function getTypeFromSymbol(symbol: Symbol): Type {
     // TODO
+    throw new UguisuError('not implemented yet');
 }
 
 function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
@@ -296,18 +297,16 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
             if (symbol == null) {
                 return badType;
             }
-            // TODO: return expr type from the symbol
-            throw new UguisuError('not implemented yet');
-            break;
+            // return expr type from the symbol
+            return getTypeFromSymbol(symbol);
         }
         case 'FieldAccess': {
-            const fieldSymbol = analyzeReferencePath(node, funcSymbol, a);
-            if (fieldSymbol == null) {
+            const symbol = analyzeReferencePath(node, funcSymbol, a);
+            if (symbol == null) {
                 return badType;
             }
-            // TODO: return expr type from the symbol
-            throw new UguisuError('not implemented yet');
-            break;
+            // return expr type from the symbol
+            return getTypeFromSymbol(symbol);
         }
         case 'IndexAccess': {
             const symbol = analyzeReferencePath(node, funcSymbol, a);
@@ -315,7 +314,7 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
                 return badType;
             }
             // return expr type from the symbol
-            return symbol.ty;
+            return getTypeFromSymbol(symbol);
         }
         case 'NumberLiteral': {
             // return expr type
