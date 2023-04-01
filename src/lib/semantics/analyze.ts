@@ -240,6 +240,8 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
         }
         case 'IfStatement': {
             let condTy = analyzeExpr(node.cond, funcSymbol, a);
+            analyzeBlock(node.thenBlock, allowJump, funcSymbol, a);
+            analyzeBlock(node.elseBlock, allowJump, funcSymbol, a);
             // if the expr returned nothing
             if (compareType(condTy, voidType) == 'compatible') {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.cond);
@@ -249,8 +251,6 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             if (compareType(condTy, boolType) == 'incompatible') {
                 dispatchTypeError(a, condTy, boolType, node.cond);
             }
-            analyzeBlock(node.thenBlock, allowJump, funcSymbol, a);
-            analyzeBlock(node.elseBlock, allowJump, funcSymbol, a);
             return;
         }
         case 'VariableDecl': {
@@ -273,35 +273,63 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
                     // set inferred type
                     ty = bodyTy;
                 } else {
-                    // check expr type
-                    // TODO
+                    // TODO: check expr type
                 }
             }
             // TODO: set symbol
             return;
         }
         case 'AssignStatement': {
-            // analyze the target, and get a symbol
+            let bodyTy = analyzeExpr(node.body, funcSymbol, a);
+
+            // if the body returns nothing
+            if (compareType(bodyTy, voidType) == 'compatible') {
+                a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
+                bodyTy = badType;
+            }
+
+            // analyze target
             let symbol;
             if (node.target.kind == 'Identifier' || node.target.kind == 'FieldAccess' || node.target.kind == 'IndexAccess') {
                 symbol = analyzeReferencePath(node.target, funcSymbol, a);
             } else {
                 a.dispatchError('invalid target.');
             }
-            // analyze the body, and get a type
-            const bodyTy = analyzeExpr(node.body, funcSymbol, a);
-            // TODO: if the body returns nothing
 
-            // exit if failed to get the target symbol
+            // exit if target symbol is invalid
             if (symbol == null) {
                 return;
             }
-            // TODO: if it was the first assignment
 
-            // get a type from the symbol
-            const targetTy = getTypeFromSymbol(symbol);
-            // TODO: check type
+            let targetTy = getTypeFromSymbol(symbol);
 
+            // if it was the first assignment
+            if (targetTy.kind == 'PendingType') {
+                targetTy = bodyTy;
+            }
+
+            // check type
+            switch (node.mode) {
+                case '=': {
+                    if (compareType(bodyTy, targetTy) == 'incompatible') {
+                        dispatchTypeError(a, bodyTy, targetTy, node.body);
+                    }
+                    break;
+                }
+                case '+=':
+                case '-=':
+                case '*=':
+                case '/=':
+                case '%=': {
+                    if (compareType(targetTy, numberType) == 'incompatible') {
+                        dispatchTypeError(a, targetTy, numberType, node.target);
+                    }
+                    if (compareType(bodyTy, numberType) == 'incompatible') {
+                        dispatchTypeError(a, bodyTy, numberType, node.body);
+                    }
+                    break;
+                }
+            }
             return;
         }
     }
