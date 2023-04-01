@@ -289,9 +289,41 @@ function resolveTopLevel(node: FileNode, a: AnalyzeContext) {
 function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
     switch (node.kind) {
         case 'FunctionDecl': {
-            // TODO: get function symbol
-            // TODO: check the function type is valid
-            // TODO: validate function body
+            // get function symbol
+            const symbol = a.env.get(node.name);
+            if (symbol == null) {
+                throw new UguisuError('symbol not found.');
+            }
+
+            // expect function symbol
+            if (symbol.kind != 'FnSymbol') {
+                a.dispatchError('function expected.', node);
+                return;
+            }
+
+            // check the function type is valid
+            if (!isValidType(symbol.ty)) {
+                return;
+            }
+
+            a.env.enter();
+
+            // set function params to the env
+            for (let i = 0; i < node.params.length; i++) {
+                const paramSymbol: VariableSymbol = {
+                    kind: 'VariableSymbol',
+                    ty: symbol.ty.paramTypes[i],
+                };
+                a.symbolTable.set(node.params[i], paramSymbol);
+                a.env.set(node.params[i].name, paramSymbol);
+            }
+
+            // analyze function body
+            for (const statement of node.body) {
+                analyzeNode(statement, false, symbol, a);
+            }
+
+            a.env.leave();
             break;
         }
         case 'StructDecl': {
