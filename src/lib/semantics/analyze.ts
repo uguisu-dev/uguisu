@@ -8,6 +8,7 @@ import {
     isExprNode,
     isLogicalBinaryOperator,
     isOrderingOperator,
+    ReferenceExpr,
     SourceFile,
     StatementCoreNode,
     StatementNode,
@@ -78,35 +79,75 @@ export function analyze(
     };
 }
 
-function analyzeLookupExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeContext): Symbol | undefined {
+function analyzeLookupExpr(node: ReferenceExpr, funcSymbol: FunctionSymbol, a: AnalyzeContext): Symbol | undefined {
     switch (node.kind) {
         case 'Identifier': {
-            // TODO: get symbol
+            // get symbol
+            const symbol = a.env.get(node.name);
 
-            throw new UguisuError('not implemented yet');
-            break;
+            if (symbol == null) {
+                a.dispatchError('unknown identifier.', node);
+                return undefined;
+            }
+
+            return symbol;
         }
         case 'FieldAccess': {
-            // TODO: analyze target
+            // analyze target
+            const targetTy = analyzeExpr(node.target, funcSymbol, a);
 
-            // TODO: expect struct
+            if (!isValidType(targetTy)) {
+                return undefined;
+            }
 
-            // TODO: get field symbol
+            switch (targetTy.kind) {
+                case 'NamedType': {
+                    // get target symbol
+                    const symbol = a.env.get(targetTy.name)!;
 
-            throw new UguisuError('not implemented yet');
+                    if (symbol.kind == 'StructSymbol') {
+                        // get field symbol
+                        const field = symbol.fields.get(node.name);
+
+                        // if specified field name is invalid
+                        if (field == null) {
+                            a.dispatchError('unknown field name.', node);
+                            return undefined;
+                        }
+
+                        return field;
+                    } else {
+                        a.dispatchError('invalid field access.', node);
+                        return undefined;
+                    }
+                    break;
+                }
+                case 'GenericType': {
+                    throw new UguisuError('not implemented yet.'); // TODO
+                }
+                case 'AnyType': {
+                    // TODO: Ensure that the type `any` is handled correctly.
+                    return undefined;
+                }
+                case 'FunctionType':
+                case 'VoidType': {
+                    a.dispatchError('invalid field access');
+                    return undefined;
+                }
+            }
             break;
         }
         case 'IndexAccess': {
             // analyze target
             const targetTy = analyzeExpr(node.target, funcSymbol, a);
 
+            if (!isValidType(targetTy)) {
+                return undefined;
+            }
+
             // check target type
-            if (isValidType(targetTy)) {
-                if (compareType(targetTy, arrayType) == 'incompatible') {
-                    dispatchTypeError(targetTy, arrayType, node.index, a);
-                    return undefined;
-                }
-            } else {
+            if (compareType(targetTy, arrayType) == 'incompatible') {
+                dispatchTypeError(targetTy, arrayType, node.index, a);
                 return undefined;
             }
 
@@ -319,7 +360,7 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
                 a.dispatchError('invalid assign target.');
             }
 
-            // exit if target symbol is invalid
+            // skip if target symbol is invalid
             if (symbol == null) {
                 return;
             }
@@ -362,24 +403,8 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
 function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeContext): Type {
     // validate expression
     switch (node.kind) {
-        case 'Identifier': {
-            const symbol = analyzeLookupExpr(node, funcSymbol, a);
-            if (symbol == null) {
-                return badType;
-            }
-
-            // return expr type from the symbol
-            return getTypeFromSymbol(symbol);
-        }
-        case 'FieldAccess': {
-            const symbol = analyzeLookupExpr(node, funcSymbol, a);
-            if (symbol == null) {
-                return badType;
-            }
-
-            // return expr type from the symbol
-            return getTypeFromSymbol(symbol);
-        }
+        case 'Identifier':
+        case 'FieldAccess':
         case 'IndexAccess': {
             const symbol = analyzeLookupExpr(node, funcSymbol, a);
             if (symbol == null) {

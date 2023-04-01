@@ -36,6 +36,11 @@ export type ExprNode
     | ArrayNode
     | IndexAccess;
 
+export type ReferenceExpr
+    = Identifier
+    | FieldAccess
+    | IndexAccess;
+
 export type NodeOf<T extends AstNode['kind']>
     = T extends 'SourceFile' ? SourceFile
     : T extends 'FunctionDecl' ? FunctionDecl
