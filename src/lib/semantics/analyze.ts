@@ -78,7 +78,7 @@ export function analyze(
     };
 }
 
-function analyzeReferencePath(node: ExprNode, a: AnalyzeContext): Symbol | undefined {
+function analyzeReferencePath(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeContext): Symbol | undefined {
     switch (node.kind) {
         case 'Identifier': {
             // TODO: get symbol
@@ -92,8 +92,31 @@ function analyzeReferencePath(node: ExprNode, a: AnalyzeContext): Symbol | undef
             throw new UguisuError('not implemented yet');
             break;
         }
+        case 'IndexAccess': {
+            // analyze target
+            const targetTy = analyzeExpr(node.target, funcSymbol, a);
+            // check target type
+            if (isValidType(targetTy)) {
+                if (compareType(targetTy, arrayType) == 'incompatible') {
+                    dispatchTypeError(a, targetTy, arrayType, node);
+                    return undefined;
+                }
+            } else {
+                return undefined;
+            }
+            // create index symbol
+            const symbol: VariableSymbol = {
+                kind: 'VariableSymbol',
+                ty: anyType,
+            };
+            return symbol;
+        }
     }
     throw new UguisuError('unexpected node');
+}
+
+function getTypeFromSymbol(symbol: Symbol): Type {
+    // TODO
 }
 
 function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
@@ -269,7 +292,7 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
     // validate expression
     switch (node.kind) {
         case 'Identifier': {
-            const symbol = analyzeReferencePath(node, a);
+            const symbol = analyzeReferencePath(node, funcSymbol, a);
             if (symbol == null) {
                 return badType;
             }
@@ -278,7 +301,7 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
             break;
         }
         case 'FieldAccess': {
-            const fieldSymbol = analyzeReferencePath(node, a);
+            const fieldSymbol = analyzeReferencePath(node, funcSymbol, a);
             if (fieldSymbol == null) {
                 return badType;
             }
@@ -287,19 +310,12 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
             break;
         }
         case 'IndexAccess': {
-            // analyze target
-            const targetTy = analyzeExpr(node.target, funcSymbol, a);
-            // check target type
-            if (isValidType(targetTy)) {
-                if (compareType(targetTy, arrayType) == 'incompatible') {
-                    dispatchTypeError(a, targetTy, arrayType, node);
-                    return badType;
-                }
-            } else {
+            const symbol = analyzeReferencePath(node, funcSymbol, a);
+            if (symbol == null) {
                 return badType;
             }
-            // return expr type
-            return anyType;
+            // return expr type from the symbol
+            return symbol.ty;
         }
         case 'NumberLiteral': {
             // return expr type
