@@ -212,15 +212,75 @@ function declareTopLevel(node: FileNode, a: AnalyzeContext) {
 function resolveTopLevel(node: FileNode, a: AnalyzeContext) {
     switch (node.kind) {
         case 'FunctionDecl': {
-            // TODO: get symbol
-            // TODO: expect function symbol
-            // TODO: resolve type
+            // get symbol
+            const symbol = a.env.get(node.name);
+            if (symbol == null) {
+                throw new UguisuError('symbol not found.');
+            }
+
+            // expect function symbol
+            if (symbol.kind != 'FnSymbol') {
+                a.dispatchError('function expected.', node);
+                return;
+            }
+
+            // make return type
+            let returnTy: Type;
+            if (node.returnTy != null) {
+                returnTy = resolveTyLabel(node.returnTy, a);
+            } else {
+                returnTy = voidType;
+            }
+
+            // make params type
+            let paramsTy: Type[] = [];
+            for (let i = 0; i < symbol.params.length; i++) {
+                const paramNode = node.params[i];
+
+                // if param type is not specified
+                if (paramNode.ty == null) {
+                    a.dispatchError('parameter type missing.', paramNode);
+                    paramsTy.push(badType);
+                    continue;
+                }
+
+                // get param type
+                const paramTy = resolveTyLabel(paramNode.ty, a);
+                paramsTy.push(paramTy);
+            }
+
+            // replace function type
+            symbol.ty = createFunctionType(paramsTy, returnTy);
             break;
         }
         case 'StructDecl': {
-            // TODO: get symbol
-            // TODO: expect struct symbol
-            // TODO: resolve type
+            // get symbol
+            const structSymbol = a.env.get(node.name);
+            if (structSymbol == null) {
+                throw new UguisuError('symbol not found.');
+            }
+
+            // expect struct symbol
+            if (structSymbol.kind != 'StructSymbol') {
+                a.dispatchError('struct expected.', node);
+                return;
+            }
+
+            for (const field of node.fields) {
+                // get field symbol
+                const fieldSymbol = structSymbol.fields.get(field.name);
+                if (fieldSymbol == null) {
+                    throw new UguisuError('symbol not found.');
+                }
+
+                // expect variable symbol
+                if (fieldSymbol.kind != 'VariableSymbol') {
+                    throw new UguisuError('invalid field symbol.');
+                }
+
+                // replace field type
+                fieldSymbol.ty = resolveTyLabel(field.ty, a);
+            }
             break;
         }
     }
@@ -298,7 +358,7 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             analyzeBlock(node.thenBlock, allowJump, funcSymbol, a);
             analyzeBlock(node.elseBlock, allowJump, funcSymbol, a);
 
-            // if the expr returned nothing
+            // if the condition expr returned nothing
             if (compareType(condTy, voidType) == 'compatible') {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.cond);
                 condTy = badType;
@@ -318,11 +378,11 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
                 ty = resolveTyLabel(node.ty, a);
             }
 
-            // initial value
+            // initializer
             if (node.body != null) {
                 let bodyTy = analyzeExpr(node.body, funcSymbol, a);
 
-                // if the expr returned nothing
+                // if the initializer returns nothing
                 if (compareType(bodyTy, voidType) == 'compatible') {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
                     bodyTy = badType;
@@ -339,7 +399,13 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
                 }
             }
 
-            // TODO: set symbol
+            // set symbol
+            const symbol: VariableSymbol = {
+                kind: 'VariableSymbol',
+                ty,
+            };
+            a.symbolTable.set(node, symbol);
+            a.env.set(node.name, symbol);
 
             return;
         }
