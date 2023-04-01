@@ -540,9 +540,58 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
             break;
         }
         case 'StructExpr': {
-            // TODO
-            throw new UguisuError('not implemented yet');
-            break;
+            // get symbol
+            const symbol = a.env.get(node.name);
+            if (symbol == null) {
+                a.dispatchError('unknown identifier.', node);
+                return badType;
+            }
+
+            // expect struct symbol
+            if (symbol.kind != 'StructSymbol') {
+                a.dispatchError('struct expected.', node);
+                return badType;
+            }
+
+            const defined: string[] = [];
+            for (const fieldNode of node.fields) {
+                // check already defined
+                if (defined.indexOf(fieldNode.name) != -1) {
+                    a.dispatchError(`field \`${fieldNode.name}\` is duplicated.`, fieldNode);
+                }
+                defined.push(fieldNode.name);
+
+                // get expr type
+                let bodyTy = analyzeExpr(fieldNode.body, funcSymbol, a);
+
+                // if the expr returns nothing
+                if (compareType(bodyTy, voidType) == 'compatible') {
+                    a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, fieldNode.body);
+                    bodyTy = badType;
+                }
+
+                // get field symbol
+                const fieldSymbol = symbol.fields.get(fieldNode.name)!;
+
+                // expect variable symbol
+                if (fieldSymbol.kind != 'VariableSymbol') {
+                    throw new UguisuError('invalid field symbol.');
+                }
+
+                // check field type
+                if (compareType(bodyTy, fieldSymbol.ty) == 'incompatible') {
+                    dispatchTypeError(bodyTy, fieldSymbol.ty, fieldNode.body, a);
+                }
+            }
+
+            // check fields are all defined
+            for (const [name, _field] of symbol.fields) {
+                if (!defined.includes(name)) {
+                    a.dispatchError(`field \`${name}\` is not initialized.`, node);
+                }
+            }
+
+            return createNamedType(node.name);
         }
         case 'ArrayNode': {
             // analyze elements
