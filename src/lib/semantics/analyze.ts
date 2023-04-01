@@ -561,7 +561,7 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
                 }
                 defined.push(fieldNode.name);
 
-                // get expr type
+                // analyze field
                 let bodyTy = analyzeExpr(fieldNode.body, funcSymbol, a);
 
                 // if the expr returns nothing
