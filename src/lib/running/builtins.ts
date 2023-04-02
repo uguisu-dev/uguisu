@@ -72,7 +72,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         setItem('concat', concat);
 
         const fromArray = FunctionValue.createNative((args) => {
-            if (args.length != 2) {
+            if (args.length != 1) {
                 throw new UguisuError('invalid arguments count');
             }
             assertValue(args[0], 'ArrayValue');
