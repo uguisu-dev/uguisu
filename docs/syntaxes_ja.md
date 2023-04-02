@@ -230,6 +230,30 @@ fn string.assertEq(actual: string, expected: string);
 ```
 与えられた文字列と期待する文字列を比較して、値が異なる場合にランタイムエラーを発生させます。
 
+## array.insert
+```
+fn array.insert(x: array, index: number, value: any);
+```
+配列に項目を挿入します。
+
+## array.add
+```
+fn array.add(x: array, value: any);
+```
+配列の末尾に項目を追加します。
+
+## array.removeAt
+```
+fn array.removeAt(x: array, index: number);
+```
+指定したインデックスの項目を配列から削除します。
+
+## array.count
+```
+fn array.count(x: array): number;
+```
+配列の項目数を取得します。
+
 ## console.write
 ```
 fn console.write(value: string);
