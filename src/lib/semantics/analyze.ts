@@ -231,8 +231,13 @@ function declareTopLevel(node: FileNode, a: AnalyzeContext) {
                 a.dispatchWarn('exported function is not supported yet.', node);
             }
 
-            // TODO: declare
+            // make param list
+            const params = node.params.map(x => ({ name: x.name }));
 
+            // declare function
+            const symbol = createFunctionSymbol(params, pendingType, []);
+            a.symbolTable.set(node, symbol);
+            a.env.set(node.name, symbol);
             break;
         }
         case 'StructDecl': {
@@ -247,8 +252,20 @@ function declareTopLevel(node: FileNode, a: AnalyzeContext) {
                 a.dispatchWarn('exported function is not supported yet.', node);
             }
 
-            // TODO: declare
+            // make fields
+            const fields = new Map<string, Symbol>();
+            for (const field of node.fields) {
+                const fieldSymbol: VariableSymbol = {
+                    kind: 'VariableSymbol',
+                    ty: pendingType,
+                };
+                fields.set(field.name, fieldSymbol);
+            }
 
+            // declare struct
+            const symbol: Symbol = createStructSymbol(node.name, fields);
+            a.symbolTable.set(node, symbol);
+            a.env.set(node.name, symbol);
             break;
         }
     }
@@ -580,9 +597,25 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
             break;
         }
         case 'UnaryOp': {
-            // TODO
-            throw new UguisuError('not implemented yet');
-            break;
+            let ty = analyzeExpr(node.expr, funcSymbol, a);
+
+            // if the expr returns nothing
+            if (compareType(ty, voidType) == 'compatible') {
+                a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
+                ty = badType;
+            }
+
+            if (!isValidType(ty)) {
+                return badType;
+            }
+
+            // Logical Operation
+            if (compareType(ty, boolType) == 'incompatible') {
+                dispatchTypeError(ty, boolType, node, a);
+                return badType;
+            }
+            a.symbolTable.set(node, { kind: 'ExprSymbol', ty: boolType });
+            return boolType;
         }
         case 'StructExpr': {
             // get symbol
