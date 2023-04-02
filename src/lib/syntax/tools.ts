@@ -11,13 +11,16 @@ export type AstNode
 
 export type FileNode = FunctionDecl | StructDecl;
 
-export type StatementNode
+export type StatementCoreNode
     = VariableDecl
     | AssignStatement
     | IfStatement
     | LoopStatement
     | ReturnStatement
-    | BreakStatement
+    | BreakStatement;
+
+export type StatementNode
+    = StatementCoreNode
     | ExprNode;
 
 export type ExprNode
@@ -31,6 +34,11 @@ export type ExprNode
     | StructExpr
     | FieldAccess
     | ArrayNode
+    | IndexAccess;
+
+export type ReferenceExpr
+    = Identifier
+    | FieldAccess
     | IndexAccess;
 
 export type NodeOf<T extends AstNode['kind']>
