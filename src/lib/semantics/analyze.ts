@@ -2,7 +2,6 @@ import { UguisuError } from '../misc/errors.js';
 import { ProjectInfo } from '../project-file.js';
 import {
     AstNode,
-    ExprNode,
     FileNode,
     isEquivalentOperator,
     isLogicalBinaryOperator,
@@ -674,23 +673,6 @@ function inferType(a: AnalyzeContext, node: AstNode, funcSymbol: FunctionSymbol)
         }
     }
     throw new UguisuError('unexpected node.');
-}
-
-function resolveSymbol(a: AnalyzeContext, node: ExprNode): Symbol | undefined {
-    switch (node.kind) {
-        case 'Identifier': {
-            const symbol = a.env.get(node.name);
-            if (symbol == null) {
-                a.dispatchError('unknown identifier.', node);
-                return undefined;
-            }
-            return symbol;
-        }
-        case 'FieldAccess': {
-            break;
-        }
-    }
-    throw new UguisuError('unexpected node');
 }
 
 function resolveTypeName(a: AnalyzeContext, node: TyLabel): Type {
