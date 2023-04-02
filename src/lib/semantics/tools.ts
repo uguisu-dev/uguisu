@@ -102,11 +102,12 @@ export function createNativeFnSymbol(params: { name: string }[], ty: FunctionTyp
 
 export type StructSymbol = {
     kind: 'StructSymbol',
-    fields: Map<string, { ty: Type }>,
+    name: string,
+    fields: Map<string, Symbol>,
 };
 
-export function createStructSymbol(fields: Map<string, { ty: Type }>): StructSymbol {
-    return { kind: 'StructSymbol', fields };
+export function createStructSymbol(name: string, fields: Map<string, Symbol>): StructSymbol {
+    return { kind: 'StructSymbol', name, fields };
 }
 
 export type VariableSymbol = {
@@ -121,59 +122,39 @@ export type ExprSymbol = {
 
 // types
 
-export type Type = InvalidType | ValidType;
+export type Type = ValidType | InvalidType;
 
-export type InvalidType = BadType | PendingType;
+export type ValidType = AnyType | VoidType | NamedType | FunctionType | GenericType;
 
 export function isValidType(ty: Type): ty is ValidType {
     return ty.kind != 'BadType' && ty.kind != 'PendingType';
 }
 
-export type ValidType = AnyType | VoidType | SimpleType | FunctionType | GenericType;
+export type InvalidType = BadType | PendingType;
 
 export type BadType = {
     kind: 'BadType',
 };
-function createBadType(): BadType {
-    return { kind: 'BadType' };
-}
 
 export type PendingType = {
     kind: 'PendingType',
 };
-function createPendingType(): PendingType {
-    return { kind: 'PendingType' };
-}
-
-export type VoidType = {
-    kind: 'VoidType',
-};
-function createVoidType(): VoidType {
-    return { kind: 'VoidType' };
-}
 
 export type AnyType = {
     kind: 'AnyType',
 };
-function createAnyType(): AnyType {
-    return { kind: 'AnyType' };
-}
 
-export type SimpleType = {
-    kind: 'SimpleType',
+export type VoidType = {
+    kind: 'VoidType',
+};
+
+export type NamedType = {
+    kind: 'NamedType',
     name: string,
 };
-export function createSimpleType(name: string): SimpleType {
-    return { kind: 'SimpleType', name };
-}
 
-export type GenericType = {
-    kind: 'GenericType',
-    name: string,
-    innerTypes: Type[],
-};
-export function createGenericType(name: string, innerTypes: Type[]): GenericType {
-    return { kind: 'GenericType', name, innerTypes };
+export function createNamedType(name: string): NamedType {
+    return { kind: 'NamedType', name };
 }
 
 export type FunctionType = {
@@ -181,19 +162,30 @@ export type FunctionType = {
     paramTypes: Type[],
     returnType: Type,
 };
+
 export function createFunctionType(paramTypes: Type[], returnType: Type): FunctionType {
     return { kind: 'FunctionType', paramTypes, returnType };
 }
 
+export type GenericType = {
+    kind: 'GenericType',
+    name: string,
+    innerTypes: Type[],
+};
+
+export function createGenericType(name: string, innerTypes: Type[]): GenericType {
+    return { kind: 'GenericType', name, innerTypes };
+}
+
 // builtin types
-export const badType = createBadType();
-export const anyType = createAnyType();
-export const pendingType = createPendingType();
-export const voidType = createVoidType();
-export const numberType = createSimpleType('number');
-export const boolType = createSimpleType('bool');
-export const stringType = createSimpleType('string');
-export const arrayType = createSimpleType('array');
+export const badType = { kind: 'BadType' } as BadType;
+export const pendingType = { kind: 'PendingType' } as PendingType;
+export const anyType = { kind: 'AnyType' } as AnyType;
+export const voidType = { kind: 'VoidType' } as VoidType;
+export const numberType = createNamedType('number');
+export const boolType = createNamedType('bool');
+export const stringType = createNamedType('string');
+export const arrayType = createNamedType('array');
 
 export type CompareTypeResult = 'unknown' | 'compatible' | 'incompatible';
 
@@ -216,8 +208,8 @@ export function compareType(x: Type, y: Type): CompareTypeResult {
         case 'VoidType': {
             return 'compatible';
         }
-        case 'SimpleType': {
-            if (x.name == (y as SimpleType).name) {
+        case 'NamedType': {
+            if (x.name == (y as NamedType).name) {
                 return 'compatible';
             } else {
                 return 'incompatible';
@@ -270,8 +262,8 @@ export function compareType(x: Type, y: Type): CompareTypeResult {
     }
 }
 
-export function dispatchTypeError(ctx: AnalyzeContext, actual: Type, expected: Type, errorNode: AstNode) {
-    ctx.dispatchError(`type mismatched. expected \`${getTypeString(expected)}\`, found \`${getTypeString(actual)}\``, errorNode);
+export function dispatchTypeError(actual: Type, expected: Type, errorNode: AstNode, a: AnalyzeContext) {
+    a.dispatchError(`type mismatched. expected \`${getTypeString(expected)}\`, found \`${getTypeString(actual)}\``, errorNode);
 }
 
 export function getTypeString(ty: Type): string {
@@ -286,7 +278,7 @@ export function getTypeString(ty: Type): string {
         case 'VoidType': {
             return 'void';
         }
-        case 'SimpleType': {
+        case 'NamedType': {
             return ty.name;
         }
         case 'FunctionType': {
