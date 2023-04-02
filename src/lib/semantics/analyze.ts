@@ -79,7 +79,7 @@ export function analyze(
     };
 }
 
-function analyzeLookupExpr(node: ReferenceExpr, funcSymbol: FunctionSymbol, a: AnalyzeContext): Symbol | undefined {
+function analyzeReferenceExpr(node: ReferenceExpr, funcSymbol: FunctionSymbol, a: AnalyzeContext): Symbol | undefined {
     switch (node.kind) {
         case 'Identifier': {
             // get symbol
@@ -162,14 +162,59 @@ function analyzeLookupExpr(node: ReferenceExpr, funcSymbol: FunctionSymbol, a: A
     throw new UguisuError('unexpected node');
 }
 
-function getTypeFromSymbol(symbol: Symbol): Type {
-    // TODO
-    throw new UguisuError('not implemented yet');
+function getTypeFromSymbol(symbol: Symbol, errorNode: AstNode, a: AnalyzeContext): Type {
+    switch (symbol.kind) {
+        case 'FnSymbol':
+        case 'NativeFnSymbol': {
+            return symbol.ty;
+        }
+        case 'StructSymbol': {
+            return createNamedType(symbol.name);
+        }
+        case 'VariableSymbol': {
+            // if the variable is not assigned
+            if (symbol.ty.kind == 'PendingType') {
+                a.dispatchError('variable is not assigned yet.', errorNode);
+                return badType;
+            }
+            return symbol.ty;
+        }
+        case 'ExprSymbol': {
+            throw new UguisuError('unexpected symbol');
+        }
+    }
 }
 
 function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
-    // TODO
-    throw new UguisuError('not implemented yet');
+    // builtin type
+    switch (node.name) {
+        case 'number':
+        case 'bool':
+        case 'string':
+        case 'array': {
+            return createNamedType(node.name);
+        }
+    }
+
+    // try get user defined type
+    const symbol = a.env.get(node.name);
+    if (symbol == null) {
+        a.dispatchError('unknown type name.', node);
+        return badType;
+    }
+
+    switch (symbol.kind) {
+        case 'StructSymbol': {
+            return createNamedType(node.name);
+        }
+        case 'FnSymbol':
+        case 'NativeFnSymbol':
+        case 'VariableSymbol':
+        case 'ExprSymbol': {
+            a.dispatchError('invalid type name.', node);
+            return badType;
+        }
+    }
 }
 
 function declareTopLevel(node: FileNode, a: AnalyzeContext) {
@@ -453,7 +498,7 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             // analyze target
             let symbol;
             if (node.target.kind == 'Identifier' || node.target.kind == 'FieldAccess' || node.target.kind == 'IndexAccess') {
-                symbol = analyzeLookupExpr(node.target, funcSymbol, a);
+                symbol = analyzeReferenceExpr(node.target, funcSymbol, a);
             } else {
                 a.dispatchError('invalid assign target.');
             }
@@ -463,7 +508,7 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
                 return;
             }
 
-            let targetTy = getTypeFromSymbol(symbol);
+            let targetTy = getTypeFromSymbol(symbol, node.target, a);
 
             // if it was the first assignment
             if (targetTy.kind == 'PendingType') {
@@ -504,13 +549,13 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
         case 'Identifier':
         case 'FieldAccess':
         case 'IndexAccess': {
-            const symbol = analyzeLookupExpr(node, funcSymbol, a);
+            const symbol = analyzeReferenceExpr(node, funcSymbol, a);
             if (symbol == null) {
                 return badType;
             }
 
             // return expr type from the symbol
-            return getTypeFromSymbol(symbol);
+            return getTypeFromSymbol(symbol, node, a);
         }
         case 'NumberLiteral': {
             // return expr type
@@ -591,7 +636,7 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
                 }
             }
 
-            return createNamedType(node.name);
+            return createNamedType(symbol.name);
         }
         case 'ArrayNode': {
             // analyze elements
