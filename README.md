@@ -52,9 +52,9 @@ Commands:
 
 ```
 
-The following command runs a basic example. A code check is performed before running the code.
+The following command runs a project. A code check is performed before running the code.
 ```
-$ uguisu run ./examples/basic
+$ uguisu run ./your-project
 ```
 
 ## JavaScript API
@@ -69,7 +69,7 @@ const uguisu = new Uguisu({
     }
 });
 
-const projectDir = './examples/basic';
+const projectDir = './your-project';
 
 // Check code and Run
 uguisu.run(projectDir);
