@@ -7,8 +7,9 @@ import {
     createStructSymbol,
     numberType,
     stringType,
-    Type,
+    Symbol,
     ValidType,
+    VariableSymbol,
     voidType
 } from './tools.js';
 
@@ -19,13 +20,17 @@ function setDecl(name: string, paramsTy: ValidType[], returnTy: ValidType, a: An
 }
 
 function group(name: string, a: AnalyzeContext, handler: (setItem: (name: string, paramsTy: ValidType[], returnTy: ValidType) => void) => void) {
-    const fields: Map<string, { ty: Type }> = new Map();
+    const fields: Map<string, Symbol> = new Map();
     function setItem(name: string, paramsTy: ValidType[], returnTy: ValidType) {
         const ty = createFunctionType(paramsTy, returnTy);
-        fields.set(name, { ty });
+        const symbol = {
+            kind: 'VariableSymbol',
+            ty,
+        } as VariableSymbol;
+        fields.set(name, symbol);
     }
     handler(setItem);
-    a.env.set(name, createStructSymbol(fields));
+    a.env.set(name, createStructSymbol(name, fields));
 }
 
 export function setDeclarations(a: AnalyzeContext) {
