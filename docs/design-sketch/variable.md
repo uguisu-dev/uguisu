@@ -17,5 +17,5 @@ x = 1;
 
 参照
 ```
-printNum(x);
+console.writeNum(x);
 ```

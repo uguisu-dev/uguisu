@@ -201,44 +201,79 @@ x.age = 20;
 
 # ビルトイン関数
 
-## printStr
+## number.parse
 ```
-fn printStr(value: string);
+fn number.parse(source: string): number;
 ```
-文字列を標準出力に出力します。
 
-## printNum
+## number.toString
 ```
-fn printNum(value: number);
+fn number.toString(source: number): string;
 ```
-数値を標準出力に出力します。
+数値を文字列に変換します。
 
-## assertEqNum
+## number.assertEq
 ```
-fn assertEqNum(actual: number, expected: number);
+fn number.assertEq(actual: number, expected: number);
 ```
 与えられた数値と期待する数値を比較して、値が異なる場合にランタイムエラーを発生させます。
 
-## assertEqStr
+## string.concat
 ```
-fn assertEqStr(actual: string, expected: string);
+fn string.concat(x: string, y: string): string;
+```
+2つの文字列を連結して新しい文字列を生成します。
+
+## string.assertEq
+```
+fn string.assertEq(actual: string, expected: string);
 ```
 与えられた文字列と期待する文字列を比較して、値が異なる場合にランタイムエラーを発生させます。
+
+## array.insert
+```
+fn array.insert(x: array, index: number, value: any);
+```
+配列に項目を挿入します。
+
+## array.add
+```
+fn array.add(x: array, value: any);
+```
+配列の末尾に項目を追加します。
+
+## array.removeAt
+```
+fn array.removeAt(x: array, index: number);
+```
+指定したインデックスの項目を配列から削除します。
+
+## array.count
+```
+fn array.count(x: array): number;
+```
+配列の項目数を取得します。
+
+## console.write
+```
+fn console.write(value: string);
+```
+文字列を標準出力に出力します。
+
+## console.writeNum
+```
+fn console.writeNum(value: number);
+```
+数値を標準出力に出力します。
+
+## console.read
+```
+fn console.read(): string;
+```
+標準入力から文字列を読み取り、その文字列を返します。
 
 ## getUnixtime
 ```
 fn getUnixtime(): number;
 ```
 現在の時刻をUnixtimeの形式で取得します(単位は秒)。
-
-## concatStr
-```
-fn concatStr(x: string, y: string): string;
-```
-2つの文字列を連結して新しい文字列を生成します。
-
-## toString
-```
-fn toString(source: number): string;
-```
-数値を文字列に変換します。

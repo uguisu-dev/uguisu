@@ -47,14 +47,14 @@ function runTest(sourceCode: string) {
 test('variable arith 1', () => runTest(`
 fn main() {
     var x = 1;
-    assertEqNum(x, 1);
+    number.assertEq(x, 1);
 }
 `));
 
 test('variable arith 2', () => runTest(`
 fn main() {
     var x = 1 + 2;
-    assertEqNum(x, 3);
+    number.assertEq(x, 3);
 }
 `));
 
@@ -70,7 +70,7 @@ fn add(x: number, y: number): number {
     return x + y;
 }
 fn main() {
-    assertEqNum(add(1, 2), 3);
+    number.assertEq(add(1, 2), 3);
 }
 `));
 
@@ -78,7 +78,7 @@ test('subrutine', () => runTest(`
 fn subrutine(x: number) {
     var y = x + x;
     var z = y + 1;
-    assertEqNum(z, 7);
+    number.assertEq(z, 7);
 }
 fn main() {
     var x = 1;
@@ -97,7 +97,7 @@ fn square(x: number): number {
     return x * x;
 }
 fn main() {
-    assertEqNum(add(square(2), 3), 7);
+    number.assertEq(add(square(2), 3), 7);
 }
 `));
 
@@ -109,7 +109,7 @@ fn calc(x: number, y: number): number {
     return square(x) + y;
 }
 fn main() {
-    assertEqNum(calc(2, 3), 7);
+    number.assertEq(calc(2, 3), 7);
 }
 `));
 
@@ -122,7 +122,7 @@ fn calc(x: number): number {
     }
 }
 fn main() {
-    assertEqNum(calc(8), 256);
+    number.assertEq(calc(8), 256);
 }
 `));
 
@@ -135,7 +135,7 @@ fn calc(x: number, y: number): number {
 }
 fn main() {
     var a = 2;
-    assertEqNum(calc(a, 3), 25);
+    number.assertEq(calc(a, 3), 25);
 }
 `));
 
@@ -149,10 +149,10 @@ fn gen_result(x: number): number {
     return 1;
 }
 fn main() {
-    assertEqNum(gen_result(1), 0);
-    assertEqNum(gen_result(2), 0);
-    assertEqNum(gen_result(3), 1);
-    assertEqNum(gen_result(4), 0);
+    number.assertEq(gen_result(1), 0);
+    number.assertEq(gen_result(2), 0);
+    number.assertEq(gen_result(3), 1);
+    number.assertEq(gen_result(4), 0);
 }
 `));
 
@@ -173,11 +173,11 @@ fn main() {
     if true {
         x = 1;
     }
-    assertEqNum(x, 1);
+    number.assertEq(x, 1);
     if false {
         x = 2;
     }
-    assertEqNum(x, 1);
+    number.assertEq(x, 1);
 }
 `));
 
@@ -189,13 +189,13 @@ fn main() {
     } else {
         x = 3;
     }
-    assertEqNum(x, 2);
+    number.assertEq(x, 2);
     if false {
         x = 4;
     } else {
         x = 5;
     }
-    assertEqNum(x, 5);
+    number.assertEq(x, 5);
 }
 `));
 
@@ -209,7 +209,7 @@ fn main() {
     } else {
         x = 4;
     }
-    assertEqNum(x, 2);
+    number.assertEq(x, 2);
     if false {
         x = 2;
     } else if true {
@@ -217,7 +217,7 @@ fn main() {
     } else {
         x = 4;
     }
-    assertEqNum(x, 3);
+    number.assertEq(x, 3);
     if false {
         x = 3;
     } else if false {
@@ -225,7 +225,7 @@ fn main() {
     } else {
         x = 5;
     }
-    assertEqNum(x, 5);
+    number.assertEq(x, 5);
 }
 `));
 
@@ -237,23 +237,23 @@ fn main() {
     if true && false {
         x = 2;
     }
-    assertEqNum(x, 1);
+    number.assertEq(x, 1);
     if true && true {
         x = 3;
     }
-    assertEqNum(x, 3);
+    number.assertEq(x, 3);
     if false || false {
         x = 4;
     }
-    assertEqNum(x, 3);
+    number.assertEq(x, 3);
     if false || true {
         x = 5;
     }
-    assertEqNum(x, 5);
+    number.assertEq(x, 5);
     if false && true || true && true {
         x = 6;
     }
-    assertEqNum(x, 6);
+    number.assertEq(x, 6);
 }
 `));
 
@@ -263,7 +263,7 @@ fn main() {
     if false && true || true && true {
         x = 2;
     }
-    assertEqNum(x, 2);
+    number.assertEq(x, 2);
 }
 `));
 
@@ -273,7 +273,7 @@ fn main() {
     if !false {
         x = 2;
     }
-    assertEqNum(x, 2);
+    number.assertEq(x, 2);
 }
 `));
 
@@ -285,11 +285,11 @@ fn main() {
     if x == 1 {
         x = 2;
     }
-    assertEqNum(x, 2);
+    number.assertEq(x, 2);
     if x == 1 {
         x = 3;
     }
-    assertEqNum(x, 2);
+    number.assertEq(x, 2);
 }
 `));
 
@@ -299,11 +299,11 @@ fn main() {
     if 1 + 2 == 3 {
         x = 2;
     }
-    assertEqNum(x, 2);
+    number.assertEq(x, 2);
     if 2 - 1 == 0 {
         x = 3;
     }
-    assertEqNum(x, 2);
+    number.assertEq(x, 2);
 }
 `));
 
@@ -318,7 +318,7 @@ fn main() {
         x = x * 2;
         i = i + 1;
     }
-    assertEqNum(x, 1024);
+    number.assertEq(x, 1024);
 }
 `));
 
@@ -360,26 +360,26 @@ test('break no target nested', () => {
 test('assignment', () => runTest(`
 fn main() {
     var x = 0;
-    assertEqNum(x, 0);
+    number.assertEq(x, 0);
     x = 1;
-    assertEqNum(x, 1);
+    number.assertEq(x, 1);
     x = 2;
-    assertEqNum(x, 2);
+    number.assertEq(x, 2);
 }
 `));
 
 test('assignment_modes', () => runTest(`
 fn main() {
     var x = 0;
-    assertEqNum(x, 0);
+    number.assertEq(x, 0);
     x += 10;
-    assertEqNum(x, 10);
+    number.assertEq(x, 10);
     x -= 2;
-    assertEqNum(x, 8);
+    number.assertEq(x, 8);
     x *= 2;
-    assertEqNum(x, 16);
+    number.assertEq(x, 16);
     x /= 4;
-    assertEqNum(x, 4);
+    number.assertEq(x, 4);
 }
 `));
 
@@ -393,9 +393,9 @@ fn main() {
     var x = new A {
         value: 1,
     };
-    assertEqNum(x.value, 1);
+    number.assertEq(x.value, 1);
     x.value = 2;
-    assertEqNum(x.value, 2);
+    number.assertEq(x.value, 2);
 }
 `));
 
@@ -404,19 +404,19 @@ fn main() {
 test('array', () => runTest(`
 fn main() {
     var x = [1, 2];
-    assertEqNum(x[0], 1);
-    assertEqNum(x[1], 2);
+    number.assertEq(x[0], 1);
+    number.assertEq(x[1], 2);
     x[0] = 3;
-    assertEqNum(x[0], 3);
+    number.assertEq(x[0], 3);
     x[1] = 4;
-    assertEqNum(x[1], 4);
+    number.assertEq(x[1], 4);
 
     // operations
-    insertItem(x, 2, 5);
-    assertEqNum(countItems(x), 3);
-    assertEqNum(x[2], 5);
-    removeItemAt(x, 2);
-    assertEqNum(countItems(x), 2);
+    array.insert(x, 2, 5);
+    number.assertEq(array.count(x), 3);
+    number.assertEq(x[2], 5);
+    array.removeAt(x, 2);
+    number.assertEq(array.count(x), 2);
 }
 `));
 
@@ -585,6 +585,6 @@ fn calc(x: number): number {
 }
 fn main() {
     var value = 10;
-    assertEqNum(calc(value), 1024);
+    number.assertEq(calc(value), 1024);
 }
 `));

@@ -7,64 +7,171 @@ import {
     NumberValue,
     RunningEnv,
     StringValue,
-    Symbol
+    StructValue,
+    Symbol,
+    Value
 } from './tools.js';
 
+function group(name: string, env: RunningEnv, handle: (setItem: (name: string, value: Value) => void) => void) {
+    const fields = new Map<string, Symbol>();
+    function setItem(name: string, value: Value) {
+        fields.set(name, new Symbol(value));
+    }
+    handle(setItem);
+    env.declare(name, new StructValue(fields));
+}
+
 export function setRuntime(env: RunningEnv, options: UguisuOptions) {
+    group('number', env, setItem => {
+        const parse = FunctionValue.createNative((args) => {
+            if (args.length != 1) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'StringValue');
+            const parsedValue = Number(args[0].getValue());
+            return new NumberValue(parsedValue);
+        });
+        setItem('parse', parse);
 
-    const printStr = FunctionValue.createNative((args) => {
-        if (args.length != 1) {
-            throw new UguisuError('invalid arguments count');
-        }
-        assertValue(args[0], 'StringValue');
-        if (options.stdout) {
-            options.stdout(args[0].getValue());
-        }
-        return new NoneValue();
-    });
-    env.declare('printStr', printStr);
+        const toString = FunctionValue.createNative((args) => {
+            if (args.length != 1) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'NumberValue');
+            return new StringValue(args[0].getValue().toString());
+        });
+        setItem('toString', toString);
 
-    const printNum = FunctionValue.createNative((args) => {
-        if (args.length != 1) {
-            throw new UguisuError('invalid arguments count');
-        }
-        assertValue(args[0], 'NumberValue');
-        if (options.stdout) {
-            options.stdout(args[0].getValue().toString());
-        }
-        return new NoneValue();
+        const assertEq = FunctionValue.createNative((args) => {
+            if (args.length != 2) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'NumberValue');
+            assertValue(args[1], 'NumberValue');
+            const actual = args[0].getValue();
+            const expected = args[1].getValue();
+            if (actual != expected) {
+                throw new UguisuError(`assertion error. expected \`${expected}\`, actual \`${actual}\`.`);
+            }
+            return new NoneValue();
+        });
+        setItem('assertEq', assertEq);
     });
-    env.declare('printNum', printNum);
 
-    const assertEqNum = FunctionValue.createNative((args) => {
-        if (args.length != 2) {
-            throw new UguisuError('invalid arguments count');
-        }
-        assertValue(args[0], 'NumberValue');
-        assertValue(args[1], 'NumberValue');
-        const actual = args[0].getValue();
-        const expected = args[1].getValue();
-        if (actual != expected) {
-            throw new UguisuError(`assertion error. expected \`${expected}\`, actual \`${actual}\`.`);
-        }
-        return new NoneValue();
-    });
-    env.declare('assertEqNum', assertEqNum);
+    group('string', env, setItem => {
+        const concat = FunctionValue.createNative((args) => {
+            if (args.length != 2) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'StringValue');
+            assertValue(args[1], 'StringValue');
+            return new StringValue(args[0].getValue() + args[1].getValue());
+        });
+        setItem('concat', concat);
 
-    const assertEqStr = FunctionValue.createNative((args) => {
-        if (args.length != 2) {
-            throw new UguisuError('invalid arguments count');
-        }
-        assertValue(args[0], 'StringValue');
-        assertValue(args[1], 'StringValue');
-        const actual = args[0].getValue();
-        const expected = args[1].getValue();
-        if (actual != expected) {
-            throw new UguisuError(`assertion error. expected \`${expected}\`, actual \`${actual}\`.`);
-        }
-        return new NoneValue();
+        const assertEq = FunctionValue.createNative((args) => {
+            if (args.length != 2) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'StringValue');
+            assertValue(args[1], 'StringValue');
+            const actual = args[0].getValue();
+            const expected = args[1].getValue();
+            if (actual != expected) {
+                throw new UguisuError(`assertion error. expected \`${expected}\`, actual \`${actual}\`.`);
+            }
+            return new NoneValue();
+        });
+        setItem('assertEq', assertEq);
     });
-    env.declare('assertEqStr', assertEqStr);
+
+    group('array', env, setItem => {
+        const insert = FunctionValue.createNative((args) => {
+            if (args.length != 3) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'ArrayValue');
+            assertValue(args[1], 'NumberValue');
+            const target = args[0];
+            const index = args[1].getValue();
+            const symbol = new Symbol(args[2]);
+            target.insert(index, symbol);
+            return new NoneValue();
+        });
+        setItem('insert', insert);
+
+        const add = FunctionValue.createNative((args) => {
+            if (args.length != 2) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'ArrayValue');
+            const target = args[0];
+            const symbol = new Symbol(args[1]);
+            target.insert(target.count(), symbol);
+            return new NoneValue();
+        });
+        setItem('add', add);
+
+        const removeAt = FunctionValue.createNative((args) => {
+            if (args.length != 2) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'ArrayValue');
+            assertValue(args[1], 'NumberValue');
+            const target = args[0];
+            const index = args[1].getValue();
+            target.removeAt(index);
+            return new NoneValue();
+        });
+        setItem('removeAt', removeAt);
+
+        const count = FunctionValue.createNative((args) => {
+            if (args.length != 1) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'ArrayValue');
+            const target = args[0];
+            return new NumberValue(target.count());
+        });
+        setItem('count', count);
+    });
+
+    group('console', env, setItem => {
+        const write = FunctionValue.createNative((args) => {
+            if (args.length != 1) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'StringValue');
+            if (options.stdout) {
+                options.stdout(args[0].getValue());
+            }
+            return new NoneValue();
+        });
+        setItem('write', write);
+
+        const writeNum = FunctionValue.createNative((args) => {
+            if (args.length != 1) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'NumberValue');
+            if (options.stdout) {
+                options.stdout(args[0].getValue().toString());
+            }
+            return new NoneValue();
+        });
+        setItem('writeNum', writeNum);
+
+        const read = FunctionValue.createNative((args) => {
+            if (args.length != 0) {
+                throw new UguisuError('invalid arguments count');
+            }
+            if (!options.stdin) {
+                throw new UguisuError('stdin not found');
+            }
+            return new StringValue(options.stdin());
+        });
+        setItem('read', read);
+    });
 
     const getUnixtime = FunctionValue.createNative((args) => {
         if (args.length != 0) {
@@ -74,73 +181,4 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         return new NumberValue(unixTime);
     });
     env.declare('getUnixtime', getUnixtime);
-
-    const concatStr = FunctionValue.createNative((args) => {
-        if (args.length != 2) {
-            throw new UguisuError('invalid arguments count');
-        }
-        assertValue(args[0], 'StringValue');
-        assertValue(args[1], 'StringValue');
-        return new StringValue(args[0].getValue() + args[1].getValue());
-    });
-    env.declare('concatStr', concatStr);
-
-    const toString = FunctionValue.createNative((args) => {
-        if (args.length != 1) {
-            throw new UguisuError('invalid arguments count');
-        }
-        assertValue(args[0], 'NumberValue');
-        return new StringValue(args[0].getValue().toString());
-    });
-    env.declare('toString', toString);
-
-    const insertItem = FunctionValue.createNative((args) => {
-        if (args.length != 3) {
-            throw new UguisuError('invalid arguments count');
-        }
-        assertValue(args[0], 'ArrayValue');
-        assertValue(args[1], 'NumberValue');
-        const target = args[0];
-        const index = args[1].getValue();
-        const symbol = new Symbol(args[2]);
-        target.insert(index, symbol);
-        return new NoneValue();
-    });
-    env.declare('insertItem', insertItem);
-
-    const addItem = FunctionValue.createNative((args) => {
-        if (args.length != 2) {
-            throw new UguisuError('invalid arguments count');
-        }
-        assertValue(args[0], 'ArrayValue');
-        const target = args[0];
-        const symbol = new Symbol(args[1]);
-        target.insert(target.count(), symbol);
-        return new NoneValue();
-    });
-    env.declare('addItem', addItem);
-
-    const removeItemAt = FunctionValue.createNative((args) => {
-        if (args.length != 2) {
-            throw new UguisuError('invalid arguments count');
-        }
-        assertValue(args[0], 'ArrayValue');
-        assertValue(args[1], 'NumberValue');
-        const target = args[0];
-        const index = args[1].getValue();
-        target.removeAt(index);
-        return new NoneValue();
-    });
-    env.declare('removeItemAt', removeItemAt);
-
-    const countItems = FunctionValue.createNative((args) => {
-        if (args.length != 1) {
-            throw new UguisuError('invalid arguments count');
-        }
-        assertValue(args[0], 'ArrayValue');
-        const target = args[0];
-        return new NumberValue(target.count());
-    });
-    env.declare('countItems', countItems);
-
 }

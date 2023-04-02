@@ -601,9 +601,11 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
             a.symbolTable.set(node.callee, calleeSymbol);
 
             // check callable
+            let calleeTy;
             switch (calleeSymbol.kind) {
                 case 'FnSymbol':
                 case 'NativeFnSymbol': {
+                    calleeTy = calleeSymbol.ty;
                     break;
                 }
                 case 'StructSymbol': {
@@ -620,25 +622,29 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
                     // expect function
                     if (calleeSymbol.ty.kind != 'FunctionType') {
                         a.dispatchError(`type mismatched. expected function, found \`${getTypeString(calleeSymbol.ty)}\``, node.callee);
+                        return badType;
                     }
 
-                    // TODO
-                    a.dispatchError('type check for a function variable is not supported.', node.callee);
-                    return badType;
+                    calleeTy = calleeSymbol.ty;
+                    break;
                 }
                 case 'ExprSymbol': {
                     throw new UguisuError('unexpected symbol');
                 }
             }
 
+            if (!isValidType(calleeTy)) {
+                return badType;
+            }
+
             let isCorrectArgCount = true;
-            if (node.args.length != calleeSymbol.params.length) {
+            if (node.args.length != calleeTy.paramTypes.length) {
                 a.dispatchError('argument count incorrect.', node);
                 isCorrectArgCount = false;
             }
 
             if (isCorrectArgCount) {
-                for (let i = 0; i < calleeSymbol.params.length; i++) {
+                for (let i = 0; i < calleeTy.paramTypes.length; i++) {
                     let argTy = analyzeExpr(node.args[i], funcSymbol, a);
 
                     // if the argument returns nothing
@@ -647,8 +653,8 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
                         argTy = badType;
                     }
 
-                    if (isValidType(calleeSymbol.ty)) {
-                        const paramTy = calleeSymbol.ty.paramTypes[i];
+                    if (isValidType(calleeTy)) {
+                        const paramTy = calleeTy.paramTypes[i];
                         if (isValidType(argTy) && isValidType(paramTy)) {
                             if (compareType(argTy, paramTy) == 'incompatible') {
                                 dispatchTypeError(argTy, paramTy, node.args[i], a);
@@ -658,12 +664,8 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
                 }
             }
 
-            if (!isValidType(calleeSymbol.ty)) {
-                return badType;
-            }
-
-            a.symbolTable.set(node, { kind: 'ExprSymbol', ty: calleeSymbol.ty.returnType });
-            return calleeSymbol.ty.returnType;
+            a.symbolTable.set(node, { kind: 'ExprSymbol', ty: calleeTy.returnType });
+            return calleeTy.returnType;
         }
         case 'BinaryOp': {
             let leftTy = analyzeExpr(node.left, funcSymbol, a);

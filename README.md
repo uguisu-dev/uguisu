@@ -16,7 +16,7 @@ fn calc(x: number): number {
 
 fn main() {
     var value = 10;
-    printNum(calc(value));
+    console.writeNum(calc(value));
 }
 ```
 
