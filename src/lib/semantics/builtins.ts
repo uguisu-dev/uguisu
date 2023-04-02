@@ -95,6 +95,11 @@ export function setDeclarations(a: AnalyzeContext) {
             voidType
         );
         setItem(
+            'writeNum',
+            [numberType],
+            voidType
+        );
+        setItem(
             'read',
             [],
             stringType

@@ -1,13 +1,13 @@
 fn main() {
     var x = [1, 2];
 
-    console.write(number.toString(x[0]));
-    console.write(number.toString(x[1]));
+    console.writeNum(x[0]);
+    console.writeNum(x[1]);
 
     x[1] = 10;
     array.add(x, 100);
 
-    console.write(number.toString(x[0]));
-    console.write(number.toString(x[1]));
-    console.write(number.toString(x[2]));
+    console.writeNum(x[0]);
+    console.writeNum(x[1]);
+    console.writeNum(x[2]);
 }

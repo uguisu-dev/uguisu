@@ -149,6 +149,18 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         });
         setItem('write', write);
 
+        const writeNum = FunctionValue.createNative((args) => {
+            if (args.length != 1) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'NumberValue');
+            if (options.stdout) {
+                options.stdout(args[0].getValue().toString());
+            }
+            return new NoneValue();
+        });
+        setItem('writeNum', writeNum);
+
         const read = FunctionValue.createNative((args) => {
             if (args.length != 0) {
                 throw new UguisuError('invalid arguments count');

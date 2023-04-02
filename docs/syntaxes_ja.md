@@ -236,6 +236,12 @@ fn console.write(value: string);
 ```
 文字列を標準出力に出力します。
 
+## console.writeNum
+```
+fn console.writeNum(value: number);
+```
+数値を標準出力に出力します。
+
 ## console.read
 ```
 fn console.read(): string;
