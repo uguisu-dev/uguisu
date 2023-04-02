@@ -36,29 +36,17 @@ function group(name: string, a: AnalyzeContext, handler: (setItem: (name: string
 export function setDeclarations(a: AnalyzeContext) {
     group('console', a, setItem => {
         setItem(
-            'writeLine',
+            'write',
             [stringType],
             voidType
         );
         setItem(
-            'readLine',
+            'read',
             [],
             stringType
         );
     });
 
-    setDecl(
-        'writeLine',
-        [stringType],
-        voidType,
-        a
-    );
-    setDecl(
-        'readLine',
-        [],
-        stringType,
-        a
-    );
     setDecl(
         'assertEqNum',
         [numberType, numberType],
