@@ -7,7 +7,6 @@ fn calc(x: number): number {
 }
 
 fn main() {
-    var x = 10;
-    var y = calc(x);
-    console.writeNum(y);
+    var value = 10;
+    console.writeNum(calc(value));
 }
