@@ -587,9 +587,83 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
             return stringType;
         }
         case 'Call': {
-            // TODO
-            throw new UguisuError('not implemented yet');
-            break;
+            let calleeSymbol;
+            if (node.callee.kind == 'Identifier' || node.callee.kind == 'FieldAccess' || node.callee.kind == 'IndexAccess') {
+                calleeSymbol = analyzeReferenceExpr(node.callee, funcSymbol, a);
+            } else {
+                a.dispatchError('invalid callee.');
+            }
+
+            if (calleeSymbol == null) {
+                return badType;
+            }
+
+            a.symbolTable.set(node.callee, calleeSymbol);
+
+            // check callable
+            switch (calleeSymbol.kind) {
+                case 'FnSymbol':
+                case 'NativeFnSymbol': {
+                    break;
+                }
+                case 'StructSymbol': {
+                    a.dispatchError('struct is not callable.', node.callee);
+                    return badType;
+                }
+                case 'VariableSymbol': {
+                    // if the variable is not assigned
+                    if (calleeSymbol.ty.kind == 'PendingType') {
+                        a.dispatchError('variable is not assigned yet.', node.callee);
+                        return badType;
+                    }
+
+                    // expect function
+                    if (calleeSymbol.ty.kind != 'FunctionType') {
+                        a.dispatchError(`type mismatched. expected function, found \`${getTypeString(calleeSymbol.ty)}\``, node.callee);
+                    }
+
+                    // TODO
+                    a.dispatchError('type check for a function variable is not supported.', node.callee);
+                    return badType;
+                }
+                case 'ExprSymbol': {
+                    throw new UguisuError('unexpected symbol');
+                }
+            }
+
+            let isCorrectArgCount = true;
+            if (node.args.length != calleeSymbol.params.length) {
+                a.dispatchError('argument count incorrect.', node);
+                isCorrectArgCount = false;
+            }
+
+            if (isCorrectArgCount) {
+                for (let i = 0; i < calleeSymbol.params.length; i++) {
+                    let argTy = analyzeExpr(node.args[i], funcSymbol, a);
+
+                    // if the argument returns nothing
+                    if (compareType(argTy, voidType) == 'compatible') {
+                        a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.args[i]);
+                        argTy = badType;
+                    }
+
+                    if (isValidType(calleeSymbol.ty)) {
+                        const paramTy = calleeSymbol.ty.paramTypes[i];
+                        if (isValidType(argTy) && isValidType(paramTy)) {
+                            if (compareType(argTy, paramTy) == 'incompatible') {
+                                dispatchTypeError(argTy, paramTy, node.args[i], a);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!isValidType(calleeSymbol.ty)) {
+                return badType;
+            }
+
+            a.symbolTable.set(node, { kind: 'ExprSymbol', ty: calleeSymbol.ty.returnType });
+            return calleeSymbol.ty.returnType;
         }
         case 'BinaryOp': {
             // TODO
