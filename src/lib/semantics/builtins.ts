@@ -34,6 +34,60 @@ function group(name: string, a: AnalyzeContext, handler: (setItem: (name: string
 }
 
 export function setDeclarations(a: AnalyzeContext) {
+    group('number', a, setItem => {
+        setItem(
+            'parse',
+            [stringType],
+            numberType
+        );
+        setItem(
+            'toString',
+            [numberType],
+            stringType
+        );
+        setItem(
+            'assertEq',
+            [numberType, numberType],
+            voidType
+        );
+    });
+
+    group('string', a, setItem => {
+        setItem(
+            'concat',
+            [stringType, stringType],
+            stringType
+        );
+        setItem(
+            'assertEq',
+            [stringType, stringType],
+            voidType
+        );
+    });
+
+    group('array', a, setItem => {
+        setItem(
+            'insert',
+            [arrayType, numberType, anyType],
+            voidType
+        );
+        setItem(
+            'add',
+            [arrayType, anyType],
+            voidType
+        );
+        setItem(
+            'removeAt',
+            [arrayType, numberType],
+            voidType
+        );
+        setItem(
+            'count',
+            [arrayType],
+            numberType
+        );
+    });
+
     group('console', a, setItem => {
         setItem(
             'write',
@@ -48,62 +102,8 @@ export function setDeclarations(a: AnalyzeContext) {
     });
 
     setDecl(
-        'assertEqNum',
-        [numberType, numberType],
-        voidType,
-        a
-    );
-    setDecl(
-        'assertEqStr',
-        [stringType, stringType],
-        voidType,
-        a
-    );
-    setDecl(
         'getUnixtime',
         [],
-        numberType,
-        a
-    );
-    setDecl(
-        'concatStr',
-        [stringType, stringType],
-        stringType,
-        a
-    );
-    setDecl(
-        'parseNum',
-        [stringType],
-        numberType,
-        a
-    );
-    setDecl(
-        'numToStr',
-        [numberType],
-        stringType,
-        a
-    );
-    setDecl(
-        'insertItem',
-        [arrayType, numberType, anyType],
-        voidType,
-        a
-    );
-    setDecl(
-        'addItem',
-        [arrayType, anyType],
-        voidType,
-        a
-    );
-    setDecl(
-        'removeItemAt',
-        [arrayType, numberType],
-        voidType,
-        a
-    );
-    setDecl(
-        'countItems',
-        [arrayType],
         numberType,
         a
     );
