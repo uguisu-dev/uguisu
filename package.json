@@ -31,7 +31,7 @@
   "license": "MIT",
   "scripts": {
     "build": "tsc",
-    "test": "jest --verbose",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --verbose",
     "cli": "node bin/uguisu.js",
     "nightly": "node scripts/nightly.js"
   },
