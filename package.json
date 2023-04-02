@@ -2,6 +2,8 @@
   "name": "uguisu-js",
   "version": "0.8.0",
   "description": "The Uguisu is a statically typed scripting language.",
+  "license": "MIT",
+  "author": "marihachi",
   "keywords": [
     "language",
     "programmimg-language",
@@ -27,8 +29,6 @@
   "bugs": {
     "url": "https://github.com/uguisu-dev/uguisu/issues"
   },
-  "author": "marihachi",
-  "license": "MIT",
   "scripts": {
     "build": "tsc",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --verbose",
@@ -36,21 +36,20 @@
     "nightly": "node scripts/nightly.js"
   },
   "devDependencies": {
-    "@types/jest": "^29.4.0",
-    "@types/node": "^18.14.0",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^18.15.0",
     "binaryen": "^112.0.0",
     "fs-extra": "^11.1.0",
     "jest": "^29.5.0",
-    "ts-jest": "^29.0.0",
+    "ts-jest": "^29.1.0",
     "typescript": "^4.9.0"
+  },
+  "dependencies": {
+    "char-regex": "^2.0.0"
   },
   "files": [
     "bin/**/*",
     "lib/**/*",
-    "CHANGELOG.md",
-    "docs/syntaxes_ja.md"
-  ],
-  "dependencies": {
-    "char-regex": "^2.0.1"
-  }
+    "CHANGELOG.md"
+  ]
 }
