@@ -23,12 +23,14 @@ import {
     badType,
     boolType,
     compareType,
+    createExprSymbol,
     createFunctionSymbol,
     createFunctionType,
     createNamedType,
     createStructSymbol,
+    createVariableSymbol,
     dispatchTypeError,
-    FunctionSymbol,
+    FnSymbol,
     getTypeString,
     isValidType,
     numberType,
@@ -36,7 +38,6 @@ import {
     stringType,
     Symbol,
     Type,
-    VariableSymbol,
     voidType
 } from './tools.js';
 
@@ -79,7 +80,7 @@ export function analyze(
     };
 }
 
-function analyzeReferenceExpr(node: ReferenceExpr, funcSymbol: FunctionSymbol, a: AnalyzeContext): Symbol | undefined {
+function analyzeReferenceExpr(node: ReferenceExpr, funcSymbol: FnSymbol, a: AnalyzeContext): Symbol | undefined {
     switch (node.kind) {
         case 'Identifier': {
             // get symbol
@@ -152,10 +153,7 @@ function analyzeReferenceExpr(node: ReferenceExpr, funcSymbol: FunctionSymbol, a
             }
 
             // create index symbol
-            const symbol: VariableSymbol = {
-                kind: 'VariableSymbol',
-                ty: anyType,
-            };
+            const symbol = createVariableSymbol(anyType);
             return symbol;
         }
     }
@@ -255,10 +253,7 @@ function declareTopLevel(node: FileNode, a: AnalyzeContext) {
             // make fields
             const fields = new Map<string, Symbol>();
             for (const field of node.fields) {
-                const fieldSymbol: VariableSymbol = {
-                    kind: 'VariableSymbol',
-                    ty: pendingType,
-                };
+                const fieldSymbol = createVariableSymbol(pendingType);
                 fields.set(field.name, fieldSymbol);
             }
 
@@ -372,10 +367,7 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
 
             // set function params to the env
             for (let i = 0; i < node.params.length; i++) {
-                const paramSymbol: VariableSymbol = {
-                    kind: 'VariableSymbol',
-                    ty: symbol.ty.paramTypes[i],
-                };
+                const paramSymbol = createVariableSymbol(symbol.ty.paramTypes[i]);
                 a.symbolTable.set(node.params[i], paramSymbol);
                 a.env.set(node.params[i].name, paramSymbol);
             }
@@ -395,7 +387,7 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
     }
 }
 
-function analyzeBlock(nodes: StatementNode[], allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
+function analyzeBlock(nodes: StatementNode[], allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext) {
     a.env.enter();
     // analyze inner
     for (const node of nodes) {
@@ -404,7 +396,7 @@ function analyzeBlock(nodes: StatementNode[], allowJump: boolean, funcSymbol: Fu
     a.env.leave();
 }
 
-function analyzeNode(node: StatementNode, allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
+function analyzeNode(node: StatementNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext) {
     if (isExprNode(node)) {
         analyzeExpr(node, funcSymbol, a);
     } else {
@@ -412,7 +404,7 @@ function analyzeNode(node: StatementNode, allowJump: boolean, funcSymbol: Functi
     }
 }
 
-function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbol: FunctionSymbol, a: AnalyzeContext) {
+function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext) {
     switch (node.kind) {
         case 'ReturnStatement': {
             // if there is a return value
@@ -494,10 +486,7 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             }
 
             // set symbol
-            const symbol: VariableSymbol = {
-                kind: 'VariableSymbol',
-                ty,
-            };
+            const symbol = createVariableSymbol(ty);
             a.symbolTable.set(node, symbol);
             a.env.set(node.name, symbol);
 
@@ -560,7 +549,7 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
     throw new UguisuError('unexpected node');
 }
 
-function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeContext): Type {
+function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): Type {
     // validate expression
     switch (node.kind) {
         case 'Identifier':
@@ -664,7 +653,7 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
                 }
             }
 
-            a.symbolTable.set(node, { kind: 'ExprSymbol', ty: calleeTy.returnType });
+            a.symbolTable.set(node, createExprSymbol(calleeTy.returnType));
             return calleeTy.returnType;
         }
         case 'BinaryOp': {
@@ -699,7 +688,7 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
                     return badType;
                 }
 
-                a.symbolTable.set(node, { kind: 'ExprSymbol', ty: boolType });
+                a.symbolTable.set(node, createExprSymbol(boolType));
                 return boolType;
             } else if (isEquivalentOperator(node.operator)) {
                 // Equivalent Operation
@@ -712,7 +701,7 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
                     return badType;
                 }
 
-                a.symbolTable.set(node, { kind: 'ExprSymbol', ty: boolType });
+                a.symbolTable.set(node, createExprSymbol(boolType));
                 return boolType;
             } else if (isOrderingOperator(node.operator)) {
                 // Ordering Operation
@@ -728,7 +717,7 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
                     return badType;
                 }
 
-                a.symbolTable.set(node, { kind: 'ExprSymbol', ty: boolType });
+                a.symbolTable.set(node, createExprSymbol(boolType));
                 return boolType;
             } else {
                 // Arithmetic Operation
@@ -744,7 +733,7 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
                     return badType;
                 }
 
-                a.symbolTable.set(node, { kind: 'ExprSymbol', ty: numberType });
+                a.symbolTable.set(node, createExprSymbol(numberType));
                 return numberType;
             }
             break;
@@ -767,7 +756,7 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
                 dispatchTypeError(ty, boolType, node, a);
                 return badType;
             }
-            a.symbolTable.set(node, { kind: 'ExprSymbol', ty: boolType });
+            a.symbolTable.set(node, createExprSymbol(boolType));
             return boolType;
         }
         case 'StructExpr': {

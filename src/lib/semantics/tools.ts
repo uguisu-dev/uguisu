@@ -74,9 +74,9 @@ export class AnalysisEnv {
     }
 }
 
-export type Symbol = FunctionSymbol | NativeFnSymbol | StructSymbol | VariableSymbol | ExprSymbol;
+export type Symbol = FnSymbol | NativeFnSymbol | StructSymbol | VariableSymbol | ExprSymbol;
 
-export type FunctionSymbol = {
+export type FnSymbol = {
     kind: 'FnSymbol',
     params: { name: string }[],
     ty: FunctionType | InvalidType,
@@ -84,7 +84,7 @@ export type FunctionSymbol = {
     vars: FnVar[],
 };
 
-export function createFunctionSymbol(params: { name: string }[], ty: FunctionType | InvalidType, vars: FnVar[]): FunctionSymbol {
+export function createFunctionSymbol(params: { name: string }[], ty: FunctionType | InvalidType, vars: FnVar[]): FnSymbol {
     return { kind: 'FnSymbol', params, ty, vars };
 }
 
@@ -115,10 +115,18 @@ export type VariableSymbol = {
     ty: Type,
 };
 
+export function createVariableSymbol(ty: Type): VariableSymbol {
+    return { kind: 'VariableSymbol', ty };
+}
+
 export type ExprSymbol = {
     kind: 'ExprSymbol',
     ty: Type,
 };
+
+export function createExprSymbol(ty: Type): ExprSymbol {
+    return { kind: 'ExprSymbol', ty };
+}
 
 // types
 

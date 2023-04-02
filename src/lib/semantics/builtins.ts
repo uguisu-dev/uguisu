@@ -5,11 +5,11 @@ import {
     createFunctionType,
     createNativeFnSymbol,
     createStructSymbol,
+    createVariableSymbol,
     numberType,
     stringType,
     Symbol,
     ValidType,
-    VariableSymbol,
     voidType
 } from './tools.js';
 
@@ -23,10 +23,7 @@ function group(name: string, a: AnalyzeContext, handler: (setItem: (name: string
     const fields: Map<string, Symbol> = new Map();
     function setItem(name: string, paramsTy: ValidType[], returnTy: ValidType) {
         const ty = createFunctionType(paramsTy, returnTy);
-        const symbol = {
-            kind: 'VariableSymbol',
-            ty,
-        } as VariableSymbol;
+        const symbol = createVariableSymbol(ty);
         fields.set(name, symbol);
     }
     handler(setItem);
