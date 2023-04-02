@@ -201,6 +201,35 @@ x.age = 20;
 
 # ビルトイン関数
 
+## number.parse
+```
+fn number.parse(source: string): number;
+```
+
+## number.toString
+```
+fn number.toString(source: number): string;
+```
+数値を文字列に変換します。
+
+## number.assertEq
+```
+fn number.assertEq(actual: number, expected: number);
+```
+与えられた数値と期待する数値を比較して、値が異なる場合にランタイムエラーを発生させます。
+
+## string.concat
+```
+fn string.concat(x: string, y: string): string;
+```
+2つの文字列を連結して新しい文字列を生成します。
+
+## string.assertEq
+```
+fn string.assertEq(actual: string, expected: string);
+```
+与えられた文字列と期待する文字列を比較して、値が異なる場合にランタイムエラーを発生させます。
+
 ## console.write
 ```
 fn console.write(value: string);
@@ -213,37 +242,8 @@ fn console.read(): string;
 ```
 標準入力から文字列を読み取り、その文字列を返します。
 
-## assertEqNum
-```
-fn assertEqNum(actual: number, expected: number);
-```
-与えられた数値と期待する数値を比較して、値が異なる場合にランタイムエラーを発生させます。
-
-## assertEqStr
-```
-fn assertEqStr(actual: string, expected: string);
-```
-与えられた文字列と期待する文字列を比較して、値が異なる場合にランタイムエラーを発生させます。
-
 ## getUnixtime
 ```
 fn getUnixtime(): number;
 ```
 現在の時刻をUnixtimeの形式で取得します(単位は秒)。
-
-## concatStr
-```
-fn concatStr(x: string, y: string): string;
-```
-2つの文字列を連結して新しい文字列を生成します。
-
-## parseNum
-```
-fn parseNum(source: string): number;
-```
-
-## numToStr
-```
-fn numToStr(source: number): string;
-```
-数値を文字列に変換します。
