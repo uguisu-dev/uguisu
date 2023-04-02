@@ -49,5 +49,8 @@
     "lib/**/*",
     "CHANGELOG.md",
     "docs/syntaxes_ja.md"
-  ]
+  ],
+  "dependencies": {
+    "char-regex": "^2.0.1"
+  }
 }

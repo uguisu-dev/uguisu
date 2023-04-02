@@ -56,6 +56,16 @@ export function setDeclarations(a: AnalyzeContext) {
             stringType
         );
         setItem(
+            'fromArray',
+            [arrayType],
+            stringType
+        );
+        setItem(
+            'toArray',
+            [stringType],
+            arrayType
+        );
+        setItem(
             'assertEq',
             [stringType, stringType],
             voidType

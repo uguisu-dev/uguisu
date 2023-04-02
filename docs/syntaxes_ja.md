@@ -224,6 +224,18 @@ fn string.concat(x: string, y: string): string;
 ```
 2つの文字列を連結して新しい文字列を生成します。
 
+## string.fromArray
+```
+fn string.fromArray(x: array): string;
+```
+Unicode形式の文字配列を文字列に変換します。
+
+## string.toArray
+```
+fn string.toArray(x: string): array;
+```
+文字列をUnicode形式の文字配列に変換します。
+
 ## string.assertEq
 ```
 fn string.assertEq(actual: string, expected: string);

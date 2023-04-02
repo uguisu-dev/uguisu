@@ -1,6 +1,8 @@
+import charRegex from 'char-regex';
 import { UguisuError } from '../misc/errors.js';
 import { UguisuOptions } from '../misc/options.js';
 import {
+    ArrayValue,
     assertValue,
     FunctionValue,
     NoneValue,
@@ -68,6 +70,38 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
             return new StringValue(args[0].getValue() + args[1].getValue());
         });
         setItem('concat', concat);
+
+        const fromArray = FunctionValue.createNative((args) => {
+            if (args.length != 2) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'ArrayValue');
+            const arr: string[] = [];
+            for (let i = 0 ; i < args[0].count(); i++) {
+                const s: Symbol = args[0].at(i)!;
+                if (s.value == null) {
+                    throw new UguisuError('variable is not defined');
+                }
+                assertValue(s.value, 'StringValue');
+                arr.push(s.value.getValue());
+            }
+            return new StringValue(arr.join(''));
+        });
+        setItem('fromArray', fromArray);
+
+        const toArray = FunctionValue.createNative((args) => {
+            if (args.length != 1) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'StringValue');
+            const src = args[0].getValue();
+            const arr = src.match(charRegex());
+            if (arr == null) {
+                return new ArrayValue([]);
+            }
+            return new ArrayValue(arr.map(x => new Symbol(new StringValue(x))));
+        });
+        setItem('toArray', toArray);
 
         const assertEq = FunctionValue.createNative((args) => {
             if (args.length != 2) {
