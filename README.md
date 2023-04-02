@@ -17,7 +17,7 @@ fn calc(x: number): number {
 fn main() {
     var x = 10;
     var y = calc(x);
-    writeLine(numToStr(y));
+    console.write(numToStr(y));
 }
 ```
 

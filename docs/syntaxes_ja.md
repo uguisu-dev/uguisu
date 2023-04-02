@@ -201,15 +201,15 @@ x.age = 20;
 
 # ビルトイン関数
 
-## writeLine
+## console.write
 ```
-fn writeLine(value: string);
+fn console.write(value: string);
 ```
 文字列を標準出力に出力します。
 
-## readLine
+## console.read
 ```
-fn readLine(): string;
+fn console.read(): string;
 ```
 標準入力から文字列を読み取り、その文字列を返します。
 

@@ -11,5 +11,5 @@ fn main() {
         createdAt: 12345,
     };
 
-    writeLine(x.name);
+    console.write(x.name);
 }
