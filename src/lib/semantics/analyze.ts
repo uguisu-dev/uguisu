@@ -666,8 +666,85 @@ function analyzeExpr(node: ExprNode, funcSymbol: FunctionSymbol, a: AnalyzeConte
             return calleeSymbol.ty.returnType;
         }
         case 'BinaryOp': {
-            // TODO
-            throw new UguisuError('not implemented yet');
+            let leftTy = analyzeExpr(node.left, funcSymbol, a);
+            let rightTy = analyzeExpr(node.right, funcSymbol, a);
+
+            // if the left expr returns nothing
+            if (compareType(leftTy, voidType) == 'compatible') {
+                a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.left);
+                leftTy = badType;
+            }
+
+            // if the right expr returns nothing
+            if (compareType(rightTy, voidType) == 'compatible') {
+                a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.right);
+                rightTy = badType;
+            }
+
+            if (isLogicalBinaryOperator(node.operator)) {
+                // Logical Operation
+                if (compareType(leftTy, boolType) == 'incompatible') {
+                    dispatchTypeError(leftTy, boolType, node.left, a);
+                    return badType;
+                }
+
+                if (compareType(rightTy, boolType) == 'incompatible') {
+                    dispatchTypeError(rightTy, boolType, node.right, a);
+                    return badType;
+                }
+
+                if (!isValidType(leftTy) || !isValidType(rightTy)) {
+                    return badType;
+                }
+
+                a.symbolTable.set(node, { kind: 'ExprSymbol', ty: boolType });
+                return boolType;
+            } else if (isEquivalentOperator(node.operator)) {
+                // Equivalent Operation
+                if (compareType(rightTy, leftTy) == 'incompatible') {
+                    dispatchTypeError(rightTy, leftTy, node.right, a);
+                    return badType;
+                }
+
+                if (!isValidType(leftTy) || !isValidType(rightTy)) {
+                    return badType;
+                }
+
+                a.symbolTable.set(node, { kind: 'ExprSymbol', ty: boolType });
+                return boolType;
+            } else if (isOrderingOperator(node.operator)) {
+                // Ordering Operation
+                if (compareType(leftTy, numberType) == 'incompatible') {
+                    dispatchTypeError(leftTy, numberType, node.left, a);
+                }
+
+                if (compareType(rightTy, numberType) == 'incompatible') {
+                    dispatchTypeError(rightTy, numberType, node.right, a);
+                }
+
+                if (!isValidType(leftTy) || !isValidType(rightTy)) {
+                    return badType;
+                }
+
+                a.symbolTable.set(node, { kind: 'ExprSymbol', ty: boolType });
+                return boolType;
+            } else {
+                // Arithmetic Operation
+                if (compareType(leftTy, numberType) == 'incompatible') {
+                    dispatchTypeError(leftTy, numberType, node.left, a);
+                }
+
+                if (compareType(rightTy, numberType) == 'incompatible') {
+                    dispatchTypeError(rightTy, numberType, node.right, a);
+                }
+
+                if (!isValidType(leftTy) || !isValidType(rightTy)) {
+                    return badType;
+                }
+
+                a.symbolTable.set(node, { kind: 'ExprSymbol', ty: numberType });
+                return numberType;
+            }
             break;
         }
         case 'UnaryOp': {
