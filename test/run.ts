@@ -553,6 +553,18 @@ fn main() {
 }
 `));
 
+// char
+
+test('char literal', () => runTest(`
+fn makeChar(): char {
+    var lit: char = 'あ';
+    return lit;
+}
+fn main() {
+    var x: char = makeChar();
+}
+`));
+
 // string
 
 test('string literal', () => runTest(`
