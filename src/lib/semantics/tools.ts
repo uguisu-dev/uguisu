@@ -79,12 +79,12 @@ export type Symbol = FnSymbol | NativeFnSymbol | StructSymbol | VariableSymbol |
 export type FnSymbol = {
     kind: 'FnSymbol',
     params: { name: string }[],
-    ty: FunctionType | InvalidType,
+    ty: FunctionType | PendingType | BadType,
     /** for wasm */
     vars: FnVar[],
 };
 
-export function createFunctionSymbol(params: { name: string }[], ty: FunctionType | InvalidType, vars: FnVar[]): FnSymbol {
+export function createFunctionSymbol(params: { name: string }[], ty: FunctionType | PendingType | BadType, vars: FnVar[]): FnSymbol {
     return { kind: 'FnSymbol', params, ty, vars };
 }
 
@@ -93,10 +93,10 @@ export type FnVar = { name: string, isParam: boolean, ty: Type };
 export type NativeFnSymbol = {
     kind: 'NativeFnSymbol',
     params: { name: string }[],
-    ty: FunctionType | InvalidType,
+    ty: FunctionType | PendingType | BadType,
 };
 
-export function createNativeFnSymbol(params: { name: string }[], ty: FunctionType | InvalidType): NativeFnSymbol {
+export function createNativeFnSymbol(params: { name: string }[], ty: FunctionType | PendingType | BadType): NativeFnSymbol {
     return { kind: 'NativeFnSymbol', params, ty };
 }
 
@@ -113,10 +113,11 @@ export function createStructSymbol(name: string, fields: Map<string, Symbol>): S
 export type VariableSymbol = {
     kind: 'VariableSymbol',
     ty: Type,
+    isDefined: boolean,
 };
 
-export function createVariableSymbol(ty: Type): VariableSymbol {
-    return { kind: 'VariableSymbol', ty };
+export function createVariableSymbol(ty: Type, isDefined: boolean): VariableSymbol {
+    return { kind: 'VariableSymbol', ty, isDefined };
 }
 
 export type ExprSymbol = {
@@ -130,15 +131,21 @@ export function createExprSymbol(ty: Type): ExprSymbol {
 
 // types
 
-export type Type = ValidType | InvalidType;
+export type Type = ValidType | BadType | PendingType;
 
 export type ValidType = AnyType | VoidType | NamedType | FunctionType | GenericType;
 
 export function isValidType(ty: Type): ty is ValidType {
-    return ty.kind != 'BadType' && ty.kind != 'PendingType';
+    return !isBadType(ty) && !isPendingType(ty);
 }
 
-export type InvalidType = BadType | PendingType;
+export function isBadType(ty: Type): ty is BadType {
+    return ty.kind == 'BadType';
+}
+
+export function isPendingType(ty: Type): ty is PendingType {
+    return ty.kind == 'PendingType';
+}
 
 export type BadType = {
     kind: 'BadType',
@@ -199,8 +206,11 @@ export const arrayType = createNamedType('array');
 export type CompareTypeResult = 'unknown' | 'compatible' | 'incompatible';
 
 export function compareType(x: Type, y: Type): CompareTypeResult {
-    if (!isValidType(x) || !isValidType(y)) {
+    if (isBadType(x) || isBadType(y)) {
         return 'unknown';
+    }
+    if (isPendingType(x) || isPendingType(y)) {
+        return 'incompatible';
     }
     // any type
     if (x.kind == 'AnyType' || y.kind == 'AnyType') {
@@ -227,12 +237,18 @@ export function compareType(x: Type, y: Type): CompareTypeResult {
         }
         case 'FunctionType': {
             y = y as FunctionType;
-            if (!isValidType(x.returnType) || !isValidType(y.returnType)) {
+            if (isBadType(x.returnType) || isBadType(y.returnType)) {
                 return 'unknown';
             }
+            if (isPendingType(x.returnType) || isPendingType(y.returnType)) {
+                return 'incompatible';
+            }
             for (const ty of [...x.paramTypes, ...y.paramTypes]) {
-                if (!isValidType(ty)) {
+                if (isBadType(ty) || isBadType(ty)) {
                     return 'unknown';
+                }
+                if (isPendingType(ty) || isPendingType(ty)) {
+                    return 'incompatible';
                 }
             }
             if (compareType(x.returnType, y.returnType) == 'incompatible') {
@@ -251,8 +267,11 @@ export function compareType(x: Type, y: Type): CompareTypeResult {
         case 'GenericType': {
             y = y as GenericType;
             for (const ty of [...x.innerTypes, ...y.innerTypes]) {
-                if (!isValidType(ty)) {
+                if (isBadType(ty) || isBadType(ty)) {
                     return 'unknown';
+                }
+                if (isPendingType(ty) || isPendingType(ty)) {
+                    return 'incompatible';
                 }
             }
             if (x.name != y.name) {

@@ -34,6 +34,7 @@ import {
     dispatchTypeError,
     FnSymbol,
     getTypeString,
+    isPendingType,
     isValidType,
     numberType,
     pendingType,
@@ -42,6 +43,10 @@ import {
     Type,
     voidType
 } from './tools.js';
+
+// TODO:
+// 変数が定義済みかどうかを確認したい
+// 色々なところでシンボルが必要になるかも。改修が必要？
 
 export type AnalyzeResult = {
     success: boolean,
@@ -100,6 +105,9 @@ function analyzeReferenceExpr(node: ReferenceExpr, funcSymbol: FnSymbol, a: Anal
             const targetTy = analyzeExpr(node.target, funcSymbol, a);
 
             if (!isValidType(targetTy)) {
+                if (isPendingType(targetTy)) {
+                    a.dispatchError('variable is not assigned yet.', node.target);
+                }
                 return undefined;
             }
 
@@ -156,12 +164,22 @@ function analyzeReferenceExpr(node: ReferenceExpr, funcSymbol: FnSymbol, a: Anal
                 return undefined;
             }
 
-            if (!isValidType(targetTy) || !isValidType(indexTy)) {
+            if (!isValidType(targetTy)) {
+                if (isPendingType(targetTy)) {
+                    a.dispatchError('variable is not assigned yet.', node.target);
+                }
+                return undefined;
+            }
+
+            if (!isValidType(indexTy)) {
+                if (isPendingType(indexTy)) {
+                    a.dispatchError('variable is not assigned yet.', node.index);
+                }
                 return undefined;
             }
 
             // create index symbol
-            const symbol = createVariableSymbol(anyType);
+            const symbol = createVariableSymbol(anyType, true);
             return symbol;
         }
     }
@@ -257,7 +275,7 @@ function declareTopLevel(node: FileNode, a: AnalyzeContext) {
             // make fields
             const fields = new Map<string, Symbol>();
             for (const field of node.fields) {
-                const fieldSymbol = createVariableSymbol(pendingType);
+                const fieldSymbol = createVariableSymbol(pendingType, true);
                 fields.set(field.name, fieldSymbol);
             }
 
@@ -364,6 +382,9 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
 
             // check the function type is valid
             if (!isValidType(symbol.ty)) {
+                if (isPendingType(symbol.ty)) {
+                    a.dispatchError('function is not defined yet.', node);
+                }
                 return;
             }
 
@@ -371,7 +392,7 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
 
             // set function params to the env
             for (let i = 0; i < node.params.length; i++) {
-                const paramSymbol = createVariableSymbol(symbol.ty.paramTypes[i]);
+                const paramSymbol = createVariableSymbol(symbol.ty.paramTypes[i], true);
                 a.symbolTable.set(node.params[i], paramSymbol);
                 a.env.set(node.params[i].name, paramSymbol);
             }
@@ -421,11 +442,16 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
                     ty = badType;
                 }
 
-                // check type
-                if (isValidType(funcSymbol.ty)) {
-                    if (compareType(ty, funcSymbol.ty.returnType) == 'incompatible') {
-                        dispatchTypeError(ty, funcSymbol.ty.returnType, node.expr, a);
+                if (!isValidType(funcSymbol.ty)) {
+                    if (isPendingType(funcSymbol.ty)) {
+                        throw new UguisuError('unexpected type');
                     }
+                    return;
+                }
+
+                // check type
+                if (compareType(ty, funcSymbol.ty.returnType) == 'incompatible') {
+                    dispatchTypeError(ty, funcSymbol.ty.returnType, node.expr, a);
                 }
             }
             return;
@@ -461,6 +487,7 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             return;
         }
         case 'VariableDecl': {
+            let isDefined = false;
             let ty: Type = pendingType;
 
             // if an explicit type is specified
@@ -487,10 +514,12 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
                 if (compareType(bodyTy, ty) == 'incompatible') {
                     dispatchTypeError(bodyTy, ty, node.body, a);
                 }
+
+                isDefined = true;
             }
 
             // set symbol
-            const symbol = createVariableSymbol(ty);
+            const symbol = createVariableSymbol(ty, isDefined);
             a.symbolTable.set(node, symbol);
             a.env.set(node.name, symbol);
 
@@ -521,8 +550,9 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             let targetTy = getTypeFromSymbol(symbol, node.target, a);
 
             // if it was the first assignment
-            if (targetTy.kind == 'PendingType') {
+            if (symbol.kind == 'VariableSymbol' && !symbol.isDefined && isPendingType(targetTy)) {
                 targetTy = bodyTy;
+                symbol.ty = targetTy;
             }
 
             // check type
@@ -644,6 +674,9 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
             }
 
             if (!isValidType(calleeTy)) {
+                if (isPendingType(calleeTy)) {
+                    a.dispatchError('callee is not assigned yet.', node.callee);
+                }
                 return badType;
             }
 
@@ -663,13 +696,17 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
                         argTy = badType;
                     }
 
-                    if (isValidType(calleeTy)) {
-                        const paramTy = calleeTy.paramTypes[i];
-                        if (isValidType(argTy) && isValidType(paramTy)) {
-                            if (compareType(argTy, paramTy) == 'incompatible') {
-                                dispatchTypeError(argTy, paramTy, node.args[i], a);
-                            }
+                    const paramTy = calleeTy.paramTypes[i];
+
+                    if (!isValidType(argTy) || !isValidType(paramTy)) {
+                        if (isPendingType(argTy)) {
+                            a.dispatchError('variable is not assigned yet.', node.args[i]);
                         }
+                        continue;
+                    }
+
+                    if (compareType(argTy, paramTy) == 'incompatible') {
+                        dispatchTypeError(argTy, paramTy, node.args[i], a);
                     }
                 }
             }
@@ -706,6 +743,12 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
                 }
 
                 if (!isValidType(leftTy) || !isValidType(rightTy)) {
+                    if (isPendingType(leftTy)) {
+                        a.dispatchError('variable is not assigned yet.', node.left);
+                    }
+                    if (isPendingType(rightTy)) {
+                        a.dispatchError('variable is not assigned yet.', node.right);
+                    }
                     return badType;
                 }
 
@@ -719,6 +762,12 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
                 }
 
                 if (!isValidType(leftTy) || !isValidType(rightTy)) {
+                    if (isPendingType(leftTy)) {
+                        a.dispatchError('variable is not assigned yet.', node.left);
+                    }
+                    if (isPendingType(rightTy)) {
+                        a.dispatchError('variable is not assigned yet.', node.right);
+                    }
                     return badType;
                 }
 
@@ -735,6 +784,12 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
                 }
 
                 if (!isValidType(leftTy) || !isValidType(rightTy)) {
+                    if (isPendingType(leftTy)) {
+                        a.dispatchError('variable is not assigned yet.', node.left);
+                    }
+                    if (isPendingType(rightTy)) {
+                        a.dispatchError('variable is not assigned yet.', node.right);
+                    }
                     return badType;
                 }
 
@@ -751,6 +806,12 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
                 }
 
                 if (!isValidType(leftTy) || !isValidType(rightTy)) {
+                    if (isPendingType(leftTy)) {
+                        a.dispatchError('variable is not assigned yet.', node.left);
+                    }
+                    if (isPendingType(rightTy)) {
+                        a.dispatchError('variable is not assigned yet.', node.right);
+                    }
                     return badType;
                 }
 
@@ -769,6 +830,9 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
             }
 
             if (!isValidType(ty)) {
+                if (isPendingType(ty)) {
+                    a.dispatchError('variable is not assigned yet.', node.expr);
+                }
                 return badType;
             }
 

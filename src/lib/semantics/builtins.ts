@@ -24,7 +24,7 @@ function group(name: string, a: AnalyzeContext, handler: (setItem: (name: string
     const fields: Map<string, Symbol> = new Map();
     function setItem(name: string, paramsTy: ValidType[], returnTy: ValidType) {
         const ty = createFunctionType(paramsTy, returnTy);
-        const symbol = createVariableSymbol(ty);
+        const symbol = createVariableSymbol(ty, true);
         fields.set(name, symbol);
     }
     handler(setItem);
