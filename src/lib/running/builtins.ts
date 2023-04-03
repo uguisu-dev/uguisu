@@ -83,6 +83,15 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
             return new NumberValue(charCode);
         });
         setItem('toNumber', toNumber);
+
+        const toString = FunctionValue.createNative((args) => {
+            if (args.length != 1) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'CharValue');
+            return new StringValue(args[0].getValue());
+        });
+        setItem('toString', toString);
     });
 
     group('string', env, setItem => {

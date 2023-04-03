@@ -61,6 +61,11 @@ export function setDeclarations(a: AnalyzeContext) {
             [charType],
             numberType
         );
+        setItem(
+            'toString',
+            [charType],
+            stringType
+        );
     });
 
     group('string', a, setItem => {

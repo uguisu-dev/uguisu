@@ -230,6 +230,12 @@ fn char.toNumber(x: char): number;
 ```
 文字をUnicodeスカラー値に変換します。
 
+## char.toString
+```
+fn char.toString(source: char): string;
+```
+文字を文字列に変換します。
+
 ## string.concat
 ```
 fn string.concat(x: string, y: string): string;
