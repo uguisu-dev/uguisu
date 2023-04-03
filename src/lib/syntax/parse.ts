@@ -12,6 +12,7 @@ import {
     createBoolLiteral,
     createBreakStatement,
     createCall,
+    createCharLiteral,
     createFieldAccess,
     createFnDeclParam,
     createFunctionDecl,
@@ -635,6 +636,9 @@ function parseAtomInner(p: ParseContext): ExprNode {
             }
             if (literal.kind == 'bool') {
                 return createBoolLiteral(pos, (literal.value == 'true'));
+            }
+            if (literal.kind == 'char') {
+                return createCharLiteral(pos, literal.value);
             }
             if (literal.kind == 'string') {
                 return createStringLiteral(pos, literal.value);

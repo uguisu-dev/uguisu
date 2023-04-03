@@ -26,6 +26,7 @@ export type StatementNode
 export type ExprNode
     = NumberLiteral
     | BoolLiteral
+    | CharLiteral
     | StringLiteral
     | BinaryOp
     | UnaryOp
@@ -49,6 +50,7 @@ export type NodeOf<T extends AstNode['kind']>
     : T extends 'Identifier' ? Identifier
     : T extends 'NumberLiteral' ? NumberLiteral
     : T extends 'BoolLiteral' ? BoolLiteral
+    : T extends 'CharLiteral' ? CharLiteral
     : T extends 'StringLiteral' ? StringLiteral
     : T extends 'UnaryOp' ? UnaryOp
     : T extends 'BinaryOp' ? BinaryOp
@@ -70,7 +72,7 @@ export type NodeOf<T extends AstNode['kind']>
     : never;
 
 const exprNodeKind: AstNode['kind'][] = [
-    'NumberLiteral', 'BoolLiteral', 'StringLiteral', 'BinaryOp', 'UnaryOp', 'Identifier', 'Call', 'StructExpr',
+    'NumberLiteral', 'BoolLiteral', 'CharLiteral', 'StringLiteral', 'BinaryOp', 'UnaryOp', 'Identifier', 'Call', 'StructExpr',
     'FieldAccess', 'ArrayNode', 'IndexAccess',
 ];
 export function isExprNode(node: AstNode): node is ExprNode {
@@ -158,6 +160,15 @@ export type BoolLiteral = {
 };
 export function createBoolLiteral(pos: Pos, value: boolean): BoolLiteral {
     return { kind: 'BoolLiteral', pos, value };
+}
+
+export type CharLiteral = {
+    kind: 'CharLiteral',
+    pos: Pos;
+    value: string,
+};
+export function createCharLiteral(pos: Pos, value: string): CharLiteral {
+    return { kind: 'CharLiteral', pos, value };
 }
 
 export type StringLiteral = {

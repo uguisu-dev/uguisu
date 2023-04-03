@@ -14,7 +14,7 @@ const spCharTable = new Map([
 
 export type LiteralValue = { kind: LiteralKind, value: string };
 
-export type LiteralKind = 'none' | 'number' | 'string' | 'bool';
+export type LiteralKind = 'none' | 'number' | 'char' | 'string' | 'bool';
 
 export enum Token {
     EOF,
@@ -402,8 +402,12 @@ export class Scanner {
                     }
                     break;
                 }
+                case '\'': {
+                    this.readString('char');
+                    break;
+                }
                 case '"': {
-                    this.readString();
+                    this.readString('string');
                     break;
                 }
                 default: {
@@ -502,14 +506,17 @@ export class Scanner {
         }
     }
 
-    private readString() {
+    private readString(kind: 'char' | 'string') {
         this.nextChar();
         let buf = '';
         while (true) {
             if (this.ch == null) {
                 throw new UguisuError('unexpected EOF');
             }
-            if (this.ch == '"') {
+            if (kind == 'string' && this.ch == '"') {
+                this.nextChar();
+                break;
+            } else if (kind == 'char' && this.ch == '\'') {
                 this.nextChar();
                 break;
             } else if (this.ch == '\\') { // special character
@@ -531,7 +538,7 @@ export class Scanner {
         }
         this.token = Token.Literal;
         this.tokenValue = buf;
-        this.literalKind = 'string';
+        this.literalKind = kind;
     }
 
     private skipCommentLine() {

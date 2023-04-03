@@ -75,12 +75,13 @@ export function createBreakResult(): BreakResult {
 
 //#region Values
 
-export type Value = NoneValue | NumberValue | BoolValue | StringValue | StructValue | ArrayValue | FunctionValue;
+export type Value = NoneValue | NumberValue | BoolValue | CharValue | StringValue | StructValue | ArrayValue | FunctionValue;
 
 export type ValueOf<T extends Value['kind']> =
     T extends 'NoneValue' ? NoneValue :
     T extends 'NumberValue' ? NumberValue :
     T extends 'BoolValue' ? BoolValue :
+    T extends 'CharValue' ? CharValue :
     T extends 'StringValue' ? StringValue :
     T extends 'StructValue' ? StructValue :
     T extends 'ArrayValue' ? ArrayValue :
@@ -97,6 +98,9 @@ export function getTypeName(valueKind: Value['kind']): string {
         }
         case 'BoolValue': {
             return 'bool';
+        }
+        case 'CharValue': {
+            return 'char';
         }
         case 'StringValue': {
             return 'string';
@@ -146,6 +150,18 @@ export class BoolValue {
         this._value = value;
     }
     getValue(): boolean {
+        return this._value;
+    }
+}
+
+export class CharValue {
+    kind: 'CharValue';
+    private _value: string;
+    constructor(value: string) {
+        this.kind = 'CharValue';
+        this._value = value;
+    }
+    getValue(): string {
         return this._value;
     }
 }

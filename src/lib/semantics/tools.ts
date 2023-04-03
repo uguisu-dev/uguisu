@@ -192,6 +192,7 @@ export const anyType = { kind: 'AnyType' } as AnyType;
 export const voidType = { kind: 'VoidType' } as VoidType;
 export const numberType = createNamedType('number');
 export const boolType = createNamedType('bool');
+export const charType = createNamedType('char');
 export const stringType = createNamedType('string');
 export const arrayType = createNamedType('array');
 

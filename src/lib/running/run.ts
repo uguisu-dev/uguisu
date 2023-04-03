@@ -16,6 +16,7 @@ import {
     ArrayValue,
     assertValue,
     BoolValue,
+    CharValue,
     createBreakResult,
     createOkResult,
     createReturnResult,
@@ -313,6 +314,9 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
         }
         case 'BoolLiteral': {
             return new BoolValue(expr.value);
+        }
+        case 'CharLiteral': {
+            return new CharValue(expr.value);
         }
         case 'StringLiteral': {
             return new StringValue(expr.value);

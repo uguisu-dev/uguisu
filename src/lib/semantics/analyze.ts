@@ -1,3 +1,4 @@
+import charRegex from 'char-regex';
 import { UguisuError } from '../misc/errors.js';
 import { ProjectInfo } from '../project-file.js';
 import {
@@ -22,6 +23,7 @@ import {
     arrayType,
     badType,
     boolType,
+    charType,
     compareType,
     createExprSymbol,
     createFunctionSymbol,
@@ -194,6 +196,7 @@ function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
     switch (node.name) {
         case 'number':
         case 'bool':
+        case 'char':
         case 'string':
         case 'array': {
             return createNamedType(node.name);
@@ -576,6 +579,15 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
         case 'BoolLiteral': {
             // return expr type
             return boolType;
+        }
+        case 'CharLiteral': {
+            // check if literal is valid
+            const arr = node.value.match(charRegex());
+            if (arr == null || arr.length > 1) {
+                a.dispatchError('invalid char literal.', node);
+            }
+            // return expr type
+            return charType;
         }
         case 'StringLiteral': {
             // return expr type
