@@ -382,6 +382,18 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                         }
                         break;
                     }
+                    case 'CharValue': {
+                        assertValue(right, 'CharValue');
+                        switch (expr.operator) {
+                            case '==': {
+                                return new BoolValue(left.getValue() == right.getValue());
+                            }
+                            case '!=': {
+                                return new BoolValue(left.getValue() != right.getValue());
+                            }
+                        }
+                        break;
+                    }
                     case 'StringValue': {
                         assertValue(right, 'StringValue');
                         switch (expr.operator) {
@@ -415,7 +427,8 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                         }
                         break;
                     }
-                    case 'StructValue': {
+                    case 'StructValue':
+                    case 'ArrayValue': {
                         throw new UguisuError(`type \`${getTypeName(left.kind)}\` cannot be used for equivalence comparisons.`);
                         break;
                     }
@@ -443,9 +456,11 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                         break;
                     }
                     case 'BoolValue':
+                    case 'CharValue':
                     case 'StringValue':
                     case 'FunctionValue':
-                    case 'StructValue': {
+                    case 'StructValue':
+                    case 'ArrayValue': {
                         throw new UguisuError(`type \`${getTypeName(left.kind)}\` cannot be used to compare large and small relations.`);
                     }
                 }
