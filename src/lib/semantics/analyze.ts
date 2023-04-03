@@ -178,11 +178,6 @@ function getTypeFromSymbol(symbol: Symbol, errorNode: AstNode, a: AnalyzeContext
             return createNamedType(symbol.name);
         }
         case 'VariableSymbol': {
-            // if the variable is not assigned
-            if (symbol.ty.kind == 'PendingType') {
-                a.dispatchError('variable is not assigned yet.', errorNode);
-                return badType;
-            }
             return symbol.ty;
         }
         case 'ExprSymbol': {
@@ -569,8 +564,16 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
                 return badType;
             }
 
-            // return expr type from the symbol
-            return getTypeFromSymbol(symbol, node, a);
+            // get expr type from the symbol
+            const ty = getTypeFromSymbol(symbol, node, a);
+
+            // if the variable is not assigned
+            if (ty.kind == 'PendingType') {
+                a.dispatchError('variable is not assigned yet.', node);
+                return badType;
+            }
+
+            return ty;
         }
         case 'NumberLiteral': {
             // return expr type
