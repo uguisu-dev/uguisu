@@ -116,7 +116,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
                 if (s.value == null) {
                     throw new UguisuError('variable is not defined');
                 }
-                assertValue(s.value, 'StringValue');
+                assertValue(s.value, 'CharValue');
                 arr.push(s.value.getValue());
             }
             return new StringValue(arr.join(''));
@@ -133,7 +133,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
             if (arr == null) {
                 return new ArrayValue([]);
             }
-            return new ArrayValue(arr.map(x => new Symbol(new StringValue(x))));
+            return new ArrayValue(arr.map(x => new Symbol(new CharValue(x))));
         });
         setItem('toArray', toArray);
 

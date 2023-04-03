@@ -4,7 +4,7 @@ fn main() {
     // => A B C
 
     var charArray = string.toArray(src);
-    charArray[2] = "🍮";
+    charArray[2] = '🍮';
     var dest = string.fromArray(charArray);
 
     console.write(dest);
