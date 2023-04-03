@@ -218,6 +218,18 @@ fn number.assertEq(actual: number, expected: number);
 ```
 与えられた数値と期待する数値を比較して、値が異なる場合にランタイムエラーを発生させます。
 
+## char.fromNumber
+```
+fn char.fromNumber(x: number): char;
+```
+Unicodeスカラー値を文字に変換します。
+
+## char.toNumber
+```
+fn char.toNumber(x: char): number;
+```
+文字をUnicodeスカラー値に変換します。
+
 ## string.concat
 ```
 fn string.concat(x: string, y: string): string;
@@ -228,13 +240,13 @@ fn string.concat(x: string, y: string): string;
 ```
 fn string.fromArray(x: array): string;
 ```
-Unicode形式の文字配列を文字列に変換します。
+文字(char型)配列を文字列に変換します。
 
 ## string.toArray
 ```
 fn string.toArray(x: string): array;
 ```
-文字列をUnicode形式の文字配列に変換します。
+文字列を文字(char型)配列に変換します。
 
 ## string.assertEq
 ```

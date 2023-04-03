@@ -2,6 +2,7 @@ import {
     AnalyzeContext,
     anyType,
     arrayType,
+    charType,
     createFunctionType,
     createNativeFnSymbol,
     createStructSymbol,
@@ -46,6 +47,19 @@ export function setDeclarations(a: AnalyzeContext) {
             'assertEq',
             [numberType, numberType],
             voidType
+        );
+    });
+
+    group('char', a, setItem => {
+        setItem(
+            'fromNumber',
+            [numberType],
+            charType
+        );
+        setItem(
+            'toNumber',
+            [charType],
+            numberType
         );
     });
 

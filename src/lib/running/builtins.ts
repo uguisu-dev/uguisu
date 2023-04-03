@@ -4,6 +4,7 @@ import { UguisuOptions } from '../misc/options.js';
 import {
     ArrayValue,
     assertValue,
+    CharValue,
     FunctionValue,
     NoneValue,
     NumberValue,
@@ -58,6 +59,30 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
             return new NoneValue();
         });
         setItem('assertEq', assertEq);
+    });
+
+    group('char', env, setItem => {
+        const fromNumber = FunctionValue.createNative((args) => {
+            if (args.length != 1) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'NumberValue');
+            const charCode = args[0].getValue();
+            const charValue = String.fromCharCode(charCode);
+            return new CharValue(charValue);
+        });
+        setItem('fromNumber', fromNumber);
+
+        const toNumber = FunctionValue.createNative((args) => {
+            if (args.length != 1) {
+                throw new UguisuError('invalid arguments count');
+            }
+            assertValue(args[0], 'CharValue');
+            const charValue = args[0].getValue();
+            const charCode = charValue.charCodeAt(0);
+            return new NumberValue(charCode);
+        });
+        setItem('toNumber', toNumber);
     });
 
     group('string', env, setItem => {
