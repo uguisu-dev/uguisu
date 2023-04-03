@@ -58,6 +58,20 @@ fn main() {
 }
 `));
 
+test('initialize variable later 1', () => runTest(`
+fn main() {
+    var x: number;
+    x = 1;
+}
+`));
+
+test('initialize variable later 2', () => runTest(`
+fn main() {
+    var x;
+    x = 1;
+}
+`));
+
 // function declaration
 
 test('function empty', () => runTest(`
