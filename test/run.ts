@@ -19,7 +19,7 @@ class RunTestError extends Error {
     }
 }
 
-function runTest(sourceCode: string) {
+function expectOk(sourceCode: string) {
     const options: UguisuOptions = {};
     const projectInfo: ProjectInfo = {
         filename: 'main.ug',
@@ -42,44 +42,70 @@ function runTest(sourceCode: string) {
     run(sourceFile, runningEnv, options, projectInfo);
 }
 
+function expectErr(sourceCode: string) {
+    try {
+        expectOk(sourceCode);
+    } catch (err) {
+        if (err instanceof RunTestError) {
+            return;
+        }
+        throw err;
+    }
+    assert.fail();
+}
+
 // variable + number literal
 
-test('variable arith 1', () => runTest(`
+test('variable arith 1', () => expectOk(`
 fn main() {
     var x = 1;
     number.assertEq(x, 1);
 }
 `));
 
-test('variable arith 2', () => runTest(`
+test('variable arith 2', () => expectOk(`
 fn main() {
     var x = 1 + 2;
     number.assertEq(x, 3);
 }
 `));
 
-test('initialize variable later 1', () => runTest(`
+test('initialize variable later 1', () => expectOk(`
 fn main() {
     var x: number;
     x = 1;
 }
 `));
 
-test('initialize variable later 2', () => runTest(`
+test('initialize variable later 2', () => expectOk(`
 fn main() {
     var x;
     x = 1;
 }
 `));
 
+test('not initialized variable 1', () => expectErr(`
+fn main() {
+    var x: number;
+    console.writeNum(x);
+}
+`));
+
+test('not initialized variable 2', () => expectErr(`
+fn main() {
+    var x;
+    console.writeNum(x);
+}
+`));
+
 // function declaration
 
-test('function empty', () => runTest(`
+test('function empty', () => expectOk(`
 fn main() {
 }
 `));
 
-test('function calc', () => runTest(`
+test('function calc', () => expectOk(`
 fn add(x: number, y: number): number {
     return x + y;
 }
@@ -88,7 +114,7 @@ fn main() {
 }
 `));
 
-test('subrutine', () => runTest(`
+test('subrutine', () => expectOk(`
 fn subrutine(x: number) {
     var y = x + x;
     var z = y + 1;
@@ -103,7 +129,7 @@ fn main() {
 
 // function call
 
-test('call function 1', () => runTest(`
+test('call function 1', () => expectOk(`
 fn add(x: number, y: number): number {
     return x + y;
 }
@@ -115,7 +141,7 @@ fn main() {
 }
 `));
 
-test('call function 2', () => runTest(`
+test('call function 2', () => expectOk(`
 fn square(x: number): number {
     return x * x;
 }
@@ -127,7 +153,7 @@ fn main() {
 }
 `));
 
-test('function recursion', () => runTest(`
+test('function recursion', () => expectOk(`
 fn calc(x: number): number {
     if x == 0 {
         return 1;
@@ -142,7 +168,7 @@ fn main() {
 
 // function params
 
-test('calc with func param', () => runTest(`
+test('calc with func param', () => expectOk(`
 fn calc(x: number, y: number): number {
     var temp = x + y;
     return temp * temp;
@@ -155,7 +181,7 @@ fn main() {
 
 // return function
 
-test('return function', () => runTest(`
+test('return function', () => expectOk(`
 fn gen_result(x: number): number {
     if (x != 3) {
         return 0;
@@ -172,7 +198,7 @@ fn main() {
 
 // if + if-else + if-elseif-else + bool literal
 
-test('if empty', () => runTest(`
+test('if empty', () => expectOk(`
 fn main() {
     if true { }
     else if true { }
@@ -181,7 +207,7 @@ fn main() {
 }
 `));
 
-test('if', () => runTest(`
+test('if', () => expectOk(`
 fn main() {
     var x = 0;
     if true {
@@ -195,7 +221,7 @@ fn main() {
 }
 `));
 
-test('if else', () => runTest(`
+test('if else', () => expectOk(`
 fn main() {
     var x = 1;
     if true {
@@ -213,7 +239,7 @@ fn main() {
 }
 `));
 
-test('if elseif else', () => runTest(`
+test('if elseif else', () => expectOk(`
 fn main() {
     var x = 1;
     if true {
@@ -245,7 +271,7 @@ fn main() {
 
 // logical operation
 
-test('logical op 1', () => runTest(`
+test('logical op 1', () => expectOk(`
 fn main() {
     var x = 1;
     if true && false {
@@ -271,7 +297,7 @@ fn main() {
 }
 `));
 
-test('logical op 2', () => runTest(`
+test('logical op 2', () => expectOk(`
 fn main() {
     var x = 1;
     if false && true || true && true {
@@ -281,7 +307,7 @@ fn main() {
 }
 `));
 
-test('logical op 3', () => runTest(`
+test('logical op 3', () => expectOk(`
 fn main() {
     var x = 1;
     if !false {
@@ -293,7 +319,7 @@ fn main() {
 
 // arithmetic comparison
 
-test('arith comp 1', () => runTest(`
+test('arith comp 1', () => expectOk(`
 fn main() {
     var x = 1;
     if x == 1 {
@@ -307,7 +333,7 @@ fn main() {
 }
 `));
 
-test('arith comp 2', () => runTest(`
+test('arith comp 2', () => expectOk(`
 fn main() {
     var x = 1;
     if 1 + 2 == 3 {
@@ -323,7 +349,7 @@ fn main() {
 
 // loop
 
-test('loop statement', () => runTest(`
+test('loop statement', () => expectOk(`
 fn main() {
     var i = 0;
     var x = 1;
@@ -338,40 +364,24 @@ fn main() {
 
 // break
 
-test('break no target', () => {
-    const input = `
-    fn main() {
+test('break no target', () => expectErr(`
+fn main() {
+    break;
+}
+`));
+
+test('break no target nested', () => expectErr(`
+fn main() {
+    var x = true;
+    if x {
         break;
     }
-    `;
-    try {
-        runTest(input);
-    } catch (err) {
-        return;
-    }
-    assert.fail();
-});
-
-test('break no target nested', () => {
-    const input = `
-    fn main() {
-        var x = true;
-        if x {
-            break;
-        }
-    }
-    `;
-    try {
-        runTest(input);
-    } catch (err) {
-        return;
-    }
-    assert.fail();
-});
+}
+`));
 
 // assignment
 
-test('assignment', () => runTest(`
+test('assignment', () => expectOk(`
 fn main() {
     var x = 0;
     number.assertEq(x, 0);
@@ -382,7 +392,7 @@ fn main() {
 }
 `));
 
-test('assignment_modes', () => runTest(`
+test('assignment_modes', () => expectOk(`
 fn main() {
     var x = 0;
     number.assertEq(x, 0);
@@ -399,7 +409,7 @@ fn main() {
 
 // struct
 
-test('struct', () => runTest(`
+test('struct', () => expectOk(`
 struct A {
     value: number,
 }
@@ -415,7 +425,7 @@ fn main() {
 
 // array
 
-test('array', () => runTest(`
+test('array', () => expectOk(`
 fn main() {
     var x = [1, 2];
     number.assertEq(x[0], 1);
@@ -437,7 +447,7 @@ fn main() {
 // function
 
 describe('function', () => {
-    test('assign', () => runTest(`
+    test('assign', () => expectOk(`
     fn main() {
         var x = main;
     }
@@ -452,109 +462,61 @@ describe('function', () => {
     // }
     // `));
 
-    test('compare', () => runTest(`
+    test('compare', () => expectOk(`
     fn main() {
         if main == main { }
     }
     `));
 
-    test('expr statement', () => runTest(`
+    test('expr statement', () => expectOk(`
     fn main() {
         main;
     }
     `));
 
-    test('generate error 1', () => {
-        const input = `
-        fn main() {
-            main = 1;
-        }
-        `;
-        try {
-            runTest(input);
-        } catch (err) {
-            return;
-        }
-        assert.fail();
-    });
+    test('generate error 1', () => expectErr(`
+    fn main() {
+        main = 1;
+    }
+    `));
 
-    test('generate error 2', () => {
-        const input = `
-        fn main() {
-            var x = 1;
-            x = main;
-        }
-        `;
-        try {
-            runTest(input);
-        } catch (err) {
-            return;
-        }
-        assert.fail();
-    });
+    test('generate error 2', () => expectErr(`
+    fn main() {
+        var x = 1;
+        x = main;
+    }
+    `));
 
-    test('generate error 3', () => {
-        const input = `
-        fn main() {
-            var x = !main;
-        }
-        `;
-        try {
-            runTest(input);
-        } catch (err) {
-            return;
-        }
-        assert.fail();
-    });
+    test('generate error 3', () => expectErr(`
+    fn main() {
+        var x = !main;
+    }
+    `));
 
-    test('generate error 4', () => {
-        const input = `
-        fn main() {
-            var x = main + main;
-        }
-        `;
-        try {
-            runTest(input);
-        } catch (err) {
-            return;
-        }
-        assert.fail();
-    });
+    test('generate error 4', () => expectErr(`
+    fn main() {
+        var x = main + main;
+    }
+    `));
 
-    test('generate error 5', () => {
-        const input = `
-        fn main() {
-            var x = main && main;
-        }
-        `;
-        try {
-            runTest(input);
-        } catch (err) {
-            return;
-        }
-        assert.fail();
-    });
+    test('generate error 5', () => expectErr(`
+    fn main() {
+        var x = main && main;
+    }
+    `));
 
-    test('generate error 6', () => {
-        const input = `
-        fn f() {
-        }
-        fn main() {
-            var x = f(main);
-        }
-        `;
-        try {
-            runTest(input);
-        } catch (err) {
-            return;
-        }
-        assert.fail();
-    });
+    test('generate error 6', () => expectErr(`
+    fn f() {
+    }
+    fn main() {
+        var x = f(main);
+    }
+    `));
 });
 
 // comments
 
-test('comment', () => runTest(`
+test('comment', () => expectOk(`
 // main function
 //
 // this function is entry point of program
@@ -569,7 +531,7 @@ fn main() {
 
 // char
 
-test('char literal', () => runTest(`
+test('char literal', () => expectOk(`
 fn makeChar(): char {
     var lit: char = 'あ';
     return lit;
@@ -581,7 +543,7 @@ fn main() {
 
 // string
 
-test('string literal', () => runTest(`
+test('string literal', () => expectOk(`
 fn make_message(): string {
     var message: string = \"hello\";
     return message;
@@ -591,7 +553,7 @@ fn main() {
 }
 `));
 
-test('special character', () => runTest(`
+test('special character', () => expectOk(`
 fn main() {
     var n: string = \"abc\\n123\";
     var r: string = \"abc\\r123\";
@@ -601,7 +563,7 @@ fn main() {
 
 // other examples
 
-test('example', () => runTest(`
+test('example', () => expectOk(`
 fn calc(x: number): number {
     if x == 0 {
         return 1;
