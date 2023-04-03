@@ -139,16 +139,22 @@ function analyzeReferenceExpr(node: ReferenceExpr, funcSymbol: FnSymbol, a: Anal
             break;
         }
         case 'IndexAccess': {
-            // analyze target
             const targetTy = analyzeExpr(node.target, funcSymbol, a);
-
-            if (!isValidType(targetTy)) {
-                return undefined;
-            }
+            const indexTy = analyzeExpr(node.index, funcSymbol, a);
 
             // check target type
             if (compareType(targetTy, arrayType) == 'incompatible') {
-                dispatchTypeError(targetTy, arrayType, node.index, a);
+                dispatchTypeError(targetTy, arrayType, node.target, a);
+                return undefined;
+            }
+
+            // check index type
+            if (compareType(indexTy, numberType) == 'incompatible') {
+                dispatchTypeError(indexTy, numberType, node.index, a);
+                return undefined;
+            }
+
+            if (!isValidType(targetTy) || !isValidType(indexTy)) {
                 return undefined;
             }
 
