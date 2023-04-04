@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 import { command as root } from './uguisu/root.js';
-import { command as init } from './uguisu/init.js';
+import { command as _new } from './uguisu/new.js';
 import { command as run } from './uguisu/run.js';
 import { command as check } from './uguisu/check.js';
 
 const args = process.argv.slice(2);
 
-let sub: 'init' | 'run' | 'check' | null;
+let sub: 'new' | 'run' | 'check' | null;
 if (args.length > 0) {
     switch (args[0]) {
-        case 'init': {
-            sub = 'init';
+        case 'new': {
+            sub = 'new';
             break;
         }
         case 'run': {
@@ -30,8 +30,8 @@ if (args.length > 0) {
 }
 
 switch (sub) {
-    case 'init': {
-        init(args.slice(1));
+    case 'new': {
+        _new(args.slice(1));
         break;
     }
     case 'run': {

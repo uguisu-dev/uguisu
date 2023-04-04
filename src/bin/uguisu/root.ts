@@ -38,6 +38,7 @@ function showHelp() {
         'Usage: uguisu [options] [commands]',
         '',
         'Examples:',
+        '    uguisu new <projectDir>',
         '    uguisu run <projectDir>',
         '    uguisu check <projectDir>',
         '    uguisu run --skip-check <projectDir>',
@@ -49,6 +50,7 @@ function showHelp() {
         '    -v, --version       Print Uguisu version.',
         '',
         'Commands:',
+        '    new                 Create a new uguisu project.',
         '    run                 Run a uguisu project.',
         '    check               Perform the check for a project.',
     ];

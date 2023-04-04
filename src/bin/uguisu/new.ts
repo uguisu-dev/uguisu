@@ -1,7 +1,13 @@
 import fs from 'fs';
 import path from 'path';
-import { Uguisu, UguisuError } from '../../lib/index.js';
+import { UguisuError } from '../../lib/index.js';
 import { getDefaultProjectInfo } from '../../lib/project-file.js';
+
+const codeTemplate = `
+fn main() {
+    console.write("hello world");
+}
+`;
 
 type Match = {
     help: boolean,
@@ -31,10 +37,10 @@ function getopts(args: string[]): Match {
 
 function showHelp() {
     const lines = [
-        'Usage: uguisu init [options] [projectDir]',
+        'Usage: uguisu new [options] [projectDir]',
         '',
         'Examples:',
-        '    uguisu init <projectDir>',
+        '    uguisu new <projectDir>',
         '',
         'Options:',
         '    -h, --help          Print help message.',
@@ -65,23 +71,41 @@ export function command(args: string[]) {
 
     // init project
     try {
-        const projectFilePath = path.resolve(dirPath, './uguisu.json');
-
-        // check file
+        // check dir
+        let dirFound = false;
         try {
-            fs.accessSync(projectFilePath, fs.constants.R_OK);
-            throw new UguisuError('project file is already exists.');
-        } catch (err) { }
+            const stat = fs.statSync(dirPath);
+            if (!stat.isDirectory()) {
+                throw new UguisuError('specify a directory path');
+            }
+            dirFound = true;
+        } catch (err) {
+            // not found
+        }
+
+        // check if the dir is empty
+        if (dirFound) {
+            const files = fs.readdirSync(dirPath);
+            if (files.length != 0) {
+                throw new UguisuError('project directory is not empty.');
+            }
+        }
 
         // create a default project info
         const info = getDefaultProjectInfo();
 
-        // write file
+        const projectFilePath = path.resolve(dirPath, './uguisu.json');
+        const mainFilePath = path.resolve(dirPath, './main.ug');
+
+        // write files
         try {
-            fs.writeFileSync(projectFilePath, JSON.stringify(info, null, '  '), { encoding: 'utf8' });
+            fs.writeFileSync(projectFilePath, JSON.stringify(info, null, '  ') + '\n', { encoding: 'utf8' });
+            fs.writeFileSync(mainFilePath, codeTemplate, { encoding: 'utf8' });
         } catch (err) {
-            throw new UguisuError('Failed to write the project file.');
+            throw new UguisuError('Failed to write project files.');
         }
+
+        console.log('project generated.');
     }
     catch (e) {
         console.log(e);
