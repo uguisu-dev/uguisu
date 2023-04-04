@@ -69,7 +69,7 @@ describe('variable', () => {
     }
     `));
 
-    test('delay initialized variable', () => expectOk(`
+    test('delay defined variable', () => expectOk(`
     fn main() {
         var x: number;
         x = 1;
@@ -77,7 +77,7 @@ describe('variable', () => {
     }
     `));
 
-    test('delay initialized variable (inference)', () => expectOk(`
+    test('delay defined variable (inference)', () => expectOk(`
     fn main() {
         var x;
         x = 1;
@@ -85,14 +85,14 @@ describe('variable', () => {
     }
     `));
 
-    test('not initialized variable', () => expectErr(`
+    test('not defined variable', () => expectErr(`
     fn main() {
         var x: number;
         console.writeNum(x);
     }
     `));
 
-    test('not initialized variable (inference)', () => expectErr(`
+    test('not defined variable (inference)', () => expectErr(`
     fn main() {
         var x;
         console.writeNum(x);
