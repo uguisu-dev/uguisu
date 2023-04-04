@@ -3,7 +3,7 @@ import path from 'path';
 import { UguisuError } from '../../lib/index.js';
 import { getDefaultProjectInfo } from '../../lib/project-file.js';
 
-const codeTemplate = `
+const codeTemplate = `\
 fn main() {
     console.write("hello world");
 }
