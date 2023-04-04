@@ -22,7 +22,7 @@ fn main() {
 
 ## Syntaxes
 - English (Not translated yet.)
-- [日本語](https://github.com/uguisu-dev/uguisu/blob/v0.7.0/docs/syntaxes_ja.md)
+- [日本語](https://github.com/uguisu-dev/uguisu/blob/v0.8.0/docs/syntaxes_ja.md)
 
 ## Install
 Node.js and npm installation is required.  
@@ -36,6 +36,7 @@ $ npm i -g uguisu-js
 Usage: uguisu [options] [commands]
 
 Examples:
+    uguisu new <projectDir>
     uguisu run <projectDir>
     uguisu check <projectDir>
     uguisu run --skip-check <projectDir>
@@ -47,14 +48,20 @@ Options:
     -v, --version       Print Uguisu version.
 
 Commands:
+    new                 Create a new uguisu project.
     run                 Run a uguisu project.
     check               Perform the check for a project.
 
 ```
 
-The following command runs a project. A code check is performed before running the code.
+The following command creates a project.
 ```
-$ uguisu run ./your-project
+$ uguisu new ./my-project
+```
+
+The following command runs the project. A code check is also performed before execution.
+```
+$ uguisu run ./my-project
 ```
 
 ## JavaScript API
