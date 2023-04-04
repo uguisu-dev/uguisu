@@ -9,4 +9,8 @@ fn main() {
 
     console.write(dest);
     // => A 🍮 C
+
+    var code = char.toNumber(charArray[2]);
+    console.writeNum(code);
+    // => 127854
 }
