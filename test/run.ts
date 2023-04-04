@@ -54,49 +54,51 @@ function expectErr(sourceCode: string) {
     assert.fail();
 }
 
-// variable + number literal
+describe('variable', () => {
+    test('variable arith 1', () => expectOk(`
+    fn main() {
+        var x = 1;
+        number.assertEq(x, 1);
+    }
+    `));
 
-test('variable arith 1', () => expectOk(`
-fn main() {
-    var x = 1;
-    number.assertEq(x, 1);
-}
-`));
+    test('variable arith 2', () => expectOk(`
+    fn main() {
+        var x = 1 + 2;
+        number.assertEq(x, 3);
+    }
+    `));
 
-test('variable arith 2', () => expectOk(`
-fn main() {
-    var x = 1 + 2;
-    number.assertEq(x, 3);
-}
-`));
+    test('delay initialized variable', () => expectOk(`
+    fn main() {
+        var x: number;
+        x = 1;
+        console.writeNum(x);
+    }
+    `));
 
-test('initialize variable later 1', () => expectOk(`
-fn main() {
-    var x: number;
-    x = 1;
-}
-`));
+    test('delay initialized variable (inference)', () => expectOk(`
+    fn main() {
+        var x;
+        x = 1;
+        console.writeNum(x);
+    }
+    `));
 
-test('initialize variable later 2', () => expectOk(`
-fn main() {
-    var x;
-    x = 1;
-}
-`));
+    test('not initialized variable', () => expectErr(`
+    fn main() {
+        var x: number;
+        console.writeNum(x);
+    }
+    `));
 
-test('not initialized variable 1', () => expectErr(`
-fn main() {
-    var x: number;
-    console.writeNum(x);
-}
-`));
-
-test('not initialized variable 2', () => expectErr(`
-fn main() {
-    var x;
-    console.writeNum(x);
-}
-`));
+    test('not initialized variable (inference)', () => expectErr(`
+    fn main() {
+        var x;
+        console.writeNum(x);
+    }
+    `));
+});
 
 // function declaration
 
