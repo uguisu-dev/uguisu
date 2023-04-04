@@ -68,7 +68,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
             }
             assertValue(args[0], 'NumberValue');
             const charCode = args[0].getValue();
-            const charValue = String.fromCharCode(charCode);
+            const charValue = String.fromCodePoint(charCode);
             return new CharValue(charValue);
         });
         setItem('fromNumber', fromNumber);
@@ -79,7 +79,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
             }
             assertValue(args[0], 'CharValue');
             const charValue = args[0].getValue();
-            const charCode = charValue.charCodeAt(0);
+            const charCode = charValue.codePointAt(0)!;
             return new NumberValue(charCode);
         });
         setItem('toNumber', toNumber);
