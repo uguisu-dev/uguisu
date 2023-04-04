@@ -22,7 +22,7 @@ fn main() {
 
 ## Syntaxes
 - English (Not translated yet.)
-- [日本語](https://github.com/uguisu-dev/uguisu/blob/v0.8.0/docs/syntaxes_ja.md)
+- [日本語](https://github.com/uguisu-dev/uguisu/blob/v0.8.2/docs/syntaxes_ja.md)
 
 ## Install
 Node.js and npm installation is required.  
