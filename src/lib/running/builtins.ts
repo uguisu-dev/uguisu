@@ -105,7 +105,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         });
         setItem('concat', concat);
 
-        const fromArray = FunctionValue.createNative((args) => {
+        const fromChars = FunctionValue.createNative((args) => {
             if (args.length != 1) {
                 throw new UguisuError('invalid arguments count');
             }
@@ -121,9 +121,9 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
             }
             return new StringValue(arr.join(''));
         });
-        setItem('fromArray', fromArray);
+        setItem('fromChars', fromChars);
 
-        const toArray = FunctionValue.createNative((args) => {
+        const toChars = FunctionValue.createNative((args) => {
             if (args.length != 1) {
                 throw new UguisuError('invalid arguments count');
             }
@@ -135,7 +135,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
             }
             return new ArrayValue(arr.map(x => new Symbol(new CharValue(x))));
         });
-        setItem('toArray', toArray);
+        setItem('toChars', toChars);
 
         const assertEq = FunctionValue.createNative((args) => {
             if (args.length != 2) {
