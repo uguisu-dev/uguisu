@@ -7,37 +7,38 @@
 
 - 構造体のサポート。
 - 配列のサポート。
-- 意味解析エラー検出処理が改善され、2つ以上のエラーを検出できるようになりました。
-- ビルトイン関数をリニューアルしました。
+- 文字型と文字リテラルのサポート。
+- 意味解析エラー検出処理の改善。
+- ビルトイン関数をリニューアルしました。(詳細は下記)
 - 段階的にプロジェクト機能をサポート。
 - JavaScript APIでソースコードを直接実行する機能の廃止。
 - CLI: `run`コマンドに`--check-skip`オプションが追加されました。このオプションを付けると実行前の静的解析をスキップします。
 - CLI: `check`コマンドが追加されました。このコマンドはプロジェクトの静的解析を実行します。
 - CLI: バージョン情報が表示できない問題を修正。
+- 静的解析: バグ修正。
 
 ### ビルトイン関数のリニューアル
 
-以下のビルトイン関数が追加されます。
+以下のビルトイン関数が追加されました。
 - `number.parse`
-- `console.read`
+- `char.fromNumber`
+- `char.toNumber`
+- `char.toString`
+- `string.fromChars`
+- `string.toChars`
 - `array.insert`
 - `array.add`
 - `array.removeAt`
 - `array.count`
+- `console.read`
 
-以下のビルトイン関数の名前が変更になります。
+以下のビルトイン関数の名前が変更になりました。
 - `toString` -> `number.toString`
 - `assertEqNum` -> `number.assertEq`
 - `concatStr` -> `string.concat`
 - `assertEqStr` -> `string.assertEq`
 - `printStr` -> `console.write`
 - `printNum` -> `console.writeNum`
-
-### プロジェクト機能
-プロジェクト機能の導入に伴って、JavaScript APIでソースコードを直接実行する機能は廃止されました。
-
-プロジェクト機能をサポートするためにCLIコマンドにも変更が加えられました。
-これまでコマンドを実行するときはスクリプトファイルへのパスを指定していましたが、これからはプロジェクトのあるディレクトリを指定するようになります。
 
 ## 0.7.0 (2023/03/13)
 
