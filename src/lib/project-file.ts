@@ -1,7 +1,7 @@
 import { UguisuError } from './misc/errors.js';
 
 const langVersions = ['0.8'] as const;
-const defaultVersion = '0.8';
+export const defaultVersion = '0.8';
 
 export type LangVersion = typeof langVersions[number];
 
