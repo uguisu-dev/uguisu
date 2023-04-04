@@ -1,6 +1,13 @@
 import { UguisuError } from './misc/errors.js';
 
-export type LangVersion = 'uguisu2023-1';
+const langVersions = ['0.8'] as const;
+const defaultVersion = '0.8';
+
+export type LangVersion = typeof langVersions[number];
+
+function isLangVersion(x: string): x is LangVersion {
+    return (langVersions as readonly string[]).includes(x);
+}
 
 export type ProjectInfo = {
     langVersion: LangVersion,
@@ -20,17 +27,12 @@ export function parseProjectFile(source: Record<string, any>): ProjectInfo {
             throw new UguisuError('langVersion invalid');
         }
         const normalized = source.langVersion.toLowerCase();
-        switch (normalized) {
-            case 'uguisu2023-1': {
-                break;
-            }
-            default: {
-                throw new UguisuError('unknown langVersion');
-            }
+        if (!isLangVersion(normalized)) {
+            throw new UguisuError('unknown langVersion');
         }
         langVersion = normalized;
     } else {
-        langVersion = 'uguisu2023-1';
+        langVersion = defaultVersion;
     }
 
     // filename
@@ -55,7 +57,7 @@ export function parseProjectFile(source: Record<string, any>): ProjectInfo {
 
 export function getDefaultProjectInfo(): ProjectInfo {
     return {
-        langVersion: 'uguisu2023-1',
+        langVersion: defaultVersion,
         filename: 'main.ug',
     };
 }
