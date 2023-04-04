@@ -1,4 +1,4 @@
-<img alt="uguisu logo" width="100px" align="right" src="https://raw.githubusercontent.com/uguisu-dev/uguisu/v0.7.0/uguisu-logo.png" />
+<img alt="uguisu logo" width="100px" align="right" src="https://raw.githubusercontent.com/uguisu-dev/uguisu/v0.8.0/uguisu-logo.png" />
 
 # Uguisu
 The Uguisu is a statically typed scripting language.  
@@ -16,13 +16,13 @@ fn calc(x: number): number {
 
 fn main() {
     var value = 10;
-    printNum(calc(value));
+    console.writeNum(calc(value));
 }
 ```
 
 ## Syntaxes
 - English (Not translated yet.)
-- [日本語](https://github.com/uguisu-dev/uguisu/blob/v0.7.0/docs/syntaxes_ja.md)
+- [日本語](https://github.com/uguisu-dev/uguisu/blob/v0.8.0/docs/syntaxes_ja.md)
 
 ## Install
 Node.js and npm installation is required.  
@@ -36,7 +36,10 @@ $ npm i -g uguisu-js
 Usage: uguisu [options] [commands]
 
 Examples:
-    uguisu run <filename>
+    uguisu new <projectDir>
+    uguisu run <projectDir>
+    uguisu check <projectDir>
+    uguisu run --skip-check <projectDir>
     uguisu <command> -h
     uguisu -v
 
@@ -45,8 +48,20 @@ Options:
     -v, --version       Print Uguisu version.
 
 Commands:
-    run                 Run a script file.
+    new                 Create a new uguisu project.
+    run                 Run a uguisu project.
+    check               Perform the check for a project.
 
+```
+
+The following command creates a project.
+```
+$ uguisu new ./my-project
+```
+
+The following command runs the project. A code check is also performed before execution.
+```
+$ uguisu run ./my-project
 ```
 
 ## JavaScript API
@@ -61,16 +76,19 @@ const uguisu = new Uguisu({
     }
 });
 
-// Run passing a source code.
-const sourceCode = `
-fn main() {
-    printStr("hello world");
-}
-`;
-uguisu.runCode(sourceCode);
+const projectDir = './your-project';
 
-// Run passing a file path of a source code.
-uguisu.runFile('./example.ug');
+// Check code and Run
+uguisu.run(projectDir);
+```
+
+Code checking and running can also be separated:
+```js
+// Check code
+uguisu.check(projectDir);
+
+// Run
+uguisu.run(projectDir, { skipCheck: true });
 ```
 
 ## License

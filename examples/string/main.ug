@@ -1,0 +1,16 @@
+fn main() {
+    var src = "A B C";
+    console.write(src);
+    // => A B C
+
+    var charArray = string.toArray(src);
+    charArray[2] = '🍮';
+    var dest = string.fromArray(charArray);
+
+    console.write(dest);
+    // => A 🍮 C
+
+    var code = char.toNumber(charArray[2]);
+    console.writeNum(code);
+    // => 127854
+}

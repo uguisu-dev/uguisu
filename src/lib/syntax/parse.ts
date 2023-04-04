@@ -1,52 +1,67 @@
 import { UguisuError } from '../misc/errors.js';
 import { Trace } from '../misc/trace.js';
+import { ProjectInfo } from '../project-file.js';
+import { LiteralValue, Scanner, Token } from './scan.js';
 import {
     AssignMode,
     BinaryOperator,
     BreakStatement,
+    createArrayNode,
+    createAssignStatement,
+    createBinaryOp,
+    createBoolLiteral,
+    createBreakStatement,
+    createCall,
+    createCharLiteral,
+    createFieldAccess,
+    createFnDeclParam,
+    createFunctionDecl,
+    createIdentifier,
+    createIfStatement,
+    createIndexAccess,
+    createLoopStatement,
+    createNumberLiteral,
+    createReturnStatement,
+    createSourceFile,
+    createStringLiteral,
+    createStructDecl,
+    createStructDeclField,
+    createStructExpr,
+    createStructExprField,
+    createTyLabel,
+    createUnaryOp,
+    createVariableDecl,
     ExprNode,
+    FileNode,
     FnDeclParam,
     FunctionDecl,
     IfStatement,
     LoopStatement,
-    newAssignStatement,
-    newBinaryOp,
-    newBoolLiteral,
-    newBreakStatement,
-    newCall,
-    newFnDeclParam,
-    newFunctionDecl,
-    newIdentifier,
-    newIfStatement,
-    newLoopStatement,
-    newNumberLiteral,
-    newReturnStatement,
-    newSourceFile,
-    newStringLiteral,
-    newTyLabel,
-    newUnaryOp,
-    newVariableDecl,
     ReturnStatement,
     SourceFile,
     StatementNode,
+    StructDecl,
+    StructDeclField,
+    StructExprField,
     TyLabel,
     VariableDecl
 } from './tools.js';
-import { LiteralValue, Scanner, Token } from './scan.js';
 
 const trace = Trace.getDefault().createChild(false);
 
-export function parse(sourceCode: string, filename: string): SourceFile {
-    const parser = new Parser(new Scanner());
-    parser.setup(sourceCode);
-    return parseSourceFile(parser, filename);
+export function parse(sourceCode: string, filename: string, projectInfo: ProjectInfo): SourceFile {
+    const p = new ParseContext(new Scanner(), projectInfo);
+    p.setup(sourceCode);
+    return parseSourceFile(p, filename);
 }
 
-class Parser {
+class ParseContext {
     s: Scanner;
+    projectInfo: ProjectInfo;
 
-    constructor(s: Scanner) {
+    constructor(s: Scanner, projectInfo: ProjectInfo) {
         this.s = s;
+        this.projectInfo = projectInfo;
     }
 
     setup(sourceCode: string) {
@@ -108,7 +123,7 @@ class Parser {
  * <Block> = "{" <Statement>* "}"
  * ```
 */
-function parseBlock(p: Parser): StatementNode[] {
+function parseBlock(p: ParseContext): StatementNode[] {
     trace.enter('[parse] parseBlock');
 
     p.expectAndNext(Token.BeginBrace);
@@ -127,7 +142,7 @@ function parseBlock(p: Parser): StatementNode[] {
  * <TyLabel> = ":" <identifier>
  * ```
 */
-function parseTyLabel(p: Parser): TyLabel {
+function parseTyLabel(p: ParseContext): TyLabel {
     trace.enter('[parse] parseTyLabel');
 
     p.expectAndNext(Token.Colon);
@@ -137,7 +152,7 @@ function parseTyLabel(p: Parser): TyLabel {
     p.next();
 
     trace.leave();
-    return newTyLabel(pos, name);
+    return createTyLabel(pos, name);
 }
 
 //#endregion General
@@ -149,8 +164,8 @@ function parseTyLabel(p: Parser): TyLabel {
  * <SourceFile> = (<FunctionDecl>)*
  * ```
 */
-function parseSourceFile(p: Parser, filename: string): SourceFile {
-    let funcs: FunctionDecl[] = [];
+function parseSourceFile(p: ParseContext, filename: string): SourceFile {
+    let decls: FileNode[] = [];
     trace.enter('[parse] parseSourceFile');
 
     while (true) {
@@ -159,9 +174,18 @@ function parseSourceFile(p: Parser, filename: string): SourceFile {
             trace.leave();
             break;
         }
+        let exported = false;
+        if (p.getToken() == Token.Export) {
+            p.next();
+            exported = true;
+        }
         switch (p.getToken()) {
             case Token.Fn: {
-                funcs.push(parseFunctionDecl(p));
+                decls.push(parseFunctionDecl(p, exported));
+                break;
+            }
+            case Token.Struct: {
+                decls.push(parseStructDecl(p, exported));
                 break;
             }
             default: {
@@ -172,7 +196,7 @@ function parseSourceFile(p: Parser, filename: string): SourceFile {
     }
 
     trace.leave();
-    return newSourceFile([1, 1], filename, funcs);
+    return createSourceFile([1, 1], filename, decls);
 }
 
 /**
@@ -181,7 +205,7 @@ function parseSourceFile(p: Parser, filename: string): SourceFile {
  * <FnDeclParams> = <FnDeclParam> ("," <FnDeclParam>)*
  * ```
 */
-function parseFunctionDecl(p: Parser): FunctionDecl {
+function parseFunctionDecl(p: ParseContext, exported: boolean): FunctionDecl {
     trace.enter('[parse] parseFunctionDecl');
 
     const pos = p.getPos();
@@ -209,7 +233,7 @@ function parseFunctionDecl(p: Parser): FunctionDecl {
     const body = parseBlock(p);
 
     trace.leave();
-    return newFunctionDecl(pos, name, params, body, returnTy);
+    return createFunctionDecl(pos, name, params, body, returnTy, exported);
 }
 
 /**
@@ -217,7 +241,7 @@ function parseFunctionDecl(p: Parser): FunctionDecl {
  * <FnDeclParam> = <identifier> <TyLabel>?
  * ```
 */
-function parseFnDeclParam(p: Parser): FnDeclParam {
+function parseFnDeclParam(p: ParseContext): FnDeclParam {
     trace.enter('[parse] parseFnDeclParam');
 
     const pos = p.getPos();
@@ -231,7 +255,51 @@ function parseFnDeclParam(p: Parser): FnDeclParam {
     }
 
     trace.leave();
-    return newFnDeclParam(pos, name, ty);
+    return createFnDeclParam(pos, name, ty);
+}
+
+/**
+ * <StructDecl> = "struct" <identifier> "{" <StructDeclFields>? "}"
+ * <StructDeclFields> = <StructDeclField> ("," <StructDeclField>)*
+*/
+function parseStructDecl(p: ParseContext, exported: boolean): StructDecl {
+    const pos = p.getPos();
+    p.next();
+
+    p.expect(Token.Ident);
+    const name = p.getIdentValue();
+    p.next();
+
+    p.expectAndNext(Token.BeginBrace);
+    let fields: StructDeclField[] = [];
+    if (!p.tokenIs(Token.EndBrace)) {
+        fields.push(parseStructDeclField(p));
+        while (p.tokenIs(Token.Comma)) {
+            p.next();
+            if (p.tokenIs(Token.EndBrace)) {
+                break;
+            }
+            fields.push(parseStructDeclField(p));
+        }
+    }
+    p.expectAndNext(Token.EndBrace);
+
+    return createStructDecl(pos, name, fields, exported);
+}
+
+/**
+ * <StructDeclField> = <identifier> <TyLabel>
+*/
+function parseStructDeclField(p: ParseContext): StructDeclField {
+    const pos = p.getPos();
+
+    p.expect(Token.Ident);
+    const name = p.getIdentValue();
+    p.next();
+
+    const ty = parseTyLabel(p);
+
+    return createStructDeclField(pos, name, ty);
 }
 
 //#endregion SourceFile
@@ -243,7 +311,7 @@ function parseFnDeclParam(p: Parser): FnDeclParam {
  * <Statement> = <VariableDecl> / <AssignStatement> / <IfStatement> / <LoopStatement> / <ReturnStatement> / <BreakStatement> / <ExprNode>
  * ```
 */
-function parseStatement(p: Parser): StatementNode {
+function parseStatement(p: ParseContext): StatementNode {
     switch (p.getToken()) {
         case Token.Var: {
             return parseVariableDecl(p);
@@ -273,7 +341,7 @@ function parseStatement(p: Parser): StatementNode {
  *   / <Expr> ";"
  * ```
 */
-function parseStatementStartWithExpr(p: Parser): StatementNode {
+function parseStatementStartWithExpr(p: ParseContext): StatementNode {
     trace.enter('[parse] parseStatementStartWithExpr');
 
     const expr = parseExpr(p);
@@ -319,7 +387,7 @@ function parseStatementStartWithExpr(p: Parser): StatementNode {
             const body = parseExpr(p);
             p.expectAndNext(Token.Semi);
             trace.leave();
-            return newAssignStatement(expr.pos, expr, body, mode);
+            return createAssignStatement(expr.pos, expr, body, mode);
         }
         case Token.Semi: {
             p.next();
@@ -337,7 +405,7 @@ function parseStatementStartWithExpr(p: Parser): StatementNode {
  * <VariableDecl> = "var" <identifier> <TyLabel>? ("=" <Expr>)? ";"
  * ```
 */
-function parseVariableDecl(p: Parser): VariableDecl {
+function parseVariableDecl(p: ParseContext): VariableDecl {
     trace.enter('[parse] parseVariableDecl');
 
     p.next();
@@ -359,7 +427,7 @@ function parseVariableDecl(p: Parser): VariableDecl {
     p.expectAndNext(Token.Semi);
 
     trace.leave();
-    return newVariableDecl(pos, name, ty, body);
+    return createVariableDecl(pos, name, ty, body);
 }
 
 /**
@@ -367,7 +435,7 @@ function parseVariableDecl(p: Parser): VariableDecl {
  * <BreakStatement> = "break" ";"
  * ```
 */
-function parseBreakStatement(p: Parser): BreakStatement {
+function parseBreakStatement(p: ParseContext): BreakStatement {
     trace.enter('[parse] parseBreakStatement');
 
     const pos = p.getPos();
@@ -375,7 +443,7 @@ function parseBreakStatement(p: Parser): BreakStatement {
     p.expectAndNext(Token.Semi);
 
     trace.leave();
-    return newBreakStatement(pos);
+    return createBreakStatement(pos);
 }
 
 /**
@@ -383,7 +451,7 @@ function parseBreakStatement(p: Parser): BreakStatement {
  * <ReturnStatement> = "return" <Expr>? ";"
  * ```
 */
-function parseReturnStatement(p: Parser): ReturnStatement {
+function parseReturnStatement(p: ParseContext): ReturnStatement {
     trace.enter('[parse] parseReturnStatement');
 
     const pos = p.getPos();
@@ -395,7 +463,7 @@ function parseReturnStatement(p: Parser): ReturnStatement {
     p.expectAndNext(Token.Semi);
 
     trace.leave();
-    return newReturnStatement(pos, expr);
+    return createReturnStatement(pos, expr);
 }
 
 /**
@@ -403,7 +471,7 @@ function parseReturnStatement(p: Parser): ReturnStatement {
  * <IfStatement> = "if" <Expr> <Block> ("else" (<IfStatement> / <Block>))?
  * ```
 */
-function parseIfStatement(p: Parser): IfStatement {
+function parseIfStatement(p: ParseContext): IfStatement {
     trace.enter('[parse] parseIfStatement');
 
     const pos = p.getPos();
@@ -423,7 +491,7 @@ function parseIfStatement(p: Parser): IfStatement {
     }
 
     trace.leave();
-    return newIfStatement(pos, cond, thenBlock, elseBlock);
+    return createIfStatement(pos, cond, thenBlock, elseBlock);
 }
 
 /**
@@ -431,7 +499,7 @@ function parseIfStatement(p: Parser): IfStatement {
  * <LoopStatement> = "loop" <Block>
  * ```
 */
-function parseLoopStatement(p: Parser): LoopStatement {
+function parseLoopStatement(p: ParseContext): LoopStatement {
     trace.enter('[parse] parseLoopStatement');
 
     const pos = p.getPos();
@@ -439,14 +507,14 @@ function parseLoopStatement(p: Parser): LoopStatement {
     const block = parseBlock(p);
 
     trace.leave();
-    return newLoopStatement(pos, block);
+    return createLoopStatement(pos, block);
 }
 
 //#endregion Statements
 
 //#region Expressions
 
-function parseExpr(p: Parser): ExprNode {
+function parseExpr(p: ParseContext): ExprNode {
     return parseInfix(p, 0);
 }
 
@@ -474,7 +542,7 @@ const opTable: Map<Token, OpInfo> = new Map([
     [Token.Percent, { prec: 6, assoc: 'left', op: '%' }],
 ]);
 
-function parseInfix(p: Parser, minPrec: number): ExprNode {
+function parseInfix(p: ParseContext, minPrec: number): ExprNode {
     // precedence climbing
     // https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
     let expr = parseAtom(p);
@@ -493,7 +561,7 @@ function parseInfix(p: Parser, minPrec: number): ExprNode {
         }
         p.next();
         const rightExpr = parseInfix(p, nextMinPrec);
-        expr = newBinaryOp(pos, info.op, expr, rightExpr);
+        expr = createBinaryOp(pos, info.op, expr, rightExpr);
     }
     return expr;
 }
@@ -503,7 +571,7 @@ function parseInfix(p: Parser, minPrec: number): ExprNode {
  * <Atom> = <AtomInner> <SuffixChain>
  * ```
 */
-function parseAtom(p: Parser): ExprNode {
+function parseAtom(p: ParseContext): ExprNode {
     const expr = parseAtomInner(p);
     return parseSuffixChain(p, expr);
 }
@@ -512,19 +580,10 @@ function parseAtom(p: Parser): ExprNode {
  * Consumes a one suffix and the remaining of the chain is consumed in a recursive call.
  * If there is no suffix, the target is returned as is.
 */
-function parseSuffixChain(p: Parser, target: ExprNode): ExprNode {
-    switch (p.getToken()) {
-        case Token.BeginParen: {
-            break;
-        }
-        default: {
-            return target;
-        }
-    }
-
-    const pos = p.getPos();
+function parseSuffixChain(p: ParseContext, target: ExprNode): ExprNode {
     switch (p.getToken()) {
         case Token.BeginParen: { // call
+            const pos = p.getPos();
             p.next();
             const args: ExprNode[] = [];
             if (!p.tokenIs(Token.EndParen)) {
@@ -538,44 +597,97 @@ function parseSuffixChain(p: Parser, target: ExprNode): ExprNode {
                 }
             }
             p.expectAndNext(Token.EndParen);
-            target = newCall(pos, target, args);
+            return parseSuffixChain(p, createCall(pos, target, args));
+        }
+        case Token.Dot: { // field access
+            p.next();
+            const pos = p.getPos();
+            p.expect(Token.Ident);
+            const name = p.getIdentValue();
+            p.next();
+            return parseSuffixChain(p, createFieldAccess(pos, name, target));
+        }
+        case Token.BeginBracket: { // index access
+            const pos = p.getPos();
+            p.next();
+            const index = parseExpr(p);
+            p.expectAndNext(Token.EndBracket);
+            return parseSuffixChain(p, createIndexAccess(pos, target, index));
+        }
+        default: {
+            return target;
         }
     }
-
-    return parseSuffixChain(p, target);
 }
 
 /**
  * ```text
- * <AtomInner> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <Identifier> / <Prefix> <Atom> / "(" <Expr> ")"
+ * <AtomInner> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <StructExpr> / <Array> / <Identifier> / <Prefix> <Atom> / "(" <Expr> ")"
  * ```
 */
-function parseAtomInner(p: Parser): ExprNode {
+function parseAtomInner(p: ParseContext): ExprNode {
     const pos = p.getPos();
     switch (p.getToken()) {
         case Token.Literal: {
             const literal = p.getLiteralValue();
             p.next();
             if (literal.kind == 'number') {
-                return newNumberLiteral(pos, parseInt(literal.value));
+                return createNumberLiteral(pos, parseInt(literal.value));
             }
             if (literal.kind == 'bool') {
-                return newBoolLiteral(pos, (literal.value == 'true'));
+                return createBoolLiteral(pos, (literal.value == 'true'));
+            }
+            if (literal.kind == 'char') {
+                return createCharLiteral(pos, literal.value);
             }
             if (literal.kind == 'string') {
-                return newStringLiteral(pos, literal.value);
+                return createStringLiteral(pos, literal.value);
             }
             throw new UguisuError('not implemented yet');
         }
         case Token.Ident: {
             const name = p.getIdentValue();
             p.next();
-            return newIdentifier(pos, name);
+            return createIdentifier(pos, name);
+        }
+        case Token.New: {
+            p.next();
+            p.expect(Token.Ident);
+            const name = p.getIdentValue();
+            p.next();
+            p.expectAndNext(Token.BeginBrace);
+            const fields: StructExprField[] = [];
+            if (!p.tokenIs(Token.EndBrace)) {
+                fields.push(parseStructExprField(p));
+                while (p.tokenIs(Token.Comma)) {
+                    p.next();
+                    if (p.tokenIs(Token.EndBrace)) {
+                        break;
+                    }
+                    fields.push(parseStructExprField(p));
+                }
+            }
+            p.expectAndNext(Token.EndBrace);
+            return createStructExpr(pos, name, fields);
+        }
+        case Token.BeginBracket: {
+            p.next();
+            const items: ExprNode[] = [];
+            while (!p.tokenIs(Token.EndBracket)) {
+                items.push(parseExpr(p));
+                if (p.tokenIs(Token.Comma)) {
+                    p.next();
+                } else {
+                    break;
+                }
+            }
+            p.expectAndNext(Token.EndBracket);
+            return createArrayNode(pos, items);
         }
         case Token.Not: {
             p.next();
             const expr = parseAtom(p);
-            return newUnaryOp(pos, '!', expr);
+            return createUnaryOp(pos, '!', expr);
         }
         case Token.BeginParen: {
             p.next();
@@ -587,6 +699,21 @@ function parseAtomInner(p: Parser): ExprNode {
             throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
         }
     }
+}
+
+/**
+ * ```text
+ * <StructExprField> = <identifier> ":" <Expr>
+ * ```
+*/
+function parseStructExprField(p: ParseContext): StructExprField {
+    const pos = p.getPos();
+    p.expect(Token.Ident);
+    const name = p.getIdentValue();
+    p.next();
+    p.expectAndNext(Token.Colon);
+    const body = parseExpr(p);
+    return createStructExprField(pos, name, body);
 }
 
 //#endregion Expressions

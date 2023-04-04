@@ -1,3 +1,7 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 type Match = {
     help: boolean,
     version: boolean,
@@ -34,7 +38,10 @@ function showHelp() {
         'Usage: uguisu [options] [commands]',
         '',
         'Examples:',
-        '    uguisu run <filename>',
+        '    uguisu new <projectDir>',
+        '    uguisu run <projectDir>',
+        '    uguisu check <projectDir>',
+        '    uguisu run --skip-check <projectDir>',
         '    uguisu <command> -h',
         '    uguisu -v',
         '',
@@ -43,13 +50,18 @@ function showHelp() {
         '    -v, --version       Print Uguisu version.',
         '',
         'Commands:',
-        '    run                 Run a script file.',
+        '    new                 Create a new uguisu project.',
+        '    run                 Run a uguisu project.',
+        '    check               Perform the check for a project.',
     ];
     console.log(lines.join('\n'));
 }
 
 function showVersion() {
-    const info = require('../../package.json');
+    const currFilePath = fileURLToPath(import.meta.url);
+    const filePath = path.resolve(path.dirname(currFilePath), '../../package.json');
+    const json = fs.readFileSync(filePath, { encoding: 'utf8' });
+    const info = JSON.parse(json);
     console.log(`uguisu ${info.version}`);
 }
 

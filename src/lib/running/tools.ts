@@ -16,17 +16,12 @@ export class RunningEnv {
         }
     }
 
-    declare(name: string) {
-        this.trace?.log(`declare symbol: ${name}`);
-        this.layers[0].set(name, { defined: false, value: undefined });
+    declare(name: string, initialValue?: Value) {
+        this.trace?.log(`declare symbol: ${name} ${initialValue}`);
+        this.layers[0].set(name, new Symbol(initialValue));
     }
 
-    define(name: string, value: Value) {
-        this.trace?.log(`define symbol: ${name}`, value);
-        this.layers[0].set(name, { defined: true, value });
-    }
-
-    get(name: string): Symbol | undefined {
+    lookup(name: string): Symbol | undefined {
         this.trace?.log(`get symbol: ${name}`);
         for (const layer of this.layers) {
             const symbol = layer.get(name);
@@ -51,93 +46,52 @@ export class RunningEnv {
     }
 }
 
-export type Symbol = { defined: true, value: Value } | { defined: false, value: undefined };
+export class Symbol {
+    value?: Value;
+    constructor(value?: Value) {
+        this.value = value;
+    }
+}
+
+export type StatementResult = OkResult | ReturnResult | BreakResult;
+
+export type OkResult = { kind: 'ok' };
+
+export function createOkResult(): OkResult {
+    return { kind: 'ok' };
+}
+
+export type ReturnResult = { kind: 'return', value: Value };
+
+export function createReturnResult(value: Value): ReturnResult {
+    return { kind: 'return', value };
+}
+
+export type BreakResult = { kind: 'break' };
+
+export function createBreakResult(): BreakResult {
+    return { kind: 'break' };
+}
 
 //#region Values
 
-export type Value = FunctionValue | NumberValue | BoolValue | StringValue | NoneValue;
+export type Value = NoneValue | NumberValue | BoolValue | CharValue | StringValue | StructValue | ArrayValue | FunctionValue;
 
-export type FunctionValue = {
-    kind: 'FunctionValue',
-    node: FunctionDecl,
-    native: undefined,
-    env: RunningEnv, // lexical scope
-} | {
-    kind: 'FunctionValue',
-    node: undefined,
-    native: NativeFuncHandler,
-};
+export type ValueOf<T extends Value['kind']> =
+    T extends 'NoneValue' ? NoneValue :
+    T extends 'NumberValue' ? NumberValue :
+    T extends 'BoolValue' ? BoolValue :
+    T extends 'CharValue' ? CharValue :
+    T extends 'StringValue' ? StringValue :
+    T extends 'StructValue' ? StructValue :
+    T extends 'ArrayValue' ? ArrayValue :
+    T extends 'FunctionValue' ? FunctionValue :
+    never;
 
-export type NativeFuncHandler = (args: Value[], options: UguisuOptions) => Value;
-
-export function newFunction(node: FunctionDecl, env: RunningEnv): FunctionValue {
-    return { kind: 'FunctionValue', node, env, native: undefined };
-}
-export function newNativeFunction(native: NativeFuncHandler): FunctionValue {
-    return { kind: 'FunctionValue', native, node: undefined };
-}
-export function assertFunction(value: Value): asserts value is FunctionValue {
-    if (value.kind != 'FunctionValue') {
-        throw new UguisuError(`type mismatched. expected \`fn\`, found \`${getTypeName(value)}\``);
-    }
-}
-
-export type NumberValue = {
-    kind: 'NumberValue',
-    value: number,
-};
-export function newNumber(value: number): NumberValue {
-    return { kind: 'NumberValue', value };
-}
-export function assertNumber(value: Value): asserts value is NumberValue {
-    if (value.kind != 'NumberValue') {
-        throw new UguisuError(`type mismatched. expected \`number\`, found \`${getTypeName(value)}\``);
-    }
-}
-
-export type BoolValue = {
-    kind: 'BoolValue',
-    value: boolean,
-};
-export function newBool(value: boolean): BoolValue {
-    return { kind: 'BoolValue', value };
-}
-export function assertBool(value: Value): asserts value is BoolValue {
-    if (value.kind != 'BoolValue') {
-        throw new UguisuError(`type mismatched. expected \`bool\`, found \`${getTypeName(value)}\``);
-    }
-}
-
-export type StringValue = {
-    kind: 'StringValue',
-    value: string,
-};
-export function newString(value: string): StringValue {
-    return { kind: 'StringValue', value };
-}
-export function assertString(value: Value): asserts value is StringValue {
-    if (value.kind != 'StringValue') {
-        throw new UguisuError(`type mismatched. expected \`string\`, found \`${getTypeName(value)}\``);
-    }
-}
-
-export type NoneValue = {
-    kind: 'NoneValue',
-}
-export function newNoneValue(): NoneValue {
-    return { kind: 'NoneValue' };
-}
-export function isNoneValue(value: Value): value is NoneValue {
-    return (value.kind == 'NoneValue');
-}
-
-export function getTypeName(value: Value): string {
-    switch (value.kind) {
+export function getTypeName(valueKind: Value['kind']): string {
+    switch (valueKind) {
         case 'NoneValue': {
             return 'none';
-        }
-        case 'FunctionValue': {
-            return 'fn';
         }
         case 'NumberValue': {
             return 'number';
@@ -145,10 +99,141 @@ export function getTypeName(value: Value): string {
         case 'BoolValue': {
             return 'bool';
         }
+        case 'CharValue': {
+            return 'char';
+        }
         case 'StringValue': {
             return 'string';
         }
+        case 'StructValue': {
+            return 'struct';
+        }
+        case 'ArrayValue': {
+            return 'array';
+        }
+        case 'FunctionValue': {
+            return 'fn';
+        }
     }
 }
+
+export function assertValue<T extends Value['kind']>(value: Value, expectKind: T): asserts value is ValueOf<T> {
+    if (value.kind != expectKind) {
+        throw new UguisuError(`type mismatched. expected \`${getTypeName(expectKind)}\`, found \`${getTypeName(value.kind)}\``);
+    }
+}
+
+export class NoneValue {
+    kind: 'NoneValue';
+    constructor() {
+        this.kind = 'NoneValue';
+    }
+}
+
+export class NumberValue {
+    kind: 'NumberValue';
+    private _value: number;
+    constructor(value: number) {
+        this.kind = 'NumberValue';
+        this._value = value;
+    }
+    getValue(): number {
+        return this._value;
+    }
+}
+
+export class BoolValue {
+    kind: 'BoolValue';
+    private _value: boolean;
+    constructor(value: boolean) {
+        this.kind = 'BoolValue';
+        this._value = value;
+    }
+    getValue(): boolean {
+        return this._value;
+    }
+}
+
+export class CharValue {
+    kind: 'CharValue';
+    private _value: string;
+    constructor(value: string) {
+        this.kind = 'CharValue';
+        this._value = value;
+    }
+    getValue(): string {
+        return this._value;
+    }
+}
+
+export class StringValue {
+    kind: 'StringValue';
+    private _value: string;
+    constructor(value: string) {
+        this.kind = 'StringValue';
+        this._value = value;
+    }
+    getValue(): string {
+        return this._value;
+    }
+}
+
+export class StructValue {
+    kind: 'StructValue';
+    private _fields: Map<string, Symbol>;
+    constructor(fields: Map<string, Symbol>) {
+        this.kind = 'StructValue';
+        this._fields = fields;
+    }
+    getFieldNames() {
+        return this._fields.keys();
+    }
+    lookupField(name: string): Symbol | undefined {
+        return this._fields.get(name);
+    }
+}
+
+export class ArrayValue {
+    kind: 'ArrayValue';
+    private _items: Symbol[];
+    constructor(items: Symbol[]) {
+        this.kind = 'ArrayValue';
+        this._items = items;
+    }
+    at(index: number): Symbol | undefined {
+        return this._items.at(index);
+    }
+    insert(index: number, item: Symbol) {
+        this._items.splice(index, 0, item);
+    }
+    removeAt(index: number) {
+        this._items.splice(index, 1);
+    }
+    count(): number {
+        return this._items.length;
+    }
+}
+
+export class FunctionValue {
+    kind: 'FunctionValue';
+    user?: {
+        node: FunctionDecl;
+        env: RunningEnv; // lexical scope
+    };
+    native?: NativeFuncHandler;
+    private constructor(user?: FunctionValue['user'], native?: NativeFuncHandler) {
+        this.kind = 'FunctionValue';
+        this.user = user;
+        this.native = native;
+    }
+    static create(node: FunctionDecl, env: RunningEnv): FunctionValue {
+        return new FunctionValue({ node, env }, undefined);
+    }
+    static createNative(native: NativeFuncHandler): FunctionValue {
+        return new FunctionValue(undefined, native);
+    }
+}
+
+export type NativeFuncHandler = (args: Value[], options: UguisuOptions) => Value;
 
 //#endregion Values

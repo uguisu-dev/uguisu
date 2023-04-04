@@ -1,6 +1,7 @@
 import { UguisuError } from '../misc/errors.js';
 import { UguisuOptions } from '../misc/options.js';
 import { Trace } from '../misc/trace.js';
+import { ProjectInfo } from '../project-file.js';
 import {
     ExprNode,
     isEquivalentOperator,
@@ -12,195 +13,215 @@ import {
 } from '../syntax/tools.js';
 import * as builtins from './builtins.js';
 import {
-    assertBool,
-    assertFunction,
-    assertNumber,
-    assertString,
+    ArrayValue,
+    assertValue,
+    BoolValue,
+    CharValue,
+    createBreakResult,
+    createOkResult,
+    createReturnResult,
     FunctionValue,
     getTypeName,
-    isNoneValue,
-    newBool,
-    newFunction,
-    newNoneValue,
-    newNumber,
-    newString,
+    NoneValue,
+    NumberValue,
     RunningEnv,
+    StatementResult,
+    StringValue,
+    StructValue,
+    Symbol,
     Value
 } from './tools.js';
 
 const trace = Trace.getDefault().createChild(false);
 
-export function run(source: SourceFile, env: RunningEnv, options: UguisuOptions) {
-    builtins.setRuntime(env, options);
-    evalSourceFile(source, env);
-    call('main', env, options);
-}
+class RunContext {
+    env: RunningEnv;
+    options: UguisuOptions;
+    projectInfo: ProjectInfo;
 
-function call(name: string, env: RunningEnv, options: UguisuOptions) {
-    const symbol = env.get(name);
-    if (symbol == null || !symbol.defined) {
-        throw new UguisuError(`function \`${name}\` is not found`);
-    }
-    assertFunction(symbol.value);
-    callFunc(symbol.value, [], options);
-}
-
-//#region StatementResults
-
-type StatementResult = NoneResult | ReturnResult | BreakResult;
-
-type NoneResult = {
-    kind: 'NoneResult',
-};
-function newNoneResult(): NoneResult {
-    return { kind: 'NoneResult' };
-}
-
-type ReturnResult = {
-    kind: 'ReturnResult',
-    value: Value,
-};
-function newReturnResult(value: Value): ReturnResult {
-    return { kind: 'ReturnResult', value };
-}
-
-type BreakResult = {
-    kind: 'BreakResult',
-};
-function newBreakResult(): BreakResult {
-    return { kind: 'BreakResult' };
-}
-
-//#endregion StatementResults
-
-function evalSourceFile(source: SourceFile, env: RunningEnv) {
-    for (const func of source.funcs) {
-        env.declare(func.name);
-    }
-    for (const func of source.funcs) {
-        env.define(func.name, newFunction(func, env));
+    constructor(env: RunningEnv, options: UguisuOptions, projectInfo: ProjectInfo) {
+        this.env = env;
+        this.options = options;
+        this.projectInfo = projectInfo;
     }
 }
 
-function callFunc(func: FunctionValue, args: Value[], options: UguisuOptions): Value {
-    if (func.node != null) {
-        const env = new RunningEnv(func.env);
-        env.enter();
-        if (func.node.params.length != args.length) {
+export function run(source: SourceFile, env: RunningEnv, options: UguisuOptions, projectInfo: ProjectInfo) {
+    const r = new RunContext(env, options, projectInfo);
+    builtins.setRuntime(r.env, options);
+    evalSourceFile(r, source);
+    const entryPoint = getEntryPoint(r);
+    call(r, entryPoint, []);
+}
+
+function getEntryPoint(r: RunContext): FunctionValue {
+    const entryPointName = 'main';
+    const symbol = r.env.lookup(entryPointName);
+    if (symbol == null) {
+        throw new UguisuError(`function \`${entryPointName}\` is not found`);
+    }
+    if (symbol.value == null) {
+        throw new UguisuError(`function \`${entryPointName}\` is not defined`);
+    }
+    assertValue(symbol.value, 'FunctionValue');
+    return symbol.value;
+}
+
+function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
+    if (func.user != null) {
+        const env = new RunningEnv(func.user.env);
+        const ctx = new RunContext(env, r.options, r.projectInfo);
+        ctx.env.enter();
+        if (func.user.node.params.length != args.length) {
             throw new UguisuError('invalid arguments count');
         }
-        let i = 0;
-        while (i < func.node.params.length) {
-            const param = func.node.params[i];
+        for (let i = 0; i < func.user.node.params.length; i++) {
+            const param = func.user.node.params[i];
             const arg = args[i];
-            env.define(param.name, arg);
-            i++;
+            ctx.env.declare(param.name, arg);
         }
-        let result: StatementResult = newNoneResult();
-        for (const statement of func.node.body) {
-            result = execStatement(statement, env, options);
-            if (result.kind == 'ReturnResult') {
+        let result: StatementResult = createOkResult();
+        for (const statement of func.user.node.body) {
+            result = evalStatement(ctx, statement);
+            if (result.kind == 'return') {
                 break;
-            } else if (result.kind == 'BreakResult') {
+            } else if (result.kind == 'break') {
                 break;
             }
         }
-        env.leave();
-        if (result.kind == 'ReturnResult') {
+        ctx.env.leave();
+        if (result.kind == 'return') {
             return result.value;
         }
-        return newNoneValue();
+        return new NoneValue();
     } else if (func.native != null) {
-        return func.native(args, options);
+        return func.native(args, r.options);
     } else {
         throw new UguisuError('invalid function');
     }
 }
 
-function execBlock(block: StatementNode[], env: RunningEnv, options: UguisuOptions): StatementResult {
-    trace.log('execBlock');
-    env.enter();
-    let result: StatementResult = newNoneResult();
+function evalSourceFile(r: RunContext, source: SourceFile) {
+    for (const decl of source.decls) {
+        switch (decl.kind) {
+            case 'FunctionDecl': {
+                r.env.declare(decl.name, FunctionValue.create(decl, r.env));
+                break;
+            }
+            case 'StructDecl': {
+                break;
+            }
+        }
+    }
+}
+
+function evalBlock(r: RunContext, block: StatementNode[]): StatementResult {
+    r.env.enter();
+    let result: StatementResult = createOkResult();
     for (const statement of block) {
-        result = execStatement(statement, env, options);
-        if (result.kind == 'ReturnResult') {
+        result = evalStatement(r, statement);
+        if (result.kind == 'return') {
             break;
-        } else if (result.kind == 'BreakResult') {
+        } else if (result.kind == 'break') {
             break;
         }
     }
-    env.leave();
+    r.env.leave();
     return result;
 }
 
-function execStatement(statement: StatementNode, env: RunningEnv, options: UguisuOptions): StatementResult {
+function evalName(r: RunContext, expr: ExprNode): Symbol {
+    switch (expr.kind) {
+        case 'Identifier': {
+            const symbol = r.env.lookup(expr.name);
+            if (symbol == null) {
+                throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
+            }
+            return symbol;
+        }
+        case 'FieldAccess': {
+            const target = evalExpr(r, expr.target);
+            assertValue(target, 'StructValue');
+            const field = target.lookupField(expr.name);
+            if (field == null) {
+                throw new UguisuError('unknown field');
+            }
+            return field;
+        }
+        case 'IndexAccess': {
+            const target = evalExpr(r, expr.target);
+            const index = evalExpr(r, expr.index);
+            assertValue(target, 'ArrayValue');
+            assertValue(index, 'NumberValue');
+            const symbol = target.at(index.getValue());
+            if (symbol == null) {
+                throw new UguisuError('index out of range');
+            }
+            return symbol;
+        }
+        default: {
+            throw new UguisuError('unexpected expression');
+        }
+    }
+}
+
+function evalStatement(r: RunContext, statement: StatementNode): StatementResult {
     if (isExprNode(statement)) {
-        evalExpr(statement, env, options);
-        return newNoneResult();
+        evalExpr(r, statement);
+        return createOkResult();
     } else {
         switch (statement.kind) {
             case 'ReturnStatement': {
-                trace.log('ReturnStatement');
                 if (statement.expr != null) {
-                    return newReturnResult(evalExpr(statement.expr, env, options));
+                    return createReturnResult(evalExpr(r, statement.expr));
                 } else {
-                    return newReturnResult(newNoneValue());
+                    return createReturnResult(new NoneValue());
                 }
             }
             case 'BreakStatement': {
-                trace.log('BreakStatement');
-                return newBreakResult();
+                return createBreakResult();
             }
             case 'LoopStatement': {
-                trace.log('LoopStatement');
                 while (true) {
-                    const result = execBlock(statement.block, env, options);
-                    if (result.kind == 'ReturnResult') {
+                    const result = evalBlock(r, statement.block);
+                    if (result.kind == 'return') {
                         return result;
-                    } else if (result.kind == 'BreakResult') {
+                    } else if (result.kind == 'break') {
                         break;
                     }
                 }
-                return newNoneResult();
+                return createOkResult();
             }
             case 'IfStatement': {
-                trace.log('IfStatement');
-                const cond = evalExpr(statement.cond, env, options);
-                if (isNoneValue(cond)) {
-                    throw new UguisuError('no values');
-                }
-                assertBool(cond);
-                if (cond.value) {
-                    return execBlock(statement.thenBlock, env, options);
+                const cond = evalExpr(r, statement.cond);
+                assertValue(cond, 'BoolValue');
+                if (cond.getValue()) {
+                    return evalBlock(r, statement.thenBlock);
                 } else {
-                    return execBlock(statement.elseBlock, env, options);
+                    return evalBlock(r, statement.elseBlock);
                 }
             }
             case 'VariableDecl': {
-                trace.log('VariableDecl');
                 if (statement.body != null) {
-                    const bodyValue = evalExpr(statement.body, env, options);
-                    if (isNoneValue(bodyValue)) {
+                    const bodyValue = evalExpr(r, statement.body);
+                    if (bodyValue.kind == 'NoneValue') {
                         throw new UguisuError('no values');
                     }
-                    // TODO: consider symbol system
-                    env.define(statement.name, bodyValue);
+                    r.env.declare(statement.name, bodyValue);
                 } else {
-                    env.declare(statement.name);
+                    r.env.declare(statement.name);
                 }
-                return newNoneResult();
+                return createOkResult();
             }
             case 'AssignStatement': {
-                trace.log('AssignStatement');
-                if (statement.target.kind != 'Identifier') {
-                    throw new UguisuError('unsupported assignee');
+                let symbol;
+                if (statement.target.kind == 'Identifier' || statement.target.kind == 'FieldAccess' || statement.target.kind == 'IndexAccess') {
+                    symbol = evalName(r, statement.target);
+                } else {
+                    throw new UguisuError('unsupported assign target');
                 }
-                const symbol = env.get(statement.target.name);
-                if (symbol == null) {
-                    throw new UguisuError('unknown identifier');
-                }
-                const bodyValue = evalExpr(statement.body, env, options);
-                if (isNoneValue(bodyValue)) {
+                const bodyValue = evalExpr(r, statement.body);
+                if (bodyValue.kind == 'NoneValue') {
                     throw new UguisuError('no values');
                 }
                 switch (statement.mode) {
@@ -209,245 +230,290 @@ function execStatement(statement: StatementNode, env: RunningEnv, options: Uguis
                         break;
                     }
                     case '+=': {
-                        const restored = env.get(statement.target.name);
-                        if (restored == null || !restored.defined) {
+                        if (symbol.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertNumber(restored.value);
-                        assertNumber(bodyValue);
-                        const value = newNumber(restored.value.value + bodyValue.value);
+                        assertValue(symbol.value, 'NumberValue');
+                        assertValue(bodyValue, 'NumberValue');
+                        const value = new NumberValue(symbol.value.getValue() + bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
                     case '-=': {
-                        const restored = env.get(statement.target.name);
-                        if (restored == null || !restored.defined) {
+                        if (symbol.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertNumber(restored.value);
-                        assertNumber(bodyValue);
-                        const value = newNumber(restored.value.value - bodyValue.value);
+                        assertValue(symbol.value, 'NumberValue');
+                        assertValue(bodyValue, 'NumberValue');
+                        const value = new NumberValue(symbol.value.getValue() - bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
                     case '*=': {
-                        const restored = env.get(statement.target.name);
-                        if (restored == null || !restored.defined) {
+                        if (symbol.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertNumber(restored.value);
-                        assertNumber(bodyValue);
-                        const value = newNumber(restored.value.value * bodyValue.value);
+                        assertValue(symbol.value, 'NumberValue');
+                        assertValue(bodyValue, 'NumberValue');
+                        const value = new NumberValue(symbol.value.getValue() * bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
                     case '/=': {
-                        const restored = env.get(statement.target.name);
-                        if (restored == null || !restored.defined) {
+                        if (symbol.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertNumber(restored.value);
-                        assertNumber(bodyValue);
-                        const value = newNumber(restored.value.value / bodyValue.value);
+                        assertValue(symbol.value, 'NumberValue');
+                        assertValue(bodyValue, 'NumberValue');
+                        const value = new NumberValue(symbol.value.getValue() / bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
                     case '%=': {
-                        const restored = env.get(statement.target.name);
-                        if (restored == null || !restored.defined) {
+                        if (symbol.value == null) {
                             throw new UguisuError('variable is not defined');
                         }
-                        assertNumber(restored.value);
-                        assertNumber(bodyValue);
-                        const value = newNumber(restored.value.value % bodyValue.value);
+                        assertValue(symbol.value, 'NumberValue');
+                        assertValue(bodyValue, 'NumberValue');
+                        const value = new NumberValue(symbol.value.getValue() % bodyValue.getValue());
                         symbol.value = value;
                         break;
                     }
                 }
-                symbol.defined = true;
-                return newNoneResult();
+                return createOkResult();
             }
         }
     }
 }
 
-function evalExpr(expr: ExprNode, env: RunningEnv, options: UguisuOptions): Value {
+function evalExpr(r: RunContext, expr: ExprNode): Value {
     switch (expr.kind) {
         case 'Identifier': {
-            trace.log('Identifier');
-            const symbol = env.get(expr.name);
-            if (symbol == null || !symbol.defined) {
+            const symbol = evalName(r, expr);
+            if (symbol.value == null) {
                 throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
             }
             return symbol.value;
         }
+        case 'FieldAccess': {
+            const field = evalName(r, expr);
+            if (field.value == null) {
+                throw new UguisuError('field not defined');
+            }
+            return field.value;
+        }
+        case 'IndexAccess': {
+            const symbol = evalName(r, expr);
+            if (symbol.value == null) {
+                throw new UguisuError('symbol not defined');
+            }
+            return symbol.value;
+        }
         case 'NumberLiteral': {
-            trace.log('NumberLiteral');
-            return newNumber(expr.value);
+            return new NumberValue(expr.value);
         }
         case 'BoolLiteral': {
-            trace.log('BoolLiteral');
-            return newBool(expr.value);
+            return new BoolValue(expr.value);
+        }
+        case 'CharLiteral': {
+            return new CharValue(expr.value);
         }
         case 'StringLiteral': {
-            trace.log('StringLiteral');
-            return newString(expr.value);
+            return new StringValue(expr.value);
         }
         case 'Call': {
-            trace.log('Call');
-            const callee = evalExpr(expr.callee, env, options);
-            if (isNoneValue(callee)) {
-                throw new UguisuError('no values');
-            }
-            assertFunction(callee);
+            const callee = evalExpr(r, expr.callee);
+            assertValue(callee, 'FunctionValue');
             const args = expr.args.map(i => {
-                const value = evalExpr(i, env, options);
-                if (isNoneValue(value)) {
+                const value = evalExpr(r, i);
+                if (value.kind == 'NoneValue') {
                     throw new UguisuError('no values');
                 }
                 return value;
             });
-            return callFunc(callee, args, options);
+            return call(r, callee, args);
         }
         case 'BinaryOp': {
-            trace.log('BinaryOp');
-            const left = evalExpr(expr.left, env, options);
-            const right = evalExpr(expr.right, env, options);
-            if (isNoneValue(left)) {
+            const left = evalExpr(r, expr.left);
+            const right = evalExpr(r, expr.right);
+            if (left.kind == 'NoneValue') {
                 throw new UguisuError('no values');
             }
-            if (isNoneValue(left)) {
+            if (right.kind == 'NoneValue') {
                 throw new UguisuError('no values');
             }
             if (isLogicalBinaryOperator(expr.operator)) {
                 // Logical Operation
-                assertBool(left);
-                assertBool(right);
+                assertValue(left, 'BoolValue');
+                assertValue(right, 'BoolValue');
                 switch (expr.operator) {
                     case '&&': {
-                        return newBool(left.value && right.value);
+                        return new BoolValue(left.getValue() && right.getValue());
                     }
                     case '||': {
-                        return newBool(left.value || right.value);
+                        return new BoolValue(left.getValue() || right.getValue());
                     }
                 }
+                throw new UguisuError('unexpected operation');
             } else if (isEquivalentOperator(expr.operator)) {
                 // Equivalent Operation
                 switch (left.kind) {
                     case 'NumberValue': {
-                        assertNumber(right);
+                        assertValue(right, 'NumberValue');
                         switch (expr.operator) {
                             case '==': {
-                                return newBool(left.value == right.value);
+                                return new BoolValue(left.getValue() == right.getValue());
                             }
                             case '!=': {
-                                return newBool(left.value != right.value);
+                                return new BoolValue(left.getValue() != right.getValue());
                             }
                         }
                         break;
                     }
                     case 'BoolValue': {
-                        assertBool(right);
+                        assertValue(right, 'BoolValue');
                         switch (expr.operator) {
                             case '==': {
-                                return newBool(left.value == right.value);
+                                return new BoolValue(left.getValue() == right.getValue());
                             }
                             case '!=': {
-                                return newBool(left.value != right.value);
+                                return new BoolValue(left.getValue() != right.getValue());
+                            }
+                        }
+                        break;
+                    }
+                    case 'CharValue': {
+                        assertValue(right, 'CharValue');
+                        switch (expr.operator) {
+                            case '==': {
+                                return new BoolValue(left.getValue() == right.getValue());
+                            }
+                            case '!=': {
+                                return new BoolValue(left.getValue() != right.getValue());
                             }
                         }
                         break;
                     }
                     case 'StringValue': {
-                        assertString(right);
+                        assertValue(right, 'StringValue');
                         switch (expr.operator) {
                             case '==': {
-                                return newBool(left.value == right.value);
+                                return new BoolValue(left.getValue() == right.getValue());
                             }
                             case '!=': {
-                                return newBool(left.value != right.value);
+                                return new BoolValue(left.getValue() != right.getValue());
                             }
                         }
                         break;
                     }
                     case 'FunctionValue': {
-                        assertFunction(right);
+                        function equalFunc(left: FunctionValue, right: FunctionValue): boolean {
+                            if ((left.user != null) && (right.user != null)) {
+                                return (left.user.node == right.user.node);
+                            }
+                            if ((left.native != null) && (right.native != null)) {
+                                return (left.native == right.native);
+                            }
+                            return (false);
+                        }
+                        assertValue(right, 'FunctionValue');
                         switch (expr.operator) {
                             case '==': {
-                                return newBool(left.node == right.node);
+                                return new BoolValue(equalFunc(left, right));
                             }
                             case '!=': {
-                                return newBool(left.node != right.node);
+                                return new BoolValue(!equalFunc(left, right));
                             }
                         }
                         break;
                     }
+                    case 'StructValue':
+                    case 'ArrayValue': {
+                        throw new UguisuError(`type \`${getTypeName(left.kind)}\` cannot be used for equivalence comparisons.`);
+                        break;
+                    }
                 }
+                throw new UguisuError('unexpected operation');
             } else if (isOrderingOperator(expr.operator)) {
                 // Ordering Operation
                 switch (left.kind) {
                     case 'NumberValue': {
-                        assertNumber(right);
+                        assertValue(right, 'NumberValue');
                         switch (expr.operator) {
                             case '<': {
-                                return newBool(left.value < right.value);
+                                return new BoolValue(left.getValue() < right.getValue());
                             }
                             case '<=': {
-                                return newBool(left.value <= right.value);
+                                return new BoolValue(left.getValue() <= right.getValue());
                             }
                             case '>': {
-                                return newBool(left.value > right.value);
+                                return new BoolValue(left.getValue() > right.getValue());
                             }
                             case '>=': {
-                                return newBool(left.value >= right.value);
+                                return new BoolValue(left.getValue() >= right.getValue());
                             }
                         }
                         break;
                     }
                     case 'BoolValue':
+                    case 'CharValue':
                     case 'StringValue':
-                    case 'FunctionValue': {
-                        throw new UguisuError(`type \`${getTypeName(left)}\` cannot be used to compare large and small relations.`);
+                    case 'FunctionValue':
+                    case 'StructValue':
+                    case 'ArrayValue': {
+                        throw new UguisuError(`type \`${getTypeName(left.kind)}\` cannot be used to compare large and small relations.`);
                     }
                 }
             } else {
                 // Arithmetic Operation
-                assertNumber(left);
-                assertNumber(right);
+                assertValue(left, 'NumberValue');
+                assertValue(right, 'NumberValue');
                 switch (expr.operator) {
                     case '+': {
-                        return newNumber(left.value + right.value);
+                        return new NumberValue(left.getValue() + right.getValue());
                     }
                     case '-': {
-                        return newNumber(left.value - right.value);
+                        return new NumberValue(left.getValue() - right.getValue());
                     }
                     case '*': {
-                        return newNumber(left.value * right.value);
+                        return new NumberValue(left.getValue() * right.getValue());
                     }
                     case '/': {
-                        return newNumber(left.value / right.value);
+                        return new NumberValue(left.getValue() / right.getValue());
                     }
                     case '%': {
-                        return newNumber(left.value % right.value);
+                        return new NumberValue(left.getValue() % right.getValue());
                     }
                 }
             }
             throw new UguisuError('unexpected operation');
         }
         case 'UnaryOp': {
-            trace.log('UnaryOp');
-            const value = evalExpr(expr.expr, env, options);
-            if (isNoneValue(value)) {
-                throw new UguisuError('no values');
-            }
+            const value = evalExpr(r, expr.expr);
             // Logical Operation
-            assertBool(value);
+            assertValue(value, 'BoolValue');
             switch (expr.operator) {
                 case '!': {
-                    return newBool(!value.value);
+                    return new BoolValue(!value.getValue());
                 }
             }
             throw new UguisuError('unexpected operation');
+        }
+        case 'StructExpr': {
+            const fields = new Map<string, Symbol>();
+            for (const field of expr.fields) {
+                const value = evalExpr(r, field.body);
+                const symbol = new Symbol(value);
+                fields.set(field.name, symbol);
+            }
+            return new StructValue(fields);
+        }
+        case 'ArrayNode': {
+            const items = expr.items.map(x => {
+                const value = evalExpr(r, x);
+                return new Symbol(value);
+            });
+            return new ArrayValue(items);
         }
     }
 }

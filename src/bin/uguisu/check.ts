@@ -2,23 +2,18 @@ import { Uguisu } from '../../lib/index.js';
 
 type Match = {
     help: boolean,
-    skipCheck: boolean,
     free: string[],
 };
 
 function getopts(args: string[]): Match {
     const match: Match = {
         help: false,
-        skipCheck: false,
         free: [],
     };
 
     for (const arg of args) {
         if (arg === '-h' || arg === '--help') {
             match.help = true;
-        }
-        if (arg === '--skip-check') {
-            match.skipCheck = true;
         }
         else if (arg.startsWith('-')) {
             throw `unknown option: ${arg}`;
@@ -33,14 +28,12 @@ function getopts(args: string[]): Match {
 
 function showHelp() {
     const lines = [
-        'Usage: uguisu run [options] [projectDir]',
+        'Usage: uguisu check [options] [projectDir]',
         '',
         'Examples:',
-        '    uguisu run <projectDir>',
-        '    uguisu run --skip-check <projectDir>',
+        '    uguisu check <projectDir>',
         '',
         'Options:',
-        '        --skip-check    Skip the static checking phase.',
         '    -h, --help          Print help message.',
     ];
     console.log(lines.join('\n'));
@@ -67,14 +60,10 @@ export function command(args: string[]) {
 
     const dirPath = match.free[0];
 
-    // run script
+    // lint
     try {
-        const uguisu = new Uguisu({
-            stdout(str) {
-                console.log(str);
-            }
-        });
-        uguisu.run(dirPath, { skipCheck: match.skipCheck });
+        const uguisu = new Uguisu();
+        uguisu.check(dirPath);
     }
     catch (e) {
         console.log(e);

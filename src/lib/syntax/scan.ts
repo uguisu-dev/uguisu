@@ -14,7 +14,7 @@ const spCharTable = new Map([
 
 export type LiteralValue = { kind: LiteralKind, value: string };
 
-export type LiteralKind = 'none' | 'number' | 'string' | 'bool';
+export type LiteralKind = 'none' | 'number' | 'char' | 'string' | 'bool';
 
 export enum Token {
     EOF,
@@ -39,6 +39,12 @@ export enum Token {
     BeginParen,
     /** ")" */
     EndParen,
+    /** "[" */
+    BeginBracket,
+    /** "]" */
+    EndBracket,
+    /** "." */
+    Dot,
     /** "," */
     Comma,
     /** ":" */
@@ -86,6 +92,8 @@ export enum Token {
     Var,
     /** "struct" */
     Struct,
+    /** "new" */
+    New,
     /** "return" */
     Return,
     /** "if" */
@@ -96,6 +104,10 @@ export enum Token {
     Loop,
     /** "break" */
     Break,
+    /** "import" */
+    Import,
+    /** "export" */
+    Export,
 }
 
 export class Scanner {
@@ -297,6 +309,21 @@ export class Scanner {
                     this.nextChar();
                     break;
                 }
+                case '[': {
+                    this.token = Token.BeginBracket;
+                    this.nextChar();
+                    break;
+                }
+                case ']': {
+                    this.token = Token.EndBracket;
+                    this.nextChar();
+                    break;
+                }
+                case '.': {
+                    this.token = Token.Dot;
+                    this.nextChar();
+                    break;
+                }
                 case ',': {
                     this.token = Token.Comma;
                     this.nextChar();
@@ -375,8 +402,12 @@ export class Scanner {
                     }
                     break;
                 }
+                case '\'': {
+                    this.readString('char');
+                    break;
+                }
                 case '"': {
-                    this.readString();
+                    this.readString('string');
                     break;
                 }
                 default: {
@@ -424,6 +455,10 @@ export class Scanner {
                 this.token = Token.Struct;
                 break;
             }
+            case 'new': {
+                this.token = Token.New;
+                break;
+            }
             case 'return': {
                 this.token = Token.Return;
                 break;
@@ -456,6 +491,14 @@ export class Scanner {
                 this.tokenValue = buf;
                 break;
             }
+            case 'import': {
+                this.token = Token.Import;
+                break;
+            }
+            case 'export': {
+                this.token = Token.Export;
+                break;
+            }
             default: {
                 this.token = Token.Ident;
                 this.tokenValue = buf;
@@ -463,14 +506,17 @@ export class Scanner {
         }
     }
 
-    private readString() {
+    private readString(kind: 'char' | 'string') {
         this.nextChar();
         let buf = '';
         while (true) {
             if (this.ch == null) {
                 throw new UguisuError('unexpected EOF');
             }
-            if (this.ch == '"') {
+            if (kind == 'string' && this.ch == '"') {
+                this.nextChar();
+                break;
+            } else if (kind == 'char' && this.ch == '\'') {
                 this.nextChar();
                 break;
             } else if (this.ch == '\\') { // special character
@@ -492,7 +538,7 @@ export class Scanner {
         }
         this.token = Token.Literal;
         this.tokenValue = buf;
-        this.literalKind = 'string';
+        this.literalKind = kind;
     }
 
     private skipCommentLine() {

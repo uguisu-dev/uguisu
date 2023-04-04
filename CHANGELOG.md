@@ -3,6 +3,44 @@
 
 -->
 
+## 0.8.0 (2023/04/04)
+
+- 構造体のサポート。
+- 配列のサポート。
+- 文字型と文字リテラルのサポート。
+- 意味解析エラー検出処理の改善。
+- ビルトイン関数をリニューアルしました。(詳細は下記)
+- CLI: 段階的にプロジェクト機能をサポート。
+- JavaScript APIでソースコードを直接実行する機能の廃止。
+- CLI: `run`コマンドに`--check-skip`オプションが追加されました。
+- CLI: `check`コマンドが追加されました。
+- CLI: `new`コマンドが追加されました。
+- 意味解析のバグ修正。
+- CLI: バージョン情報が表示できない問題を修正。
+
+### ビルトイン関数のリニューアル
+
+以下のビルトイン関数が追加されました。
+- `number.parse`
+- `char.fromNumber`
+- `char.toNumber`
+- `char.toString`
+- `string.fromChars`
+- `string.toChars`
+- `array.insert`
+- `array.add`
+- `array.removeAt`
+- `array.count`
+- `console.read`
+
+以下のビルトイン関数の名前が変更になりました。
+- `toString` -> `number.toString`
+- `assertEqNum` -> `number.assertEq`
+- `concatStr` -> `string.concat`
+- `assertEqStr` -> `string.assertEq`
+- `printStr` -> `console.write`
+- `printNum` -> `console.writeNum`
+
 ## 0.7.0 (2023/03/13)
 
 - 実装がRustからNode.jsに移行されました。
