@@ -44,10 +44,6 @@ import {
     voidType
 } from './tools.js';
 
-// TODO:
-// 変数が定義済みかどうかを確認したい
-// 色々なところでシンボルが必要になるかも。改修が必要？
-
 export type AnalyzeResult = {
     success: boolean,
     errors: string[],
@@ -550,9 +546,13 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             let targetTy = getTypeFromSymbol(symbol, node.target, a);
 
             // if it was the first assignment
-            if (symbol.kind == 'VariableSymbol' && !symbol.isDefined && isPendingType(targetTy)) {
-                targetTy = bodyTy;
-                symbol.ty = targetTy;
+            if (symbol.kind == 'VariableSymbol' && !symbol.isDefined) {
+                // if need inference
+                if (isPendingType(targetTy)) {
+                    targetTy = bodyTy;
+                    symbol.ty = targetTy;
+                }
+                symbol.isDefined = true;
             }
 
             // check type
@@ -598,7 +598,7 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
             const ty = getTypeFromSymbol(symbol, node, a);
 
             // if the variable is not assigned
-            if (ty.kind == 'PendingType') {
+            if (symbol.kind == 'VariableSymbol' && !symbol.isDefined) {
                 a.dispatchError('variable is not assigned yet.', node);
                 return badType;
             }
