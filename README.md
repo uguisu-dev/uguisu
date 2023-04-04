@@ -1,4 +1,4 @@
-<img alt="uguisu logo" width="100px" align="right" src="https://raw.githubusercontent.com/uguisu-dev/uguisu/v0.7.0/uguisu-logo.png" />
+<img alt="uguisu logo" width="100px" align="right" src="https://raw.githubusercontent.com/uguisu-dev/uguisu/v0.8.0/uguisu-logo.png" />
 
 # Uguisu
 The Uguisu is a statically typed scripting language.  
