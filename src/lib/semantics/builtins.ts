@@ -75,12 +75,12 @@ export function setDeclarations(a: AnalyzeContext) {
             stringType
         );
         setItem(
-            'fromArray',
+            'fromChars',
             [arrayType],
             stringType
         );
         setItem(
-            'toArray',
+            'toChars',
             [stringType],
             arrayType
         );
