@@ -1,5 +1,5 @@
-# 言語バージョン
-Uguisu2023-1
+# 対象バージョン
+Uguisu 0.8
 
 # 型 (type)
 名前   | 説明
@@ -242,17 +242,17 @@ fn string.concat(x: string, y: string): string;
 ```
 2つの文字列を連結して新しい文字列を生成します。
 
-## string.fromArray
+## string.fromChars
 ```
-fn string.fromArray(x: array): string;
+fn string.fromChars(x: array): string;
 ```
-文字(char型)配列を文字列に変換します。
+char型配列を文字列に変換します。
 
-## string.toArray
+## string.toChars
 ```
-fn string.toArray(x: string): array;
+fn string.toChars(x: string): array;
 ```
-文字列を文字(char型)配列に変換します。
+文字列をchar型配列に変換します。
 
 ## string.assertEq
 ```
