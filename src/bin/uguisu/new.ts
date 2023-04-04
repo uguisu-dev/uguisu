@@ -83,12 +83,15 @@ export function command(args: string[]) {
             // not found
         }
 
-        // check if the dir is empty
         if (dirFound) {
+            // check if the dir is empty
             const files = fs.readdirSync(dirPath);
             if (files.length != 0) {
                 throw new UguisuError('project directory is not empty.');
             }
+        } else {
+            // create dir
+            fs.mkdirSync(dirPath);
         }
 
         // create a default project info
