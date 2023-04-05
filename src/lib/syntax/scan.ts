@@ -86,6 +86,28 @@ export enum Token {
     /** "&&" */
     And2,
 
+    /** "as" */
+    As,
+    /** "class" */
+    Class,
+    /** "const" */
+    Const,
+    /** "continue" */
+    Continue,
+    /** "for" */
+    For,
+    /** "impl" */
+    Impl,
+    /** "interface" */
+    Inferface,
+    /** "namespace" */
+    Namespace,
+    /** "sizeof" */
+    Sizeof,
+    /** "this" */
+    This,
+    /** "typeof" */
+    Typeof,
     /** "fn" */
     Fn,
     /** "var" */
@@ -443,6 +465,50 @@ export class Scanner {
             this.nextChar();
         }
         switch (buf) {
+            case 'as': {
+                this.token = Token.As;
+                break;
+            }
+            case 'class': {
+                this.token = Token.Class;
+                break;
+            }
+            case 'const': {
+                this.token = Token.Const;
+                break;
+            }
+            case 'continue': {
+                this.token = Token.Continue;
+                break;
+            }
+            case 'for': {
+                this.token = Token.For;
+                break;
+            }
+            case 'impl': {
+                this.token = Token.Impl;
+                break;
+            }
+            case 'interface': {
+                this.token = Token.Inferface;
+                break;
+            }
+            case 'namespace': {
+                this.token = Token.Namespace;
+                break;
+            }
+            case 'sizeof': {
+                this.token = Token.Sizeof;
+                break;
+            }
+            case 'this': {
+                this.token = Token.This;
+                break;
+            }
+            case 'typeof': {
+                this.token = Token.Typeof;
+                break;
+            }
             case 'var': {
                 this.token = Token.Var;
                 break;
