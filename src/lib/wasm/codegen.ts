@@ -1,7 +1,7 @@
 import Wasm from 'binaryen';
 import { UguisuError } from '../misc/errors.js';
 import { boolType, compareType, FunctionType, numberType, Symbol, Type, voidType } from '../semantics/tools.js';
-import { AstNode, ExprNode, FileNode, Identifier, SourceFile, StatementNode } from '../syntax/tools.js';
+import { AstNode, ExprNode, FileNode, Identifier, SourceFile, StepNode } from '../syntax/tools.js';
 
 export function codegen(symbolTable: Map<AstNode, Symbol>, node: SourceFile) {
     const mod = translate(symbolTable, node);
@@ -88,7 +88,7 @@ function translateFunc(ctx: Context, node: FileNode) {
     ctx.mod.addFunctionExport(func.name, func.name);
 }
 
-function translateStatements(ctx: Context, nodes: StatementNode[], funcInfo: FuncInfo, loopLabel: number | null): number[] {
+function translateStatements(ctx: Context, nodes: StepNode[], funcInfo: FuncInfo, loopLabel: number | null): number[] {
     const body: number[] = [];
 
     for (const node of nodes) {

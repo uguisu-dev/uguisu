@@ -3,7 +3,7 @@ export type Pos = [number, number];
 export type AstNode
     = SourceFile
     | FileNode
-    | StatementNode
+    | StepNode
     | TyLabel
     | FnDeclParam
     | StructDeclField
@@ -11,7 +11,7 @@ export type AstNode
 
 export type FileNode = FunctionDecl | StructDecl;
 
-export type StatementCoreNode
+export type StatementNode
     = VariableDecl
     | AssignStatement
     | ExprStatement
@@ -19,8 +19,8 @@ export type StatementCoreNode
     | ReturnStatement
     | BreakStatement;
 
-export type StatementNode
-    = StatementCoreNode
+export type StepNode
+    = StatementNode
     | ExprNode;
 
 export type ExprNode
@@ -96,7 +96,7 @@ export type FunctionDecl = {
     pos: Pos;
     name: string,
     params: FnDeclParam[],
-    body: StatementNode[],
+    body: StepNode[],
     returnTy?: TyLabel,
     exported: boolean,
 };
@@ -104,7 +104,7 @@ export function createFunctionDecl(
     pos: Pos,
     name: string,
     params: FnDeclParam[],
-    body: StatementNode[],
+    body: StepNode[],
     returnTy: TyLabel | undefined,
     exported: boolean,
 ): FunctionDecl {
@@ -125,14 +125,14 @@ export type IfExpr = {
     kind: 'IfExpr',
     pos: Pos;
     cond: ExprNode;
-    thenBlock: StatementNode[];
-    elseBlock: StatementNode[];
+    thenBlock: StepNode[];
+    elseBlock: StepNode[];
 };
 export function createIfExpr(
     pos: Pos,
     cond: ExprNode,
-    thenBlock: StatementNode[],
-    elseBlock: StatementNode[],
+    thenBlock: StepNode[],
+    elseBlock: StepNode[],
 ): IfExpr {
     return { kind: 'IfExpr', pos, cond, thenBlock, elseBlock };
 }
@@ -297,9 +297,9 @@ export function createReturnStatement(pos: Pos, expr?: ExprNode): ReturnStatemen
 export type LoopStatement = {
     kind: 'LoopStatement',
     pos: Pos,
-    block: StatementNode[],
+    block: StepNode[],
 };
-export function createLoopStatement(pos: Pos, block: StatementNode[]): LoopStatement {
+export function createLoopStatement(pos: Pos, block: StepNode[]): LoopStatement {
     return { kind: 'LoopStatement', pos, block };
 }
 

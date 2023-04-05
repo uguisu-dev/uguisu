@@ -11,8 +11,8 @@ import {
     isOrderingOperator,
     ReferenceExpr,
     SourceFile,
-    StatementCoreNode,
     StatementNode,
+    StepNode,
     TyLabel
 } from '../syntax/tools.js';
 import * as builtins from './builtins.js';
@@ -394,8 +394,8 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
             }
 
             // analyze function body
-            for (const statement of node.body) {
-                analyzeNode(statement, false, symbol, a);
+            for (const step of node.body) {
+                analyzeStep(step, false, symbol, a);
             }
 
             a.env.leave();
@@ -408,16 +408,16 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
     }
 }
 
-function analyzeBlock(nodes: StatementNode[], allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext) {
+function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext) {
     a.env.enter();
     // analyze inner
-    for (const node of nodes) {
-        analyzeNode(node, allowJump, funcSymbol, a);
+    for (const step of nodes) {
+        analyzeStep(step, allowJump, funcSymbol, a);
     }
     a.env.leave();
 }
 
-function analyzeNode(node: StatementNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext) {
+function analyzeStep(node: StepNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext) {
     if (isExprNode(node)) {
         analyzeExpr(node, funcSymbol, a);
     } else {
@@ -425,7 +425,7 @@ function analyzeNode(node: StatementNode, allowJump: boolean, funcSymbol: FnSymb
     }
 }
 
-function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext) {
+function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext) {
     switch (node.kind) {
         case 'ReturnStatement': {
             // if there is a return value

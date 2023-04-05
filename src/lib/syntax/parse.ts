@@ -40,7 +40,7 @@ import {
     LoopStatement,
     ReturnStatement,
     SourceFile,
-    StatementNode,
+    StepNode,
     StructDecl,
     StructDeclField,
     StructExprField,
@@ -124,11 +124,11 @@ class ParseContext {
  * <Block> = "{" <Statement>* "}"
  * ```
 */
-function parseBlock(p: ParseContext): StatementNode[] {
+function parseBlock(p: ParseContext): StepNode[] {
     trace.enter('[parse] parseBlock');
 
     p.expectAndNext(Token.BeginBrace);
-    const statements: StatementNode[] = [];
+    const statements: StepNode[] = [];
     while (!p.tokenIs(Token.EndBrace)) {
         statements.push(parseStatement(p));
     }
@@ -312,7 +312,7 @@ function parseStructDeclField(p: ParseContext): StructDeclField {
  * <Statement> = <VariableDecl> / <AssignStatement> / <LoopStatement> / <ReturnStatement> / <BreakStatement> / <ExprStatement> / <ExprNode>
  * ```
 */
-function parseStatement(p: ParseContext): StatementNode {
+function parseStatement(p: ParseContext): StepNode {
     switch (p.getToken()) {
         case Token.Var: {
             return parseVariableDecl(p);
@@ -340,7 +340,7 @@ function parseStatement(p: ParseContext): StatementNode {
  *   / <Expr>
  * ```
 */
-function parseStatementStartWithExpr(p: ParseContext): StatementNode {
+function parseStatementStartWithExpr(p: ParseContext): StepNode {
     trace.enter('[parse] parseStatementStartWithExpr');
 
     const expr = parseExpr(p);
@@ -702,7 +702,7 @@ function parseIfExpr(p: ParseContext): IfExpr {
     p.next();
     const cond = parseExpr(p);
     const thenBlock = parseBlock(p);
-    let elseBlock: StatementNode[];
+    let elseBlock: StepNode[];
     if (p.tokenIs(Token.Else)) {
         p.next();
         if (p.tokenIs(Token.If)) {

@@ -9,7 +9,7 @@ import {
     isLogicalBinaryOperator,
     isOrderingOperator,
     SourceFile,
-    StatementNode
+    StepNode
 } from '../syntax/tools.js';
 import * as builtins from './builtins.js';
 import {
@@ -115,7 +115,7 @@ function evalSourceFile(r: RunContext, source: SourceFile) {
     }
 }
 
-function evalBlock(r: RunContext, block: StatementNode[]): StatementResult {
+function evalBlock(r: RunContext, block: StepNode[]): StatementResult {
     r.env.enter();
     let result: StatementResult = createOkResult();
     for (const statement of block) {
@@ -165,7 +165,7 @@ function evalName(r: RunContext, expr: ExprNode): Symbol {
     }
 }
 
-function evalStatement(r: RunContext, statement: StatementNode): StatementResult {
+function evalStatement(r: RunContext, statement: StepNode): StatementResult {
     if (isExprNode(statement)) {
         evalExpr(r, statement);
         return createOkResult();
