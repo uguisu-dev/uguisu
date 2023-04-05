@@ -100,14 +100,14 @@ export enum Token {
     Else,
     /** "export" */
     Export,
+    /** "feature" */
+    Feature,
     /** "fn" */
     Fn,
     /** "for" */
     For,
     /** "if" */
     If,
-    /** "impl" */
-    Impl,
     /** "import" */
     Import,
     /** "interface" */
@@ -499,6 +499,10 @@ export class Scanner {
                 this.tokenValue = buf;
                 break;
             }
+            case 'feature': {
+                this.token = Token.Feature;
+                break;
+            }
             case 'fn': {
                 this.token = Token.Fn;
                 break;
@@ -509,10 +513,6 @@ export class Scanner {
             }
             case 'if': {
                 this.token = Token.If;
-                break;
-            }
-            case 'impl': {
-                this.token = Token.Impl;
                 break;
             }
             case 'import': {
