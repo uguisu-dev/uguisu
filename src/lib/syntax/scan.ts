@@ -118,6 +118,8 @@ export enum Token {
     Namespace,
     /** "new" */
     New,
+    /** "public" */
+    Public,
     /** "return" */
     Return,
     /** "sizeof" */
@@ -533,6 +535,10 @@ export class Scanner {
             }
             case 'new': {
                 this.token = Token.New;
+                break;
+            }
+            case 'public': {
+                this.token = Token.Public;
                 break;
             }
             case 'return': {
