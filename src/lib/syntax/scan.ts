@@ -88,48 +88,48 @@ export enum Token {
 
     /** "as" */
     As,
+    /** "break" */
+    Break,
     /** "class" */
     Class,
     /** "const" */
     Const,
     /** "continue" */
     Continue,
-    /** "for" */
-    For,
-    /** "impl" */
-    Impl,
-    /** "interface" */
-    Inferface,
-    /** "namespace" */
-    Namespace,
-    /** "sizeof" */
-    Sizeof,
-    /** "this" */
-    This,
-    /** "typeof" */
-    Typeof,
+    /** "else" */
+    Else,
+    /** "export" */
+    Export,
     /** "fn" */
     Fn,
-    /** "var" */
-    Var,
-    /** "struct" */
-    Struct,
+    /** "for" */
+    For,
+    /** "if" */
+    If,
+    /** "impl" */
+    Impl,
+    /** "import" */
+    Import,
+    /** "interface" */
+    Inferface,
+    /** "loop" */
+    Loop,
+    /** "namespace" */
+    Namespace,
     /** "new" */
     New,
     /** "return" */
     Return,
-    /** "if" */
-    If,
-    /** "else" */
-    Else,
-    /** "loop" */
-    Loop,
-    /** "break" */
-    Break,
-    /** "import" */
-    Import,
-    /** "export" */
-    Export,
+    /** "sizeof" */
+    Sizeof,
+    /** "struct" */
+    Struct,
+    /** "this" */
+    This,
+    /** "typeof" */
+    Typeof,
+    /** "var" */
+    Var,
 }
 
 export class Scanner {
@@ -469,6 +469,10 @@ export class Scanner {
                 this.token = Token.As;
                 break;
             }
+            case 'break': {
+                this.token = Token.Break;
+                break;
+            }
             case 'class': {
                 this.token = Token.Class;
                 break;
@@ -481,44 +485,50 @@ export class Scanner {
                 this.token = Token.Continue;
                 break;
             }
-            case 'for': {
-                this.token = Token.For;
+            case 'else': {
+                this.token = Token.Else;
                 break;
             }
-            case 'impl': {
-                this.token = Token.Impl;
+            case 'export': {
+                this.token = Token.Export;
                 break;
             }
-            case 'interface': {
-                this.token = Token.Inferface;
-                break;
-            }
-            case 'namespace': {
-                this.token = Token.Namespace;
-                break;
-            }
-            case 'sizeof': {
-                this.token = Token.Sizeof;
-                break;
-            }
-            case 'this': {
-                this.token = Token.This;
-                break;
-            }
-            case 'typeof': {
-                this.token = Token.Typeof;
-                break;
-            }
-            case 'var': {
-                this.token = Token.Var;
+            case 'false': {
+                this.token = Token.Literal;
+                this.literalKind = 'bool';
+                this.tokenValue = buf;
                 break;
             }
             case 'fn': {
                 this.token = Token.Fn;
                 break;
             }
-            case 'struct': {
-                this.token = Token.Struct;
+            case 'for': {
+                this.token = Token.For;
+                break;
+            }
+            case 'if': {
+                this.token = Token.If;
+                break;
+            }
+            case 'impl': {
+                this.token = Token.Impl;
+                break;
+            }
+            case 'import': {
+                this.token = Token.Import;
+                break;
+            }
+            case 'interface': {
+                this.token = Token.Inferface;
+                break;
+            }
+            case 'loop': {
+                this.token = Token.Loop;
+                break;
+            }
+            case 'namespace': {
+                this.token = Token.Namespace;
                 break;
             }
             case 'new': {
@@ -529,20 +539,16 @@ export class Scanner {
                 this.token = Token.Return;
                 break;
             }
-            case 'if': {
-                this.token = Token.If;
+            case 'sizeof': {
+                this.token = Token.Sizeof;
                 break;
             }
-            case 'else': {
-                this.token = Token.Else;
+            case 'struct': {
+                this.token = Token.Struct;
                 break;
             }
-            case 'loop': {
-                this.token = Token.Loop;
-                break;
-            }
-            case 'break': {
-                this.token = Token.Break;
+            case 'this': {
+                this.token = Token.This;
                 break;
             }
             case 'true': {
@@ -551,18 +557,12 @@ export class Scanner {
                 this.tokenValue = buf;
                 break;
             }
-            case 'false': {
-                this.token = Token.Literal;
-                this.literalKind = 'bool';
-                this.tokenValue = buf;
+            case 'typeof': {
+                this.token = Token.Typeof;
                 break;
             }
-            case 'import': {
-                this.token = Token.Import;
-                break;
-            }
-            case 'export': {
-                this.token = Token.Export;
+            case 'var': {
+                this.token = Token.Var;
                 break;
             }
             default: {
