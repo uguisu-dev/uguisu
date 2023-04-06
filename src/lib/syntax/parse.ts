@@ -134,8 +134,8 @@ function parseBlock(p: ParseContext): StepNode[] {
         const step = parseStatement(p);
         steps.push(step);
 
-        // expr can only be used at the end of a block
-        if (isExprNode(step)) {
+        // expr can only be used at the end of a block (IfExpr is ok)
+        if (isExprNode(step) && step.kind != 'IfExpr') {
             break;
         }
     }
