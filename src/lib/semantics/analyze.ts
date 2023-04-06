@@ -376,29 +376,26 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
                 return;
             }
 
-            // check the function type is valid
-            if (!isValidType(symbol.ty)) {
-                if (isPendingType(symbol.ty)) {
-                    a.dispatchError('function is not defined yet.', node);
+            const beforeAnalyzeBlock = (): boolean => {
+                // check the function type is valid
+                if (!isValidType(symbol.ty)) {
+                    if (isPendingType(symbol.ty)) {
+                        a.dispatchError('function is not defined yet.', node);
+                    }
+                    return false;
                 }
-                return;
-            }
 
-            a.env.enter();
-
-            // set function params to the env
-            for (let i = 0; i < node.params.length; i++) {
-                const paramSymbol = createVariableSymbol(symbol.ty.paramTypes[i], true);
-                a.symbolTable.set(node.params[i], paramSymbol);
-                a.env.set(node.params[i].name, paramSymbol);
+                // set function params to the env
+                for (let i = 0; i < node.params.length; i++) {
+                    const paramSymbol = createVariableSymbol(symbol.ty.paramTypes[i], true);
+                    a.symbolTable.set(node.params[i], paramSymbol);
+                    a.env.set(node.params[i].name, paramSymbol);
+                }
+                return true;
             }
 
             // analyze function body
-            for (const step of node.body) {
-                analyzeStep(step, false, symbol, a);
-            }
-
-            a.env.leave();
+            analyzeBlock(node.body, false, symbol, a, beforeAnalyzeBlock);
             break;
         }
         case 'StructDecl': {
@@ -408,10 +405,14 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
     }
 }
 
-function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): Type {
+function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext, before?: () => boolean): Type {
     let blockTy: Type | undefined;
 
     a.env.enter();
+
+    if (before != null && !before()) {
+        return voidType;
+    }
 
     // analyze inner
     for (const step of nodes) {
