@@ -25,10 +25,13 @@ import {
     boolType,
     charType,
     compareType,
+    createBreakResult,
     createExprSymbol,
     createFunctionSymbol,
     createFunctionType,
     createNamedType,
+    createOkResult,
+    createReturnResult,
     createStructSymbol,
     createVariableSymbol,
     dispatchTypeError,
@@ -38,6 +41,7 @@ import {
     isValidType,
     numberType,
     pendingType,
+    StatementResult,
     stringType,
     Symbol,
     Type,
@@ -415,6 +419,12 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
  * @returns type of the last step of the block
 */
 function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext, before?: () => boolean): Type {
+    if (isPendingType(funcSymbol.ty)) {
+        throw new UguisuError('unexpected type');
+    }
+    if (!isValidType(funcSymbol.ty)) {
+        throw new UguisuError('unexpected type');
+    }
     let blockTy: Type = voidType;
 
     a.env.enter();
@@ -424,8 +434,22 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
     }
 
     // analyze inner
-    for (const step of nodes) {
-        blockTy = analyzeStep(step, allowJump, funcSymbol, a);
+    for (let i = 0; i < nodes.length; i++) {
+        const step = nodes[i];
+        const isFinalStep = (i == nodes.length - 1);
+        if (isExprNode(step)) {
+            const ty = analyzeExpr(step, allowJump, funcSymbol, a);
+            if (isFinalStep) {
+                blockTy = ty;
+            } else {
+                // check void
+                if (compareType(ty, voidType) == 'incompatible') {
+                    dispatchTypeError(ty, voidType, step, a);
+                }
+            }
+        } else {
+            analyzeStatement(step, allowJump, funcSymbol, a);
+        }
     }
 
     a.env.leave();
@@ -433,20 +457,11 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
     return blockTy;
 }
 
-function analyzeStep(node: StepNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): Type {
-    if (isExprNode(node)) {
-        return analyzeExpr(node, allowJump, funcSymbol, a);
-    } else {
-        analyzeStatement(node, allowJump, funcSymbol, a);
-        return voidType;
-    }
-}
-
-function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext) {
+function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): StatementResult {
     switch (node.kind) {
         case 'ExprStatement': {
             analyzeExpr(node.expr, allowJump, funcSymbol, a);
-            return;
+            return createOkResult();
         }
         case 'ReturnStatement': {
             // if there is a return value
@@ -464,22 +479,23 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                 }
 
                 if (!isValidType(funcSymbol.ty)) {
-                    return;
+                    return createReturnResult(badType);
                 }
 
                 // check type
                 if (compareType(ty, funcSymbol.ty.returnType) == 'incompatible') {
                     dispatchTypeError(ty, funcSymbol.ty.returnType, node.expr, a);
                 }
+                return createReturnResult(ty);
             }
-            return;
+            return createReturnResult(voidType);
         }
         case 'BreakStatement': {
             // if there is no associated loop
             if (!allowJump) {
                 a.dispatchError('invalid break statement.');
             }
-            return;
+            return createBreakResult();
         }
         case 'LoopStatement': {
             // allow break
@@ -491,7 +507,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
             if (compareType(ty, voidType) == 'incompatible') {
                 dispatchTypeError(ty, voidType, node, a);
             }
-            return;
+            return createOkResult();
         }
         case 'VariableDecl': {
             let isDefined = false;
@@ -530,7 +546,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
             a.symbolTable.set(node, symbol);
             a.env.set(node.name, symbol);
 
-            return;
+            return createOkResult();
         }
         case 'AssignStatement': {
             let bodyTy = analyzeExpr(node.body, allowJump, funcSymbol, a);
@@ -551,7 +567,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
 
             // skip if target symbol is invalid
             if (symbol == null) {
-                return;
+                return createOkResult();
             }
 
             let targetTy = getTypeFromSymbol(symbol, node.target, a);
@@ -588,7 +604,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                     break;
                 }
             }
-            return;
+            return createOkResult();
         }
     }
     throw new UguisuError('unexpected node');

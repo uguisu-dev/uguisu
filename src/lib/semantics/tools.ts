@@ -129,6 +129,29 @@ export function createExprSymbol(ty: Type): ExprSymbol {
     return { kind: 'ExprSymbol', ty };
 }
 
+// StatementResult
+
+export type StatementResult = OkResult | ReturnResult | BreakResult;
+
+// TODO: add type param
+export type OkResult = { kind: 'ok' };
+
+export function createOkResult(): OkResult {
+    return { kind: 'ok' };
+}
+
+export type ReturnResult = { kind: 'return', ty: Type };
+
+export function createReturnResult(ty: Type): ReturnResult {
+    return { kind: 'return', ty };
+}
+
+export type BreakResult = { kind: 'break' };
+
+export function createBreakResult(): BreakResult {
+    return { kind: 'break' };
+}
+
 // types
 
 export type Type = ValidType | BadType | PendingType;
