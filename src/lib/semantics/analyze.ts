@@ -395,7 +395,8 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
             }
 
             // analyze function body
-            analyzeBlock(node.body, false, symbol, a, beforeAnalyzeBlock);
+            const ty = analyzeBlock(node.body, false, symbol, a, beforeAnalyzeBlock);
+            // TODO: check type
             break;
         }
         case 'StructDecl': {
@@ -405,8 +406,11 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
     }
 }
 
+/**
+ * @returns type of the last step of the block
+*/
 function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext, before?: () => boolean): Type {
-    let blockTy: Type | undefined;
+    let blockTy: Type = voidType;
 
     a.env.enter();
 
@@ -416,24 +420,12 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
 
     // analyze inner
     for (const step of nodes) {
-        const stepTy = analyzeStep(step, allowJump, funcSymbol, a);
-
-        if (blockTy == null) {
-            blockTy = stepTy;
-        } else {
-            if (compareType(stepTy, blockTy) == 'incompatible') {
-                dispatchTypeError(stepTy, blockTy, step, a);
-            }
-        }
+        blockTy = analyzeStep(step, allowJump, funcSymbol, a);
     }
 
     a.env.leave();
 
-    if (blockTy != null) {
-        return blockTy;
-    } else {
-        return voidType;
-    }
+    return blockTy;
 }
 
 function analyzeStep(node: StepNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): Type {
