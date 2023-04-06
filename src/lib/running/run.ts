@@ -130,7 +130,7 @@ function evalBlock(r: RunContext, block: StepNode[]): StatementResult {
     return result;
 }
 
-function evalName(r: RunContext, expr: ExprNode): Symbol {
+function evalReferenceExpr(r: RunContext, expr: ExprNode): Symbol {
     switch (expr.kind) {
         case 'Identifier': {
             const symbol = r.env.lookup(expr.name);
@@ -216,7 +216,7 @@ function evalStatement(r: RunContext, statement: StepNode): StatementResult {
             case 'AssignStatement': {
                 let symbol;
                 if (statement.target.kind == 'Identifier' || statement.target.kind == 'FieldAccess' || statement.target.kind == 'IndexAccess') {
-                    symbol = evalName(r, statement.target);
+                    symbol = evalReferenceExpr(r, statement.target);
                 } else {
                     throw new UguisuError('unsupported assign target');
                 }
@@ -289,21 +289,21 @@ function evalStatement(r: RunContext, statement: StepNode): StatementResult {
 function evalExpr(r: RunContext, expr: ExprNode): Value {
     switch (expr.kind) {
         case 'Identifier': {
-            const symbol = evalName(r, expr);
+            const symbol = evalReferenceExpr(r, expr);
             if (symbol.value == null) {
                 throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
             }
             return symbol.value;
         }
         case 'FieldAccess': {
-            const field = evalName(r, expr);
+            const field = evalReferenceExpr(r, expr);
             if (field.value == null) {
                 throw new UguisuError('field not defined');
             }
             return field.value;
         }
         case 'IndexAccess': {
-            const symbol = evalName(r, expr);
+            const symbol = evalReferenceExpr(r, expr);
             if (symbol.value == null) {
                 throw new UguisuError('symbol not defined');
             }
