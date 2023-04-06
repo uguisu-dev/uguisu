@@ -167,10 +167,16 @@ function evalReferenceExpr(r: RunContext, expr: ExprNode): Symbol {
 
 function evalStatement(r: RunContext, statement: StepNode): StatementResult {
     if (isExprNode(statement)) {
+        // TODO
         evalExpr(r, statement);
         return createOkResult();
     } else {
         switch (statement.kind) {
+            case 'ExprStatement': {
+                // TODO
+                evalExpr(r, statement.expr);
+                return createOkResult();
+            }
             case 'ReturnStatement': {
                 if (statement.expr != null) {
                     return createReturnResult(evalExpr(r, statement.expr));
@@ -191,15 +197,6 @@ function evalStatement(r: RunContext, statement: StepNode): StatementResult {
                     }
                 }
                 return createOkResult();
-            }
-            case 'IfStatement': {
-                const cond = evalExpr(r, statement.cond);
-                assertValue(cond, 'BoolValue');
-                if (cond.getValue()) {
-                    return evalBlock(r, statement.thenBlock);
-                } else {
-                    return evalBlock(r, statement.elseBlock);
-                }
             }
             case 'VariableDecl': {
                 if (statement.body != null) {
@@ -514,6 +511,17 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                 return new Symbol(value);
             });
             return new ArrayValue(items);
+        }
+        case 'IfExpr': {
+            // TODO
+            const cond = evalExpr(r, expr.cond);
+            assertValue(cond, 'BoolValue');
+            if (cond.getValue()) {
+                evalBlock(r, expr.thenBlock);
+            } else {
+                evalBlock(r, expr.elseBlock);
+            }
+            return new NoneValue();
         }
     }
 }

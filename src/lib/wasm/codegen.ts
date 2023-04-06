@@ -93,6 +93,11 @@ function translateStatements(ctx: Context, nodes: StepNode[], funcInfo: FuncInfo
 
     for (const node of nodes) {
         switch (node.kind) {
+            case 'ExprStatement': {
+                // TODO
+                throw new UguisuError('not impelemented yet');
+                break;
+            }
             case 'VariableDecl': {
                 if (node.body != null) {
                     const varIndex = funcInfo.vars.findIndex(x => x.name == node.name);
@@ -145,15 +150,6 @@ function translateStatements(ctx: Context, nodes: StepNode[], funcInfo: FuncInfo
                         throw new UguisuError('unsupported operation');
                     }
                 }
-                break;
-            }
-            case 'IfStatement': {
-                const cond = translateExpr(ctx, node.cond, funcInfo);
-                const thenRefs = translateStatements(ctx, node.thenBlock, funcInfo, loopLabel);
-                const thenBlock = ctx.mod.block(null, thenRefs);
-                const elseRefs = translateStatements(ctx, node.elseBlock, funcInfo, loopLabel);
-                const elseBlock = ctx.mod.block(null, elseRefs);
-                body.push(ctx.mod.if(cond, thenBlock, elseBlock));
                 break;
             }
             case 'LoopStatement': {
@@ -299,6 +295,17 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
             const callee = node.callee as Identifier;
             const args = node.args.map(x => translateExpr(ctx, x, func));
             return ctx.mod.call(callee.name, args, mapType((calleeSymbol.ty as FunctionType).returnType));
+        }
+        case 'IfExpr': {
+            throw new UguisuError('not impelemented yet');
+            // TODO
+            // const cond = translateExpr(ctx, node.cond, func);
+            // const thenRefs = translateStatements(ctx, node.thenBlock, func, loopLabel);
+            // const thenBlock = ctx.mod.block(null, thenRefs);
+            // const elseRefs = translateStatements(ctx, node.elseBlock, func, loopLabel);
+            // const elseBlock = ctx.mod.block(null, elseRefs);
+            // body.push(ctx.mod.if(cond, thenBlock, elseBlock));
+            break;
         }
         default: {
             throw new UguisuError('unexpected node');
