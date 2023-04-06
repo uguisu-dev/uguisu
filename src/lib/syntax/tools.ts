@@ -75,7 +75,7 @@ export type NodeOf<T extends AstNode['kind']>
 
 const exprNodeKind: AstNode['kind'][] = [
     'NumberLiteral', 'BoolLiteral', 'CharLiteral', 'StringLiteral', 'BinaryOp', 'UnaryOp', 'Identifier', 'Call', 'StructExpr',
-    'FieldAccess', 'ArrayNode', 'IndexAccess',
+    'FieldAccess', 'ArrayNode', 'IndexAccess', 'IfExpr',
 ];
 export function isExprNode(node: AstNode): node is ExprNode {
     return exprNodeKind.includes(node.kind);

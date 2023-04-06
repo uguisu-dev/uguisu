@@ -37,6 +37,7 @@ import {
     FnDeclParam,
     FunctionDecl,
     IfExpr,
+    isExprNode,
     LoopStatement,
     ReturnStatement,
     SourceFile,
@@ -128,14 +129,20 @@ function parseBlock(p: ParseContext): StepNode[] {
     trace.enter('[parse] parseBlock');
 
     p.expectAndNext(Token.BeginBrace);
-    const statements: StepNode[] = [];
+    const steps: StepNode[] = [];
     while (!p.tokenIs(Token.EndBrace)) {
-        statements.push(parseStatement(p));
+        const step = parseStatement(p);
+        steps.push(step);
+
+        // expr can only be used at the end of a block
+        if (isExprNode(step)) {
+            break;
+        }
     }
     p.expectAndNext(Token.EndBrace);
 
     trace.leave();
-    return statements;
+    return steps;
 }
 
 /**
