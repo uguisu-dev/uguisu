@@ -376,18 +376,19 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
                 return;
             }
 
-            const beforeAnalyzeBlock = (): boolean => {
-                // check the function type is valid
-                if (!isValidType(symbol.ty)) {
-                    if (isPendingType(symbol.ty)) {
-                        a.dispatchError('function is not defined yet.', node);
-                    }
-                    return false;
+            // check the function type is valid
+            if (!isValidType(symbol.ty)) {
+                if (isPendingType(symbol.ty)) {
+                    a.dispatchError('function is not defined yet.', node);
                 }
+                return;
+            }
+            const fnType = symbol.ty;
 
+            const beforeAnalyzeBlock = (): boolean => {
                 // set function params to the env
                 for (let i = 0; i < node.params.length; i++) {
-                    const paramSymbol = createVariableSymbol(symbol.ty.paramTypes[i], true);
+                    const paramSymbol = createVariableSymbol(fnType.paramTypes[i], true);
                     a.symbolTable.set(node.params[i], paramSymbol);
                     a.env.set(node.params[i].name, paramSymbol);
                 }
@@ -397,9 +398,9 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
             // analyze function body
             const ty = analyzeBlock(node.body, false, symbol, a, beforeAnalyzeBlock);
 
-            // check block
-            if (compareType(ty, voidType) == 'incompatible') {
-                dispatchTypeError(ty, voidType, node, a);
+            // check return type
+            if (compareType(ty, symbol.ty.returnType) == 'incompatible') {
+                dispatchTypeError(ty, symbol.ty.returnType, node, a);
             }
             break;
         }
