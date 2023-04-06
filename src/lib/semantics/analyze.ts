@@ -432,6 +432,10 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
             if (node.expr != null) {
                 let ty = analyzeExpr(node.expr, funcSymbol, a);
 
+                if (isPendingType(funcSymbol.ty)) {
+                    throw new UguisuError('unexpected type');
+                }
+
                 // if the expr returned nothing
                 if (compareType(ty, voidType) == 'compatible') {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
@@ -439,9 +443,6 @@ function analyzeStatement(node: StatementCoreNode, allowJump: boolean, funcSymbo
                 }
 
                 if (!isValidType(funcSymbol.ty)) {
-                    if (isPendingType(funcSymbol.ty)) {
-                        throw new UguisuError('unexpected type');
-                    }
                     return;
                 }
 
@@ -654,8 +655,12 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
                 }
                 case 'VariableSymbol': {
                     // if the variable is not assigned
-                    if (calleeSymbol.ty.kind == 'PendingType') {
+                    if (isPendingType(calleeSymbol.ty)) {
                         a.dispatchError('variable is not assigned yet.', node.callee);
+                        return badType;
+                    }
+
+                    if (!isValidType(calleeSymbol.ty)) {
                         return badType;
                     }
 
@@ -690,6 +695,11 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
                 for (let i = 0; i < calleeTy.paramTypes.length; i++) {
                     let argTy = analyzeExpr(node.args[i], funcSymbol, a);
 
+                    if (isPendingType(argTy)) {
+                        a.dispatchError('variable is not assigned yet.', node.args[i]);
+                        argTy = badType;
+                    }
+
                     // if the argument returns nothing
                     if (compareType(argTy, voidType) == 'compatible') {
                         a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.args[i]);
@@ -699,9 +709,6 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
                     const paramTy = calleeTy.paramTypes[i];
 
                     if (!isValidType(argTy) || !isValidType(paramTy)) {
-                        if (isPendingType(argTy)) {
-                            a.dispatchError('variable is not assigned yet.', node.args[i]);
-                        }
                         continue;
                     }
 
@@ -736,6 +743,10 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
             if (compareType(rightTy, voidType) == 'compatible') {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.right);
                 rightTy = badType;
+            }
+
+            if (!isValidType(leftTy) || !isValidType(rightTy)) {
+                return badType;
             }
 
             if (isLogicalBinaryOperator(node.operator)) {
@@ -788,6 +799,12 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
         case 'UnaryOp': {
             let ty = analyzeExpr(node.expr, funcSymbol, a);
 
+            // check assigned
+            if (isPendingType(ty)) {
+                a.dispatchError('variable is not assigned yet.', node.expr);
+                ty = badType;
+            }
+
             // if the expr returns nothing
             if (compareType(ty, voidType) == 'compatible') {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
@@ -795,9 +812,6 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
             }
 
             if (!isValidType(ty)) {
-                if (isPendingType(ty)) {
-                    a.dispatchError('variable is not assigned yet.', node.expr);
-                }
                 return badType;
             }
 
@@ -834,6 +848,8 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
                 // analyze field
                 let bodyTy = analyzeExpr(fieldNode.body, funcSymbol, a);
 
+                // TODO: check pending?
+
                 // if the expr returns nothing
                 if (compareType(bodyTy, voidType) == 'compatible') {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, fieldNode.body);
@@ -867,6 +883,8 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
             // analyze elements
             for (const item of node.items) {
                 analyzeExpr(item, funcSymbol, a);
+
+                // TODO: check type
             }
 
             // return expr type
