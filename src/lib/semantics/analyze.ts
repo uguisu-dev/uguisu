@@ -396,7 +396,11 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
 
             // analyze function body
             const ty = analyzeBlock(node.body, false, symbol, a, beforeAnalyzeBlock);
-            // TODO: check type
+
+            // check block
+            if (compareType(ty, voidType) == 'incompatible') {
+                dispatchTypeError(ty, voidType, node, a);
+            }
             break;
         }
         case 'StructDecl': {
@@ -479,7 +483,13 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
         case 'LoopStatement': {
             // allow break
             allowJump = true;
-            analyzeBlock(node.block, allowJump, funcSymbol, a);
+
+            const ty = analyzeBlock(node.block, allowJump, funcSymbol, a);
+
+            // check block
+            if (compareType(ty, voidType) == 'incompatible') {
+                dispatchTypeError(ty, voidType, node, a);
+            }
             return;
         }
         case 'VariableDecl': {
@@ -891,8 +901,8 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
         }
         case 'IfExpr': {
             let condTy = analyzeExpr(node.cond, allowJump, funcSymbol, a);
-            analyzeBlock(node.thenBlock, allowJump, funcSymbol, a);
-            analyzeBlock(node.elseBlock, allowJump, funcSymbol, a);
+            const thenTy = analyzeBlock(node.thenBlock, allowJump, funcSymbol, a);
+            const elseTy = analyzeBlock(node.elseBlock, allowJump, funcSymbol, a);
 
             // if the condition expr returned nothing
             if (compareType(condTy, voidType) == 'compatible') {
@@ -904,7 +914,14 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             if (compareType(condTy, boolType) == 'incompatible') {
                 dispatchTypeError(condTy, boolType, node.cond, a);
             }
-            return ty;
+
+            // check block
+            if (compareType(elseTy, thenTy) == 'incompatible') {
+                dispatchTypeError(elseTy, thenTy, node, a);
+                return badType;
+            }
+
+            return thenTy;
         }
     }
     throw new UguisuError('unexpected node');
