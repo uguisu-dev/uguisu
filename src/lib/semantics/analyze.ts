@@ -3,15 +3,12 @@ import { UguisuError } from '../misc/errors.js';
 import { ProjectInfo } from '../project-file.js';
 import {
     AstNode,
-    ExprNode,
     FileNode,
     isEquivalentOperator,
-    isExprNode,
     isLogicalBinaryOperator,
     isOrderingOperator,
     ReferenceExpr,
     SourceFile,
-    StatementNode,
     StepNode,
     TyLabel
 } from '../syntax/tools.js';
