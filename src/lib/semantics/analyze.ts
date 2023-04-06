@@ -718,13 +718,21 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
             let leftTy = analyzeExpr(node.left, funcSymbol, a);
             let rightTy = analyzeExpr(node.right, funcSymbol, a);
 
-            // if the left expr returns nothing
+            // check assigned
+            if (isPendingType(leftTy)) {
+                a.dispatchError('variable is not assigned yet.', node.left);
+                leftTy = badType;
+            }
+            if (isPendingType(rightTy)) {
+                a.dispatchError('variable is not assigned yet.', node.right);
+                rightTy = badType;
+            }
+
+            // if the expr returns nothing
             if (compareType(leftTy, voidType) == 'compatible') {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.left);
                 leftTy = badType;
             }
-
-            // if the right expr returns nothing
             if (compareType(rightTy, voidType) == 'compatible') {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.right);
                 rightTy = badType;
@@ -736,19 +744,8 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
                     dispatchTypeError(leftTy, boolType, node.left, a);
                     return badType;
                 }
-
                 if (compareType(rightTy, boolType) == 'incompatible') {
                     dispatchTypeError(rightTy, boolType, node.right, a);
-                    return badType;
-                }
-
-                if (!isValidType(leftTy) || !isValidType(rightTy)) {
-                    if (isPendingType(leftTy)) {
-                        a.dispatchError('variable is not assigned yet.', node.left);
-                    }
-                    if (isPendingType(rightTy)) {
-                        a.dispatchError('variable is not assigned yet.', node.right);
-                    }
                     return badType;
                 }
 
@@ -761,16 +758,6 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
                     return badType;
                 }
 
-                if (!isValidType(leftTy) || !isValidType(rightTy)) {
-                    if (isPendingType(leftTy)) {
-                        a.dispatchError('variable is not assigned yet.', node.left);
-                    }
-                    if (isPendingType(rightTy)) {
-                        a.dispatchError('variable is not assigned yet.', node.right);
-                    }
-                    return badType;
-                }
-
                 a.symbolTable.set(node, createExprSymbol(boolType));
                 return boolType;
             } else if (isOrderingOperator(node.operator)) {
@@ -778,19 +765,8 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
                 if (compareType(leftTy, numberType) == 'incompatible') {
                     dispatchTypeError(leftTy, numberType, node.left, a);
                 }
-
                 if (compareType(rightTy, numberType) == 'incompatible') {
                     dispatchTypeError(rightTy, numberType, node.right, a);
-                }
-
-                if (!isValidType(leftTy) || !isValidType(rightTy)) {
-                    if (isPendingType(leftTy)) {
-                        a.dispatchError('variable is not assigned yet.', node.left);
-                    }
-                    if (isPendingType(rightTy)) {
-                        a.dispatchError('variable is not assigned yet.', node.right);
-                    }
-                    return badType;
                 }
 
                 a.symbolTable.set(node, createExprSymbol(boolType));
@@ -800,19 +776,8 @@ function analyzeExpr(node: ExprNode, funcSymbol: FnSymbol, a: AnalyzeContext): T
                 if (compareType(leftTy, numberType) == 'incompatible') {
                     dispatchTypeError(leftTy, numberType, node.left, a);
                 }
-
                 if (compareType(rightTy, numberType) == 'incompatible') {
                     dispatchTypeError(rightTy, numberType, node.right, a);
-                }
-
-                if (!isValidType(leftTy) || !isValidType(rightTy)) {
-                    if (isPendingType(leftTy)) {
-                        a.dispatchError('variable is not assigned yet.', node.left);
-                    }
-                    if (isPendingType(rightTy)) {
-                        a.dispatchError('variable is not assigned yet.', node.right);
-                    }
-                    return badType;
                 }
 
                 a.symbolTable.set(node, createExprSymbol(numberType));
