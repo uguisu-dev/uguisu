@@ -129,34 +129,11 @@ export function createExprSymbol(ty: Type): ExprSymbol {
     return { kind: 'ExprSymbol', ty };
 }
 
-// StatementResult
-
-export type StatementResult = OkResult | ReturnResult | BreakResult;
-
-// TODO: add type param
-export type OkResult = { kind: 'ok' };
-
-export function createOkResult(): OkResult {
-    return { kind: 'ok' };
-}
-
-export type ReturnResult = { kind: 'return', ty: Type };
-
-export function createReturnResult(ty: Type): ReturnResult {
-    return { kind: 'return', ty };
-}
-
-export type BreakResult = { kind: 'break' };
-
-export function createBreakResult(): BreakResult {
-    return { kind: 'break' };
-}
-
 // types
 
 export type Type = ValidType | BadType | PendingType;
 
-export type ValidType = AnyType | VoidType | NamedType | FunctionType | GenericType;
+export type ValidType = AnyType | VoidType | NeverType | NamedType | FunctionType | GenericType;
 
 export function isValidType(ty: Type): ty is ValidType {
     return !isBadType(ty) && !isPendingType(ty);
@@ -184,6 +161,10 @@ export type AnyType = {
 
 export type VoidType = {
     kind: 'VoidType',
+};
+
+export type NeverType = {
+    kind: 'NeverType',
 };
 
 export type NamedType = {
@@ -220,6 +201,7 @@ export const badType = { kind: 'BadType' } as BadType;
 export const pendingType = { kind: 'PendingType' } as PendingType;
 export const anyType = { kind: 'AnyType' } as AnyType;
 export const voidType = { kind: 'VoidType' } as VoidType;
+export const neverType = { kind: 'NeverType' } as NeverType;
 export const numberType = createNamedType('number');
 export const boolType = createNamedType('bool');
 export const charType = createNamedType('char');
@@ -248,6 +230,9 @@ export function compareType(x: Type, y: Type): CompareTypeResult {
     }
     switch (x.kind) {
         case 'VoidType': {
+            return 'compatible';
+        }
+        case 'NeverType': {
             return 'compatible';
         }
         case 'NamedType': {
@@ -328,6 +313,9 @@ export function getTypeString(ty: Type): string {
         }
         case 'VoidType': {
             return 'void';
+        }
+        case 'NeverType': {
+            return 'never';
         }
         case 'NamedType': {
             return ty.name;
