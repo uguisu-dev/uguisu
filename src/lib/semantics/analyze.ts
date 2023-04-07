@@ -25,13 +25,10 @@ import {
     boolType,
     charType,
     compareType,
-    createBreakResult,
     createExprSymbol,
     createFunctionSymbol,
     createFunctionType,
     createNamedType,
-    createOkResult,
-    createReturnResult,
     createStructSymbol,
     createVariableSymbol,
     dispatchTypeError,
@@ -39,9 +36,9 @@ import {
     getTypeString,
     isPendingType,
     isValidType,
+    neverType,
     numberType,
     pendingType,
-    StatementResult,
     stringType,
     Symbol,
     Type,
@@ -437,18 +434,21 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
     for (let i = 0; i < nodes.length; i++) {
         const step = nodes[i];
         const isFinalStep = (i == nodes.length - 1);
+
+        let ty;
         if (isExprNode(step)) {
-            const ty = analyzeExpr(step, allowJump, funcSymbol, a);
-            if (isFinalStep) {
-                blockTy = ty;
-            } else {
-                // check void
-                if (compareType(ty, voidType) == 'incompatible') {
-                    dispatchTypeError(ty, voidType, step, a);
-                }
-            }
+            ty = analyzeExpr(step, allowJump, funcSymbol, a);
         } else {
-            analyzeStatement(step, allowJump, funcSymbol, a);
+            ty = analyzeStatement(step, allowJump, funcSymbol, a);
+        }
+
+        if (isFinalStep) {
+            blockTy = ty;
+        } else {
+            // check void
+            if (compareType(ty, voidType) == 'incompatible') {
+                dispatchTypeError(ty, voidType, step, a);
+            }
         }
     }
 
@@ -457,11 +457,11 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
     return blockTy;
 }
 
-function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): StatementResult {
+function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): Type {
     switch (node.kind) {
         case 'ExprStatement': {
             analyzeExpr(node.expr, allowJump, funcSymbol, a);
-            return createOkResult();
+            return voidType;
         }
         case 'ReturnStatement': {
             // if there is a return value
@@ -479,23 +479,22 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                 }
 
                 if (!isValidType(funcSymbol.ty)) {
-                    return createReturnResult(badType);
+                    return neverType;
                 }
 
                 // check type
                 if (compareType(ty, funcSymbol.ty.returnType) == 'incompatible') {
                     dispatchTypeError(ty, funcSymbol.ty.returnType, node.expr, a);
                 }
-                return createReturnResult(ty);
             }
-            return createReturnResult(voidType);
+            return neverType;
         }
         case 'BreakStatement': {
             // if there is no associated loop
             if (!allowJump) {
                 a.dispatchError('invalid break statement.');
             }
-            return createBreakResult();
+            return neverType;
         }
         case 'LoopStatement': {
             // allow break
@@ -507,7 +506,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
             if (compareType(ty, voidType) == 'incompatible') {
                 dispatchTypeError(ty, voidType, node, a);
             }
-            return createOkResult();
+            return voidType;
         }
         case 'VariableDecl': {
             let isDefined = false;
@@ -546,7 +545,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
             a.symbolTable.set(node, symbol);
             a.env.set(node.name, symbol);
 
-            return createOkResult();
+            return voidType;
         }
         case 'AssignStatement': {
             let bodyTy = analyzeExpr(node.body, allowJump, funcSymbol, a);
@@ -567,7 +566,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
 
             // skip if target symbol is invalid
             if (symbol == null) {
-                return createOkResult();
+                return voidType;
             }
 
             let targetTy = getTypeFromSymbol(symbol, node.target, a);
@@ -604,7 +603,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                     break;
                 }
             }
-            return createOkResult();
+            return voidType;
         }
     }
     throw new UguisuError('unexpected node');
