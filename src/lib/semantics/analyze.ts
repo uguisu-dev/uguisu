@@ -479,7 +479,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                 }
 
                 if (!isValidType(funcSymbol.ty)) {
-                    return neverType;
+                    return badType;
                 }
 
                 // check type
@@ -566,7 +566,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
 
             // skip if target symbol is invalid
             if (symbol == null) {
-                return voidType;
+                return badType;
             }
 
             let targetTy = getTypeFromSymbol(symbol, node.target, a);
