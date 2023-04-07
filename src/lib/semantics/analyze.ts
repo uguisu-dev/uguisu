@@ -435,12 +435,7 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
         const step = nodes[i];
         const isFinalStep = (i == nodes.length - 1);
 
-        let ty;
-        if (isExprNode(step)) {
-            ty = analyzeExpr(step, allowJump, funcSymbol, a);
-        } else {
-            ty = analyzeStatement(step, allowJump, funcSymbol, a);
-        }
+        const ty = analyzeStep(step, allowJump, funcSymbol, a);
 
         if (isFinalStep) {
             blockTy = ty;
@@ -455,6 +450,14 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
     a.env.leave();
 
     return blockTy;
+}
+
+function analyzeStep(node: StepNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): Type {
+    if (isExprNode(node)) {
+        return analyzeExpr(node, allowJump, funcSymbol, a);
+    } else {
+        return analyzeStatement(node, allowJump, funcSymbol, a);
+    }
 }
 
 function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): Type {
