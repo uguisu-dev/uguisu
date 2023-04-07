@@ -468,10 +468,6 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
             if (node.expr != null) {
                 let ty = analyzeExpr(node.expr, allowJump, funcSymbol, a);
 
-                if (isPendingType(funcSymbol.ty)) {
-                    throw new UguisuError('unexpected type');
-                }
-
                 // if the expr returned nothing
                 if (compareType(ty, voidType) == 'compatible') {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
@@ -479,6 +475,9 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                 }
 
                 if (!isValidType(funcSymbol.ty)) {
+                    if (isPendingType(funcSymbol.ty)) {
+                        throw new UguisuError('unexpected type');
+                    }
                     return badType;
                 }
 
