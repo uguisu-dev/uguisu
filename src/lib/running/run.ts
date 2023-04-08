@@ -97,7 +97,10 @@ function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
         if (result.kind == 'return') {
             return result.value;
         }
-        return new NoneValue();
+        if (result.kind == 'break') {
+            throw new UguisuError('invalid break');
+        }
+        return result.value;
     } else if (func.native != null) {
         return func.native(args, r.options);
     } else {
