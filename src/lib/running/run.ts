@@ -588,18 +588,16 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
             return createOkResult(new ArrayValue(items));
         }
         case 'IfExpr': {
-            // TODO
             const cond = evalExpr(r, expr.cond);
             if (!isOkResult(cond)) {
                 return cond;
             }
             assertValue(cond.value, 'BoolValue');
             if (cond.value.getValue()) {
-                evalBlock(r, expr.thenBlock);
+                return evalBlock(r, expr.thenBlock);
             } else {
-                evalBlock(r, expr.elseBlock);
+                return evalBlock(r, expr.elseBlock);
             }
-            return createOkResult(new NoneValue());
         }
     }
 }
