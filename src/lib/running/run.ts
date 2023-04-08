@@ -199,7 +199,6 @@ function evalReferenceExpr(r: RunContext, expr: ExprNode): EvalResult<Symbol> {
 function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Value> {
     switch (statement.kind) {
         case 'ExprStatement': {
-            // TODO
             evalExpr(r, statement.expr);
             return createOkResult(new NoneValue());
         }
