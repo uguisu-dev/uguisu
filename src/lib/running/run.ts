@@ -212,6 +212,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
             } else {
                 return createReturn(new NoneValue());
             }
+            break;
         }
         case 'BreakStatement': {
             return createBreak();
