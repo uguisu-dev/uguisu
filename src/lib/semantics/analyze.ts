@@ -844,6 +844,12 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
         case 'UnaryOp': {
             let ty = analyzeExpr(node.expr, allowJump, funcSymbol, a);
 
+            // check assigned
+            if (isPendingType(ty)) {
+                a.dispatchError('variable is not assigned yet.', node.expr);	
+                ty = badType;
+            }
+
             // if the expr returns nothing
             if (compareType(ty, voidType) == 'compatible') {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
@@ -851,10 +857,6 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             }
 
             if (!isValidType(ty)) {
-                if (isPendingType(ty)) {
-                    a.dispatchError('variable is not assigned yet.', node.expr);
-                    ty = badType;
-                }
                 return badType;
             }
 
