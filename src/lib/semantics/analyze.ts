@@ -40,6 +40,7 @@ import {
     neverType,
     numberType,
     pendingType,
+    StatementResult,
     stringType,
     Symbol,
     Type,
@@ -387,14 +388,13 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
             }
             const fnType = symbol.ty;
 
-            const beforeAnalyzeBlock = (): boolean => {
+            const beforeAnalyzeBlock = () => {
                 // set function params to the env
                 for (let i = 0; i < node.params.length; i++) {
                     const paramSymbol = createVariableSymbol(fnType.paramTypes[i], true);
                     a.symbolTable.set(node.params[i], paramSymbol);
                     a.env.set(node.params[i].name, paramSymbol);
                 }
-                return true;
             }
 
             // analyze function body
@@ -418,25 +418,44 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
 /**
  * @returns type of the last step of the block
 */
-function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext, before?: () => boolean): Type {
+function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext, before?: () => void): Type {
     if (isPendingType(funcSymbol.ty)) {
         throw new UguisuError('unexpected type');
     }
     if (!isValidType(funcSymbol.ty)) {
         throw new UguisuError('unexpected type');
     }
-    let blockTy: Type = voidType;
 
     a.env.enter();
 
-    if (before != null && !before()) {
-        return voidType;
+    if (before != null) {
+        before();
     }
+
+    let blockTy: Type = voidType;
 
     // analyze inner
     for (let i = 0; i < nodes.length; i++) {
         const step = nodes[i];
-        const ty = analyzeStep(step, allowJump, funcSymbol, a);
+
+        let ty;
+        if (isExprNode(step)) {
+            ty = analyzeExpr(step, allowJump, funcSymbol, a);
+        } else {
+            const result = analyzeStatement(step, allowJump, funcSymbol, a);
+            switch (result) {
+                case 'ok': {
+                    ty = voidType;
+                }
+                case 'error': {
+                    ty = badType;
+                }
+                case 'return':
+                case 'break': {
+                    ty = neverType;
+                }
+            }
+        }
 
         const isFinalStep = (i == nodes.length - 1);
         if (isFinalStep) {
@@ -454,19 +473,11 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
     return blockTy;
 }
 
-function analyzeStep(node: StepNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): Type {
-    if (isExprNode(node)) {
-        return analyzeExpr(node, allowJump, funcSymbol, a);
-    } else {
-        return analyzeStatement(node, allowJump, funcSymbol, a);
-    }
-}
-
-function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): Type {
+function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): StatementResult {
     switch (node.kind) {
         case 'ExprStatement': {
             analyzeExpr(node.expr, allowJump, funcSymbol, a);
-            return voidType;
+            return 'ok';
         }
         case 'ReturnStatement': {
             // if there is a return value
@@ -483,24 +494,24 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                     if (isPendingType(funcSymbol.ty)) {
                         throw new UguisuError('unexpected type');
                     }
-                    return badType;
+                    return 'error';
                 }
 
                 // check type
                 if (compareType(ty, funcSymbol.ty.returnType) == 'incompatible') {
                     dispatchTypeError(ty, funcSymbol.ty.returnType, node.expr, a);
-                    return badType;
+                    return 'error';
                 }
             }
-            return neverType;
+            return 'return';
         }
         case 'BreakStatement': {
             // if there is no associated loop
             if (!allowJump) {
                 a.dispatchError('invalid break statement.');
-                return badType;
+                return 'error';
             }
-            return neverType;
+            return 'break';
         }
         case 'LoopStatement': {
             // allow break
@@ -512,7 +523,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
             if (compareType(ty, voidType) == 'incompatible') {
                 dispatchTypeError(ty, voidType, node, a);
             }
-            return voidType;
+            return 'ok';
         }
         case 'VariableDecl': {
             let isDefined = false;
@@ -551,7 +562,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
             a.symbolTable.set(node, symbol);
             a.env.set(node.name, symbol);
 
-            return voidType;
+            return 'ok';
         }
         case 'AssignStatement': {
             let bodyTy = analyzeExpr(node.body, allowJump, funcSymbol, a);
@@ -572,7 +583,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
 
             // skip if target symbol is invalid
             if (symbol == null) {
-                return badType;
+                return 'error';
             }
 
             let targetTy = getTypeFromSymbol(symbol, node.target, a);
@@ -609,7 +620,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                     break;
                 }
             }
-            return voidType;
+            return 'ok';
         }
     }
     throw new UguisuError('unexpected node');

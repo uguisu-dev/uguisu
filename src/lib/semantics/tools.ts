@@ -129,6 +129,10 @@ export function createExprSymbol(ty: Type): ExprSymbol {
     return { kind: 'ExprSymbol', ty };
 }
 
+// statement result
+
+export type StatementResult = 'error' | 'ok' | 'return' | 'break';
+
 // types
 
 export type Type = ValidType | BadType | PendingType;
