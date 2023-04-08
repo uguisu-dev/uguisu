@@ -57,7 +57,7 @@ export type EvalResult<T> = OkResult<T> | ReturnResult | BreakResult;
 
 export type OkResult<T> = { kind: 'ok', value: T };
 
-export function createOkResult<T>(value: T): OkResult<T> {
+export function createOk<T>(value: T): OkResult<T> {
     return { kind: 'ok', value };
 }
 
@@ -67,13 +67,13 @@ export function isOkResult<T>(x: EvalResult<T>): x is OkResult<T> {
 
 export type ReturnResult = { kind: 'return', value: Value };
 
-export function createReturnResult(value: Value): ReturnResult {
+export function createReturn(value: Value): ReturnResult {
     return { kind: 'return', value };
 }
 
 export type BreakResult = { kind: 'break' };
 
-export function createBreakResult(): BreakResult {
+export function createBreak(): BreakResult {
     return { kind: 'break' };
 }
 
