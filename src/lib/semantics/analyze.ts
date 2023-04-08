@@ -446,13 +446,16 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
             switch (result) {
                 case 'ok': {
                     ty = voidType;
+                    break;
                 }
                 case 'invalid': {
                     ty = badType;
+                    break;
                 }
                 case 'return':
                 case 'break': {
                     ty = neverType;
+                    break;
                 }
             }
         }
