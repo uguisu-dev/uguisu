@@ -62,15 +62,7 @@ export function createOkResult<T>(value: T): OkResult<T> {
 }
 
 export function isOkResult<T>(x: EvalResult<T>): x is OkResult<T> {
-    switch (x.kind) {
-        case 'return':
-        case 'break': {
-            return true;
-        }
-        case 'ok': {
-            return false;
-        }
-    }
+    return (x.kind == 'ok');
 }
 
 export type ReturnResult = { kind: 'return', value: Value };
