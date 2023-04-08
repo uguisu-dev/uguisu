@@ -846,7 +846,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
 
             // check assigned
             if (isPendingType(ty)) {
-                a.dispatchError('variable is not assigned yet.', node.expr);	
+                a.dispatchError('variable is not assigned yet.', node.expr);
                 ty = badType;
             }
 
