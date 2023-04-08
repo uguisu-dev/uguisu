@@ -147,6 +147,10 @@ export function isPendingType(ty: Type): ty is PendingType {
     return ty.kind == 'PendingType';
 }
 
+export function isNeverType(ty: Type): ty is NeverType {
+    return ty.kind == 'NeverType';
+}
+
 export type BadType = {
     kind: 'BadType',
 };

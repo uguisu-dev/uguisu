@@ -34,6 +34,7 @@ import {
     dispatchTypeError,
     FnSymbol,
     getTypeString,
+    isNeverType,
     isPendingType,
     isValidType,
     neverType,
@@ -400,8 +401,10 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
             const ty = analyzeBlock(node.body, false, symbol, a, beforeAnalyzeBlock);
 
             // check return type
-            if (compareType(ty, symbol.ty.returnType) == 'incompatible') {
-                dispatchTypeError(ty, symbol.ty.returnType, node, a);
+            if (!isNeverType(ty)) {
+                if (compareType(ty, symbol.ty.returnType) == 'incompatible') {
+                    dispatchTypeError(ty, symbol.ty.returnType, node, a);
+                }
             }
             break;
         }
@@ -433,10 +436,9 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
     // analyze inner
     for (let i = 0; i < nodes.length; i++) {
         const step = nodes[i];
-        const isFinalStep = (i == nodes.length - 1);
-
         const ty = analyzeStep(step, allowJump, funcSymbol, a);
 
+        const isFinalStep = (i == nodes.length - 1);
         if (isFinalStep) {
             blockTy = ty;
         } else {
@@ -487,6 +489,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                 // check type
                 if (compareType(ty, funcSymbol.ty.returnType) == 'incompatible') {
                     dispatchTypeError(ty, funcSymbol.ty.returnType, node.expr, a);
+                    return badType;
                 }
             }
             return neverType;
@@ -495,6 +498,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
             // if there is no associated loop
             if (!allowJump) {
                 a.dispatchError('invalid break statement.');
+                return badType;
             }
             return neverType;
         }
@@ -826,12 +830,6 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
         case 'UnaryOp': {
             let ty = analyzeExpr(node.expr, allowJump, funcSymbol, a);
 
-            // check assigned
-            if (isPendingType(ty)) {
-                a.dispatchError('variable is not assigned yet.', node.expr);
-                ty = badType;
-            }
-
             // if the expr returns nothing
             if (compareType(ty, voidType) == 'compatible') {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
@@ -839,6 +837,10 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             }
 
             if (!isValidType(ty)) {
+                if (isPendingType(ty)) {
+                    a.dispatchError('variable is not assigned yet.', node.expr);
+                    ty = badType;
+                }
                 return badType;
             }
 
@@ -928,12 +930,18 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 condTy = badType;
             }
 
-            // check type
+            // check cond
             if (compareType(condTy, boolType) == 'incompatible') {
                 dispatchTypeError(condTy, boolType, node.cond, a);
             }
 
-            // check block
+            // check blocks
+            if (!isNeverType(thenTy) && isNeverType(elseTy)) {
+                return thenTy;
+            }
+            if (isNeverType(thenTy) && !isNeverType(elseTy)) {
+                return elseTy;
+            }
             if (compareType(elseTy, thenTy) == 'incompatible') {
                 dispatchTypeError(elseTy, thenTy, node, a);
                 return badType;
