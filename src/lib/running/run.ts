@@ -124,11 +124,9 @@ function evalSourceFile(r: RunContext, source: SourceFile) {
 
 function evalBlock(r: RunContext, block: StepNode[]): EvalResult<Value> {
     r.env.enter();
-
     let result: EvalResult<Value> = createOk(new NoneValue());
     for (let i = 0; i < block.length; i++) {
         const step = block[i];
-
         if (isExprNode(step)) {
             const stepResult = evalExpr(r, step);
             if (!isOkResult(stepResult)) {
@@ -149,9 +147,7 @@ function evalBlock(r: RunContext, block: StepNode[]): EvalResult<Value> {
             }
         }
     }
-
     r.env.leave();
-
     return result;
 }
 
