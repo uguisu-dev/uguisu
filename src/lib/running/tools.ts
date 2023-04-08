@@ -53,23 +53,27 @@ export class Symbol {
     }
 }
 
-export type StatementResult = OkResult | ReturnResult | BreakResult;
+export type EvalResult<T> = OkResult<T> | ReturnResult | BreakResult;
 
-export type OkResult = { kind: 'ok' };
+export type OkResult<T> = { kind: 'ok', value: T };
 
-export function createOkResult(): OkResult {
-    return { kind: 'ok' };
+export function createOk<T>(value: T): OkResult<T> {
+    return { kind: 'ok', value };
+}
+
+export function isOkResult<T>(x: EvalResult<T>): x is OkResult<T> {
+    return (x.kind == 'ok');
 }
 
 export type ReturnResult = { kind: 'return', value: Value };
 
-export function createReturnResult(value: Value): ReturnResult {
+export function createReturn(value: Value): ReturnResult {
     return { kind: 'return', value };
 }
 
 export type BreakResult = { kind: 'break' };
 
-export function createBreakResult(): BreakResult {
+export function createBreak(): BreakResult {
     return { kind: 'break' };
 }
 

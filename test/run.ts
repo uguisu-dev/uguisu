@@ -563,6 +563,58 @@ fn main() {
 }
 `));
 
+// if expr
+
+describe('if expr', () => {
+    test('with function', () => expectOk(`
+    fn f(x: bool): number {
+        if x {
+            1
+        } else {
+            2
+        }
+    }
+    fn main() {
+        number.assertEq(f(true), 1);
+        number.assertEq(f(false), 2);
+    }
+    `));
+
+    test('with function (return)', () => expectOk(`
+    fn f(x: bool): number {
+        if x {
+            return 1;
+        } else {
+            2
+        }
+    }
+    fn main() {
+        number.assertEq(f(true), 1);
+        number.assertEq(f(false), 2);
+    }
+    `));
+
+    test('with variable declaration', () => expectOk(`
+    fn main() {
+        var cond = true;
+        var x = if cond {
+            1
+        } else {
+            2
+        };
+        number.assertEq(x, 1);
+
+        cond = false;
+        x = if cond {
+            1
+        } else {
+            2
+        };
+        number.assertEq(x, 2);
+    }
+    `));
+});
+
 // other examples
 
 test('example', () => expectOk(`

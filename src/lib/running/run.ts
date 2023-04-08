@@ -9,7 +9,8 @@ import {
     isLogicalBinaryOperator,
     isOrderingOperator,
     SourceFile,
-    StatementNode
+    StatementNode,
+    StepNode
 } from '../syntax/tools.js';
 import * as builtins from './builtins.js';
 import {
@@ -17,15 +18,16 @@ import {
     assertValue,
     BoolValue,
     CharValue,
-    createBreakResult,
-    createOkResult,
-    createReturnResult,
+    createBreak,
+    createOk,
+    createReturn,
+    EvalResult,
     FunctionValue,
     getTypeName,
+    isOkResult,
     NoneValue,
     NumberValue,
     RunningEnv,
-    StatementResult,
     StringValue,
     StructValue,
     Symbol,
@@ -80,12 +82,14 @@ function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
             const arg = args[i];
             ctx.env.declare(param.name, arg);
         }
-        let result: StatementResult = createOkResult();
-        for (const statement of func.user.node.body) {
-            result = evalStatement(ctx, statement);
-            if (result.kind == 'return') {
-                break;
-            } else if (result.kind == 'break') {
+        let result: EvalResult<Value> = createOk(new NoneValue());
+        for (const step of func.user.node.body) {
+            if (isExprNode(step)) {
+                result = evalExpr(ctx, step);
+            } else {
+                result = evalStatement(ctx, step);
+            }
+            if (!isOkResult(result)) {
                 break;
             }
         }
@@ -93,7 +97,10 @@ function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
         if (result.kind == 'return') {
             return result.value;
         }
-        return new NoneValue();
+        if (result.kind == 'break') {
+            throw new UguisuError('invalid break');
+        }
+        return result.value;
     } else if (func.native != null) {
         return func.native(args, r.options);
     } else {
@@ -115,49 +122,72 @@ function evalSourceFile(r: RunContext, source: SourceFile) {
     }
 }
 
-function evalBlock(r: RunContext, block: StatementNode[]): StatementResult {
+function evalBlock(r: RunContext, block: StepNode[]): EvalResult<Value> {
     r.env.enter();
-    let result: StatementResult = createOkResult();
-    for (const statement of block) {
-        result = evalStatement(r, statement);
-        if (result.kind == 'return') {
-            break;
-        } else if (result.kind == 'break') {
-            break;
+    let result: EvalResult<Value> = createOk(new NoneValue());
+    for (let i = 0; i < block.length; i++) {
+        const step = block[i];
+        if (isExprNode(step)) {
+            const stepResult = evalExpr(r, step);
+            if (!isOkResult(stepResult)) {
+                return stepResult;
+            }
+            const isFinalStep = (i == block.length - 1);
+            if (isFinalStep) {
+                result = createOk(stepResult.value);
+            } else {
+                // ignore the value
+            }
+        } else {
+            result = evalStatement(r, step);
+            if (result.kind == 'return') {
+                break;
+            } else if (result.kind == 'break') {
+                break;
+            }
         }
     }
     r.env.leave();
     return result;
 }
 
-function evalReferenceExpr(r: RunContext, expr: ExprNode): Symbol {
+function evalReferenceExpr(r: RunContext, expr: ExprNode): EvalResult<Symbol> {
     switch (expr.kind) {
         case 'Identifier': {
             const symbol = r.env.lookup(expr.name);
             if (symbol == null) {
                 throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
             }
-            return symbol;
+            return createOk(symbol);
         }
         case 'FieldAccess': {
             const target = evalExpr(r, expr.target);
-            assertValue(target, 'StructValue');
-            const field = target.lookupField(expr.name);
+            if (!isOkResult(target)) {
+                return target;
+            }
+            assertValue(target.value, 'StructValue');
+            const field = target.value.lookupField(expr.name);
             if (field == null) {
                 throw new UguisuError('unknown field');
             }
-            return field;
+            return createOk(field);
         }
         case 'IndexAccess': {
             const target = evalExpr(r, expr.target);
             const index = evalExpr(r, expr.index);
-            assertValue(target, 'ArrayValue');
-            assertValue(index, 'NumberValue');
-            const symbol = target.at(index.getValue());
+            if (!isOkResult(target)) {
+                return target;
+            }
+            if (!isOkResult(index)) {
+                return index;
+            }
+            assertValue(target.value, 'ArrayValue');
+            assertValue(index.value, 'NumberValue');
+            const symbol = target.value.at(index.value.getValue());
             if (symbol == null) {
                 throw new UguisuError('index out of range');
             }
-            return symbol;
+            return createOk(symbol);
         }
         default: {
             throw new UguisuError('unexpected expression');
@@ -165,243 +195,274 @@ function evalReferenceExpr(r: RunContext, expr: ExprNode): Symbol {
     }
 }
 
-function evalStatement(r: RunContext, statement: StatementNode): StatementResult {
-    if (isExprNode(statement)) {
-        evalExpr(r, statement);
-        return createOkResult();
-    } else {
-        switch (statement.kind) {
-            case 'ReturnStatement': {
-                if (statement.expr != null) {
-                    return createReturnResult(evalExpr(r, statement.expr));
+function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Value> {
+    switch (statement.kind) {
+        case 'ExprStatement': {
+            evalExpr(r, statement.expr);
+            return createOk(new NoneValue());
+        }
+        case 'ReturnStatement': {
+            if (statement.expr != null) {
+                const result = evalExpr(r, statement.expr);
+                if (isOkResult(result)) {
+                    return createReturn(result.value);
                 } else {
-                    return createReturnResult(new NoneValue());
+                    return result;
+                }
+            } else {
+                return createReturn(new NoneValue());
+            }
+            break;
+        }
+        case 'BreakStatement': {
+            return createBreak();
+        }
+        case 'LoopStatement': {
+            while (true) {
+                const result = evalBlock(r, statement.block);
+                if (result.kind == 'return') {
+                    return result;
+                } else if (result.kind == 'break') {
+                    break;
                 }
             }
-            case 'BreakStatement': {
-                return createBreakResult();
-            }
-            case 'LoopStatement': {
-                while (true) {
-                    const result = evalBlock(r, statement.block);
-                    if (result.kind == 'return') {
-                        return result;
-                    } else if (result.kind == 'break') {
-                        break;
-                    }
+            return createOk(new NoneValue());
+        }
+        case 'VariableDecl': {
+            if (statement.body != null) {
+                const body = evalExpr(r, statement.body);
+                if (!isOkResult(body)) {
+                    return body;
                 }
-                return createOkResult();
-            }
-            case 'IfStatement': {
-                const cond = evalExpr(r, statement.cond);
-                assertValue(cond, 'BoolValue');
-                if (cond.getValue()) {
-                    return evalBlock(r, statement.thenBlock);
-                } else {
-                    return evalBlock(r, statement.elseBlock);
-                }
-            }
-            case 'VariableDecl': {
-                if (statement.body != null) {
-                    const bodyValue = evalExpr(r, statement.body);
-                    if (bodyValue.kind == 'NoneValue') {
-                        throw new UguisuError('no values');
-                    }
-                    r.env.declare(statement.name, bodyValue);
-                } else {
-                    r.env.declare(statement.name);
-                }
-                return createOkResult();
-            }
-            case 'AssignStatement': {
-                let symbol;
-                if (statement.target.kind == 'Identifier' || statement.target.kind == 'FieldAccess' || statement.target.kind == 'IndexAccess') {
-                    symbol = evalReferenceExpr(r, statement.target);
-                } else {
-                    throw new UguisuError('unsupported assign target');
-                }
-                const bodyValue = evalExpr(r, statement.body);
-                if (bodyValue.kind == 'NoneValue') {
+                if (body.value.kind == 'NoneValue') {
                     throw new UguisuError('no values');
                 }
-                switch (statement.mode) {
-                    case '=': {
-                        symbol.value = bodyValue;
-                        break;
-                    }
-                    case '+=': {
-                        if (symbol.value == null) {
-                            throw new UguisuError('variable is not defined');
-                        }
-                        assertValue(symbol.value, 'NumberValue');
-                        assertValue(bodyValue, 'NumberValue');
-                        const value = new NumberValue(symbol.value.getValue() + bodyValue.getValue());
-                        symbol.value = value;
-                        break;
-                    }
-                    case '-=': {
-                        if (symbol.value == null) {
-                            throw new UguisuError('variable is not defined');
-                        }
-                        assertValue(symbol.value, 'NumberValue');
-                        assertValue(bodyValue, 'NumberValue');
-                        const value = new NumberValue(symbol.value.getValue() - bodyValue.getValue());
-                        symbol.value = value;
-                        break;
-                    }
-                    case '*=': {
-                        if (symbol.value == null) {
-                            throw new UguisuError('variable is not defined');
-                        }
-                        assertValue(symbol.value, 'NumberValue');
-                        assertValue(bodyValue, 'NumberValue');
-                        const value = new NumberValue(symbol.value.getValue() * bodyValue.getValue());
-                        symbol.value = value;
-                        break;
-                    }
-                    case '/=': {
-                        if (symbol.value == null) {
-                            throw new UguisuError('variable is not defined');
-                        }
-                        assertValue(symbol.value, 'NumberValue');
-                        assertValue(bodyValue, 'NumberValue');
-                        const value = new NumberValue(symbol.value.getValue() / bodyValue.getValue());
-                        symbol.value = value;
-                        break;
-                    }
-                    case '%=': {
-                        if (symbol.value == null) {
-                            throw new UguisuError('variable is not defined');
-                        }
-                        assertValue(symbol.value, 'NumberValue');
-                        assertValue(bodyValue, 'NumberValue');
-                        const value = new NumberValue(symbol.value.getValue() % bodyValue.getValue());
-                        symbol.value = value;
-                        break;
-                    }
-                }
-                return createOkResult();
+                r.env.declare(statement.name, body.value);
+            } else {
+                r.env.declare(statement.name);
             }
+            return createOk(new NoneValue());
+        }
+        case 'AssignStatement': {
+            let target;
+            if (statement.target.kind == 'Identifier' || statement.target.kind == 'FieldAccess' || statement.target.kind == 'IndexAccess') {
+                target = evalReferenceExpr(r, statement.target);
+                if (!isOkResult(target)) {
+                    return target;
+                }
+            } else {
+                throw new UguisuError('unsupported assign target');
+            }
+            const symbol = target.value;
+            const body = evalExpr(r, statement.body);
+            if (!isOkResult(body)) {
+                return body;
+            }
+            if (body.value.kind == 'NoneValue') {
+                throw new UguisuError('no values');
+            }
+            switch (statement.mode) {
+                case '=': {
+                    symbol.value = body.value;
+                    break;
+                }
+                case '+=': {
+                    if (symbol.value == null) {
+                        throw new UguisuError('variable is not defined');
+                    }
+                    assertValue(symbol.value, 'NumberValue');
+                    assertValue(body.value, 'NumberValue');
+                    const value = new NumberValue(symbol.value.getValue() + body.value.getValue());
+                    symbol.value = value;
+                    break;
+                }
+                case '-=': {
+                    if (symbol.value == null) {
+                        throw new UguisuError('variable is not defined');
+                    }
+                    assertValue(symbol.value, 'NumberValue');
+                    assertValue(body.value, 'NumberValue');
+                    const value = new NumberValue(symbol.value.getValue() - body.value.getValue());
+                    symbol.value = value;
+                    break;
+                }
+                case '*=': {
+                    if (symbol.value == null) {
+                        throw new UguisuError('variable is not defined');
+                    }
+                    assertValue(symbol.value, 'NumberValue');
+                    assertValue(body.value, 'NumberValue');
+                    const value = new NumberValue(symbol.value.getValue() * body.value.getValue());
+                    symbol.value = value;
+                    break;
+                }
+                case '/=': {
+                    if (symbol.value == null) {
+                        throw new UguisuError('variable is not defined');
+                    }
+                    assertValue(symbol.value, 'NumberValue');
+                    assertValue(body.value, 'NumberValue');
+                    const value = new NumberValue(symbol.value.getValue() / body.value.getValue());
+                    symbol.value = value;
+                    break;
+                }
+                case '%=': {
+                    if (symbol.value == null) {
+                        throw new UguisuError('variable is not defined');
+                    }
+                    assertValue(symbol.value, 'NumberValue');
+                    assertValue(body.value, 'NumberValue');
+                    const value = new NumberValue(symbol.value.getValue() % body.value.getValue());
+                    symbol.value = value;
+                    break;
+                }
+            }
+            return createOk(new NoneValue());
         }
     }
 }
 
-function evalExpr(r: RunContext, expr: ExprNode): Value {
+function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
     switch (expr.kind) {
         case 'Identifier': {
-            const symbol = evalReferenceExpr(r, expr);
+            const result = evalReferenceExpr(r, expr);
+            if (!isOkResult(result)) {
+                return result;
+            }
+            const symbol = result.value;
             if (symbol.value == null) {
                 throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
             }
-            return symbol.value;
+            return createOk(symbol.value);
         }
         case 'FieldAccess': {
-            const field = evalReferenceExpr(r, expr);
-            if (field.value == null) {
+            const result = evalReferenceExpr(r, expr);
+            if (!isOkResult(result)) {
+                return result;
+            }
+            const symbol = result.value;
+            if (symbol.value == null) {
                 throw new UguisuError('field not defined');
             }
-            return field.value;
+            return createOk(symbol.value);
         }
         case 'IndexAccess': {
-            const symbol = evalReferenceExpr(r, expr);
+            const result = evalReferenceExpr(r, expr);
+            if (!isOkResult(result)) {
+                return result;
+            }
+            const symbol = result.value;
             if (symbol.value == null) {
                 throw new UguisuError('symbol not defined');
             }
-            return symbol.value;
+            return createOk(symbol.value);
         }
         case 'NumberLiteral': {
-            return new NumberValue(expr.value);
+            return createOk(new NumberValue(expr.value));
         }
         case 'BoolLiteral': {
-            return new BoolValue(expr.value);
+            return createOk(new BoolValue(expr.value));
         }
         case 'CharLiteral': {
-            return new CharValue(expr.value);
+            return createOk(new CharValue(expr.value));
         }
         case 'StringLiteral': {
-            return new StringValue(expr.value);
+            return createOk(new StringValue(expr.value));
         }
         case 'Call': {
             const callee = evalExpr(r, expr.callee);
-            assertValue(callee, 'FunctionValue');
-            const args = expr.args.map(i => {
-                const value = evalExpr(r, i);
-                if (value.kind == 'NoneValue') {
+            if (!isOkResult(callee)) {
+                return callee;
+            }
+            assertValue(callee.value, 'FunctionValue');
+            const args: Value[] = [];
+            for (const argExpr of expr.args) {
+                const arg = evalExpr(r, argExpr);
+                if (!isOkResult(arg)) {
+                    return arg;
+                }
+                if (arg.value.kind == 'NoneValue') {
                     throw new UguisuError('no values');
                 }
-                return value;
-            });
-            return call(r, callee, args);
+                args.push(arg.value);
+            }
+            return createOk(call(r, callee.value, args));
         }
         case 'BinaryOp': {
             const left = evalExpr(r, expr.left);
             const right = evalExpr(r, expr.right);
-            if (left.kind == 'NoneValue') {
+            if (!isOkResult(left)) {
+                return left;
+            }
+            if (!isOkResult(right)) {
+                return right;
+            }
+            if (left.value.kind == 'NoneValue') {
                 throw new UguisuError('no values');
             }
-            if (right.kind == 'NoneValue') {
+            if (right.value.kind == 'NoneValue') {
                 throw new UguisuError('no values');
             }
             if (isLogicalBinaryOperator(expr.operator)) {
                 // Logical Operation
-                assertValue(left, 'BoolValue');
-                assertValue(right, 'BoolValue');
+                assertValue(left.value, 'BoolValue');
+                assertValue(right.value, 'BoolValue');
                 switch (expr.operator) {
                     case '&&': {
-                        return new BoolValue(left.getValue() && right.getValue());
+                        return createOk(new BoolValue(left.value.getValue() && right.value.getValue()));
                     }
                     case '||': {
-                        return new BoolValue(left.getValue() || right.getValue());
+                        return createOk(new BoolValue(left.value.getValue() || right.value.getValue()));
                     }
                 }
                 throw new UguisuError('unexpected operation');
             } else if (isEquivalentOperator(expr.operator)) {
                 // Equivalent Operation
-                switch (left.kind) {
+                switch (left.value.kind) {
                     case 'NumberValue': {
-                        assertValue(right, 'NumberValue');
+                        assertValue(right.value, 'NumberValue');
                         switch (expr.operator) {
                             case '==': {
-                                return new BoolValue(left.getValue() == right.getValue());
+                                return createOk(new BoolValue(left.value.getValue() == right.value.getValue()));
                             }
                             case '!=': {
-                                return new BoolValue(left.getValue() != right.getValue());
+                                return createOk(new BoolValue(left.value.getValue() != right.value.getValue()));
                             }
                         }
                         break;
                     }
                     case 'BoolValue': {
-                        assertValue(right, 'BoolValue');
+                        assertValue(right.value, 'BoolValue');
                         switch (expr.operator) {
                             case '==': {
-                                return new BoolValue(left.getValue() == right.getValue());
+                                return createOk(new BoolValue(left.value.getValue() == right.value.getValue()));
                             }
                             case '!=': {
-                                return new BoolValue(left.getValue() != right.getValue());
+                                return createOk(new BoolValue(left.value.getValue() != right.value.getValue()));
                             }
                         }
                         break;
                     }
                     case 'CharValue': {
-                        assertValue(right, 'CharValue');
+                        assertValue(right.value, 'CharValue');
                         switch (expr.operator) {
                             case '==': {
-                                return new BoolValue(left.getValue() == right.getValue());
+                                return createOk(new BoolValue(left.value.getValue() == right.value.getValue()));
                             }
                             case '!=': {
-                                return new BoolValue(left.getValue() != right.getValue());
+                                return createOk(new BoolValue(left.value.getValue() != right.value.getValue()));
                             }
                         }
                         break;
                     }
                     case 'StringValue': {
-                        assertValue(right, 'StringValue');
+                        assertValue(right.value, 'StringValue');
                         switch (expr.operator) {
                             case '==': {
-                                return new BoolValue(left.getValue() == right.getValue());
+                                return createOk(new BoolValue(left.value.getValue() == right.value.getValue()));
                             }
                             case '!=': {
-                                return new BoolValue(left.getValue() != right.getValue());
+                                return createOk(new BoolValue(left.value.getValue() != right.value.getValue()));
                             }
                         }
                         break;
@@ -416,41 +477,41 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                             }
                             return (false);
                         }
-                        assertValue(right, 'FunctionValue');
+                        assertValue(right.value, 'FunctionValue');
                         switch (expr.operator) {
                             case '==': {
-                                return new BoolValue(equalFunc(left, right));
+                                return createOk(new BoolValue(equalFunc(left.value, right.value)));
                             }
                             case '!=': {
-                                return new BoolValue(!equalFunc(left, right));
+                                return createOk(new BoolValue(!equalFunc(left.value, right.value)));
                             }
                         }
                         break;
                     }
                     case 'StructValue':
                     case 'ArrayValue': {
-                        throw new UguisuError(`type \`${getTypeName(left.kind)}\` cannot be used for equivalence comparisons.`);
+                        throw new UguisuError(`type \`${getTypeName(left.value.kind)}\` cannot be used for equivalence comparisons.`);
                         break;
                     }
                 }
                 throw new UguisuError('unexpected operation');
             } else if (isOrderingOperator(expr.operator)) {
                 // Ordering Operation
-                switch (left.kind) {
+                switch (left.value.kind) {
                     case 'NumberValue': {
-                        assertValue(right, 'NumberValue');
+                        assertValue(right.value, 'NumberValue');
                         switch (expr.operator) {
                             case '<': {
-                                return new BoolValue(left.getValue() < right.getValue());
+                                return createOk(new BoolValue(left.value.getValue() < right.value.getValue()));
                             }
                             case '<=': {
-                                return new BoolValue(left.getValue() <= right.getValue());
+                                return createOk(new BoolValue(left.value.getValue() <= right.value.getValue()));
                             }
                             case '>': {
-                                return new BoolValue(left.getValue() > right.getValue());
+                                return createOk(new BoolValue(left.value.getValue() > right.value.getValue()));
                             }
                             case '>=': {
-                                return new BoolValue(left.getValue() >= right.getValue());
+                                return createOk(new BoolValue(left.value.getValue() >= right.value.getValue()));
                             }
                         }
                         break;
@@ -461,40 +522,43 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
                     case 'FunctionValue':
                     case 'StructValue':
                     case 'ArrayValue': {
-                        throw new UguisuError(`type \`${getTypeName(left.kind)}\` cannot be used to compare large and small relations.`);
+                        throw new UguisuError(`type \`${getTypeName(left.value.kind)}\` cannot be used to compare large and small relations.`);
                     }
                 }
             } else {
                 // Arithmetic Operation
-                assertValue(left, 'NumberValue');
-                assertValue(right, 'NumberValue');
+                assertValue(left.value, 'NumberValue');
+                assertValue(right.value, 'NumberValue');
                 switch (expr.operator) {
                     case '+': {
-                        return new NumberValue(left.getValue() + right.getValue());
+                        return createOk(new NumberValue(left.value.getValue() + right.value.getValue()));
                     }
                     case '-': {
-                        return new NumberValue(left.getValue() - right.getValue());
+                        return createOk(new NumberValue(left.value.getValue() - right.value.getValue()));
                     }
                     case '*': {
-                        return new NumberValue(left.getValue() * right.getValue());
+                        return createOk(new NumberValue(left.value.getValue() * right.value.getValue()));
                     }
                     case '/': {
-                        return new NumberValue(left.getValue() / right.getValue());
+                        return createOk(new NumberValue(left.value.getValue() / right.value.getValue()));
                     }
                     case '%': {
-                        return new NumberValue(left.getValue() % right.getValue());
+                        return createOk(new NumberValue(left.value.getValue() % right.value.getValue()));
                     }
                 }
             }
             throw new UguisuError('unexpected operation');
         }
         case 'UnaryOp': {
-            const value = evalExpr(r, expr.expr);
+            const result = evalExpr(r, expr.expr);
+            if (!isOkResult(result)) {
+                return result;
+            }
             // Logical Operation
-            assertValue(value, 'BoolValue');
+            assertValue(result.value, 'BoolValue');
             switch (expr.operator) {
                 case '!': {
-                    return new BoolValue(!value.getValue());
+                    return createOk(new BoolValue(!result.value.getValue()));
                 }
             }
             throw new UguisuError('unexpected operation');
@@ -502,18 +566,37 @@ function evalExpr(r: RunContext, expr: ExprNode): Value {
         case 'StructExpr': {
             const fields = new Map<string, Symbol>();
             for (const field of expr.fields) {
-                const value = evalExpr(r, field.body);
-                const symbol = new Symbol(value);
+                const result = evalExpr(r, field.body);
+                if (!isOkResult(result)) {
+                    return result;
+                }
+                const symbol = new Symbol(result.value);
                 fields.set(field.name, symbol);
             }
-            return new StructValue(fields);
+            return createOk(new StructValue(fields));
         }
         case 'ArrayNode': {
-            const items = expr.items.map(x => {
-                const value = evalExpr(r, x);
-                return new Symbol(value);
-            });
-            return new ArrayValue(items);
+            const items: Symbol[] = [];
+            for (const x of expr.items) {
+                const result = evalExpr(r, x);
+                if (!isOkResult(result)) {
+                    return result;
+                }
+                items.push(new Symbol(result.value));
+            }
+            return createOk(new ArrayValue(items));
+        }
+        case 'IfExpr': {
+            const cond = evalExpr(r, expr.cond);
+            if (!isOkResult(cond)) {
+                return cond;
+            }
+            assertValue(cond.value, 'BoolValue');
+            if (cond.value.getValue()) {
+                return evalBlock(r, expr.thenBlock);
+            } else {
+                return evalBlock(r, expr.elseBlock);
+            }
         }
     }
 }

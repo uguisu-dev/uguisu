@@ -13,11 +13,12 @@ import {
     createBreakStatement,
     createCall,
     createCharLiteral,
+    createExprStatement,
     createFieldAccess,
     createFnDeclParam,
     createFunctionDecl,
     createIdentifier,
-    createIfStatement,
+    createIfExpr,
     createIndexAccess,
     createLoopStatement,
     createNumberLiteral,
@@ -35,11 +36,12 @@ import {
     FileNode,
     FnDeclParam,
     FunctionDecl,
-    IfStatement,
+    IfExpr,
+    isExprNode,
     LoopStatement,
     ReturnStatement,
     SourceFile,
-    StatementNode,
+    StepNode,
     StructDecl,
     StructDeclField,
     StructExprField,
@@ -123,18 +125,24 @@ class ParseContext {
  * <Block> = "{" <Statement>* "}"
  * ```
 */
-function parseBlock(p: ParseContext): StatementNode[] {
+function parseBlock(p: ParseContext): StepNode[] {
     trace.enter('[parse] parseBlock');
 
     p.expectAndNext(Token.BeginBrace);
-    const statements: StatementNode[] = [];
+    const steps: StepNode[] = [];
     while (!p.tokenIs(Token.EndBrace)) {
-        statements.push(parseStatement(p));
+        const step = parseStatement(p);
+        steps.push(step);
+
+        // expr can only be used at the end of a block (IfExpr is ok)
+        if (isExprNode(step) && step.kind != 'IfExpr') {
+            break;
+        }
     }
     p.expectAndNext(Token.EndBrace);
 
     trace.leave();
-    return statements;
+    return steps;
 }
 
 /**
@@ -308,16 +316,13 @@ function parseStructDeclField(p: ParseContext): StructDeclField {
 
 /**
  * ```text
- * <Statement> = <VariableDecl> / <AssignStatement> / <IfStatement> / <LoopStatement> / <ReturnStatement> / <BreakStatement> / <ExprNode>
+ * <Statement> = <VariableDecl> / <AssignStatement> / <LoopStatement> / <ReturnStatement> / <BreakStatement> / <ExprStatement> / <ExprNode>
  * ```
 */
-function parseStatement(p: ParseContext): StatementNode {
+function parseStatement(p: ParseContext): StepNode {
     switch (p.getToken()) {
         case Token.Var: {
             return parseVariableDecl(p);
-        }
-        case Token.If: {
-            return parseIfStatement(p);
         }
         case Token.Loop: {
             return parseLoopStatement(p);
@@ -339,9 +344,10 @@ function parseStatement(p: ParseContext): StatementNode {
  * <StatementStartWithExpr>
  *   = <Expr> ("=" / "+=" / "-=" / "*=" / "/=" / "%=") <Expr> ";"
  *   / <Expr> ";"
+ *   / <Expr>
  * ```
 */
-function parseStatementStartWithExpr(p: ParseContext): StatementNode {
+function parseStatementStartWithExpr(p: ParseContext): StepNode {
     trace.enter('[parse] parseStatementStartWithExpr');
 
     const expr = parseExpr(p);
@@ -392,12 +398,12 @@ function parseStatementStartWithExpr(p: ParseContext): StatementNode {
         case Token.Semi: {
             p.next();
             trace.leave();
-            return expr;
-        }
-        default: {
-            throw new UguisuError(`unexpected token: ${Token[p.getToken()]}`);
+            return createExprStatement(expr.pos, expr);
         }
     }
+
+    trace.leave();
+    return expr;
 }
 
 /**
@@ -464,34 +470,6 @@ function parseReturnStatement(p: ParseContext): ReturnStatement {
 
     trace.leave();
     return createReturnStatement(pos, expr);
-}
-
-/**
- * ```text
- * <IfStatement> = "if" <Expr> <Block> ("else" (<IfStatement> / <Block>))?
- * ```
-*/
-function parseIfStatement(p: ParseContext): IfStatement {
-    trace.enter('[parse] parseIfStatement');
-
-    const pos = p.getPos();
-    p.next();
-    const cond = parseExpr(p);
-    const thenBlock = parseBlock(p);
-    let elseBlock: StatementNode[];
-    if (p.tokenIs(Token.Else)) {
-        p.next();
-        if (p.tokenIs(Token.If)) {
-            elseBlock = [parseIfStatement(p)];
-        } else {
-            elseBlock = parseBlock(p);
-        }
-    } else {
-        elseBlock = [];
-    }
-
-    trace.leave();
-    return createIfStatement(pos, cond, thenBlock, elseBlock);
 }
 
 /**
@@ -622,7 +600,7 @@ function parseSuffixChain(p: ParseContext, target: ExprNode): ExprNode {
 
 /**
  * ```text
- * <AtomInner> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <StructExpr> / <Array> / <Identifier> / <Prefix> <Atom> / "(" <Expr> ")"
+ * <AtomInner> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <StructExpr> / <Array> / <IfExpr> / <Identifier> / <Prefix> <Atom> / "(" <Expr> ")"
  * ```
 */
 function parseAtomInner(p: ParseContext): ExprNode {
@@ -684,6 +662,9 @@ function parseAtomInner(p: ParseContext): ExprNode {
             p.expectAndNext(Token.EndBracket);
             return createArrayNode(pos, items);
         }
+        case Token.If: {
+            return parseIfExpr(p);
+        }
         case Token.Not: {
             p.next();
             const expr = parseAtom(p);
@@ -714,6 +695,34 @@ function parseStructExprField(p: ParseContext): StructExprField {
     p.expectAndNext(Token.Colon);
     const body = parseExpr(p);
     return createStructExprField(pos, name, body);
+}
+
+/**
+ * ```text
+ * <IfExpr> = "if" <Expr> <Block> ("else" (<IfExpr> / <Block>))?
+ * ```
+*/
+function parseIfExpr(p: ParseContext): IfExpr {
+    trace.enter('[parse] parseIfStatement');
+
+    const pos = p.getPos();
+    p.next();
+    const cond = parseExpr(p);
+    const thenBlock = parseBlock(p);
+    let elseBlock: StepNode[];
+    if (p.tokenIs(Token.Else)) {
+        p.next();
+        if (p.tokenIs(Token.If)) {
+            elseBlock = [parseIfExpr(p)];
+        } else {
+            elseBlock = parseBlock(p);
+        }
+    } else {
+        elseBlock = [];
+    }
+
+    trace.leave();
+    return createIfExpr(pos, cond, thenBlock, elseBlock);
 }
 
 //#endregion Expressions

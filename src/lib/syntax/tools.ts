@@ -3,7 +3,7 @@ export type Pos = [number, number];
 export type AstNode
     = SourceFile
     | FileNode
-    | StatementNode
+    | StepNode
     | TyLabel
     | FnDeclParam
     | StructDeclField
@@ -11,16 +11,16 @@ export type AstNode
 
 export type FileNode = FunctionDecl | StructDecl;
 
-export type StatementCoreNode
+export type StatementNode
     = VariableDecl
     | AssignStatement
-    | IfStatement
+    | ExprStatement
     | LoopStatement
     | ReturnStatement
     | BreakStatement;
 
-export type StatementNode
-    = StatementCoreNode
+export type StepNode
+    = StatementNode
     | ExprNode;
 
 export type ExprNode
@@ -35,7 +35,8 @@ export type ExprNode
     | StructExpr
     | FieldAccess
     | ArrayNode
-    | IndexAccess;
+    | IndexAccess
+    | IfExpr;
 
 export type ReferenceExpr
     = Identifier
@@ -46,7 +47,8 @@ export type NodeOf<T extends AstNode['kind']>
     = T extends 'SourceFile' ? SourceFile
     : T extends 'FunctionDecl' ? FunctionDecl
     : T extends 'FnDeclParam' ? FnDeclParam
-    : T extends 'IfStatement' ? IfStatement
+    : T extends 'IfExpr' ? IfExpr
+    : T extends 'ExprStatement' ? ExprStatement
     : T extends 'Identifier' ? Identifier
     : T extends 'NumberLiteral' ? NumberLiteral
     : T extends 'BoolLiteral' ? BoolLiteral
@@ -73,7 +75,7 @@ export type NodeOf<T extends AstNode['kind']>
 
 const exprNodeKind: AstNode['kind'][] = [
     'NumberLiteral', 'BoolLiteral', 'CharLiteral', 'StringLiteral', 'BinaryOp', 'UnaryOp', 'Identifier', 'Call', 'StructExpr',
-    'FieldAccess', 'ArrayNode', 'IndexAccess',
+    'FieldAccess', 'ArrayNode', 'IndexAccess', 'IfExpr',
 ];
 export function isExprNode(node: AstNode): node is ExprNode {
     return exprNodeKind.includes(node.kind);
@@ -94,7 +96,7 @@ export type FunctionDecl = {
     pos: Pos;
     name: string,
     params: FnDeclParam[],
-    body: StatementNode[],
+    body: StepNode[],
     returnTy?: TyLabel,
     exported: boolean,
 };
@@ -102,7 +104,7 @@ export function createFunctionDecl(
     pos: Pos,
     name: string,
     params: FnDeclParam[],
-    body: StatementNode[],
+    body: StepNode[],
     returnTy: TyLabel | undefined,
     exported: boolean,
 ): FunctionDecl {
@@ -119,20 +121,29 @@ export function createFnDeclParam(pos: Pos, name: string, ty?: TyLabel): FnDeclP
     return { kind: 'FnDeclParam', pos, name, ty };
 }
 
-export type IfStatement = {
-    kind: 'IfStatement',
+export type IfExpr = {
+    kind: 'IfExpr',
     pos: Pos;
     cond: ExprNode;
-    thenBlock: StatementNode[];
-    elseBlock: StatementNode[];
+    thenBlock: StepNode[];
+    elseBlock: StepNode[];
 };
-export function createIfStatement(
+export function createIfExpr(
     pos: Pos,
     cond: ExprNode,
-    thenBlock: StatementNode[],
-    elseBlock: StatementNode[],
-): IfStatement {
-    return { kind: 'IfStatement', pos, cond, thenBlock, elseBlock };
+    thenBlock: StepNode[],
+    elseBlock: StepNode[],
+): IfExpr {
+    return { kind: 'IfExpr', pos, cond, thenBlock, elseBlock };
+}
+
+export type ExprStatement = {
+    kind: 'ExprStatement',
+    pos: Pos,
+    expr: ExprNode,
+};
+export function createExprStatement(pos: Pos, expr: ExprNode): ExprStatement {
+    return { kind: 'ExprStatement', pos, expr };
 }
 
 export type Identifier = {
@@ -286,9 +297,9 @@ export function createReturnStatement(pos: Pos, expr?: ExprNode): ReturnStatemen
 export type LoopStatement = {
     kind: 'LoopStatement',
     pos: Pos,
-    block: StatementNode[],
+    block: StepNode[],
 };
-export function createLoopStatement(pos: Pos, block: StatementNode[]): LoopStatement {
+export function createLoopStatement(pos: Pos, block: StepNode[]): LoopStatement {
     return { kind: 'LoopStatement', pos, block };
 }
 
