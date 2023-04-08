@@ -447,7 +447,7 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
                 case 'ok': {
                     ty = voidType;
                 }
-                case 'error': {
+                case 'invalid': {
                     ty = badType;
                 }
                 case 'return':
@@ -494,13 +494,13 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                     if (isPendingType(funcSymbol.ty)) {
                         throw new UguisuError('unexpected type');
                     }
-                    return 'error';
+                    return 'invalid';
                 }
 
                 // check type
                 if (compareType(ty, funcSymbol.ty.returnType) == 'incompatible') {
                     dispatchTypeError(ty, funcSymbol.ty.returnType, node.expr, a);
-                    return 'error';
+                    return 'invalid';
                 }
             }
             return 'return';
@@ -509,7 +509,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
             // if there is no associated loop
             if (!allowJump) {
                 a.dispatchError('invalid break statement.');
-                return 'error';
+                return 'invalid';
             }
             return 'break';
         }
@@ -583,7 +583,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
 
             // skip if target symbol is invalid
             if (symbol == null) {
-                return 'error';
+                return 'invalid';
             }
 
             let targetTy = getTypeFromSymbol(symbol, node.target, a);

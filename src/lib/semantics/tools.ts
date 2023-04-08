@@ -131,7 +131,7 @@ export function createExprSymbol(ty: Type): ExprSymbol {
 
 // statement result
 
-export type StatementResult = 'error' | 'ok' | 'return' | 'break';
+export type StatementResult = 'invalid' | 'ok' | 'return' | 'break';
 
 // types
 
