@@ -8,9 +8,9 @@ The syntax is like this:
 ```
 fn calc(x: number): number {
     if x == 0 {
-        return 1;
+        1
     } else {
-        return calc(x - 1) * 2;
+        calc(x - 1) * 2
     }
 }
 
