@@ -580,6 +580,20 @@ describe('if expr', () => {
     }
     `));
 
+    test('with function (return)', () => expectOk(`
+    fn f(x: bool): number {
+        if x {
+            return 1;
+        } else {
+            2
+        }
+    }
+    fn main() {
+        number.assertEq(f(true), 1);
+        number.assertEq(f(false), 2);
+    }
+    `));
+
     test('with variable declaration', () => expectOk(`
     fn main() {
         var cond = true;
