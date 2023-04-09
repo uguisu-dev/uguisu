@@ -52,13 +52,22 @@ class RunContext {
 
 export function run(source: SourceFile, env: RunningEnv, options: UguisuOptions, projectInfo: ProjectInfo) {
     const r = new RunContext(env, options, projectInfo);
-    builtins.setRuntime(r.env, options);
-    evalSourceFile(r, source);
-    const entryPoint = getEntryPoint(r);
-    call(r, entryPoint, []);
-}
 
-function getEntryPoint(r: RunContext): FunctionValue {
+    // declare top-level
+    builtins.setRuntime(r.env, options);
+    for (const decl of source.decls) {
+        switch (decl.kind) {
+            case 'FunctionDecl': {
+                r.env.declare(decl.name, FunctionValue.create(decl, r.env));
+                break;
+            }
+            case 'StructDecl': {
+                break;
+            }
+        }
+    }
+
+    // get entry point
     const entryPointName = 'main';
     const symbol = r.env.lookup(entryPointName);
     if (symbol == null) {
@@ -68,7 +77,10 @@ function getEntryPoint(r: RunContext): FunctionValue {
         throw new UguisuError(`function \`${entryPointName}\` is not defined`);
     }
     assertValue(symbol.value, 'FunctionValue');
-    return symbol.value;
+    const entryPoint = symbol.value;
+
+    // call entry point
+    call(r, entryPoint, []);
 }
 
 function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
@@ -107,20 +119,6 @@ function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
         return func.native(args, r.options);
     } else {
         throw new UguisuError('invalid function');
-    }
-}
-
-function evalSourceFile(r: RunContext, source: SourceFile) {
-    for (const decl of source.decls) {
-        switch (decl.kind) {
-            case 'FunctionDecl': {
-                r.env.declare(decl.name, FunctionValue.create(decl, r.env));
-                break;
-            }
-            case 'StructDecl': {
-                break;
-            }
-        }
     }
 }
 
