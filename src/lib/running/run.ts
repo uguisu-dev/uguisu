@@ -12,26 +12,28 @@ import {
     StatementNode,
     StepNode
 } from '../syntax/tools.js';
-import { arithmeticBinaryOp, equivalentBinaryOp, logicalBinaryOp, orderingBinaryOp } from './binary-expr.js';
+import { evalArithmeticBinaryOp, evalEquivalentBinaryOp, evalLogicalBinaryOp, evalOrderingBinaryOp } from './binary-expr.js';
 import * as builtins from './builtins.js';
 import {
     ArrayValue,
     assertValue,
     BoolValue,
     CharValue,
+    EvalResult,
+    FunctionValue,
     createBreak,
     createOk,
     createReturn,
-    EvalResult,
-    FunctionValue,
-    isOkResult,
     NoneValue,
     NumberValue,
     RunningEnv,
     StringValue,
     StructValue,
     Symbol,
-    Value
+    Value,
+    isReturn,
+    isBreak,
+    isOk
 } from './tools.js';
 
 const trace = Trace.getDefault().createChild(false);
@@ -89,15 +91,15 @@ function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
             } else {
                 result = evalStatement(ctx, step);
             }
-            if (!isOkResult(result)) {
+            if (isReturn(result) || isBreak(result)) {
                 break;
             }
         }
         ctx.env.leave();
-        if (result.kind == 'return') {
+        if (isReturn(result)) {
             return result.value;
         }
-        if (result.kind == 'break') {
+        if (isBreak(result)) {
             throw new UguisuError('invalid break');
         }
         return result.value;
@@ -129,7 +131,7 @@ function evalBlock(r: RunContext, block: StepNode[]): EvalResult<Value> {
         const step = block[i];
         if (isExprNode(step)) {
             const stepResult = evalExpr(r, step);
-            if (!isOkResult(stepResult)) {
+            if (isReturn(stepResult) || isBreak(stepResult)) {
                 return stepResult;
             }
             const isFinalStep = (i == block.length - 1);
@@ -140,9 +142,9 @@ function evalBlock(r: RunContext, block: StepNode[]): EvalResult<Value> {
             }
         } else {
             result = evalStatement(r, step);
-            if (result.kind == 'return') {
+            if (isReturn(result)) {
                 break;
-            } else if (result.kind == 'break') {
+            } else if (isBreak(result)) {
                 break;
             }
         }
@@ -162,7 +164,7 @@ function evalReferenceExpr(r: RunContext, expr: ExprNode): EvalResult<Symbol> {
         }
         case 'FieldAccess': {
             const target = evalExpr(r, expr.target);
-            if (!isOkResult(target)) {
+            if (isReturn(target) || isBreak(target)) {
                 return target;
             }
             assertValue(target.value, 'StructValue');
@@ -175,10 +177,10 @@ function evalReferenceExpr(r: RunContext, expr: ExprNode): EvalResult<Symbol> {
         case 'IndexAccess': {
             const target = evalExpr(r, expr.target);
             const index = evalExpr(r, expr.index);
-            if (!isOkResult(target)) {
+            if (isReturn(target) || isBreak(target)) {
                 return target;
             }
-            if (!isOkResult(index)) {
+            if (isReturn(index) || isBreak(index)) {
                 return index;
             }
             assertValue(target.value, 'ArrayValue');
@@ -204,7 +206,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
         case 'ReturnStatement': {
             if (statement.expr != null) {
                 const result = evalExpr(r, statement.expr);
-                if (isOkResult(result)) {
+                if (isOk(result)) {
                     return createReturn(result.value);
                 } else {
                     return result;
@@ -220,9 +222,9 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
         case 'LoopStatement': {
             while (true) {
                 const result = evalBlock(r, statement.block);
-                if (result.kind == 'return') {
+                if (isReturn(result)) {
                     return result;
-                } else if (result.kind == 'break') {
+                } else if (isBreak(result)) {
                     break;
                 }
             }
@@ -231,7 +233,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
         case 'VariableDecl': {
             if (statement.body != null) {
                 const body = evalExpr(r, statement.body);
-                if (!isOkResult(body)) {
+                if (isReturn(body) || isBreak(body)) {
                     return body;
                 }
                 if (body.value.kind == 'NoneValue') {
@@ -247,7 +249,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
             let target;
             if (statement.target.kind == 'Identifier' || statement.target.kind == 'FieldAccess' || statement.target.kind == 'IndexAccess') {
                 target = evalReferenceExpr(r, statement.target);
-                if (!isOkResult(target)) {
+                if (isReturn(target) || isBreak(target)) {
                     return target;
                 }
             } else {
@@ -255,7 +257,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
             }
             const symbol = target.value;
             const body = evalExpr(r, statement.body);
-            if (!isOkResult(body)) {
+            if (isReturn(body) || isBreak(body)) {
                 return body;
             }
             if (body.value.kind == 'NoneValue') {
@@ -340,7 +342,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
             const fields = new Map<string, Symbol>();
             for (const field of expr.fields) {
                 const result = evalExpr(r, field.body);
-                if (!isOkResult(result)) {
+                if (isReturn(result) || isBreak(result)) {
                     return result;
                 }
                 const symbol = new Symbol(result.value);
@@ -352,7 +354,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
             const items: Symbol[] = [];
             for (const x of expr.items) {
                 const result = evalExpr(r, x);
-                if (!isOkResult(result)) {
+                if (isReturn(result) || isBreak(result)) {
                     return result;
                 }
                 items.push(new Symbol(result.value));
@@ -363,7 +365,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
         case 'FieldAccess':
         case 'IndexAccess': {
             const result = evalReferenceExpr(r, expr);
-            if (!isOkResult(result)) {
+            if (isReturn(result) || isBreak(result)) {
                 return result;
             }
             const symbol = result.value;
@@ -374,28 +376,28 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
         }
         case 'BinaryOp': {
             const left = evalExpr(r, expr.left);
-            if (!isOkResult(left)) {
+            if (isReturn(left) || isBreak(left)) {
                 return left;
             }
             const right = evalExpr(r, expr.right);
-            if (!isOkResult(right)) {
+            if (isReturn(right) || isBreak(right)) {
                 return right;
             }
             const op = expr.operator;
             if (isLogicalBinaryOperator(op)) {
-                return logicalBinaryOp(op, left.value, right.value);
+                return evalLogicalBinaryOp(op, left.value, right.value);
             } else if (isEquivalentOperator(op)) {
-                return equivalentBinaryOp(op, left.value, right.value);
+                return evalEquivalentBinaryOp(op, left.value, right.value);
             } else if (isOrderingOperator(op)) {
-                return orderingBinaryOp(op, left.value, right.value);
+                return evalOrderingBinaryOp(op, left.value, right.value);
             } else {
-                return arithmeticBinaryOp(op, left.value, right.value);
+                return evalArithmeticBinaryOp(op, left.value, right.value);
             }
             break;
         }
         case 'UnaryOp': {
             const result = evalExpr(r, expr.expr);
-            if (!isOkResult(result)) {
+            if (isReturn(result) || isBreak(result)) {
                 return result;
             }
             // Logical Operation
@@ -409,7 +411,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
         }
         case 'IfExpr': {
             const cond = evalExpr(r, expr.cond);
-            if (!isOkResult(cond)) {
+            if (isReturn(cond) || isBreak(cond)) {
                 return cond;
             }
             assertValue(cond.value, 'BoolValue');
@@ -421,14 +423,14 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
         }
         case 'Call': {
             const callee = evalExpr(r, expr.callee);
-            if (!isOkResult(callee)) {
+            if (isReturn(callee) || isBreak(callee)) {
                 return callee;
             }
             assertValue(callee.value, 'FunctionValue');
             const args: Value[] = [];
             for (const argExpr of expr.args) {
                 const arg = evalExpr(r, argExpr);
-                if (!isOkResult(arg)) {
+                if (isReturn(arg) || isBreak(arg)) {
                     return arg;
                 }
                 if (arg.value.kind == 'NoneValue') {

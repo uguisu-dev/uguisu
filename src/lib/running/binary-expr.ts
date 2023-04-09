@@ -2,7 +2,7 @@ import { UguisuError } from '../misc/errors';
 import { ArithmeticOperator, EquivalentOperator, LogicalBinaryOperator, OrderingOperator } from '../syntax/tools';
 import { assertValue, BoolValue, createOk, EvalResult, FunctionValue, getTypeName, NumberValue, Value } from './tools';
 
-export function logicalBinaryOp(op: LogicalBinaryOperator, left: Value, right: Value): EvalResult<Value> {
+export function evalLogicalBinaryOp(op: LogicalBinaryOperator, left: Value, right: Value): EvalResult<BoolValue> {
     assertValue(left, 'BoolValue');
     assertValue(right, 'BoolValue');
     switch (op) {
@@ -15,7 +15,7 @@ export function logicalBinaryOp(op: LogicalBinaryOperator, left: Value, right: V
     }
 }
 
-export function equivalentBinaryOp(op: EquivalentOperator, left: Value, right: Value): EvalResult<Value> {
+export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, right: Value): EvalResult<BoolValue> {
     if (left.kind == 'NoneValue') {
         throw new UguisuError('no values');
     }
@@ -99,7 +99,7 @@ export function equivalentBinaryOp(op: EquivalentOperator, left: Value, right: V
     }
 }
 
-export function orderingBinaryOp(op: OrderingOperator, left: Value, right: Value): EvalResult<Value> {
+export function evalOrderingBinaryOp(op: OrderingOperator, left: Value, right: Value): EvalResult<BoolValue> {
     if (left.kind == 'NoneValue') {
         throw new UguisuError('no values');
     }
@@ -136,7 +136,7 @@ export function orderingBinaryOp(op: OrderingOperator, left: Value, right: Value
     }
 }
 
-export function arithmeticBinaryOp(op: ArithmeticOperator, left: Value, right: Value): EvalResult<Value> {
+export function evalArithmeticBinaryOp(op: ArithmeticOperator, left: Value, right: Value): EvalResult<NumberValue> {
     assertValue(left, 'NumberValue');
     assertValue(right, 'NumberValue');
     switch (op) {

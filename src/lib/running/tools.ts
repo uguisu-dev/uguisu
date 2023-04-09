@@ -55,26 +55,42 @@ export class Symbol {
 
 export type EvalResult<T> = OkResult<T> | ReturnResult | BreakResult;
 
-export type OkResult<T> = { kind: 'ok', value: T };
+export type OkResult<T> = {
+    code: 'ok',
+    value: T,
+};
 
-export function createOk<T>(value: T): OkResult<T> {
-    return { kind: 'ok', value };
+export type ReturnResult = {
+    code: 'return',
+    value: Value,
+};
+
+export type BreakResult = {
+    code: 'break',
+};
+
+export function createOk<T>(value: T): EvalResult<T> {
+    return { code: 'ok', value };
 }
 
-export function isOkResult<T>(x: EvalResult<T>): x is OkResult<T> {
-    return (x.kind == 'ok');
+export function createReturn<T>(value: Value): EvalResult<T> {
+    return { code: 'return', value };
 }
 
-export type ReturnResult = { kind: 'return', value: Value };
-
-export function createReturn(value: Value): ReturnResult {
-    return { kind: 'return', value };
+export function createBreak<T>(): EvalResult<T> {
+    return { code: 'break' };
 }
 
-export type BreakResult = { kind: 'break' };
+export function isOk<T>(x: EvalResult<T>): x is OkResult<T> {
+    return (x.code == 'ok');
+}
 
-export function createBreak(): BreakResult {
-    return { kind: 'break' };
+export function isReturn<T>(x: EvalResult<T>): x is ReturnResult {
+    return (x.code == 'return');
+}
+
+export function isBreak<T>(x: EvalResult<T>): x is BreakResult {
+    return (x.code == 'break');
 }
 
 //#region Values
