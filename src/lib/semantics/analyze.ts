@@ -86,156 +86,6 @@ export function analyze(
     };
 }
 
-function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): Symbol | undefined {
-    switch (node.kind) {
-        case 'Identifier': {
-            // get symbol
-            const symbol = a.env.get(node.name);
-
-            if (symbol == null) {
-                a.dispatchError('unknown identifier.', node);
-                return undefined;
-            }
-
-            return symbol;
-        }
-        case 'FieldAccess': {
-            // analyze target
-            const targetTy = analyzeExpr(node.target, allowJump, funcSymbol, a);
-
-            if (!isValidType(targetTy)) {
-                if (isPendingType(targetTy)) {
-                    a.dispatchError('variable is not assigned yet.', node.target);
-                }
-                return undefined;
-            }
-
-            switch (targetTy.kind) {
-                case 'NamedType': {
-                    // get target symbol
-                    const symbol = a.env.get(targetTy.name)!;
-
-                    if (symbol.kind == 'StructSymbol') {
-                        // get field symbol
-                        const field = symbol.fields.get(node.name);
-
-                        // if specified field name is invalid
-                        if (field == null) {
-                            a.dispatchError('unknown field name.', node);
-                            return undefined;
-                        }
-
-                        return field;
-                    } else {
-                        a.dispatchError('invalid field access.', node);
-                        return undefined;
-                    }
-                    break;
-                }
-                case 'GenericType': {
-                    throw new UguisuError('not implemented yet.'); // TODO
-                }
-                case 'AnyType': {
-                    // TODO: Ensure that the type `any` is handled correctly.
-                    return undefined;
-                }
-                case 'FunctionType':
-                case 'VoidType': {
-                    a.dispatchError('invalid field access');
-                    return undefined;
-                }
-            }
-            break;
-        }
-        case 'IndexAccess': {
-            const targetTy = analyzeExpr(node.target, allowJump, funcSymbol, a);
-            const indexTy = analyzeExpr(node.index, allowJump, funcSymbol, a);
-
-            // check target type
-            if (compareType(targetTy, arrayType) == 'incompatible') {
-                dispatchTypeError(targetTy, arrayType, node.target, a);
-                return undefined;
-            }
-
-            // check index type
-            if (compareType(indexTy, numberType) == 'incompatible') {
-                dispatchTypeError(indexTy, numberType, node.index, a);
-                return undefined;
-            }
-
-            if (!isValidType(targetTy)) {
-                if (isPendingType(targetTy)) {
-                    a.dispatchError('variable is not assigned yet.', node.target);
-                }
-                return undefined;
-            }
-
-            if (!isValidType(indexTy)) {
-                if (isPendingType(indexTy)) {
-                    a.dispatchError('variable is not assigned yet.', node.index);
-                }
-                return undefined;
-            }
-
-            // create index symbol
-            const symbol = createVariableSymbol(anyType, true);
-            return symbol;
-        }
-    }
-    throw new UguisuError('unexpected node');
-}
-
-function getTypeFromSymbol(symbol: Symbol, errorNode: AstNode, a: AnalyzeContext): Type {
-    switch (symbol.kind) {
-        case 'FnSymbol':
-        case 'NativeFnSymbol': {
-            return symbol.ty;
-        }
-        case 'StructSymbol': {
-            return createNamedType(symbol.name);
-        }
-        case 'VariableSymbol': {
-            return symbol.ty;
-        }
-        case 'ExprSymbol': {
-            throw new UguisuError('unexpected symbol');
-        }
-    }
-}
-
-function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
-    // builtin type
-    switch (node.name) {
-        case 'number':
-        case 'bool':
-        case 'char':
-        case 'string':
-        case 'array': {
-            return createNamedType(node.name);
-        }
-    }
-
-    // try get user defined type
-    const symbol = a.env.get(node.name);
-    if (symbol == null) {
-        a.dispatchError('unknown type name.', node);
-        return badType;
-    }
-
-    switch (symbol.kind) {
-        case 'StructSymbol': {
-            return createNamedType(node.name);
-        }
-        case 'FnSymbol':
-        case 'NativeFnSymbol':
-        case 'VariableSymbol':
-        case 'ExprSymbol': {
-            a.dispatchError('invalid type name.', node);
-            return badType;
-        }
-    }
-}
-
 function declareTopLevel(node: FileNode, a: AnalyzeContext) {
     switch (node.kind) {
         case 'FunctionDecl': {
@@ -474,6 +324,105 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
     a.env.leave();
 
     return blockTy;
+}
+
+function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): Symbol | undefined {
+    switch (node.kind) {
+        case 'Identifier': {
+            // get symbol
+            const symbol = a.env.get(node.name);
+
+            if (symbol == null) {
+                a.dispatchError('unknown identifier.', node);
+                return undefined;
+            }
+
+            return symbol;
+        }
+        case 'FieldAccess': {
+            // analyze target
+            const targetTy = analyzeExpr(node.target, allowJump, funcSymbol, a);
+
+            if (!isValidType(targetTy)) {
+                if (isPendingType(targetTy)) {
+                    a.dispatchError('variable is not assigned yet.', node.target);
+                }
+                return undefined;
+            }
+
+            switch (targetTy.kind) {
+                case 'NamedType': {
+                    // get target symbol
+                    const symbol = a.env.get(targetTy.name)!;
+
+                    if (symbol.kind == 'StructSymbol') {
+                        // get field symbol
+                        const field = symbol.fields.get(node.name);
+
+                        // if specified field name is invalid
+                        if (field == null) {
+                            a.dispatchError('unknown field name.', node);
+                            return undefined;
+                        }
+
+                        return field;
+                    } else {
+                        a.dispatchError('invalid field access.', node);
+                        return undefined;
+                    }
+                    break;
+                }
+                case 'GenericType': {
+                    throw new UguisuError('not implemented yet.'); // TODO
+                }
+                case 'AnyType': {
+                    // TODO: Ensure that the type `any` is handled correctly.
+                    return undefined;
+                }
+                case 'FunctionType':
+                case 'VoidType': {
+                    a.dispatchError('invalid field access');
+                    return undefined;
+                }
+            }
+            break;
+        }
+        case 'IndexAccess': {
+            const targetTy = analyzeExpr(node.target, allowJump, funcSymbol, a);
+            const indexTy = analyzeExpr(node.index, allowJump, funcSymbol, a);
+
+            // check target type
+            if (compareType(targetTy, arrayType) == 'incompatible') {
+                dispatchTypeError(targetTy, arrayType, node.target, a);
+                return undefined;
+            }
+
+            // check index type
+            if (compareType(indexTy, numberType) == 'incompatible') {
+                dispatchTypeError(indexTy, numberType, node.index, a);
+                return undefined;
+            }
+
+            if (!isValidType(targetTy)) {
+                if (isPendingType(targetTy)) {
+                    a.dispatchError('variable is not assigned yet.', node.target);
+                }
+                return undefined;
+            }
+
+            if (!isValidType(indexTy)) {
+                if (isPendingType(indexTy)) {
+                    a.dispatchError('variable is not assigned yet.', node.index);
+                }
+                return undefined;
+            }
+
+            // create index symbol
+            const symbol = createVariableSymbol(anyType, true);
+            return symbol;
+        }
+    }
+    throw new UguisuError('unexpected node');
 }
 
 function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): StatementResult {
@@ -967,4 +916,55 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
         }
     }
     throw new UguisuError('unexpected node');
+}
+
+function getTypeFromSymbol(symbol: Symbol, errorNode: AstNode, a: AnalyzeContext): Type {
+    switch (symbol.kind) {
+        case 'FnSymbol':
+        case 'NativeFnSymbol': {
+            return symbol.ty;
+        }
+        case 'StructSymbol': {
+            return createNamedType(symbol.name);
+        }
+        case 'VariableSymbol': {
+            return symbol.ty;
+        }
+        case 'ExprSymbol': {
+            throw new UguisuError('unexpected symbol');
+        }
+    }
+}
+
+function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
+    // builtin type
+    switch (node.name) {
+        case 'number':
+        case 'bool':
+        case 'char':
+        case 'string':
+        case 'array': {
+            return createNamedType(node.name);
+        }
+    }
+
+    // try get user defined type
+    const symbol = a.env.get(node.name);
+    if (symbol == null) {
+        a.dispatchError('unknown type name.', node);
+        return badType;
+    }
+
+    switch (symbol.kind) {
+        case 'StructSymbol': {
+            return createNamedType(node.name);
+        }
+        case 'FnSymbol':
+        case 'NativeFnSymbol':
+        case 'VariableSymbol':
+        case 'ExprSymbol': {
+            a.dispatchError('invalid type name.', node);
+            return badType;
+        }
+    }
 }
