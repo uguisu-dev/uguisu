@@ -33,22 +33,11 @@ import {
     Value,
     isReturn,
     isBreak,
-    isOk
+    isOk,
+    RunContext
 } from './tools.js';
 
 const trace = Trace.getDefault().createChild(false);
-
-class RunContext {
-    env: RunningEnv;
-    options: UguisuOptions;
-    projectInfo: ProjectInfo;
-
-    constructor(env: RunningEnv, options: UguisuOptions, projectInfo: ProjectInfo) {
-        this.env = env;
-        this.options = options;
-        this.projectInfo = projectInfo;
-    }
-}
 
 export function run(source: SourceFile, env: RunningEnv, options: UguisuOptions, projectInfo: ProjectInfo) {
     const r = new RunContext(env, options, projectInfo);
@@ -83,7 +72,7 @@ export function run(source: SourceFile, env: RunningEnv, options: UguisuOptions,
     call(r, entryPoint, []);
 }
 
-function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
+export function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
     if (func.user != null) {
         const env = new RunningEnv(func.user.env);
         const ctx = new RunContext(env, r.options, r.projectInfo);
