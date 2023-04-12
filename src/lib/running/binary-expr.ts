@@ -1,72 +1,91 @@
 import { UguisuError } from '../misc/errors';
 import { ArithmeticOperator, EquivalentOperator, LogicalBinaryOperator, OrderingOperator } from '../syntax/tools';
-import { assertValue, BoolValue, createOk, EvalResult, FunctionValue, getTypeName, NumberValue, Value } from './tools';
+import {
+    assertValue,
+    BoolValue,
+    CharValue,
+    createBoolValue,
+    createNumberValue,
+    createOk,
+    EvalResult,
+    FunctionValue,
+    getTypeName,
+    getValueKind,
+    isNoneValue,
+    NumberValue,
+    StringValue,
+    Value
+} from './tools';
 
 export function evalLogicalBinaryOp(op: LogicalBinaryOperator, left: Value, right: Value): EvalResult<BoolValue> {
     assertValue(left, 'BoolValue');
     assertValue(right, 'BoolValue');
     switch (op) {
         case '&&': {
-            return createOk(new BoolValue(left.getValue() && right.getValue()));
+            return createOk(createBoolValue(left && right));
         }
         case '||': {
-            return createOk(new BoolValue(left.getValue() || right.getValue()));
+            return createOk(createBoolValue(left || right));
         }
     }
 }
 
 export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, right: Value): EvalResult<BoolValue> {
-    if (left.kind == 'NoneValue') {
+    if (isNoneValue(left)) {
         throw new UguisuError('no values');
     }
-    if (right.kind == 'NoneValue') {
+    if (isNoneValue(right)) {
         throw new UguisuError('no values');
     }
-    switch (left.kind) {
+    switch (getValueKind(left)) {
         case 'NumberValue': {
+            left = left as NumberValue;
             assertValue(right, 'NumberValue');
             switch (op) {
                 case '==': {
-                    return createOk(new BoolValue(left.getValue() == right.getValue()));
+                    return createOk(createBoolValue(left == right));
                 }
                 case '!=': {
-                    return createOk(new BoolValue(left.getValue() != right.getValue()));
+                    return createOk(createBoolValue(left != right));
                 }
             }
             break;
         }
         case 'BoolValue': {
+            left = left as BoolValue;
             assertValue(right, 'BoolValue');
             switch (op) {
                 case '==': {
-                    return createOk(new BoolValue(left.getValue() == right.getValue()));
+                    return createOk(createBoolValue(left == right));
                 }
                 case '!=': {
-                    return createOk(new BoolValue(left.getValue() != right.getValue()));
+                    return createOk(createBoolValue(left != right));
                 }
             }
             break;
         }
         case 'CharValue': {
+            left = left as CharValue;
             assertValue(right, 'CharValue');
             switch (op) {
                 case '==': {
-                    return createOk(new BoolValue(left.getValue() == right.getValue()));
+                    return createOk(createBoolValue(left == right));
                 }
                 case '!=': {
-                    return createOk(new BoolValue(left.getValue() != right.getValue()));
+                    return createOk(createBoolValue(left != right));
                 }
             }
             break;
         }
         case 'StringValue': {
+            left = left as StringValue;
             assertValue(right, 'StringValue');
             switch (op) {
                 case '==': {
-                    return createOk(new BoolValue(left.getValue() == right.getValue()));
+                    return createOk(createBoolValue(left == right));
                 }
                 case '!=': {
-                    return createOk(new BoolValue(left.getValue() != right.getValue()));
+                    return createOk(createBoolValue(left != right));
                 }
             }
             break;
@@ -81,46 +100,48 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
                 }
                 return false;
             }
+            left = left as FunctionValue;
             assertValue(right, 'FunctionValue');
             switch (op) {
                 case '==': {
-                    return createOk(new BoolValue(equalFunc(left, right)));
+                    return createOk(createBoolValue(equalFunc(left, right)));
                 }
                 case '!=': {
-                    return createOk(new BoolValue(!equalFunc(left, right)));
+                    return createOk(createBoolValue(!equalFunc(left, right)));
                 }
             }
             break;
         }
         case 'StructValue':
         case 'ArrayValue': {
-            throw new UguisuError(`type \`${getTypeName(left.kind)}\` cannot be used for equivalence comparisons.`);
+            break;
         }
     }
+    throw new UguisuError(`type \`${getTypeName(getValueKind(left))}\` cannot be used for equivalence comparisons.`);
 }
 
 export function evalOrderingBinaryOp(op: OrderingOperator, left: Value, right: Value): EvalResult<BoolValue> {
-    if (left.kind == 'NoneValue') {
+    if (isNoneValue(left)) {
         throw new UguisuError('no values');
     }
-    if (right.kind == 'NoneValue') {
+    if (isNoneValue(right)) {
         throw new UguisuError('no values');
     }
-    switch (left.kind) {
+    switch (getValueKind(left)) {
         case 'NumberValue': {
             assertValue(right, 'NumberValue');
             switch (op) {
                 case '<': {
-                    return createOk(new BoolValue(left.getValue() < right.getValue()));
+                    return createOk(createBoolValue(left < right));
                 }
                 case '<=': {
-                    return createOk(new BoolValue(left.getValue() <= right.getValue()));
+                    return createOk(createBoolValue(left <= right));
                 }
                 case '>': {
-                    return createOk(new BoolValue(left.getValue() > right.getValue()));
+                    return createOk(createBoolValue(left > right));
                 }
                 case '>=': {
-                    return createOk(new BoolValue(left.getValue() >= right.getValue()));
+                    return createOk(createBoolValue(left >= right));
                 }
             }
             break;
@@ -131,9 +152,10 @@ export function evalOrderingBinaryOp(op: OrderingOperator, left: Value, right: V
         case 'FunctionValue':
         case 'StructValue':
         case 'ArrayValue': {
-            throw new UguisuError(`type \`${getTypeName(left.kind)}\` cannot be used to compare large and small relations.`);
+            break;
         }
     }
+    throw new UguisuError(`type \`${getTypeName(getValueKind(left))}\` cannot be used to compare large and small relations.`);
 }
 
 export function evalArithmeticBinaryOp(op: ArithmeticOperator, left: Value, right: Value): EvalResult<NumberValue> {
@@ -141,19 +163,19 @@ export function evalArithmeticBinaryOp(op: ArithmeticOperator, left: Value, righ
     assertValue(right, 'NumberValue');
     switch (op) {
         case '+': {
-            return createOk(new NumberValue(left.getValue() + right.getValue()));
+            return createOk(createNumberValue(left + right));
         }
         case '-': {
-            return createOk(new NumberValue(left.getValue() - right.getValue()));
+            return createOk(createNumberValue(left - right));
         }
         case '*': {
-            return createOk(new NumberValue(left.getValue() * right.getValue()));
+            return createOk(createNumberValue(left * right));
         }
         case '/': {
-            return createOk(new NumberValue(left.getValue() / right.getValue()));
+            return createOk(createNumberValue(left / right));
         }
         case '%': {
-            return createOk(new NumberValue(left.getValue() % right.getValue()));
+            return createOk(createNumberValue(left % right));
         }
     }
 }
