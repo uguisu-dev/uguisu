@@ -108,20 +108,20 @@ export function isBreak<T>(x: EvalResult<T>): x is BreakResult {
 
 //#region Values
 
-export type Value = NoneValue | NumberValue | BoolValue | CharValue | StringValue | StructValue | ArrayValue | FunctionValue;
+export type Value = NoneValue | NumberValue | BoolValue | StringValue | CharValue | StructValue | ArrayValue | FunctionValue;
 
-export type ValueOf<T extends Value['kind']> =
+export type ValueOf<T extends ValueKind> =
     T extends 'NoneValue' ? NoneValue :
     T extends 'NumberValue' ? NumberValue :
     T extends 'BoolValue' ? BoolValue :
-    T extends 'CharValue' ? CharValue :
     T extends 'StringValue' ? StringValue :
+    T extends 'CharValue' ? CharValue :
     T extends 'StructValue' ? StructValue :
     T extends 'ArrayValue' ? ArrayValue :
     T extends 'FunctionValue' ? FunctionValue :
     never;
 
-export function getTypeName(valueKind: Value['kind']): string {
+export function getTypeName(valueKind: ValueKind): string {
     switch (valueKind) {
         case 'NoneValue': {
             return 'none';
@@ -150,72 +150,99 @@ export function getTypeName(valueKind: Value['kind']): string {
     }
 }
 
-export function assertValue<T extends Value['kind']>(value: Value, expectKind: T): asserts value is ValueOf<T> {
-    if (value.kind != expectKind) {
-        throw new UguisuError(`type mismatched. expected \`${getTypeName(expectKind)}\`, found \`${getTypeName(value.kind)}\``);
+export function assertValue<T extends ValueKind>(value: Value, expectKind: T): asserts value is ValueOf<T> {
+    const valueKind = getValueKind(value);
+    if (valueKind != expectKind) {
+        throw new UguisuError(`type mismatched. expected \`${getTypeName(expectKind)}\`, found \`${getTypeName(valueKind)}\``);
     }
 }
 
-export class NoneValue {
-    kind: 'NoneValue';
-    constructor() {
-        this.kind = 'NoneValue';
+export type ValueKind =
+    | 'NoneValue'
+    | 'NumberValue'
+    | 'BoolValue'
+    | 'StringValue'
+    | 'CharValue'
+    | 'StructValue'
+    | 'ArrayValue'
+    | 'FunctionValue';
+
+export function getValueKind(x: Value): ValueKind {
+    if (isNoneValue(x)) {
+        return 'NoneValue';
     }
+    if (isNumberValue(x)) {
+        return 'NumberValue';
+    }
+    if (isBoolValue(x)) {
+        return 'BoolValue';
+    }
+    if (isStringValue(x)) {
+        return 'StringValue';
+    }
+    if (isCharValue(x)) {
+        return 'CharValue';
+    }
+    if (isStructValue(x)) {
+        return 'StructValue';
+    }
+    if (isArrayValue(x)) {
+        return 'ArrayValue';
+    }
+    if (isFunctionValue(x)) {
+        return 'FunctionValue';
+    }
+    throw new UguisuError('unexpected type');
 }
 
-export class NumberValue {
-    kind: 'NumberValue';
-    private _value: number;
-    constructor(value: number) {
-        this.kind = 'NumberValue';
-        this._value = value;
-    }
-    getValue(): number {
-        return this._value;
-    }
+export type NoneValue = undefined;
+export function createNoneValue(): NoneValue {
+    return undefined;
+}
+export function isNoneValue(x: Value): x is NoneValue {
+    return (typeof x == 'undefined');
 }
 
-export class BoolValue {
-    kind: 'BoolValue';
-    private _value: boolean;
-    constructor(value: boolean) {
-        this.kind = 'BoolValue';
-        this._value = value;
-    }
-    getValue(): boolean {
-        return this._value;
-    }
+export type NumberValue = number;
+export function createNumberValue(raw: number): NumberValue {
+    return raw;
+}
+export function isNumberValue(x: Value): x is NumberValue {
+    return (typeof x == 'number');
+}
+
+export type BoolValue = boolean;
+export function createBoolValue(raw: boolean): BoolValue {
+    return raw;
+}
+export function isBoolValue(x: Value): x is BoolValue {
+    return (typeof x == 'boolean');
+}
+
+export type StringValue = string;
+export function createStringValue(raw: string): StringValue {
+    return raw;
+}
+export function isStringValue(x: Value): x is StringValue {
+    return (typeof x == 'string');
 }
 
 export class CharValue {
-    kind: 'CharValue';
-    private _value: string;
-    constructor(value: string) {
-        this.kind = 'CharValue';
-        this._value = value;
-    }
-    getValue(): string {
-        return this._value;
+    raw: string;
+    constructor(raw: string) {
+        this.raw = raw;
     }
 }
-
-export class StringValue {
-    kind: 'StringValue';
-    private _value: string;
-    constructor(value: string) {
-        this.kind = 'StringValue';
-        this._value = value;
-    }
-    getValue(): string {
-        return this._value;
-    }
+export function createCharValue(raw: string): CharValue {
+    return new CharValue(raw);
+}
+export function isCharValue(x: Value): x is CharValue {
+    return (x instanceof CharValue);
 }
 
 export class StructValue {
-    kind: 'StructValue';
     private _fields: Map<string, Symbol>;
     constructor(fields: Map<string, Symbol>) {
-        this.kind = 'StructValue';
         this._fields = fields;
     }
     getFieldNames() {
@@ -225,12 +252,16 @@ export class StructValue {
         return this._fields.get(name);
     }
 }
+export function createStructValue(fields: Map<string, Symbol>): StructValue {
+    return new StructValue(fields);
+}
+export function isStructValue(x: Value): x is StructValue {
+    return (x instanceof StructValue);
+}
 
 export class ArrayValue {
-    kind: 'ArrayValue';
     private _items: Symbol[];
     constructor(items: Symbol[]) {
-        this.kind = 'ArrayValue';
         this._items = items;
     }
     at(index: number): Symbol | undefined {
@@ -246,16 +277,20 @@ export class ArrayValue {
         return this._items.length;
     }
 }
+export function createArrayValue(raw: Symbol[]): ArrayValue {
+    return new ArrayValue(raw);
+}
+export function isArrayValue(x: Value): x is ArrayValue {
+    return (x instanceof ArrayValue);
+}
 
 export class FunctionValue {
-    kind: 'FunctionValue';
     user?: {
         node: FunctionDecl;
         env: RunningEnv; // lexical scope
     };
     native?: NativeFuncHandler;
     private constructor(user?: FunctionValue['user'], native?: NativeFuncHandler) {
-        this.kind = 'FunctionValue';
         this.user = user;
         this.native = native;
     }
@@ -266,7 +301,9 @@ export class FunctionValue {
         return new FunctionValue(undefined, native);
     }
 }
-
 export type NativeFuncHandler = (args: Value[], options: UguisuOptions) => Value;
+export function isFunctionValue(x: Value): x is FunctionValue {
+    return (x instanceof FunctionValue);
+}
 
 //#endregion Values

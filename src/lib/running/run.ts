@@ -15,26 +15,27 @@ import {
 import { evalArithmeticBinaryOp, evalEquivalentBinaryOp, evalLogicalBinaryOp, evalOrderingBinaryOp } from './binary-expr.js';
 import * as builtins from './builtins.js';
 import {
-    ArrayValue,
     assertValue,
-    BoolValue,
-    CharValue,
     EvalResult,
     FunctionValue,
     createBreak,
     createOk,
     createReturn,
-    NoneValue,
-    NumberValue,
     RunningEnv,
-    StringValue,
-    StructValue,
     Symbol,
     Value,
     isReturn,
     isBreak,
     isOk,
-    RunContext
+    RunContext,
+    createNoneValue,
+    isNoneValue,
+    createNumberValue,
+    createBoolValue,
+    createStringValue,
+    createCharValue,
+    createStructValue,
+    createArrayValue
 } from './tools.js';
 
 const trace = Trace.getDefault().createChild(false);
@@ -85,7 +86,7 @@ export function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
             const arg = args[i];
             ctx.env.declare(param.name, arg);
         }
-        let result: EvalResult<Value> = createOk(new NoneValue());
+        let result: EvalResult<Value> = createOk(createNoneValue());
         for (const step of func.user.node.body) {
             if (isExprNode(step)) {
                 result = evalExpr(ctx, step);
@@ -113,7 +114,7 @@ export function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
 
 function evalBlock(r: RunContext, block: StepNode[]): EvalResult<Value> {
     r.env.enter();
-    let result: EvalResult<Value> = createOk(new NoneValue());
+    let result: EvalResult<Value> = createOk(createNoneValue());
     for (let i = 0; i < block.length; i++) {
         const step = block[i];
         if (isExprNode(step)) {
@@ -172,7 +173,7 @@ function evalReferenceExpr(r: RunContext, expr: ExprNode): EvalResult<Symbol> {
             }
             assertValue(target.value, 'ArrayValue');
             assertValue(index.value, 'NumberValue');
-            const symbol = target.value.at(index.value.getValue());
+            const symbol = target.value.at(index.value);
             if (symbol == null) {
                 throw new UguisuError('index out of range');
             }
@@ -188,7 +189,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
     switch (statement.kind) {
         case 'ExprStatement': {
             evalExpr(r, statement.expr);
-            return createOk(new NoneValue());
+            return createOk(createNoneValue());
         }
         case 'ReturnStatement': {
             if (statement.expr != null) {
@@ -199,7 +200,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
                     return result;
                 }
             } else {
-                return createReturn(new NoneValue());
+                return createReturn(createNoneValue());
             }
             break;
         }
@@ -215,7 +216,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
                     break;
                 }
             }
-            return createOk(new NoneValue());
+            return createOk(createNoneValue());
         }
         case 'VariableDecl': {
             if (statement.body != null) {
@@ -223,14 +224,14 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
                 if (isReturn(body) || isBreak(body)) {
                     return body;
                 }
-                if (body.value.kind == 'NoneValue') {
+                if (isNoneValue(body.value)) {
                     throw new UguisuError('no values');
                 }
                 r.env.declare(statement.name, body.value);
             } else {
                 r.env.declare(statement.name);
             }
-            return createOk(new NoneValue());
+            return createOk(createNoneValue());
         }
         case 'AssignStatement': {
             let target;
@@ -247,7 +248,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
             if (isReturn(body) || isBreak(body)) {
                 return body;
             }
-            if (body.value.kind == 'NoneValue') {
+            if (isNoneValue(body.value)) {
                 throw new UguisuError('no values');
             }
             switch (statement.mode) {
@@ -261,7 +262,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
                     }
                     assertValue(symbol.value, 'NumberValue');
                     assertValue(body.value, 'NumberValue');
-                    const value = new NumberValue(symbol.value.getValue() + body.value.getValue());
+                    const value = createNumberValue(symbol.value + body.value);
                     symbol.value = value;
                     break;
                 }
@@ -271,7 +272,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
                     }
                     assertValue(symbol.value, 'NumberValue');
                     assertValue(body.value, 'NumberValue');
-                    const value = new NumberValue(symbol.value.getValue() - body.value.getValue());
+                    const value = createNumberValue(symbol.value - body.value);
                     symbol.value = value;
                     break;
                 }
@@ -281,7 +282,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
                     }
                     assertValue(symbol.value, 'NumberValue');
                     assertValue(body.value, 'NumberValue');
-                    const value = new NumberValue(symbol.value.getValue() * body.value.getValue());
+                    const value = createNumberValue(symbol.value * body.value);
                     symbol.value = value;
                     break;
                 }
@@ -291,7 +292,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
                     }
                     assertValue(symbol.value, 'NumberValue');
                     assertValue(body.value, 'NumberValue');
-                    const value = new NumberValue(symbol.value.getValue() / body.value.getValue());
+                    const value = createNumberValue(symbol.value / body.value);
                     symbol.value = value;
                     break;
                 }
@@ -301,12 +302,12 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
                     }
                     assertValue(symbol.value, 'NumberValue');
                     assertValue(body.value, 'NumberValue');
-                    const value = new NumberValue(symbol.value.getValue() % body.value.getValue());
+                    const value = createNumberValue(symbol.value % body.value);
                     symbol.value = value;
                     break;
                 }
             }
-            return createOk(new NoneValue());
+            return createOk(createNoneValue());
         }
     }
 }
@@ -314,16 +315,16 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
 function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
     switch (expr.kind) {
         case 'NumberLiteral': {
-            return createOk(new NumberValue(expr.value));
+            return createOk(createNumberValue(expr.value));
         }
         case 'BoolLiteral': {
-            return createOk(new BoolValue(expr.value));
+            return createOk(createBoolValue(expr.value));
         }
         case 'CharLiteral': {
-            return createOk(new CharValue(expr.value));
+            return createOk(createCharValue(expr.value));
         }
         case 'StringLiteral': {
-            return createOk(new StringValue(expr.value));
+            return createOk(createStringValue(expr.value));
         }
         case 'StructExpr': {
             const fields = new Map<string, Symbol>();
@@ -335,7 +336,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
                 const symbol = new Symbol(result.value);
                 fields.set(field.name, symbol);
             }
-            return createOk(new StructValue(fields));
+            return createOk(createStructValue(fields));
         }
         case 'ArrayNode': {
             const items: Symbol[] = [];
@@ -346,7 +347,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
                 }
                 items.push(new Symbol(result.value));
             }
-            return createOk(new ArrayValue(items));
+            return createOk(createArrayValue(items));
         }
         case 'Identifier':
         case 'FieldAccess':
@@ -391,7 +392,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
             assertValue(result.value, 'BoolValue');
             switch (expr.operator) {
                 case '!': {
-                    return createOk(new BoolValue(!result.value.getValue()));
+                    return createOk(createBoolValue(!result.value));
                 }
             }
             throw new UguisuError('unexpected operation');
@@ -402,7 +403,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
                 return cond;
             }
             assertValue(cond.value, 'BoolValue');
-            if (cond.value.getValue()) {
+            if (cond.value) {
                 return evalBlock(r, expr.thenBlock);
             } else {
                 return evalBlock(r, expr.elseBlock);
@@ -420,7 +421,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
                 if (isReturn(arg) || isBreak(arg)) {
                     return arg;
                 }
-                if (arg.value.kind == 'NoneValue') {
+                if (isNoneValue(arg.value)) {
                     throw new UguisuError('no values');
                 }
                 args.push(arg.value);
