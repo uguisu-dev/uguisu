@@ -1,4 +1,4 @@
-<img alt="uguisu logo" width="100px" align="right" src="https://raw.githubusercontent.com/uguisu-dev/uguisu/v0.8.0/uguisu-logo.png" />
+<img alt="uguisu logo" width="100px" align="right" src="https://raw.githubusercontent.com/uguisu-dev/uguisu/e7e9a8584dedbbe3b83e373eb7d59143cfc676ab/uguisu-logo.png" />
 
 # Uguisu
 The Uguisu is a statically typed scripting language.  
@@ -19,10 +19,6 @@ fn main() {
     console.writeNum(calc(value));
 }
 ```
-
-## Syntaxes
-- English (Not translated yet.)
-- [日本語](https://github.com/uguisu-dev/uguisu/blob/v0.8.2/docs/syntaxes_ja.md)
 
 ## Install
 Node.js and npm installation is required.  
@@ -90,6 +86,10 @@ uguisu.check(projectDir);
 // Run
 uguisu.run(projectDir, { skipCheck: true });
 ```
+
+## Reference Manual
+- English (Not translated yet.)
+- [日本語](https://github.com/uguisu-dev/uguisu/blob/v0.8.2/docs/syntaxes_ja.md)
 
 ## License
 MIT License
