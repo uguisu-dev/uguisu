@@ -2,29 +2,34 @@
 
 export type Type = NamedType | FunctionType;
 
+// Name<TypeParam1, TypeParam2, ...>
 export class NamedType {
     kind: 'NamedType';
     name: string;
-    genericParams?: Type[];
-    constructor(name: string, genericParams?: Type[]) {
+    typeParams: Type[];
+    constructor(name: string, typeParams?: Type[]) {
         this.kind = 'NamedType';
         this.name = name;
-        this.genericParams = genericParams;
+        this.typeParams = typeParams ?? [];
     }
 }
 
+// when the isMethod is true:
+//   fn<TypeParam1, TypeParam2, ...>(this, FnParamType1, FnParamType2, ...): FnReturnType
+// when the isMethod is false:
+//   fn<TypeParam1, TypeParam2, ...>(FnParamType1, FnParamType2, ...): FnReturnType
 export class FunctionType {
     kind: 'FunctionType';
     isMethod: boolean;
-    params: Type[];
-    ret: Type;
-    typeVars: Type[];
-    constructor(info: { typeVars?: Type[], isMethod?: boolean, params: Type[], ret: Type }) {
+    typeParams: Type[];
+    fnParamTypes: Type[];
+    fnReturnType: Type;
+    constructor(opts: { isMethod?: boolean, typeParams?: Type[], fnParamTypes: Type[], fnReturnType: Type }) {
         this.kind = 'FunctionType';
-        this.typeVars = info.typeVars ?? [];
-        this.isMethod = info.isMethod ?? false;
-        this.params = info.params;
-        this.ret = info.ret;
+        this.isMethod = opts.isMethod ?? false;
+        this.typeParams = opts.typeParams ?? [];
+        this.fnParamTypes = opts.fnParamTypes;
+        this.fnReturnType = opts.fnReturnType;
     }
 }
 
@@ -39,7 +44,7 @@ export const neverType = new NamedType('never');
 type SpecialTypeName = 'unresolved' | 'invalid' | 'any' | 'void' | 'never';
 
 export function isSpecialType(x: Type, name: SpecialTypeName): boolean {
-    return (x.kind == 'NamedType' && x.name == name && x.genericParams == null);
+    return (x.kind == 'NamedType' && x.name == name && x.typeParams == null);
 }
 
 // compare types
@@ -70,15 +75,15 @@ export function compareType(x: Type, y: Type): CompareTypeResult {
                 return 'incompatible';
             }
             // if generic type
-            if (x.genericParams != null || y.genericParams != null) {
-                if (x.genericParams != null && y.genericParams != null) {
-                    // check params count
-                    if (x.genericParams.length != y.genericParams.length) {
+            if (x.typeParams != null || y.typeParams != null) {
+                if (x.typeParams != null && y.typeParams != null) {
+                    // check count of type params
+                    if (x.typeParams.length != y.typeParams.length) {
                         return 'incompatible';
                     }
-                    // check params type
-                    for (let i = 0; i < x.genericParams.length; i++) {
-                        const paramResult = compareType(x.genericParams[i], y.genericParams[i]);
+                    // check type params
+                    for (let i = 0; i < x.typeParams.length; i++) {
+                        const paramResult = compareType(x.typeParams[i], y.typeParams[i]);
                         if (paramResult != 'compatible') {
                             return paramResult;
                         }
@@ -95,17 +100,17 @@ export function compareType(x: Type, y: Type): CompareTypeResult {
                 return 'incompatible';
             }
             // check return type
-            const retResult = compareType(x.ret, y.ret);
+            const retResult = compareType(x.fnReturnType, y.fnReturnType);
             if (retResult != 'compatible') {
                 return retResult;
             }
             // check params count
-            if (x.params.length != y.params.length) {
+            if (x.fnParamTypes.length != y.fnParamTypes.length) {
                 return 'incompatible';
             }
             // check params type
-            for (let i = 0; i < x.params.length; i++) {
-                const paramResult = compareType(x.params[i], y.params[i]);
+            for (let i = 0; i < x.fnParamTypes.length; i++) {
+                const paramResult = compareType(x.fnParamTypes[i], y.fnParamTypes[i]);
                 if (paramResult != 'compatible') {
                     return paramResult;
                 }
@@ -119,10 +124,15 @@ export function compareType(x: Type, y: Type): CompareTypeResult {
 
 class Feature {
     name: string;
+    typeParams: Type[];
     members: Map<string, FeatureMember>;
-    constructor(name: string, members: Map<string, FeatureMember>) {
-        this.name = name;
-        this.members = members;
+    constructor(opts: { name: string, typeParams?: Type[], members?: Map<string, FeatureMember> }) {
+        this.name = opts.name;
+        this.typeParams = opts.typeParams ?? [];
+        this.members = opts.members ?? new Map();
+    }
+    addMember(memberName: string, member: FeatureMember) {
+        this.members.set(memberName, member);
     }
 }
 
@@ -156,11 +166,17 @@ class TypeEnv {
 class TypeInfo {
     type: Type;
     features: Map<string, Feature>;
-    featureImpl: Map<string, Type>;
+    implemented: Map<string, Type>;
     constructor(type: Type) {
         this.type = type;
         this.features = new Map();
-        this.featureImpl = new Map();
+        this.implemented = new Map();
+    }
+    setFeature(featureName: string, feature: Feature) {
+        this.features.set(featureName, feature);
+    }
+    implement(memberName: string, type: Type) {
+        this.implemented.set(memberName, type);
     }
 }
 
@@ -170,7 +186,6 @@ function setTypes(env: TypeEnv) {
     */
     const numberTy = new NamedType('number');
     env.addTypeInfo(new TypeInfo(numberTy));
-    const numberInfo = env.getTypeInfo(numberTy)!;
 
     /*
     type bool;
@@ -187,69 +202,65 @@ function setTypes(env: TypeEnv) {
 
     // equal feature
 
-    const equalFuncTy = new FunctionType({
-        typeVars: [new NamedType('T')],
-        isMethod: true,
-        params: [new NamedType('T')],
-        ret: new NamedType('bool'),
-    });
-
     /*
     feature Equal<T> {
         fn equal(this, other: T): bool;
     }
     */
-    const equalFeature = new Feature('Equal', new Map());
-    equalFeature.members.set('equal', new FeatureMember('equal', equalFuncTy));
+    const equalFeature = new Feature({ name: 'Equal', typeParams: [new NamedType('T')] });
     env.addFeature(equalFeature);
+    const equalFuncTy = new FunctionType({
+        isMethod: true,
+        fnParamTypes: [new NamedType('T')],
+        fnReturnType: new NamedType('bool'),
+    });
+    equalFeature.addMember('equal', new FeatureMember('equal', equalFuncTy));
 
     // arith features
-
-    const arithFuncTy = new FunctionType({
-        typeVars: [new NamedType('T'), new NamedType('R')],
-        isMethod: true,
-        params: [new NamedType('T')],
-        ret: new NamedType('R'),
-    });
 
     /*
     feature Arithmetic<T, R> {
         fn add(this, other: T): R;
     }
     */
-    const arithmeticFeature = new Feature('Arithmetic', new Map());
-    arithmeticFeature.members.set('add', new FeatureMember('add', arithFuncTy));
+    const arithmeticFeature = new Feature({ name: 'Arithmetic', typeParams: [new NamedType('T'), new NamedType('R')] });
     env.addFeature(arithmeticFeature);
+    const arithFuncTy = new FunctionType({
+        isMethod: true,
+        fnParamTypes: [new NamedType('T')],
+        fnReturnType: new NamedType('R'),
+    });
+    arithmeticFeature.addMember('add', new FeatureMember('add', arithFuncTy));
 
     // order feature
-
-    const orderFuncTy = new FunctionType({
-        typeVars: [new NamedType('T')],
-        isMethod: true,
-        params: [new NamedType('T')],
-        ret: new NamedType('ordering'),
-    });
 
     /*
     feature Order<T> {
         fn order(this, other: T): ordering;
     }
     */
-    const orderFeature = new Feature('Order', new Map());
-    orderFeature.members.set('order', new FeatureMember('order', orderFuncTy));
+    const orderFeature = new Feature({ name: 'Order', typeParams: [new NamedType('T')] });
     env.addFeature(orderFeature);
+    const orderFuncTy = new FunctionType({
+        isMethod: true,
+        fnParamTypes: [new NamedType('T')],
+        fnReturnType: new NamedType('ordering'),
+    });
+    orderFeature.addMember('order', new FeatureMember('order', orderFuncTy));
 
     // implement number
 
     // implement equal for number
+
+    const numberInfo = env.getTypeInfo(new NamedType('number'))!;
 
     /*
     implement Equal<number> for number {
         fn equal(this, other: number): bool { [native code] }
     }
     */
-    numberInfo.features.set('equal', equalFeature);
-    numberInfo.featureImpl.set('equal', equalFuncTy);
+    numberInfo.setFeature('Equal', equalFeature);
+    numberInfo.implement('equal', equalFuncTy);
 
     // implement arith for number
 
@@ -258,8 +269,8 @@ function setTypes(env: TypeEnv) {
         fn add(this, other: number): number { [native code] }
     }
     */
-    numberInfo.features.set('add', arithmeticFeature);
-    numberInfo.featureImpl.set('add', arithFuncTy);
+    numberInfo.setFeature('Add', arithmeticFeature);
+    numberInfo.implement('add', arithFuncTy);
 
     // implement order for number
 
@@ -268,6 +279,6 @@ function setTypes(env: TypeEnv) {
         fn order(this, other: number): Ordering { [native code] }
     }
     */
-    numberInfo.features.set('order', orderFeature);
-    numberInfo.featureImpl.set('order', orderFuncTy);
+    numberInfo.setFeature('Order', orderFeature);
+    numberInfo.implement('order', orderFuncTy);
 }
