@@ -37,6 +37,7 @@ import {
     FunctionType,
     getTypeString,
     invalidType,
+    isSpecialType,
     NamedType,
     neverType,
     numberType,
@@ -235,8 +236,8 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
             }
 
             // check the function type is valid
-            if (!isValidType(symbol.ty)) {
-                if (isPendingType(symbol.ty)) {
+            if (isSpecialType(symbol.ty, 'invalid') || isSpecialType(symbol.ty, 'unresolved')) {
+                if (isSpecialType(symbol.ty, 'unresolved')) {
                     a.dispatchError('function is not defined yet.', node);
                 }
                 return;
@@ -256,7 +257,7 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
             const ty = analyzeBlock(node.body, false, symbol, a, beforeAnalyzeBlock);
 
             // check return type
-            if (!isNeverType(ty)) {
+            if (!isSpecialType(ty, 'never')) {
                 if (compareType(ty, symbol.ty.returnType) == 'incompatible') {
                     dispatchTypeError(ty, symbol.ty.returnType, node, a);
                 }
@@ -274,10 +275,10 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
  * @returns type of the last step of the block
 */
 function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext, before?: () => void): Type {
-    if (isPendingType(funcSymbol.ty)) {
+    if (isSpecialType(funcSymbol.ty, 'unresolved')) {
         throw new UguisuError('unexpected type');
     }
-    if (!isValidType(funcSymbol.ty)) {
+    if (isSpecialType(funcSymbol.ty, 'invalid')) {
         throw new UguisuError('unexpected type');
     }
 
@@ -348,8 +349,8 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
             // analyze target
             const targetTy = analyzeExpr(node.target, allowJump, funcSymbol, a);
 
-            if (!isValidType(targetTy)) {
-                if (isPendingType(targetTy)) {
+            if (isSpecialType(targetTy, 'invalid') || isSpecialType(targetTy, 'unresolved')) {
+                if (isSpecialType(targetTy, 'unresolved')) {
                     a.dispatchError('variable is not assigned yet.', node.target);
                 }
                 return undefined;
@@ -408,15 +409,15 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
                 return undefined;
             }
 
-            if (!isValidType(targetTy)) {
-                if (isPendingType(targetTy)) {
+            if (isSpecialType(targetTy, 'invalid') || isSpecialType(targetTy, 'unresolved')) {
+                if (isSpecialType(targetTy, 'unresolved')) {
                     a.dispatchError('variable is not assigned yet.', node.target);
                 }
                 return undefined;
             }
 
-            if (!isValidType(indexTy)) {
-                if (isPendingType(indexTy)) {
+            if (isSpecialType(indexTy, 'invalid') || isSpecialType(indexTy, 'unresolved')) {
+                if (isSpecialType(indexTy, 'unresolved')) {
                     a.dispatchError('variable is not assigned yet.', node.index);
                 }
                 return undefined;
@@ -447,8 +448,8 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                     ty = invalidType;
                 }
 
-                if (!isValidType(funcSymbol.ty)) {
-                    if (isPendingType(funcSymbol.ty)) {
+                if (isSpecialType(funcSymbol.ty, 'invalid') || isSpecialType(funcSymbol.ty, 'unresolved')) {
+                    if (isSpecialType(funcSymbol.ty, 'unresolved')) {
                         throw new UguisuError('unexpected type');
                     }
                     return 'invalid';
@@ -502,7 +503,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                 }
 
                 // if the variable type is not decided
-                if (ty.kind == 'PendingType') {
+                if (isSpecialType(ty, 'unresolved')) {
                     ty = bodyTy;
                 }
 
@@ -548,7 +549,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
             // if it was the first assignment
             if (symbol.kind == 'VariableSymbol' && !symbol.isDefined) {
                 // if need inference
-                if (isPendingType(targetTy)) {
+                if (isSpecialType(targetTy, 'unresolved')) {
                     targetTy = bodyTy;
                     symbol.ty = targetTy;
                 }
@@ -654,12 +655,12 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 }
                 case 'VariableSymbol': {
                     // if the variable is not assigned
-                    if (isPendingType(calleeSymbol.ty)) {
+                    if (isSpecialType(calleeSymbol.ty, 'unresolved')) {
                         a.dispatchError('variable is not assigned yet.', node.callee);
                         return invalidType;
                     }
 
-                    if (!isValidType(calleeSymbol.ty)) {
+                    if (isSpecialType(calleeSymbol.ty, 'invalid')) {
                         return invalidType;
                     }
 
@@ -677,8 +678,8 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 }
             }
 
-            if (!isValidType(calleeTy)) {
-                if (isPendingType(calleeTy)) {
+            if (isSpecialType(calleeTy, 'invalid') || isSpecialType(calleeTy, 'unresolved')) {
+                if (isSpecialType(calleeTy, 'unresolved')) {
                     a.dispatchError('callee is not assigned yet.', node.callee);
                 }
                 return invalidType;
@@ -725,11 +726,11 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             let rightTy = analyzeExpr(node.right, allowJump, funcSymbol, a);
 
             // check assigned
-            if (isPendingType(leftTy)) {
+            if (isSpecialType(leftTy, 'unresolved')) {
                 a.dispatchError('variable is not assigned yet.', node.left);
                 leftTy = invalidType;
             }
-            if (isPendingType(rightTy)) {
+            if (isSpecialType(rightTy, 'unresolved')) {
                 a.dispatchError('variable is not assigned yet.', node.right);
                 rightTy = invalidType;
             }
@@ -744,7 +745,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 rightTy = invalidType;
             }
 
-            if (!isValidType(leftTy) || !isValidType(rightTy)) {
+            if (isSpecialType(leftTy, 'invalid') || isSpecialType(rightTy, 'invalid')) {
                 return invalidType;
             }
 
@@ -799,7 +800,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             let ty = analyzeExpr(node.expr, allowJump, funcSymbol, a);
 
             // check assigned
-            if (isPendingType(ty)) {
+            if (isSpecialType(ty, 'unresolved')) {
                 a.dispatchError('variable is not assigned yet.', node.expr);
                 ty = invalidType;
             }
@@ -810,7 +811,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 ty = invalidType;
             }
 
-            if (!isValidType(ty)) {
+            if (isSpecialType(ty, 'invalid')) {
                 return invalidType;
             }
 
@@ -906,10 +907,10 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             }
 
             // check blocks
-            if (!isNeverType(thenTy) && isNeverType(elseTy)) {
+            if (!isSpecialType(thenTy, 'never') && isSpecialType(elseTy, 'never')) {
                 return thenTy;
             }
-            if (isNeverType(thenTy) && !isNeverType(elseTy)) {
+            if (isSpecialType(thenTy, 'never') && !isSpecialType(elseTy, 'never')) {
                 return elseTy;
             }
             if (compareType(elseTy, thenTy) == 'incompatible') {
