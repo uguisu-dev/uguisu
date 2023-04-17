@@ -358,6 +358,20 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
 
             switch (targetTy.kind) {
                 case 'NamedType': {
+                    if (targetTy.typeParams.length > 0) {
+                        throw new UguisuError('not implemented yet.'); // TODO
+                    }
+
+                    if (isSpecialType(targetTy, 'any')) {
+                        // TODO: Ensure that the type `any` is handled correctly.
+                        return undefined;
+                    }
+
+                    if (isSpecialType(targetTy, 'void')) {
+                        a.dispatchError('invalid field access');
+                        return undefined;
+                    }
+
                     // get target symbol
                     const symbol = a.env.get(targetTy.name)!;
 
@@ -378,15 +392,7 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
                     }
                     break;
                 }
-                case 'GenericType': {
-                    throw new UguisuError('not implemented yet.'); // TODO
-                }
-                case 'AnyType': {
-                    // TODO: Ensure that the type `any` is handled correctly.
-                    return undefined;
-                }
-                case 'FunctionType':
-                case 'VoidType': {
+                case 'FunctionType': {
                     a.dispatchError('invalid field access');
                     return undefined;
                 }
@@ -695,7 +701,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 for (let i = 0; i < calleeTy.paramTypes.length; i++) {
                     let argTy = analyzeExpr(node.args[i], allowJump, funcSymbol, a);
 
-                    if (isPendingType(argTy)) {
+                    if (isSpecialType(argTy, 'unresolved')) {
                         a.dispatchError('variable is not assigned yet.', node.args[i]);
                         argTy = invalidType;
                     }
@@ -708,7 +714,10 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
 
                     const paramTy = calleeTy.paramTypes[i];
 
-                    if (!isValidType(argTy) || !isValidType(paramTy)) {
+                    if (isSpecialType(argTy, 'unresolved') || isSpecialType(argTy, 'invalid')) {
+                        continue;
+                    }
+                    if (isSpecialType(paramTy, 'unresolved') || isSpecialType(paramTy, 'invalid')) {
                         continue;
                     }
 
