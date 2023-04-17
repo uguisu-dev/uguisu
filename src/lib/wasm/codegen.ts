@@ -1,6 +1,7 @@
 import Wasm from 'binaryen';
 import { UguisuError } from '../misc/errors.js';
-import { boolType, compareType, FunctionType, numberType, Symbol, Type, voidType } from '../semantics/tools.js';
+import { Symbol } from '../semantics/tools.js';
+import { boolType, compareType, FunctionType, numberType, Type, voidType } from '../semantics/types.js';
 import { AstNode, ExprNode, FileNode, Identifier, SourceFile, StepNode } from '../syntax/tools.js';
 
 export function codegen(symbolTable: Map<AstNode, Symbol>, node: SourceFile) {
@@ -64,7 +65,7 @@ function translateFunc(ctx: Context, node: FileNode) {
     const func: FuncInfo = {
         name: node.name,
         vars,
-        returnTy: (symbol.ty as FunctionType).returnType,
+        returnTy: (symbol.ty as FunctionType).fnReturnType,
     };
 
     const body = translateStatements(ctx, node.body, func, null);
@@ -294,7 +295,7 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
             }
             const callee = node.callee as Identifier;
             const args = node.args.map(x => translateExpr(ctx, x, func));
-            return ctx.mod.call(callee.name, args, mapType((calleeSymbol.ty as FunctionType).returnType));
+            return ctx.mod.call(callee.name, args, mapType((calleeSymbol.ty as FunctionType).fnReturnType));
         }
         case 'IfExpr': {
             throw new UguisuError('not impelemented yet');
