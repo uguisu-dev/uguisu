@@ -377,7 +377,11 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
                     }
 
                     // get target symbol
-                    const symbol = a.env.get(targetTy.name)!;
+                    const symbol = a.env.get(targetTy.name);
+                    if (symbol == null) {
+                        a.dispatchError('unknown identifier.', node.target);
+                        return undefined;
+                    }
 
                     if (symbol.kind == 'StructSymbol') {
                         // get field symbol
