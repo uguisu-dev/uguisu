@@ -19,33 +19,33 @@ import * as builtins from './builtins.js';
 import {
     AnalysisEnv,
     AnalyzeContext,
-    anyType,
-    arrayType,
-    badType,
-    boolType,
-    charType,
-    compareType,
     createExprSymbol,
     createFunctionSymbol,
-    createFunctionType,
-    createNamedType,
     createStructSymbol,
     createVariableSymbol,
     dispatchTypeError,
     FnSymbol,
+    StatementResult,
+    Symbol
+} from './tools.js';
+import {
+    anyType,
+    arrayType,
+    boolType,
+    charType,
+    compareType,
+    FunctionType,
     getTypeString,
-    isNeverType,
-    isPendingType,
-    isValidType,
+    invalidType,
+    NamedType,
     neverType,
     numberType,
-    pendingType,
-    StatementResult,
     stringType,
-    Symbol,
     Type,
+    TypeEnv,
+    unresolvedType,
     voidType
-} from './tools.js';
+} from './types.js';
 
 export type AnalyzeResult = {
     success: boolean,
@@ -56,10 +56,11 @@ export type AnalyzeResult = {
 export function analyze(
     source: SourceFile,
     env: AnalysisEnv,
+    typeEnv: TypeEnv,
     symbolTable: Map<AstNode, Symbol>,
     projectInfo: ProjectInfo
 ): AnalyzeResult {
-    const a = new AnalyzeContext(env, symbolTable, projectInfo);
+    const a = new AnalyzeContext(env, typeEnv, symbolTable, projectInfo);
     builtins.setDeclarations(a);
 
     // 1st phase: declare
@@ -104,7 +105,7 @@ function declareTopLevel(node: FileNode, a: AnalyzeContext) {
             const params = node.params.map(x => ({ name: x.name }));
 
             // declare function
-            const symbol = createFunctionSymbol(params, pendingType, []);
+            const symbol = createFunctionSymbol(params, unresolvedType, []);
             a.symbolTable.set(node, symbol);
             a.env.set(node.name, symbol);
             break;
@@ -124,7 +125,7 @@ function declareTopLevel(node: FileNode, a: AnalyzeContext) {
             // make fields
             const fields = new Map<string, Symbol>();
             for (const field of node.fields) {
-                const fieldSymbol = createVariableSymbol(pendingType, true);
+                const fieldSymbol = createVariableSymbol(unresolvedType, true);
                 fields.set(field.name, fieldSymbol);
             }
 
@@ -168,7 +169,7 @@ function resolveTopLevel(node: FileNode, a: AnalyzeContext) {
                 // if param type is not specified
                 if (paramNode.ty == null) {
                     a.dispatchError('parameter type missing.', paramNode);
-                    paramsTy.push(badType);
+                    paramsTy.push(invalidType);
                     continue;
                 }
 
@@ -178,7 +179,11 @@ function resolveTopLevel(node: FileNode, a: AnalyzeContext) {
             }
 
             // replace function type
-            symbol.ty = createFunctionType(paramsTy, returnTy);
+            symbol.ty = new FunctionType({
+                isMethod: false,
+                fnParamTypes: paramsTy,
+                fnReturnType: returnTy,
+            });
             break;
         }
         case 'StructDecl': {
@@ -299,7 +304,7 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
                     break;
                 }
                 case 'invalid': {
-                    ty = badType;
+                    ty = invalidType;
                     break;
                 }
                 case 'return':
@@ -439,7 +444,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                 // if the expr returned nothing
                 if (compareType(ty, voidType) == 'compatible') {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
-                    ty = badType;
+                    ty = invalidType;
                 }
 
                 if (!isValidType(funcSymbol.ty)) {
@@ -479,7 +484,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
         }
         case 'VariableDecl': {
             let isDefined = false;
-            let ty: Type = pendingType;
+            let ty: Type = unresolvedType;
 
             // if an explicit type is specified
             if (node.ty != null) {
@@ -493,7 +498,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                 // if the initializer returns nothing
                 if (compareType(bodyTy, voidType) == 'compatible') {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
-                    bodyTy = badType;
+                    bodyTy = invalidType;
                 }
 
                 // if the variable type is not decided
@@ -522,7 +527,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
             // if the body returns nothing
             if (compareType(bodyTy, voidType) == 'compatible') {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
-                bodyTy = badType;
+                bodyTy = invalidType;
             }
 
             // analyze target
@@ -586,7 +591,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
         case 'IndexAccess': {
             const symbol = analyzeReferenceExpr(node, allowJump, funcSymbol, a);
             if (symbol == null) {
-                return badType;
+                return invalidType;
             }
 
             // get expr type from the symbol
@@ -595,7 +600,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             // if the variable is not assigned
             if (symbol.kind == 'VariableSymbol' && !symbol.isDefined) {
                 a.dispatchError('variable is not assigned yet.', node);
-                return badType;
+                return invalidType;
             }
 
             return ty;
@@ -630,7 +635,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             }
 
             if (calleeSymbol == null) {
-                return badType;
+                return invalidType;
             }
 
             a.symbolTable.set(node.callee, calleeSymbol);
@@ -645,23 +650,23 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 }
                 case 'StructSymbol': {
                     a.dispatchError('struct is not callable.', node.callee);
-                    return badType;
+                    return invalidType;
                 }
                 case 'VariableSymbol': {
                     // if the variable is not assigned
                     if (isPendingType(calleeSymbol.ty)) {
                         a.dispatchError('variable is not assigned yet.', node.callee);
-                        return badType;
+                        return invalidType;
                     }
 
                     if (!isValidType(calleeSymbol.ty)) {
-                        return badType;
+                        return invalidType;
                     }
 
                     // expect function
                     if (calleeSymbol.ty.kind != 'FunctionType') {
                         a.dispatchError(`type mismatched. expected function, found \`${getTypeString(calleeSymbol.ty)}\``, node.callee);
-                        return badType;
+                        return invalidType;
                     }
 
                     calleeTy = calleeSymbol.ty;
@@ -676,7 +681,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 if (isPendingType(calleeTy)) {
                     a.dispatchError('callee is not assigned yet.', node.callee);
                 }
-                return badType;
+                return invalidType;
             }
 
             let isCorrectArgCount = true;
@@ -691,13 +696,13 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
 
                     if (isPendingType(argTy)) {
                         a.dispatchError('variable is not assigned yet.', node.args[i]);
-                        argTy = badType;
+                        argTy = invalidType;
                     }
 
                     // if the argument returns nothing
                     if (compareType(argTy, voidType) == 'compatible') {
                         a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.args[i]);
-                        argTy = badType;
+                        argTy = invalidType;
                     }
 
                     const paramTy = calleeTy.paramTypes[i];
@@ -722,36 +727,36 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             // check assigned
             if (isPendingType(leftTy)) {
                 a.dispatchError('variable is not assigned yet.', node.left);
-                leftTy = badType;
+                leftTy = invalidType;
             }
             if (isPendingType(rightTy)) {
                 a.dispatchError('variable is not assigned yet.', node.right);
-                rightTy = badType;
+                rightTy = invalidType;
             }
 
             // if the expr returns nothing
             if (compareType(leftTy, voidType) == 'compatible') {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.left);
-                leftTy = badType;
+                leftTy = invalidType;
             }
             if (compareType(rightTy, voidType) == 'compatible') {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.right);
-                rightTy = badType;
+                rightTy = invalidType;
             }
 
             if (!isValidType(leftTy) || !isValidType(rightTy)) {
-                return badType;
+                return invalidType;
             }
 
             if (isLogicalBinaryOperator(node.operator)) {
                 // Logical Operation
                 if (compareType(leftTy, boolType) == 'incompatible') {
                     dispatchTypeError(leftTy, boolType, node.left, a);
-                    return badType;
+                    return invalidType;
                 }
                 if (compareType(rightTy, boolType) == 'incompatible') {
                     dispatchTypeError(rightTy, boolType, node.right, a);
-                    return badType;
+                    return invalidType;
                 }
 
                 a.symbolTable.set(node, createExprSymbol(boolType));
@@ -760,7 +765,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 // Equivalent Operation
                 if (compareType(rightTy, leftTy) == 'incompatible') {
                     dispatchTypeError(rightTy, leftTy, node.right, a);
-                    return badType;
+                    return invalidType;
                 }
 
                 a.symbolTable.set(node, createExprSymbol(boolType));
@@ -796,23 +801,23 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             // check assigned
             if (isPendingType(ty)) {
                 a.dispatchError('variable is not assigned yet.', node.expr);
-                ty = badType;
+                ty = invalidType;
             }
 
             // if the expr returns nothing
             if (compareType(ty, voidType) == 'compatible') {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
-                ty = badType;
+                ty = invalidType;
             }
 
             if (!isValidType(ty)) {
-                return badType;
+                return invalidType;
             }
 
             // Logical Operation
             if (compareType(ty, boolType) == 'incompatible') {
                 dispatchTypeError(ty, boolType, node, a);
-                return badType;
+                return invalidType;
             }
             a.symbolTable.set(node, createExprSymbol(boolType));
             return boolType;
@@ -822,13 +827,13 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             const symbol = a.env.get(node.name);
             if (symbol == null) {
                 a.dispatchError('unknown identifier.', node);
-                return badType;
+                return invalidType;
             }
 
             // expect struct symbol
             if (symbol.kind != 'StructSymbol') {
                 a.dispatchError('struct expected.', node);
-                return badType;
+                return invalidType;
             }
 
             const defined: string[] = [];
@@ -847,7 +852,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 // if the expr returns nothing
                 if (compareType(bodyTy, voidType) == 'compatible') {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, fieldNode.body);
-                    bodyTy = badType;
+                    bodyTy = invalidType;
                 }
 
                 // get field symbol
@@ -871,7 +876,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 }
             }
 
-            return createNamedType(symbol.name);
+            return new NamedType(symbol.name);
         }
         case 'ArrayNode': {
             // analyze elements
@@ -892,7 +897,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             // if the condition expr returned nothing
             if (compareType(condTy, voidType) == 'compatible') {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.cond);
-                condTy = badType;
+                condTy = invalidType;
             }
 
             // check cond
@@ -909,7 +914,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             }
             if (compareType(elseTy, thenTy) == 'incompatible') {
                 dispatchTypeError(elseTy, thenTy, node, a);
-                return badType;
+                return invalidType;
             }
 
             return thenTy;
@@ -925,7 +930,7 @@ function getTypeFromSymbol(symbol: Symbol, errorNode: AstNode, a: AnalyzeContext
             return symbol.ty;
         }
         case 'StructSymbol': {
-            return createNamedType(symbol.name);
+            return new NamedType(symbol.name);
         }
         case 'VariableSymbol': {
             return symbol.ty;
@@ -944,7 +949,7 @@ function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
         case 'char':
         case 'string':
         case 'array': {
-            return createNamedType(node.name);
+            return new NamedType(node.name);
         }
     }
 
@@ -952,19 +957,19 @@ function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
     const symbol = a.env.get(node.name);
     if (symbol == null) {
         a.dispatchError('unknown type name.', node);
-        return badType;
+        return invalidType;
     }
 
     switch (symbol.kind) {
         case 'StructSymbol': {
-            return createNamedType(node.name);
+            return new NamedType(node.name);
         }
         case 'FnSymbol':
         case 'NativeFnSymbol':
         case 'VariableSymbol':
         case 'ExprSymbol': {
             a.dispatchError('invalid type name.', node);
-            return badType;
+            return invalidType;
         }
     }
 }
