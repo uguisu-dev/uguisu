@@ -6,6 +6,7 @@ import { run } from '../src/lib/running/run.js';
 import { RunningEnv } from '../src/lib/running/tools.js';
 import { defaultVersion, ProjectInfo } from '../src/lib/project-file.js';
 import { UguisuOptions } from '../src/lib/misc/options.js';
+import { TypeEnv } from '../src/lib/semantics/types.js';
 
 class RunTestError extends Error {
     constructor(message: string, errors: string[], warnings: string[]) {
@@ -31,8 +32,9 @@ function expectOk(sourceCode: string) {
 
     // static analysis
     const analysisEnv = new AnalysisEnv();
+    const typeEnv = new TypeEnv();
     const symbolTable = new Map();
-    const result = analyze(sourceFile, analysisEnv, symbolTable, projectInfo);
+    const result = analyze(sourceFile, analysisEnv, typeEnv, symbolTable, projectInfo);
     if (!result.success) {
         throw new RunTestError('Syntax error.', result.errors, result.warnings);
     }
