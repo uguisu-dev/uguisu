@@ -146,27 +146,31 @@ class FeatureMember {
 }
 
 class TypeEnv {
-    private types: TypeInfo[];
+    private items: TypeEnvItem[];
     private features: Feature[];
     constructor() {
-        this.types = [];
+        this.items = [];
         this.features = [];
     }
     addFeature(x: Feature) {
         this.features.push(x);
     }
-    addTypeInfo(x: TypeInfo) {
-        this.types.push(x);
-    }
-    getTypeInfo(x: Type) {
-        return this.types.find(info => compareType(info.type, x) == 'compatible');
+    getTypeInfo(x: Type): TypeEnvItem {
+        // find item
+        let info = this.items.find(info => compareType(info.type, x) == 'compatible');
+        if (info == null) {
+            // new item
+            info = new TypeEnvItem(x);
+            this.items.push(info);
+        }
+        return info;
     }
 }
 
-class TypeInfo {
+class TypeEnvItem {
     type: Type;
-    features: Map<string, Feature>;
-    implemented: Map<string, Type>;
+    private features: Map<string, Feature>;
+    private implemented: Map<string, Type>;
     constructor(type: Type) {
         this.type = type;
         this.features = new Map();
@@ -180,26 +184,37 @@ class TypeInfo {
     }
 }
 
-function setTypes(env: TypeEnv) {
-    /*
-    type number;
-    */
-    const numberTy = new NamedType('number');
-    env.addTypeInfo(new TypeInfo(numberTy));
+function createArrayType(inner: Type) {
+    return new NamedType('array', [inner]);
+}
 
+function exptTypes(env: TypeEnv) {
     /*
-    type bool;
+    implement number {
+        fn toString(this): string;
+        fn parse(src: string): number;
+        fn assertEq(actual: number, expected: number);
+    }
     */
-    const boolTy = new NamedType('bool');
-    env.addTypeInfo(new TypeInfo(boolTy));
+    const numberInfo = env.getTypeInfo(new NamedType('number'));
+    numberInfo.implement('toString', new FunctionType({
+        isMethod: true,
+        fnParamTypes: [],
+        fnReturnType: new NamedType('string'),
+    }));
+    numberInfo.implement('parse', new FunctionType({
+        isMethod: false,
+        fnParamTypes: [new NamedType('string')],
+        fnReturnType: new NamedType('number'),
+    }));
+    numberInfo.implement('assertEq', new FunctionType({
+        isMethod: false,
+        fnParamTypes: [new NamedType('number'), new NamedType('number')],
+        fnReturnType: voidType,
+    }));
+}
 
-    /*
-    type Ordering;
-    */
-    // TODO: enum value
-    const orderingTy = new NamedType('Ordering');
-    env.addTypeInfo(new TypeInfo(orderingTy));
-
+function exptFeatures(env: TypeEnv) {
     // equal feature
 
     /*
@@ -244,7 +259,7 @@ function setTypes(env: TypeEnv) {
     const orderFuncTy = new FunctionType({
         isMethod: true,
         fnParamTypes: [new NamedType('T')],
-        fnReturnType: new NamedType('ordering'),
+        fnReturnType: new NamedType('Ordering'),
     });
     orderFeature.addMember('order', new FeatureMember('order', orderFuncTy));
 
