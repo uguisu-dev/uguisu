@@ -37,6 +37,7 @@ import {
     FunctionType,
     getTypeString,
     invalidType,
+    isNamedType,
     isSpecialType,
     NamedType,
     neverType,
@@ -236,18 +237,21 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
             }
 
             // check the function type is valid
-            if (isSpecialType(symbol.ty, 'invalid') || isSpecialType(symbol.ty, 'unresolved')) {
-                if (isSpecialType(symbol.ty, 'unresolved')) {
-                    a.dispatchError('function is not defined yet.', node);
+            if (isNamedType(symbol.ty)) {
+                if (isSpecialType(symbol.ty, 'invalid') || isSpecialType(symbol.ty, 'unresolved')) {
+                    if (isSpecialType(symbol.ty, 'unresolved')) {
+                        a.dispatchError('function is not defined yet.', node);
+                    }
+                    return;
                 }
-                return;
+                throw new UguisuError('function type expected');
             }
             const fnType = symbol.ty;
 
             const beforeAnalyzeBlock = () => {
                 // set function params to the env
                 for (let i = 0; i < node.params.length; i++) {
-                    const paramSymbol = createVariableSymbol(fnType.paramTypes[i], true);
+                    const paramSymbol = createVariableSymbol(fnType.fnParamTypes[i], true);
                     a.symbolTable.set(node.params[i], paramSymbol);
                     a.env.set(node.params[i].name, paramSymbol);
                 }
@@ -258,8 +262,8 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
 
             // check return type
             if (!isSpecialType(ty, 'never')) {
-                if (compareType(ty, symbol.ty.returnType) == 'incompatible') {
-                    dispatchTypeError(ty, symbol.ty.returnType, node, a);
+                if (compareType(ty, symbol.ty.fnReturnType) == 'incompatible') {
+                    dispatchTypeError(ty, symbol.ty.fnReturnType, node, a);
                 }
             }
             break;
@@ -454,16 +458,19 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                     ty = invalidType;
                 }
 
-                if (isSpecialType(funcSymbol.ty, 'invalid') || isSpecialType(funcSymbol.ty, 'unresolved')) {
-                    if (isSpecialType(funcSymbol.ty, 'unresolved')) {
-                        throw new UguisuError('unexpected type');
+                if (isNamedType(funcSymbol.ty)) {
+                    if (isSpecialType(funcSymbol.ty, 'invalid') || isSpecialType(funcSymbol.ty, 'unresolved')) {
+                        if (isSpecialType(funcSymbol.ty, 'unresolved')) {
+                            throw new UguisuError('unexpected type');
+                        }
+                        return 'invalid';
                     }
-                    return 'invalid';
+                    throw new UguisuError('function type expected');
                 }
 
                 // check type
-                if (compareType(ty, funcSymbol.ty.returnType) == 'incompatible') {
-                    dispatchTypeError(ty, funcSymbol.ty.returnType, node.expr, a);
+                if (compareType(ty, funcSymbol.ty.fnReturnType) == 'incompatible') {
+                    dispatchTypeError(ty, funcSymbol.ty.fnReturnType, node.expr, a);
                     return 'invalid';
                 }
             }
@@ -648,7 +655,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             a.symbolTable.set(node.callee, calleeSymbol);
 
             // check callable
-            let calleeTy;
+            let calleeTy: Type;
             switch (calleeSymbol.kind) {
                 case 'FnSymbol':
                 case 'NativeFnSymbol': {
@@ -684,21 +691,24 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 }
             }
 
-            if (isSpecialType(calleeTy, 'invalid') || isSpecialType(calleeTy, 'unresolved')) {
-                if (isSpecialType(calleeTy, 'unresolved')) {
-                    a.dispatchError('callee is not assigned yet.', node.callee);
+            if (isNamedType(calleeTy)) {
+                if (isSpecialType(calleeTy, 'invalid') || isSpecialType(calleeTy, 'unresolved')) {
+                    if (isSpecialType(calleeTy, 'unresolved')) {
+                        a.dispatchError('callee is not assigned yet.', node.callee);
+                    }
+                    return invalidType;
                 }
-                return invalidType;
+                throw new UguisuError('function type expected');
             }
 
             let isCorrectArgCount = true;
-            if (node.args.length != calleeTy.paramTypes.length) {
+            if (node.args.length != calleeTy.fnParamTypes.length) {
                 a.dispatchError('argument count incorrect.', node);
                 isCorrectArgCount = false;
             }
 
             if (isCorrectArgCount) {
-                for (let i = 0; i < calleeTy.paramTypes.length; i++) {
+                for (let i = 0; i < calleeTy.fnParamTypes.length; i++) {
                     let argTy = analyzeExpr(node.args[i], allowJump, funcSymbol, a);
 
                     if (isSpecialType(argTy, 'unresolved')) {
@@ -712,7 +722,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                         argTy = invalidType;
                     }
 
-                    const paramTy = calleeTy.paramTypes[i];
+                    const paramTy = calleeTy.fnParamTypes[i];
 
                     if (isSpecialType(argTy, 'unresolved') || isSpecialType(argTy, 'invalid')) {
                         continue;
@@ -727,8 +737,8 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 }
             }
 
-            a.symbolTable.set(node, createExprSymbol(calleeTy.returnType));
-            return calleeTy.returnType;
+            a.symbolTable.set(node, createExprSymbol(calleeTy.fnReturnType));
+            return calleeTy.fnReturnType;
         }
         case 'BinaryOp': {
             let leftTy = analyzeExpr(node.left, allowJump, funcSymbol, a);

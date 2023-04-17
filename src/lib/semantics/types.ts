@@ -53,6 +53,10 @@ export class NamedType {
     }
 }
 
+export function isNamedType(x: Type): x is NamedType {
+    return (x instanceof NamedType);
+}
+
 // when the isMethod is true:
 //   fn<TypeParam1, TypeParam2, ...>(this, FnParamType1, FnParamType2, ...): FnReturnType
 // when the isMethod is false:
@@ -83,7 +87,7 @@ export const neverType = new NamedType('never');
 export type SpecialTypeName = 'unresolved' | 'invalid' | 'any' | 'void' | 'never';
 
 export function isSpecialType(x: Type, name: SpecialTypeName): boolean {
-    return (x.kind == 'NamedType' && x.name == name && x.typeParams == null);
+    return (isNamedType(x) && x.name == name && x.typeParams == null);
 }
 
 // builtin types
