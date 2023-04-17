@@ -2,13 +2,8 @@
 
 export class TypeEnv {
     private items: TypeEnvItem[];
-    private features: Feature[];
     constructor() {
         this.items = [];
-        this.features = [];
-    }
-    addFeature(x: Feature) {
-        this.features.push(x);
     }
     getTypeInfo(x: Type): TypeEnvItem {
         // find item
@@ -24,15 +19,10 @@ export class TypeEnv {
 
 export class TypeEnvItem {
     type: Type;
-    private features: Map<string, Feature>;
     private implemented: Map<string, Type>;
     constructor(type: Type) {
         this.type = type;
-        this.features = new Map();
         this.implemented = new Map();
-    }
-    setFeature(featureName: string, feature: Feature) {
-        this.features.set(featureName, feature);
     }
     implement(memberName: string, type: Type) {
         this.implemented.set(memberName, type);
@@ -189,119 +179,4 @@ export function getTypeString(ty: Type): string {
             return `(${params}) => ${returnType}`;
         }
     }
-}
-
-export function createArrayType(inner: Type) {
-    return new NamedType('array', [inner]);
-}
-
-// features
-
-export class Feature {
-    name: string;
-    typeParams: Type[];
-    members: Map<string, FeatureMember>;
-    constructor(opts: { name: string, typeParams?: Type[], members?: Map<string, FeatureMember> }) {
-        this.name = opts.name;
-        this.typeParams = opts.typeParams ?? [];
-        this.members = opts.members ?? new Map();
-    }
-    addMember(memberName: string, member: FeatureMember) {
-        this.members.set(memberName, member);
-    }
-}
-
-export class FeatureMember {
-    name: string;
-    type: Type;
-    constructor(name: string, type: Type) {
-        this.name = name;
-        this.type = type;
-    }
-}
-
-// expt
-
-function exptFeatures(env: TypeEnv) {
-    // equal feature
-
-    /*
-    feature Equal<T> {
-        fn equal(this, other: T): bool;
-    }
-    */
-    const equalFeature = new Feature({ name: 'Equal', typeParams: [new NamedType('T')] });
-    env.addFeature(equalFeature);
-    const equalFuncTy = new FunctionType({
-        isMethod: true,
-        fnParamTypes: [new NamedType('T')],
-        fnReturnType: new NamedType('bool'),
-    });
-    equalFeature.addMember('equal', new FeatureMember('equal', equalFuncTy));
-
-    // arith features
-
-    /*
-    feature Arithmetic<T, R> {
-        fn add(this, other: T): R;
-    }
-    */
-    const arithmeticFeature = new Feature({ name: 'Arithmetic', typeParams: [new NamedType('T'), new NamedType('R')] });
-    env.addFeature(arithmeticFeature);
-    const arithFuncTy = new FunctionType({
-        isMethod: true,
-        fnParamTypes: [new NamedType('T')],
-        fnReturnType: new NamedType('R'),
-    });
-    arithmeticFeature.addMember('add', new FeatureMember('add', arithFuncTy));
-
-    // order feature
-
-    /*
-    feature Order<T> {
-        fn order(this, other: T): ordering;
-    }
-    */
-    const orderFeature = new Feature({ name: 'Order', typeParams: [new NamedType('T')] });
-    env.addFeature(orderFeature);
-    const orderFuncTy = new FunctionType({
-        isMethod: true,
-        fnParamTypes: [new NamedType('T')],
-        fnReturnType: new NamedType('Ordering'),
-    });
-    orderFeature.addMember('order', new FeatureMember('order', orderFuncTy));
-
-    // implement number
-
-    // implement equal for number
-
-    const numberInfo = env.getTypeInfo(new NamedType('number'))!;
-
-    /*
-    implement Equal<number> for number {
-        fn equal(this, other: number): bool { [native code] }
-    }
-    */
-    numberInfo.setFeature('Equal', equalFeature);
-    numberInfo.implement('equal', equalFuncTy);
-
-    // implement arith for number
-
-    /*
-    implement Arithmetic<number, number> for number {
-        fn add(this, other: number): number { [native code] }
-    }
-    */
-    numberInfo.setFeature('Add', arithmeticFeature);
-    numberInfo.implement('add', arithFuncTy);
-
-    // implement order for number
-
-    /*
-    implement Order<number> for number {
-        fn order(this, other: number): Ordering { [native code] }
-    }
-    */
-    numberInfo.setFeature('Order', orderFeature);
-    numberInfo.implement('order', orderFuncTy);
 }
