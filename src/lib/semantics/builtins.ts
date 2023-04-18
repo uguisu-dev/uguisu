@@ -1,5 +1,5 @@
-import { AnalyzeContext, createNativeFnSymbol, createStructSymbol, createVariableSymbol, Symbol } from './tools.js';
-import { anyType, arrayType, charType, FunctionType, numberType, stringType, Type, voidType } from './types.js';
+import { AnalyzeContext, createNativeFnSymbol, createStructSymbol } from './tools.js';
+import { anyType, arrayType, charType, FunctionType, NamedType, numberType, stringType, Type, voidType } from './types.js';
 
 function setDecl(name: string, paramsTy: Type[], returnTy: Type, a: AnalyzeContext) {
     const params = Array(paramsTy.length).map(() => ({ name: 'x' }));
@@ -9,21 +9,6 @@ function setDecl(name: string, paramsTy: Type[], returnTy: Type, a: AnalyzeConte
         fnReturnType: returnTy,
     });
     a.env.set(name, createNativeFnSymbol(params, ty));
-}
-
-function group(name: string, a: AnalyzeContext, handler: (setItem: (name: string, paramsTy: Type[], returnTy: Type) => void) => void) {
-    const fields: Map<string, Symbol> = new Map();
-    function setItem(name: string, paramsTy: Type[], returnTy: Type) {
-        const ty = new FunctionType({
-            isMethod: false,
-            fnParamTypes: paramsTy,
-            fnReturnType: returnTy,
-        });
-        const symbol = createVariableSymbol(ty, true);
-        fields.set(name, symbol);
-    }
-    handler(setItem);
-    a.env.set(name, createStructSymbol(name, fields));
 }
 
 export function setDeclarations(a: AnalyzeContext) {
@@ -105,23 +90,24 @@ export function setDeclarations(a: AnalyzeContext) {
         fnReturnType: numberType,
     }));
 
-    group('console', a, setItem => {
-        setItem(
-            'write',
-            [stringType],
-            voidType
-        );
-        setItem(
-            'writeNum',
-            [numberType],
-            voidType
-        );
-        setItem(
-            'read',
-            [],
-            stringType
-        );
-    });
+    // console namespace
+    a.env.set('console', createStructSymbol('console', new Map()));
+    const consoleSpaceTy = new NamedType('console');
+    a.typeEnv.implement(consoleSpaceTy, 'write', new FunctionType({
+        isMethod: false,
+        fnParamTypes: [stringType],
+        fnReturnType: voidType,
+    }));
+    a.typeEnv.implement(consoleSpaceTy, 'writeNum', new FunctionType({
+        isMethod: false,
+        fnParamTypes: [numberType],
+        fnReturnType: voidType,
+    }));
+    a.typeEnv.implement(consoleSpaceTy, 'read', new FunctionType({
+        isMethod: false,
+        fnParamTypes: [],
+        fnReturnType: stringType,
+    }));
 
     setDecl(
         'getUnixtime',

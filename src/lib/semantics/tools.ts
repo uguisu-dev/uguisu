@@ -1,7 +1,7 @@
 import { UguisuError } from '../misc/errors.js';
 import { ProjectInfo } from '../project-file.js';
 import { AstNode } from '../syntax/tools.js';
-import { getTypeString, Type, TypeEnv } from './types.js';
+import { Type, TypeEnv } from './types.js';
 
 export class AnalyzeContext {
     env: AnalysisEnv;
@@ -75,10 +75,6 @@ export class AnalysisEnv {
         }
         this.layers.shift();
     }
-}
-
-export function dispatchTypeError(actual: Type, expected: Type, errorNode: AstNode, a: AnalyzeContext) {
-    a.dispatchError(`type mismatched. expected \`${getTypeString(expected)}\`, found \`${getTypeString(actual)}\``, errorNode);
 }
 
 // symbols
