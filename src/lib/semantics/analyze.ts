@@ -12,8 +12,7 @@ import {
     ReferenceExpr,
     SourceFile,
     StatementNode,
-    StepNode,
-    TyLabel
+    StepNode
 } from '../syntax/tools.js';
 import * as builtins from './builtins.js';
 import {
@@ -39,6 +38,7 @@ import {
     checkIfOrderOpsSupported,
     compareType,
     FunctionType,
+    getTypeFromSymbol,
     getTypeString,
     invalidType,
     isNamedType,
@@ -46,6 +46,7 @@ import {
     NamedType,
     neverType,
     numberType,
+    resolveTyLabel,
     stringType,
     Type,
     TypeEnv,
@@ -948,55 +949,4 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
         }
     }
     throw new UguisuError('unexpected node');
-}
-
-function getTypeFromSymbol(symbol: Symbol, errorNode: AstNode, a: AnalyzeContext): Type {
-    switch (symbol.kind) {
-        case 'FnSymbol':
-        case 'NativeFnSymbol': {
-            return symbol.ty;
-        }
-        case 'StructSymbol': {
-            return new NamedType(symbol.name);
-        }
-        case 'VariableSymbol': {
-            return symbol.ty;
-        }
-        case 'ExprSymbol': {
-            throw new UguisuError('unexpected symbol');
-        }
-    }
-}
-
-function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
-    // builtin type
-    switch (node.name) {
-        case 'number':
-        case 'bool':
-        case 'char':
-        case 'string':
-        case 'array': {
-            return new NamedType(node.name);
-        }
-    }
-
-    // try get user defined type
-    const symbol = a.env.get(node.name);
-    if (symbol == null) {
-        a.dispatchError('unknown type name.', node);
-        return invalidType;
-    }
-
-    switch (symbol.kind) {
-        case 'StructSymbol': {
-            return new NamedType(node.name);
-        }
-        case 'FnSymbol':
-        case 'NativeFnSymbol':
-        case 'VariableSymbol':
-        case 'ExprSymbol': {
-            a.dispatchError('invalid type name.', node);
-            return invalidType;
-        }
-    }
 }

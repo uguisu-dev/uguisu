@@ -1,7 +1,8 @@
 // types
 
-import { AstNode } from "../syntax/tools";
-import { AnalyzeContext, dispatchTypeError } from "./tools";
+import { UguisuError } from "../misc/errors";
+import { AstNode, TyLabel } from "../syntax/tools";
+import { AnalyzeContext, dispatchTypeError, Symbol } from "./tools";
 
 export class TypeEnv {
     private items: TypeEnvItem[];
@@ -189,6 +190,57 @@ export function getTypeString(ty: Type): string {
             const params = ty.fnParamTypes.map(x => getTypeString(x)).join(', ');
             const returnType = getTypeString(ty.fnReturnType);
             return `(${params}) => ${returnType}`;
+        }
+    }
+}
+
+export function getTypeFromSymbol(symbol: Symbol, errorNode: AstNode, a: AnalyzeContext): Type {
+    switch (symbol.kind) {
+        case 'FnSymbol':
+        case 'NativeFnSymbol': {
+            return symbol.ty;
+        }
+        case 'StructSymbol': {
+            return new NamedType(symbol.name);
+        }
+        case 'VariableSymbol': {
+            return symbol.ty;
+        }
+        case 'ExprSymbol': {
+            throw new UguisuError('unexpected symbol');
+        }
+    }
+}
+
+export function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
+    // builtin type
+    switch (node.name) {
+        case 'number':
+        case 'bool':
+        case 'char':
+        case 'string':
+        case 'array': {
+            return new NamedType(node.name);
+        }
+    }
+
+    // try get user defined type
+    const symbol = a.env.get(node.name);
+    if (symbol == null) {
+        a.dispatchError('unknown type name.', node);
+        return invalidType;
+    }
+
+    switch (symbol.kind) {
+        case 'StructSymbol': {
+            return new NamedType(node.name);
+        }
+        case 'FnSymbol':
+        case 'NativeFnSymbol':
+        case 'VariableSymbol':
+        case 'ExprSymbol': {
+            a.dispatchError('invalid type name.', node);
+            return invalidType;
         }
     }
 }
