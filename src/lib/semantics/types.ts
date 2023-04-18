@@ -40,19 +40,19 @@ export class TypeEnvItem {
     }
 }
 
-export type Type = ValidType | BadType | PendingType;
-export type ValidType = AnyType | VoidType | NeverType | NamedType | FunctionType;
+export type Type = CompleteType | InvalidType | UnresolvedType;
+export type CompleteType = AnyType | VoidType | NeverType | NamedType | FunctionType;
 
-export function isValidType(ty: Type): ty is ValidType {
-    return !isPendingType(ty) && !isBadType(ty);
+export function isCompleteType(ty: Type): ty is CompleteType {
+    return !isInvalidType(ty) && !isUnresolvedType(ty);
 }
 
-export function isBadType(ty: Type): ty is BadType {
-    return ty.kind == 'BadType';
+export function isInvalidType(ty: Type): ty is InvalidType {
+    return ty.kind == 'InvalidType';
 }
 
-export function isPendingType(ty: Type): ty is PendingType {
-    return ty.kind == 'PendingType';
+export function isUnresolvedType(ty: Type): ty is UnresolvedType {
+    return ty.kind == 'UnresolvedType';
 }
 
 export function isAnyType(ty: Type): ty is AnyType {
@@ -67,21 +67,25 @@ export function isNeverType(ty: Type): ty is NeverType {
     return ty.kind == 'NeverType';
 }
 
-export class BadType {
-    kind: 'BadType';
-    constructor() {
-        this.kind = 'BadType';
-    }
+export function isFunctionType(ty: Type): ty is FunctionType {
+    return ty.kind == 'FunctionType';
 }
-export const badType = new BadType();
 
-export class PendingType {
-    kind: 'PendingType';
+export class InvalidType {
+    kind: 'InvalidType';
     constructor() {
-        this.kind = 'PendingType';
+        this.kind = 'InvalidType';
     }
 }
-export const pendingType = new PendingType();
+export const invalidType = new InvalidType();
+
+export class UnresolvedType {
+    kind: 'UnresolvedType';
+    constructor() {
+        this.kind = 'UnresolvedType';
+    }
+}
+export const unresolvedType = new UnresolvedType();
 
 export class AnyType {
     kind: 'AnyType';
@@ -158,10 +162,7 @@ export const arrayType = new NamedType('array');
 export type TypeCompatibility = 'compatible' | 'incompatible' | 'unknown';
 
 export function compareType(x: Type, y: Type): TypeCompatibility {
-    if (isPendingType(x) || isPendingType(y) ) {
-        return 'unknown';
-    }
-    if (isBadType(x) || isBadType(y)) {
+    if (!isCompleteType(x) || !isCompleteType(y)) {
         return 'unknown';
     }
     if (isAnyType(x) || isAnyType(y)) {
@@ -234,8 +235,8 @@ export function compareType(x: Type, y: Type): TypeCompatibility {
 
 export function getTypeString(ty: Type): string {
     switch (ty.kind) {
-        case 'BadType':
-        case 'PendingType': {
+        case 'InvalidType':
+        case 'UnresolvedType': {
             return '?';
         }
         case 'AnyType': {
@@ -297,7 +298,7 @@ export function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
     const symbol = a.env.get(node.name);
     if (symbol == null) {
         a.dispatchError('unknown type name.', node);
-        return badType;
+        return invalidType;
     }
 
     switch (symbol.kind) {
@@ -309,7 +310,7 @@ export function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
         case 'VariableSymbol':
         case 'ExprSymbol': {
             a.dispatchError('invalid type name.', node);
-            return badType;
+            return invalidType;
         }
     }
 }
