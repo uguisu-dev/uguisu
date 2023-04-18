@@ -1,5 +1,8 @@
 // types
 
+import { AstNode } from "../syntax/tools";
+import { AnalyzeContext, dispatchTypeError } from "./tools";
+
 export class TypeEnv {
     private items: TypeEnvItem[];
     constructor() {
@@ -98,9 +101,9 @@ export const arrayType = new NamedType('array');
 
 // compare types
 
-export type CompareTypeResult = 'compatible' | 'incompatible' | 'unknown';
+export type TypeCompatibility = 'compatible' | 'incompatible' | 'unknown';
 
-export function compareType(x: Type, y: Type): CompareTypeResult {
+export function compareType(x: Type, y: Type): TypeCompatibility {
     if (isSpecialType(x, 'unresolved') || isSpecialType(y, 'unresolved') ) {
         return 'unknown';
     }
@@ -188,4 +191,39 @@ export function getTypeString(ty: Type): string {
             return `(${params}) => ${returnType}`;
         }
     }
+}
+
+/**
+ * Check if it can be used as an index value.
+*/
+export function checkIfIndexSupported(x: Type, errorNode: AstNode, a: AnalyzeContext): boolean {
+    if (compareType(x, numberType) == 'incompatible') {
+        dispatchTypeError(x, numberType, errorNode, a);
+        return false;
+    }
+    return true;
+}
+
+export function checkIfLogicalOpsSupported(x: Type, errorNode: AstNode, a: AnalyzeContext): boolean {
+    if (compareType(x, boolType) == 'incompatible') {
+        dispatchTypeError(x, boolType, errorNode, a);
+        return false;
+    }
+    return true;
+}
+
+export function checkIfOrderOpsSupported(x: Type, errorNode: AstNode, a: AnalyzeContext): boolean {
+    if (compareType(x, numberType) == 'incompatible') {
+        dispatchTypeError(x, numberType, errorNode, a);
+        return false;
+    }
+    return true;
+}
+
+export function checkIfArithOpsSupported(x: Type, errorNode: AstNode, a: AnalyzeContext): boolean {
+    if (compareType(x, numberType) == 'incompatible') {
+        dispatchTypeError(x, numberType, errorNode, a);
+        return false;
+    }
+    return true;
 }

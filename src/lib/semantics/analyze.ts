@@ -33,6 +33,10 @@ import {
     arrayType,
     boolType,
     charType,
+    checkIfArithOpsSupported,
+    checkIfIndexSupported,
+    checkIfLogicalOpsSupported,
+    checkIfOrderOpsSupported,
     compareType,
     FunctionType,
     getTypeString,
@@ -418,8 +422,7 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
             }
 
             // check index type
-            if (compareType(indexTy, numberType) == 'incompatible') {
-                dispatchTypeError(indexTy, numberType, node.index, a);
+            if (!checkIfIndexSupported(indexTy, node.index, a)) {
                 return undefined;
             }
 
@@ -586,12 +589,8 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                 case '*=':
                 case '/=':
                 case '%=': {
-                    if (compareType(targetTy, numberType) == 'incompatible') {
-                        dispatchTypeError(targetTy, numberType, node.target, a);
-                    }
-                    if (compareType(bodyTy, numberType) == 'incompatible') {
-                        dispatchTypeError(bodyTy, numberType, node.body, a);
-                    }
+                    checkIfArithOpsSupported(targetTy, node.target, a);
+                    checkIfArithOpsSupported(bodyTy, node.body, a);
                     break;
                 }
             }
@@ -774,17 +773,20 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
 
             if (isLogicalBinaryOperator(node.operator)) {
                 // Logical Operation
-                if (compareType(leftTy, boolType) == 'incompatible') {
-                    dispatchTypeError(leftTy, boolType, node.left, a);
+                if (!checkIfLogicalOpsSupported(leftTy, node.left, a)) {
                     return invalidType;
                 }
-                if (compareType(rightTy, boolType) == 'incompatible') {
-                    dispatchTypeError(rightTy, boolType, node.right, a);
+                if (!checkIfLogicalOpsSupported(rightTy, node.right, a)) {
                     return invalidType;
                 }
 
-                a.symbolTable.set(node, createExprSymbol(boolType));
-                return boolType;
+                if (compareType(rightTy, leftTy) == 'incompatible') {
+                    dispatchTypeError(rightTy, leftTy, node.right, a);
+                    return invalidType;
+                }
+
+                a.symbolTable.set(node, createExprSymbol(leftTy));
+                return leftTy;
             } else if (isEquivalentOperator(node.operator)) {
                 // Equivalent Operation
                 if (compareType(rightTy, leftTy) == 'incompatible') {
@@ -796,26 +798,28 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 return boolType;
             } else if (isOrderingOperator(node.operator)) {
                 // Ordering Operation
-                if (compareType(leftTy, numberType) == 'incompatible') {
-                    dispatchTypeError(leftTy, numberType, node.left, a);
-                }
-                if (compareType(rightTy, numberType) == 'incompatible') {
-                    dispatchTypeError(rightTy, numberType, node.right, a);
+                checkIfOrderOpsSupported(leftTy, node.left, a);
+                checkIfOrderOpsSupported(rightTy, node.right, a);
+
+                if (compareType(rightTy, leftTy) == 'incompatible') {
+                    dispatchTypeError(rightTy, leftTy, node.right, a);
+                    return invalidType;
                 }
 
                 a.symbolTable.set(node, createExprSymbol(boolType));
                 return boolType;
             } else {
                 // Arithmetic Operation
-                if (compareType(leftTy, numberType) == 'incompatible') {
-                    dispatchTypeError(leftTy, numberType, node.left, a);
-                }
-                if (compareType(rightTy, numberType) == 'incompatible') {
-                    dispatchTypeError(rightTy, numberType, node.right, a);
+                checkIfArithOpsSupported(leftTy, node.left, a);
+                checkIfArithOpsSupported(rightTy, node.right, a);
+
+                if (compareType(rightTy, leftTy) == 'incompatible') {
+                    dispatchTypeError(rightTy, leftTy, node.right, a);
+                    return invalidType;
                 }
 
-                a.symbolTable.set(node, createExprSymbol(numberType));
-                return numberType;
+                a.symbolTable.set(node, createExprSymbol(leftTy));
+                return leftTy;
             }
             break;
         }
@@ -839,12 +843,11 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             }
 
             // Logical Operation
-            if (compareType(ty, boolType) == 'incompatible') {
-                dispatchTypeError(ty, boolType, node, a);
+            if (!checkIfLogicalOpsSupported(ty, node, a)) {
                 return invalidType;
             }
-            a.symbolTable.set(node, createExprSymbol(boolType));
-            return boolType;
+            a.symbolTable.set(node, createExprSymbol(ty));
+            return ty;
         }
         case 'StructExpr': {
             // get symbol
