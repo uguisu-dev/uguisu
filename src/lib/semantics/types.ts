@@ -175,6 +175,12 @@ export function compareType(x: Type, y: Type): TypeCompatibility {
         return 'incompatible';
     }
     switch (x.kind) {
+        case 'VoidType': {
+            return 'compatible';
+        }
+        case 'NeverType': {
+            return 'compatible';
+        }
         case 'NamedType': {
             y = y as NamedType;
             if (x.name != y.name) {
@@ -227,10 +233,20 @@ export function compareType(x: Type, y: Type): TypeCompatibility {
 }
 
 export function getTypeString(ty: Type): string {
-    if (isBadType(ty) || isPendingType(ty)) {
-        return '?';
-    }
     switch (ty.kind) {
+        case 'BadType':
+        case 'PendingType': {
+            return '?';
+        }
+        case 'AnyType': {
+            return 'any';
+        }
+        case 'VoidType': {
+            return 'void';
+        }
+        case 'NeverType': {
+            return 'never';
+        }
         case 'NamedType': {
             if (ty.typeParams.length > 0) {
                 const inner = ty.typeParams.map(x => getTypeString(x)).join(', ');

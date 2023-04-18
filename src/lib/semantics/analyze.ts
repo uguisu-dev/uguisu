@@ -372,16 +372,6 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
                         throw new UguisuError('not implemented yet.'); // TODO
                     }
 
-                    if (isAnyType(targetTy)) {
-                        // TODO: Ensure that the type `any` is handled correctly.
-                        return undefined;
-                    }
-
-                    if (isVoidType(targetTy)) {
-                        a.dispatchError('invalid field access');
-                        return undefined;
-                    }
-
                     // get target symbol
                     const symbol = a.env.get(targetTy.name);
                     if (symbol == null) {
@@ -406,7 +396,12 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
                     }
                     break;
                 }
-                case 'FunctionType': {
+                case 'AnyType': {
+                    // TODO: Ensure that the type `any` is handled correctly.	
+                    return undefined;
+                }
+                case 'FunctionType':
+                case 'VoidType': {
                     a.dispatchError('invalid field access');
                     return undefined;
                 }
