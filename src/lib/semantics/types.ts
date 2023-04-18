@@ -5,14 +5,21 @@ export class TypeEnv {
     constructor() {
         this.items = [];
     }
-    implement(target: Type, memberName: string, memberType: Type) {
+    private _getItem(target: Type) {
         let item = this.items.find(info => compareType(info.type, target) == 'compatible');
         if (item == null) {
             item = new TypeEnvItem(target);
             this.items.push(item);
         }
-
-        item.implement(memberName, memberType);
+        return item;
+    }
+    getMember(target: Type, memberName: string): Type | undefined {
+        const envItem = this._getItem(target);
+        return envItem.getMember(memberName);
+    }
+    implement(target: Type, memberName: string, memberType: Type) {
+        const envItem = this._getItem(target);
+        envItem.implement(memberName, memberType);
     }
 }
 
@@ -22,6 +29,9 @@ export class TypeEnvItem {
     constructor(type: Type) {
         this.type = type;
         this.implemented = new Map();
+    }
+    getMember(memberName: string): Type | undefined {
+        return this.implemented.get(memberName);
     }
     implement(memberName: string, type: Type) {
         this.implemented.set(memberName, type);
