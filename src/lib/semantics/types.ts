@@ -5,15 +5,16 @@ export class TypeEnv {
     constructor() {
         this.items = [];
     }
-    getTypeInfo(x: Type): TypeEnvItem {
+    implement(target: Type, memberName: string, memberType: Type) {
         // find item
-        let info = this.items.find(info => compareType(info.type, x) == 'compatible');
+        let info = this.items.find(info => compareType(info.type, target) == 'compatible');
         if (info == null) {
             // new item
-            info = new TypeEnvItem(x);
+            info = new TypeEnvItem(target);
             this.items.push(info);
         }
-        return info;
+        // implement member
+        info.implement(memberName, memberType);
     }
 }
 

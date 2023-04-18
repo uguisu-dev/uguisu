@@ -28,82 +28,78 @@ function group(name: string, a: AnalyzeContext, handler: (setItem: (name: string
 
 export function setDeclarations(a: AnalyzeContext) {
     // number
-    const numberInfo = a.typeEnv.getTypeInfo(numberType);
-    numberInfo.implement('toString', new FunctionType({
+    a.typeEnv.implement(numberType, 'toString', new FunctionType({
         isMethod: true,
         fnParamTypes: [],
         fnReturnType: stringType,
     }));
-    numberInfo.implement('parse', new FunctionType({
+    a.typeEnv.implement(numberType, 'parse', new FunctionType({
         isMethod: false,
         fnParamTypes: [stringType],
         fnReturnType: numberType,
     }));
-    numberInfo.implement('assertEq', new FunctionType({
+    a.typeEnv.implement(numberType, 'assertEq', new FunctionType({
         isMethod: false,
         fnParamTypes: [numberType, numberType],
         fnReturnType: voidType,
     }));
 
     // char
-    const charInfo = a.typeEnv.getTypeInfo(charType);
-    charInfo.implement('toString', new FunctionType({
+    a.typeEnv.implement(charType, 'toString', new FunctionType({
         isMethod: true,
         fnParamTypes: [],
         fnReturnType: stringType,
     }));
-    charInfo.implement('toNumber', new FunctionType({
+    a.typeEnv.implement(charType, 'toNumber', new FunctionType({
         isMethod: true,
         fnParamTypes: [],
         fnReturnType: numberType,
     }));
-    charInfo.implement('fromNumber', new FunctionType({
+    a.typeEnv.implement(charType, 'fromNumber', new FunctionType({
         isMethod: false,
         fnParamTypes: [numberType],
         fnReturnType: charType,
     }));
 
     // string
-    const stringInfo = a.typeEnv.getTypeInfo(stringType);
-    stringInfo.implement('toChars', new FunctionType({
+    a.typeEnv.implement(stringType, 'toChars', new FunctionType({
         isMethod: true,
         fnParamTypes: [],
         fnReturnType: arrayType, // char[]
     }));
-    stringInfo.implement('fromChars', new FunctionType({
+    a.typeEnv.implement(stringType, 'fromChars', new FunctionType({
         isMethod: false,
         fnParamTypes: [arrayType], // char[]
         fnReturnType: stringType,
     }));
-    stringInfo.implement('concat', new FunctionType({
+    a.typeEnv.implement(stringType, 'concat', new FunctionType({
         isMethod: false,
         fnParamTypes: [stringType, stringType],
         fnReturnType: stringType,
     }));
-    stringInfo.implement('assertEq', new FunctionType({
+    a.typeEnv.implement(stringType, 'assertEq', new FunctionType({
         isMethod: false,
         fnParamTypes: [stringType, stringType],
         fnReturnType: voidType,
     }));
 
     // array
-    const arrayInfo = a.typeEnv.getTypeInfo(arrayType);
-    arrayInfo.implement('insert', new FunctionType({
+    a.typeEnv.implement(arrayType, 'insert', new FunctionType({
         isMethod: true,
         fnParamTypes: [numberType, anyType],
         fnReturnType: voidType,
     }));
-    arrayInfo.implement('add', new FunctionType({
+    a.typeEnv.implement(arrayType, 'add', new FunctionType({
         isMethod: true,
         fnParamTypes: [anyType], // char[]
         fnReturnType: voidType,
     }));
-    arrayInfo.implement('removeAt', new FunctionType({
+    a.typeEnv.implement(arrayType, 'removeAt', new FunctionType({
         isMethod: true,
         fnParamTypes: [numberType],
         fnReturnType: voidType,
     }));
-    arrayInfo.implement('count', new FunctionType({
+    a.typeEnv.implement(arrayType, 'count', new FunctionType({
         isMethod: true,
         fnParamTypes: [],
         fnReturnType: numberType,
