@@ -41,10 +41,8 @@ import {
     FunctionType,
     getTypeFromSymbol,
     getTypeString,
-    isInvalidType,
     isNeverType,
     isUnresolvedType,
-    isCompleteType,
     isVoidType,
     NamedType,
     neverType,
@@ -55,7 +53,8 @@ import {
     Type,
     TypeEnv,
     voidType,
-    isFunctionType
+    isFunctionType,
+    isIncompleteType
 } from './types.js';
 
 export type AnalyzeResult = {
@@ -246,7 +245,7 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
             }
 
             // check the function type is valid
-            if (!isCompleteType(symbol.ty)) {
+            if (isIncompleteType(symbol.ty)) {
                 if (isUnresolvedType(symbol.ty)) {
                     a.dispatchError('function is not defined yet.', node);
                 }
@@ -285,10 +284,7 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
  * @returns type of the last step of the block
 */
 function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext, before?: () => void): Type {
-    if (isUnresolvedType(funcSymbol.ty)) {
-        throw new UguisuError('unexpected type');
-    }
-    if (isInvalidType(funcSymbol.ty)) {
+    if (isIncompleteType(funcSymbol.ty)) {
         throw new UguisuError('unexpected type');
     }
 
@@ -359,7 +355,7 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
             // analyze target
             const targetTy = analyzeExpr(node.target, allowJump, funcSymbol, a);
 
-            if (!isCompleteType(targetTy)) {
+            if (isIncompleteType(targetTy)) {
                 if (isUnresolvedType(targetTy)) {
                     a.dispatchError('variable is not assigned yet.', node.target);
                 }
@@ -423,14 +419,14 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
                 return undefined;
             }
 
-            if (!isCompleteType(targetTy)) {
+            if (isIncompleteType(targetTy)) {
                 if (isUnresolvedType(targetTy)) {
                     a.dispatchError('variable is not assigned yet.', node.target);
                 }
                 return undefined;
             }
 
-            if (!isCompleteType(indexTy)) {
+            if (isIncompleteType(indexTy)) {
                 if (isUnresolvedType(indexTy)) {
                     a.dispatchError('variable is not assigned yet.', node.index);
                 }
@@ -462,7 +458,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                     ty = invalidType;
                 }
 
-                if (!isCompleteType(funcSymbol.ty)) {
+                if (isIncompleteType(funcSymbol.ty)) {
                     if (isUnresolvedType(funcSymbol.ty)) {
                         throw new UguisuError('unexpected type');
                     }
@@ -670,7 +666,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                         return invalidType;
                     }
 
-                    if (!isCompleteType(calleeSymbol.ty)) {
+                    if (isIncompleteType(calleeSymbol.ty)) {
                         return invalidType;
                     }
 
@@ -688,7 +684,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 }
             }
 
-            if (!isCompleteType(calleeTy)) {
+            if (isIncompleteType(calleeTy)) {
                 if (isUnresolvedType(calleeTy)) {
                     a.dispatchError('callee is not assigned yet.', node.callee);
                 }
@@ -718,7 +714,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
 
                     const paramTy = calleeTy.fnParamTypes[i];
 
-                    if (!isCompleteType(argTy) || !isCompleteType(paramTy)) {
+                    if (isIncompleteType(argTy) || isIncompleteType(paramTy)) {
                         continue;
                     }
 
@@ -755,7 +751,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 rightTy = invalidType;
             }
 
-            if (!isCompleteType(leftTy) || !isCompleteType(rightTy)) {
+            if (isIncompleteType(leftTy) || isIncompleteType(rightTy)) {
                 return invalidType;
             }
 
@@ -826,7 +822,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 ty = invalidType;
             }
 
-            if (!isCompleteType(ty)) {
+            if (isIncompleteType(ty)) {
                 return invalidType;
             }
 

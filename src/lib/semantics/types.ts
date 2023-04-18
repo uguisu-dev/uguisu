@@ -40,15 +40,16 @@ export class TypeEnvItem {
     }
 }
 
-export type Type = CompleteType | InvalidType | UnresolvedType;
+export type Type = CompleteType | IncompleteType;
+export type IncompleteType = InvalidType | UnresolvedType;
 export type CompleteType = AnyType | VoidType | NeverType | NamedType | FunctionType;
 
 export function isCompleteType(ty: Type): ty is CompleteType {
-    return !isInvalidType(ty) && !isUnresolvedType(ty);
+    return !isIncompleteType(ty);
 }
 
-export function isInvalidType(ty: Type): ty is InvalidType {
-    return ty.kind == 'InvalidType';
+export function isIncompleteType(ty: Type): ty is IncompleteType {
+    return ty.kind == 'InvalidType' || ty.kind == 'UnresolvedType';
 }
 
 export function isUnresolvedType(ty: Type): ty is UnresolvedType {
@@ -65,6 +66,10 @@ export function isVoidType(ty: Type): ty is VoidType {
 
 export function isNeverType(ty: Type): ty is NeverType {
     return ty.kind == 'NeverType';
+}
+
+export function isNamedType(x: Type): x is NamedType {
+    return (x.kind == 'NamedType');
 }
 
 export function isFunctionType(ty: Type): ty is FunctionType {
@@ -123,10 +128,6 @@ export class NamedType {
     }
 }
 
-export function isNamedType(x: Type): x is NamedType {
-    return (x instanceof NamedType);
-}
-
 // when the isMethod is true:
 //   fn<TypeParam1, TypeParam2, ...>(this, FnParamType1, FnParamType2, ...): FnReturnType
 // when the isMethod is false:
@@ -162,7 +163,7 @@ export const arrayType = new NamedType('array');
 export type TypeCompatibility = 'compatible' | 'incompatible' | 'unknown';
 
 export function compareType(x: Type, y: Type): TypeCompatibility {
-    if (!isCompleteType(x) || !isCompleteType(y)) {
+    if (isIncompleteType(x) || isIncompleteType(y)) {
         return 'unknown';
     }
     if (isAnyType(x) || isAnyType(y)) {

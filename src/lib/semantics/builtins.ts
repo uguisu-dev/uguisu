@@ -1,7 +1,17 @@
 import { AnalyzeContext, createNativeFnSymbol, createStructSymbol } from './tools.js';
-import { anyType, arrayType, charType, FunctionType, NamedType, numberType, stringType, Type, voidType } from './types.js';
+import {
+    anyType,
+    arrayType,
+    charType,
+    CompleteType,
+    FunctionType,
+    NamedType,
+    numberType,
+    stringType,
+    voidType
+} from './types.js';
 
-function setDecl(name: string, paramsTy: Type[], returnTy: Type, a: AnalyzeContext) {
+function setDecl(name: string, paramsTy: CompleteType[], returnTy: CompleteType, a: AnalyzeContext) {
     const params = Array(paramsTy.length).map(() => ({ name: 'x' }));
     const ty = new FunctionType({
         isMethod: false,
