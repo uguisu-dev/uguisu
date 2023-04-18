@@ -6,15 +6,13 @@ export class TypeEnv {
         this.items = [];
     }
     implement(target: Type, memberName: string, memberType: Type) {
-        // find item
-        let info = this.items.find(info => compareType(info.type, target) == 'compatible');
-        if (info == null) {
-            // new item
-            info = new TypeEnvItem(target);
-            this.items.push(info);
+        let item = this.items.find(info => compareType(info.type, target) == 'compatible');
+        if (item == null) {
+            item = new TypeEnvItem(target);
+            this.items.push(item);
         }
-        // implement member
-        info.implement(memberName, memberType);
+
+        item.implement(memberName, memberType);
     }
 }
 
