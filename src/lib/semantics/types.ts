@@ -1,8 +1,6 @@
-// types
-
-import { UguisuError } from "../misc/errors";
-import { AstNode, TyLabel } from "../syntax/tools";
-import { AnalyzeContext, dispatchTypeError, Symbol } from "./tools";
+import { UguisuError } from '../misc/errors';
+import { AstNode, TyLabel } from '../syntax/tools';
+import { AnalyzeContext, Symbol } from './tools';
 
 export class TypeEnv {
     private items: TypeEnvItem[];
@@ -42,7 +40,36 @@ export class TypeEnvItem {
     }
 }
 
-export type Type = NamedType | FunctionType;
+export type Type = ValidType | BadType | PendingType;
+export type ValidType = NamedType | FunctionType;
+
+export function isValidType(ty: Type): ty is ValidType {
+    return !isPendingType(ty) && !isBadType(ty);
+}
+
+export function isBadType(ty: Type): ty is BadType {
+    return ty.kind == 'BadType';
+}
+
+export function isPendingType(ty: Type): ty is PendingType {
+    return ty.kind == 'PendingType';
+}
+
+export class BadType {
+    kind: 'BadType';
+    constructor() {
+        this.kind = 'BadType';
+    }
+}
+export const badType = new BadType();
+
+export class PendingType {
+    kind: 'PendingType';
+    constructor() {
+        this.kind = 'PendingType';
+    }
+}
+export const pendingType = new PendingType();
 
 // Name<TypeParam1, TypeParam2, ...>
 export class NamedType {
@@ -79,15 +106,17 @@ export class FunctionType {
     }
 }
 
+export function dispatchTypeError(actual: Type, expected: Type, errorNode: AstNode, a: AnalyzeContext) {
+    a.dispatchError(`type mismatched. expected \`${getTypeString(expected)}\`, found \`${getTypeString(actual)}\``, errorNode);
+}
+
 // special types
 
-export const unresolvedType = new NamedType('unresolved');
-export const invalidType = new NamedType('invalid');
 export const anyType = new NamedType('any');
 export const voidType = new NamedType('void');
 export const neverType = new NamedType('never');
 
-export type SpecialTypeName = 'unresolved' | 'invalid' | 'any' | 'void' | 'never';
+export type SpecialTypeName = 'any' | 'void' | 'never';
 
 export function isSpecialType(x: Type, name: SpecialTypeName): boolean {
     return (isNamedType(x) && x.name == name && x.typeParams == null);
@@ -105,10 +134,10 @@ export const arrayType = new NamedType('array');
 export type TypeCompatibility = 'compatible' | 'incompatible' | 'unknown';
 
 export function compareType(x: Type, y: Type): TypeCompatibility {
-    if (isSpecialType(x, 'unresolved') || isSpecialType(y, 'unresolved') ) {
+    if (isPendingType(x) || isPendingType(y) ) {
         return 'unknown';
     }
-    if (isSpecialType(x, 'invalid') || isSpecialType(y, 'invalid')) {
+    if (isBadType(x) || isBadType(y)) {
         return 'unknown';
     }
     if (isSpecialType(x, 'any') || isSpecialType(y, 'any')) {
@@ -174,11 +203,11 @@ export function compareType(x: Type, y: Type): TypeCompatibility {
 }
 
 export function getTypeString(ty: Type): string {
+    if (isBadType(ty) || isPendingType(ty)) {
+        return '?';
+    }
     switch (ty.kind) {
         case 'NamedType': {
-            if (isSpecialType(ty, 'invalid') || isSpecialType(ty, 'unresolved')) {
-                return '?';
-            }
             if (ty.typeParams.length > 0) {
                 const inner = ty.typeParams.map(x => getTypeString(x)).join(', ');
                 return `${ty.name}<${inner}>`;
@@ -189,7 +218,7 @@ export function getTypeString(ty: Type): string {
         case 'FunctionType': {
             const params = ty.fnParamTypes.map(x => getTypeString(x)).join(', ');
             const returnType = getTypeString(ty.fnReturnType);
-            return `(${params}) => ${returnType}`;
+            return `fn(${params}) -> ${returnType}`;
         }
     }
 }
@@ -228,7 +257,7 @@ export function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
     const symbol = a.env.get(node.name);
     if (symbol == null) {
         a.dispatchError('unknown type name.', node);
-        return invalidType;
+        return badType;
     }
 
     switch (symbol.kind) {
@@ -240,7 +269,7 @@ export function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
         case 'VariableSymbol':
         case 'ExprSymbol': {
             a.dispatchError('invalid type name.', node);
-            return invalidType;
+            return badType;
         }
     }
 }

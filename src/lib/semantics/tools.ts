@@ -1,7 +1,7 @@
 import { UguisuError } from '../misc/errors.js';
 import { ProjectInfo } from '../project-file.js';
 import { AstNode } from '../syntax/tools.js';
-import { Type, TypeEnv } from './types.js';
+import { BadType, FunctionType, PendingType, Type, TypeEnv } from './types.js';
 
 export class AnalyzeContext {
     env: AnalysisEnv;
@@ -84,24 +84,24 @@ export type Symbol = FnSymbol | NativeFnSymbol | StructSymbol | VariableSymbol |
 export type FnSymbol = {
     kind: 'FnSymbol',
     params: { name: string }[],
-    ty: Type,
+    ty: FunctionType | BadType | PendingType,
     /** for wasm */
     vars: FnVar[],
 };
 
-export function createFunctionSymbol(params: { name: string }[], ty: Type, vars: FnVar[]): FnSymbol {
+export function createFunctionSymbol(params: { name: string }[], ty: FunctionType | BadType | PendingType, vars: FnVar[]): FnSymbol {
     return { kind: 'FnSymbol', params, ty, vars };
 }
 
-export type FnVar = { name: string, isParam: boolean, ty: Type };
+export type FnVar = { name: string, isParam: boolean, ty: FunctionType | BadType | PendingType };
 
 export type NativeFnSymbol = {
     kind: 'NativeFnSymbol',
     params: { name: string }[],
-    ty: Type,
+    ty: FunctionType | BadType | PendingType,
 };
 
-export function createNativeFnSymbol(params: { name: string }[], ty: Type): NativeFnSymbol {
+export function createNativeFnSymbol(params: { name: string }[], ty: FunctionType | BadType | PendingType): NativeFnSymbol {
     return { kind: 'NativeFnSymbol', params, ty };
 }
 

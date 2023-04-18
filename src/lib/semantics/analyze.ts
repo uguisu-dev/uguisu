@@ -22,7 +22,6 @@ import {
     createFunctionSymbol,
     createStructSymbol,
     createVariableSymbol,
-    dispatchTypeError,
     FnSymbol,
     StatementResult,
     Symbol
@@ -30,6 +29,7 @@ import {
 import {
     anyType,
     arrayType,
+    badType,
     boolType,
     charType,
     checkIfArithOpsSupported,
@@ -37,20 +37,22 @@ import {
     checkIfLogicalOpsSupported,
     checkIfOrderOpsSupported,
     compareType,
+    dispatchTypeError,
     FunctionType,
     getTypeFromSymbol,
     getTypeString,
-    invalidType,
-    isNamedType,
+    isBadType,
+    isPendingType,
     isSpecialType,
+    isValidType,
     NamedType,
     neverType,
     numberType,
+    pendingType,
     resolveTyLabel,
     stringType,
     Type,
     TypeEnv,
-    unresolvedType,
     voidType
 } from './types.js';
 
@@ -112,7 +114,7 @@ function declareTopLevel(node: FileNode, a: AnalyzeContext) {
             const params = node.params.map(x => ({ name: x.name }));
 
             // declare function
-            const symbol = createFunctionSymbol(params, unresolvedType, []);
+            const symbol = createFunctionSymbol(params, pendingType, []);
             a.symbolTable.set(node, symbol);
             a.env.set(node.name, symbol);
             break;
@@ -132,7 +134,7 @@ function declareTopLevel(node: FileNode, a: AnalyzeContext) {
             // make fields
             const fields = new Map<string, Symbol>();
             for (const field of node.fields) {
-                const fieldSymbol = createVariableSymbol(unresolvedType, true);
+                const fieldSymbol = createVariableSymbol(pendingType, true);
                 fields.set(field.name, fieldSymbol);
             }
 
@@ -176,7 +178,7 @@ function resolveTopLevel(node: FileNode, a: AnalyzeContext) {
                 // if param type is not specified
                 if (paramNode.ty == null) {
                     a.dispatchError('parameter type missing.', paramNode);
-                    paramsTy.push(invalidType);
+                    paramsTy.push(badType);
                     continue;
                 }
 
@@ -242,14 +244,11 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
             }
 
             // check the function type is valid
-            if (isNamedType(symbol.ty)) {
-                if (isSpecialType(symbol.ty, 'invalid') || isSpecialType(symbol.ty, 'unresolved')) {
-                    if (isSpecialType(symbol.ty, 'unresolved')) {
-                        a.dispatchError('function is not defined yet.', node);
-                    }
-                    return;
+            if (!isValidType(symbol.ty)) {
+                if (isPendingType(symbol.ty)) {
+                    a.dispatchError('function is not defined yet.', node);
                 }
-                throw new UguisuError('function type expected');
+                return;
             }
             const fnType = symbol.ty;
 
@@ -284,10 +283,10 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
  * @returns type of the last step of the block
 */
 function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext, before?: () => void): Type {
-    if (isSpecialType(funcSymbol.ty, 'unresolved')) {
+    if (isPendingType(funcSymbol.ty)) {
         throw new UguisuError('unexpected type');
     }
-    if (isSpecialType(funcSymbol.ty, 'invalid')) {
+    if (isBadType(funcSymbol.ty)) {
         throw new UguisuError('unexpected type');
     }
 
@@ -314,7 +313,7 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
                     break;
                 }
                 case 'invalid': {
-                    ty = invalidType;
+                    ty = badType;
                     break;
                 }
                 case 'return':
@@ -358,8 +357,8 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
             // analyze target
             const targetTy = analyzeExpr(node.target, allowJump, funcSymbol, a);
 
-            if (isSpecialType(targetTy, 'invalid') || isSpecialType(targetTy, 'unresolved')) {
-                if (isSpecialType(targetTy, 'unresolved')) {
+            if (!isValidType(targetTy)) {
+                if (isPendingType(targetTy)) {
                     a.dispatchError('variable is not assigned yet.', node.target);
                 }
                 return undefined;
@@ -427,15 +426,15 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
                 return undefined;
             }
 
-            if (isSpecialType(targetTy, 'invalid') || isSpecialType(targetTy, 'unresolved')) {
-                if (isSpecialType(targetTy, 'unresolved')) {
+            if (!isValidType(targetTy)) {
+                if (isPendingType(targetTy)) {
                     a.dispatchError('variable is not assigned yet.', node.target);
                 }
                 return undefined;
             }
 
-            if (isSpecialType(indexTy, 'invalid') || isSpecialType(indexTy, 'unresolved')) {
-                if (isSpecialType(indexTy, 'unresolved')) {
+            if (!isValidType(indexTy)) {
+                if (isPendingType(indexTy)) {
                     a.dispatchError('variable is not assigned yet.', node.index);
                 }
                 return undefined;
@@ -461,19 +460,16 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                 let ty = analyzeExpr(node.expr, allowJump, funcSymbol, a);
 
                 // if the expr returned nothing
-                if (compareType(ty, voidType) == 'compatible') {
+                if (isSpecialType(ty, 'void')) {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
-                    ty = invalidType;
+                    ty = badType;
                 }
 
-                if (isNamedType(funcSymbol.ty)) {
-                    if (isSpecialType(funcSymbol.ty, 'invalid') || isSpecialType(funcSymbol.ty, 'unresolved')) {
-                        if (isSpecialType(funcSymbol.ty, 'unresolved')) {
-                            throw new UguisuError('unexpected type');
-                        }
-                        return 'invalid';
+                if (!isValidType(funcSymbol.ty)) {
+                    if (isPendingType(funcSymbol.ty)) {
+                        throw new UguisuError('unexpected type');
                     }
-                    throw new UguisuError('function type expected');
+                    return 'invalid';
                 }
 
                 // check type
@@ -506,7 +502,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
         }
         case 'VariableDecl': {
             let isDefined = false;
-            let ty: Type = unresolvedType;
+            let ty: Type = pendingType;
 
             // if an explicit type is specified
             if (node.ty != null) {
@@ -518,13 +514,13 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                 let bodyTy = analyzeExpr(node.body, allowJump, funcSymbol, a);
 
                 // if the initializer returns nothing
-                if (compareType(bodyTy, voidType) == 'compatible') {
+                if (isSpecialType(bodyTy, 'void')) {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
-                    bodyTy = invalidType;
+                    bodyTy = badType;
                 }
 
                 // if the variable type is not decided
-                if (isSpecialType(ty, 'unresolved')) {
+                if (isPendingType(ty)) {
                     ty = bodyTy;
                 }
 
@@ -547,9 +543,9 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
             let bodyTy = analyzeExpr(node.body, allowJump, funcSymbol, a);
 
             // if the body returns nothing
-            if (compareType(bodyTy, voidType) == 'compatible') {
+            if (isSpecialType(bodyTy, 'void')) {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
-                bodyTy = invalidType;
+                bodyTy = badType;
             }
 
             // analyze target
@@ -570,7 +566,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
             // if it was the first assignment
             if (symbol.kind == 'VariableSymbol' && !symbol.isDefined) {
                 // if need inference
-                if (isSpecialType(targetTy, 'unresolved')) {
+                if (isPendingType(targetTy)) {
                     targetTy = bodyTy;
                     symbol.ty = targetTy;
                 }
@@ -609,7 +605,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
         case 'IndexAccess': {
             const symbol = analyzeReferenceExpr(node, allowJump, funcSymbol, a);
             if (symbol == null) {
-                return invalidType;
+                return badType;
             }
 
             // get expr type from the symbol
@@ -618,7 +614,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             // if the variable is not assigned
             if (symbol.kind == 'VariableSymbol' && !symbol.isDefined) {
                 a.dispatchError('variable is not assigned yet.', node);
-                return invalidType;
+                return badType;
             }
 
             return ty;
@@ -653,13 +649,13 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             }
 
             if (calleeSymbol == null) {
-                return invalidType;
+                return badType;
             }
 
             a.symbolTable.set(node.callee, calleeSymbol);
 
             // check callable
-            let calleeTy: Type;
+            let calleeTy;
             switch (calleeSymbol.kind) {
                 case 'FnSymbol':
                 case 'NativeFnSymbol': {
@@ -668,23 +664,23 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 }
                 case 'StructSymbol': {
                     a.dispatchError('struct is not callable.', node.callee);
-                    return invalidType;
+                    return badType;
                 }
                 case 'VariableSymbol': {
                     // if the variable is not assigned
-                    if (isSpecialType(calleeSymbol.ty, 'unresolved')) {
+                    if (isPendingType(calleeSymbol.ty)) {
                         a.dispatchError('variable is not assigned yet.', node.callee);
-                        return invalidType;
+                        return badType;
                     }
 
-                    if (isSpecialType(calleeSymbol.ty, 'invalid')) {
-                        return invalidType;
+                    if (!isValidType(calleeSymbol.ty)) {
+                        return badType;
                     }
 
                     // expect function
                     if (calleeSymbol.ty.kind != 'FunctionType') {
                         a.dispatchError(`type mismatched. expected function, found \`${getTypeString(calleeSymbol.ty)}\``, node.callee);
-                        return invalidType;
+                        return badType;
                     }
 
                     calleeTy = calleeSymbol.ty;
@@ -695,14 +691,11 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 }
             }
 
-            if (isNamedType(calleeTy)) {
-                if (isSpecialType(calleeTy, 'invalid') || isSpecialType(calleeTy, 'unresolved')) {
-                    if (isSpecialType(calleeTy, 'unresolved')) {
-                        a.dispatchError('callee is not assigned yet.', node.callee);
-                    }
-                    return invalidType;
+            if (!isValidType(calleeTy)) {
+                if (isPendingType(calleeTy)) {
+                    a.dispatchError('callee is not assigned yet.', node.callee);
                 }
-                throw new UguisuError('function type expected');
+                return badType;
             }
 
             let isCorrectArgCount = true;
@@ -715,23 +708,20 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 for (let i = 0; i < calleeTy.fnParamTypes.length; i++) {
                     let argTy = analyzeExpr(node.args[i], allowJump, funcSymbol, a);
 
-                    if (isSpecialType(argTy, 'unresolved')) {
+                    if (isPendingType(argTy)) {
                         a.dispatchError('variable is not assigned yet.', node.args[i]);
-                        argTy = invalidType;
+                        argTy = badType;
                     }
 
                     // if the argument returns nothing
-                    if (compareType(argTy, voidType) == 'compatible') {
+                    if (isSpecialType(argTy, 'void')) {
                         a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.args[i]);
-                        argTy = invalidType;
+                        argTy = badType;
                     }
 
                     const paramTy = calleeTy.fnParamTypes[i];
 
-                    if (isSpecialType(argTy, 'unresolved') || isSpecialType(argTy, 'invalid')) {
-                        continue;
-                    }
-                    if (isSpecialType(paramTy, 'unresolved') || isSpecialType(paramTy, 'invalid')) {
+                    if (!isValidType(argTy) || !isValidType(paramTy)) {
                         continue;
                     }
 
@@ -749,41 +739,41 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             let rightTy = analyzeExpr(node.right, allowJump, funcSymbol, a);
 
             // check assigned
-            if (isSpecialType(leftTy, 'unresolved')) {
+            if (isPendingType(leftTy)) {
                 a.dispatchError('variable is not assigned yet.', node.left);
-                leftTy = invalidType;
+                leftTy = badType;
             }
-            if (isSpecialType(rightTy, 'unresolved')) {
+            if (isPendingType(rightTy)) {
                 a.dispatchError('variable is not assigned yet.', node.right);
-                rightTy = invalidType;
+                rightTy = badType;
             }
 
             // if the expr returns nothing
-            if (compareType(leftTy, voidType) == 'compatible') {
+            if (isSpecialType(leftTy, 'void')) {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.left);
-                leftTy = invalidType;
+                leftTy = badType;
             }
-            if (compareType(rightTy, voidType) == 'compatible') {
+            if (isSpecialType(rightTy, 'void')) {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.right);
-                rightTy = invalidType;
+                rightTy = badType;
             }
 
-            if (isSpecialType(leftTy, 'invalid') || isSpecialType(rightTy, 'invalid')) {
-                return invalidType;
+            if (!isValidType(leftTy) || !isValidType(rightTy)) {
+                return badType;
             }
 
             if (isLogicalBinaryOperator(node.operator)) {
                 // Logical Operation
                 if (!checkIfLogicalOpsSupported(leftTy, node.left, a)) {
-                    return invalidType;
+                    return badType;
                 }
                 if (!checkIfLogicalOpsSupported(rightTy, node.right, a)) {
-                    return invalidType;
+                    return badType;
                 }
 
                 if (compareType(rightTy, leftTy) == 'incompatible') {
                     dispatchTypeError(rightTy, leftTy, node.right, a);
-                    return invalidType;
+                    return badType;
                 }
 
                 a.symbolTable.set(node, createExprSymbol(leftTy));
@@ -792,7 +782,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 // Equivalent Operation
                 if (compareType(rightTy, leftTy) == 'incompatible') {
                     dispatchTypeError(rightTy, leftTy, node.right, a);
-                    return invalidType;
+                    return badType;
                 }
 
                 a.symbolTable.set(node, createExprSymbol(boolType));
@@ -804,7 +794,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
 
                 if (compareType(rightTy, leftTy) == 'incompatible') {
                     dispatchTypeError(rightTy, leftTy, node.right, a);
-                    return invalidType;
+                    return badType;
                 }
 
                 a.symbolTable.set(node, createExprSymbol(boolType));
@@ -816,7 +806,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
 
                 if (compareType(rightTy, leftTy) == 'incompatible') {
                     dispatchTypeError(rightTy, leftTy, node.right, a);
-                    return invalidType;
+                    return badType;
                 }
 
                 a.symbolTable.set(node, createExprSymbol(leftTy));
@@ -828,24 +818,24 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             let ty = analyzeExpr(node.expr, allowJump, funcSymbol, a);
 
             // check assigned
-            if (isSpecialType(ty, 'unresolved')) {
+            if (isPendingType(ty)) {
                 a.dispatchError('variable is not assigned yet.', node.expr);
-                ty = invalidType;
+                ty = badType;
             }
 
             // if the expr returns nothing
-            if (compareType(ty, voidType) == 'compatible') {
+            if (isSpecialType(ty, 'void')) {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
-                ty = invalidType;
+                ty = badType;
             }
 
-            if (isSpecialType(ty, 'invalid')) {
-                return invalidType;
+            if (!isValidType(ty)) {
+                return badType;
             }
 
             // Logical Operation
             if (!checkIfLogicalOpsSupported(ty, node, a)) {
-                return invalidType;
+                return badType;
             }
             a.symbolTable.set(node, createExprSymbol(ty));
             return ty;
@@ -855,13 +845,13 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             const symbol = a.env.get(node.name);
             if (symbol == null) {
                 a.dispatchError('unknown identifier.', node);
-                return invalidType;
+                return badType;
             }
 
             // expect struct symbol
             if (symbol.kind != 'StructSymbol') {
                 a.dispatchError('struct expected.', node);
-                return invalidType;
+                return badType;
             }
 
             const defined: string[] = [];
@@ -878,9 +868,9 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 // TODO: check pending?
 
                 // if the expr returns nothing
-                if (compareType(bodyTy, voidType) == 'compatible') {
+                if (isSpecialType(bodyTy, 'void')) {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, fieldNode.body);
-                    bodyTy = invalidType;
+                    bodyTy = badType;
                 }
 
                 // get field symbol
@@ -923,9 +913,9 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             const elseTy = analyzeBlock(node.elseBlock, allowJump, funcSymbol, a);
 
             // if the condition expr returned nothing
-            if (compareType(condTy, voidType) == 'compatible') {
+            if (isSpecialType(condTy, 'void')) {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.cond);
-                condTy = invalidType;
+                condTy = badType;
             }
 
             // check cond
@@ -942,7 +932,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             }
             if (compareType(elseTy, thenTy) == 'incompatible') {
                 dispatchTypeError(elseTy, thenTy, node, a);
-                return invalidType;
+                return badType;
             }
 
             return thenTy;
