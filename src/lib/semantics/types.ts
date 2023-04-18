@@ -41,7 +41,7 @@ export class TypeEnvItem {
 }
 
 export type Type = ValidType | BadType | PendingType;
-export type ValidType = NamedType | FunctionType;
+export type ValidType = AnyType | VoidType | NeverType | NamedType | FunctionType;
 
 export function isValidType(ty: Type): ty is ValidType {
     return !isPendingType(ty) && !isBadType(ty);
@@ -53,6 +53,18 @@ export function isBadType(ty: Type): ty is BadType {
 
 export function isPendingType(ty: Type): ty is PendingType {
     return ty.kind == 'PendingType';
+}
+
+export function isAnyType(ty: Type): ty is AnyType {
+    return ty.kind == 'AnyType';
+}
+
+export function isVoidType(ty: Type): ty is VoidType {
+    return ty.kind == 'VoidType';
+}
+
+export function isNeverType(ty: Type): ty is NeverType {
+    return ty.kind == 'NeverType';
 }
 
 export class BadType {
@@ -70,6 +82,30 @@ export class PendingType {
     }
 }
 export const pendingType = new PendingType();
+
+export class AnyType {
+    kind: 'AnyType';
+    constructor() {
+        this.kind = 'AnyType';
+    }
+}
+export const anyType = new AnyType();
+
+export class VoidType {
+    kind: 'VoidType';
+    constructor() {
+        this.kind = 'VoidType';
+    }
+}
+export const voidType = new VoidType();
+
+export class NeverType {
+    kind: 'NeverType';
+    constructor() {
+        this.kind = 'NeverType';
+    }
+}
+export const neverType = new NeverType();
 
 // Name<TypeParam1, TypeParam2, ...>
 export class NamedType {
@@ -110,18 +146,6 @@ export function dispatchTypeError(actual: Type, expected: Type, errorNode: AstNo
     a.dispatchError(`type mismatched. expected \`${getTypeString(expected)}\`, found \`${getTypeString(actual)}\``, errorNode);
 }
 
-// special types
-
-export const anyType = new NamedType('any');
-export const voidType = new NamedType('void');
-export const neverType = new NamedType('never');
-
-export type SpecialTypeName = 'any' | 'void' | 'never';
-
-export function isSpecialType(x: Type, name: SpecialTypeName): boolean {
-    return (isNamedType(x) && x.name == name && x.typeParams == null);
-}
-
 // builtin types
 export const numberType = new NamedType('number');
 export const boolType = new NamedType('bool');
@@ -140,8 +164,8 @@ export function compareType(x: Type, y: Type): TypeCompatibility {
     if (isBadType(x) || isBadType(y)) {
         return 'unknown';
     }
-    if (isSpecialType(x, 'any') || isSpecialType(y, 'any')) {
-        if (isSpecialType(x, 'void') || isSpecialType(y, 'void')) {
+    if (isAnyType(x) || isAnyType(y)) {
+        if (isVoidType(x) || isVoidType(y)) {
             return 'incompatible';
         } else {
             return 'compatible';

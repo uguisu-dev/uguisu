@@ -41,10 +41,12 @@ import {
     FunctionType,
     getTypeFromSymbol,
     getTypeString,
+    isAnyType,
     isBadType,
+    isNeverType,
     isPendingType,
-    isSpecialType,
     isValidType,
+    isVoidType,
     NamedType,
     neverType,
     numberType,
@@ -265,7 +267,7 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
             const ty = analyzeBlock(node.body, false, symbol, a, beforeAnalyzeBlock);
 
             // check return type
-            if (!isSpecialType(ty, 'never')) {
+            if (!isNeverType(ty)) {
                 if (compareType(ty, symbol.ty.fnReturnType) == 'incompatible') {
                     dispatchTypeError(ty, symbol.ty.fnReturnType, node, a);
                 }
@@ -370,12 +372,12 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
                         throw new UguisuError('not implemented yet.'); // TODO
                     }
 
-                    if (isSpecialType(targetTy, 'any')) {
+                    if (isAnyType(targetTy)) {
                         // TODO: Ensure that the type `any` is handled correctly.
                         return undefined;
                     }
 
-                    if (isSpecialType(targetTy, 'void')) {
+                    if (isVoidType(targetTy)) {
                         a.dispatchError('invalid field access');
                         return undefined;
                     }
@@ -460,7 +462,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                 let ty = analyzeExpr(node.expr, allowJump, funcSymbol, a);
 
                 // if the expr returned nothing
-                if (isSpecialType(ty, 'void')) {
+                if (isVoidType(ty)) {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
                     ty = badType;
                 }
@@ -514,7 +516,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
                 let bodyTy = analyzeExpr(node.body, allowJump, funcSymbol, a);
 
                 // if the initializer returns nothing
-                if (isSpecialType(bodyTy, 'void')) {
+                if (isVoidType(bodyTy)) {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
                     bodyTy = badType;
                 }
@@ -543,7 +545,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
             let bodyTy = analyzeExpr(node.body, allowJump, funcSymbol, a);
 
             // if the body returns nothing
-            if (isSpecialType(bodyTy, 'void')) {
+            if (isVoidType(bodyTy)) {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.body);
                 bodyTy = badType;
             }
@@ -714,7 +716,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                     }
 
                     // if the argument returns nothing
-                    if (isSpecialType(argTy, 'void')) {
+                    if (isVoidType(argTy)) {
                         a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.args[i]);
                         argTy = badType;
                     }
@@ -749,11 +751,11 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             }
 
             // if the expr returns nothing
-            if (isSpecialType(leftTy, 'void')) {
+            if (isVoidType(leftTy)) {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.left);
                 leftTy = badType;
             }
-            if (isSpecialType(rightTy, 'void')) {
+            if (isVoidType(rightTy)) {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.right);
                 rightTy = badType;
             }
@@ -824,7 +826,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             }
 
             // if the expr returns nothing
-            if (isSpecialType(ty, 'void')) {
+            if (isVoidType(ty)) {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.expr);
                 ty = badType;
             }
@@ -868,7 +870,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
                 // TODO: check pending?
 
                 // if the expr returns nothing
-                if (isSpecialType(bodyTy, 'void')) {
+                if (isVoidType(bodyTy)) {
                     a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, fieldNode.body);
                     bodyTy = badType;
                 }
@@ -913,7 +915,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             const elseTy = analyzeBlock(node.elseBlock, allowJump, funcSymbol, a);
 
             // if the condition expr returned nothing
-            if (isSpecialType(condTy, 'void')) {
+            if (isVoidType(condTy)) {
                 a.dispatchError(`A function call that does not return a value cannot be used as an expression.`, node.cond);
                 condTy = badType;
             }
@@ -924,10 +926,10 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
             }
 
             // check blocks
-            if (!isSpecialType(thenTy, 'never') && isSpecialType(elseTy, 'never')) {
+            if (!isNeverType(thenTy) && isNeverType(elseTy)) {
                 return thenTy;
             }
-            if (isSpecialType(thenTy, 'never') && !isSpecialType(elseTy, 'never')) {
+            if (isNeverType(thenTy) && !isNeverType(elseTy)) {
                 return elseTy;
             }
             if (compareType(elseTy, thenTy) == 'incompatible') {
