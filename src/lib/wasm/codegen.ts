@@ -1,6 +1,6 @@
 import Wasm from 'binaryen';
 import { UguisuError } from '../misc/errors.js';
-import { Symbol } from '../semantics/tools.js';
+import { Symbol } from '../semantics/symbols.js';
 import { boolType, compareType, FunctionType, numberType, Type, voidType } from '../semantics/types.js';
 import { AstNode, ExprNode, FileNode, Identifier, SourceFile, StepNode } from '../syntax/tools.js';
 

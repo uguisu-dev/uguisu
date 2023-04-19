@@ -1,6 +1,7 @@
-import { UguisuError } from '../misc/errors';
-import { AstNode, TyLabel } from '../syntax/tools';
-import { AnalyzeContext, Symbol } from './tools';
+import { UguisuError } from '../misc/errors.js';
+import { AstNode, TyLabel } from '../syntax/tools.js';
+import { SymbolEnv, AnalyzeContext } from './tools.js';
+import { Symbol } from './symbols.js';
 
 export class TypeEnv {
     private items: TypeEnvItem[];
@@ -235,8 +236,8 @@ export function compareType(x: Type, y: Type): TypeCompatibility {
     }
 }
 
-export function dispatchTypeError(actual: Type, expected: Type, errorNode: AstNode, a: AnalyzeContext) {
-    a.dispatchError(`type mismatched. expected \`${getTypeString(expected)}\`, found \`${getTypeString(actual)}\``, errorNode);
+export function dispatchTypeError(actual: Type, expected: Type, errorNode: AstNode, ctx: AnalyzeContext) {
+    ctx.dispatchError(`type mismatched. expected \`${getTypeString(expected)}\`, found \`${getTypeString(actual)}\``, errorNode);
 }
 
 export function getTypeString(ty: Type): string {
@@ -270,7 +271,7 @@ export function getTypeString(ty: Type): string {
     }
 }
 
-export function getTypeFromSymbol(symbol: Symbol, errorNode: AstNode, a: AnalyzeContext): Type {
+export function getTypeFromSymbol(symbol: Symbol): Type {
     switch (symbol.kind) {
         case 'FnSymbol':
         case 'NativeFnSymbol': {
@@ -288,7 +289,7 @@ export function getTypeFromSymbol(symbol: Symbol, errorNode: AstNode, a: Analyze
     }
 }
 
-export function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
+export function resolveTyLabel(node: TyLabel, ctx: AnalyzeContext, env: SymbolEnv): Type {
     // builtin type
     switch (node.name) {
         case 'number':
@@ -301,9 +302,9 @@ export function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
     }
 
     // try get user defined type
-    const symbol = a.env.get(node.name);
+    const symbol = env.get(node.name);
     if (symbol == null) {
-        a.dispatchError('unknown type name.', node);
+        ctx.dispatchError('unknown type name.', node);
         return invalidType;
     }
 
@@ -315,7 +316,7 @@ export function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
         case 'NativeFnSymbol':
         case 'VariableSymbol':
         case 'ExprSymbol': {
-            a.dispatchError('invalid type name.', node);
+            ctx.dispatchError('invalid type name.', node);
             return invalidType;
         }
     }
@@ -324,33 +325,33 @@ export function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
 /**
  * Check if it can be used as an index value.
 */
-export function checkIfIndexSupported(x: Type, errorNode: AstNode, a: AnalyzeContext): boolean {
+export function checkIfIndexSupported(x: Type, errorNode: AstNode, ctx: AnalyzeContext): boolean {
     if (compareType(x, numberType) == 'incompatible') {
-        dispatchTypeError(x, numberType, errorNode, a);
+        dispatchTypeError(x, numberType, errorNode, ctx);
         return false;
     }
     return true;
 }
 
-export function checkIfLogicalOpsSupported(x: Type, errorNode: AstNode, a: AnalyzeContext): boolean {
+export function checkIfLogicalOpsSupported(x: Type, errorNode: AstNode, ctx: AnalyzeContext): boolean {
     if (compareType(x, boolType) == 'incompatible') {
-        dispatchTypeError(x, boolType, errorNode, a);
+        dispatchTypeError(x, boolType, errorNode, ctx);
         return false;
     }
     return true;
 }
 
-export function checkIfOrderOpsSupported(x: Type, errorNode: AstNode, a: AnalyzeContext): boolean {
+export function checkIfOrderOpsSupported(x: Type, errorNode: AstNode, ctx: AnalyzeContext): boolean {
     if (compareType(x, numberType) == 'incompatible') {
-        dispatchTypeError(x, numberType, errorNode, a);
+        dispatchTypeError(x, numberType, errorNode, ctx);
         return false;
     }
     return true;
 }
 
-export function checkIfArithOpsSupported(x: Type, errorNode: AstNode, a: AnalyzeContext): boolean {
+export function checkIfArithOpsSupported(x: Type, errorNode: AstNode, ctx: AnalyzeContext): boolean {
     if (compareType(x, numberType) == 'incompatible') {
-        dispatchTypeError(x, numberType, errorNode, a);
+        dispatchTypeError(x, numberType, errorNode, ctx);
         return false;
     }
     return true;

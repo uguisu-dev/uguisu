@@ -6,7 +6,7 @@ import { getDefaultProjectInfo, parseProjectFile, ProjectInfo } from './project-
 import { run } from './running/run.js';
 import { RunningEnv } from './running/tools.js';
 import { analyze } from './semantics/analyze.js';
-import { AnalysisEnv } from './semantics/tools.js';
+import { SymbolEnv } from './semantics/tools.js';
 import { TypeEnv } from './semantics/types.js';
 import { parse } from './syntax/parse.js';
 
@@ -96,7 +96,7 @@ export class Uguisu {
 
         // static analysis
         if (tasks.check) {
-            const analysisEnv = new AnalysisEnv();
+            const analysisEnv = new SymbolEnv();
             const typeEnv = new TypeEnv();
             const symbolTable = new Map();
             const result = analyze(sourceFile, analysisEnv, typeEnv, symbolTable, projectInfo);

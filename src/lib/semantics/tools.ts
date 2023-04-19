@@ -1,11 +1,9 @@
 import { UguisuError } from '../misc/errors.js';
 import { ProjectInfo } from '../project-file.js';
 import { AstNode } from '../syntax/tools.js';
-import { InvalidType, FunctionType, UnresolvedType, Type, TypeEnv } from './types.js';
+import { Symbol } from './symbols.js';
 
 export class AnalyzeContext {
-    env: AnalysisEnv;
-    typeEnv: TypeEnv;
     symbolTable: Map<AstNode, Symbol>;
     projectInfo: ProjectInfo;
     warn: string[];
@@ -13,9 +11,7 @@ export class AnalyzeContext {
     // flags
     isUsedAnyType: boolean;
 
-    constructor(env: AnalysisEnv, typeEnv: TypeEnv, symbolTable: Map<AstNode, Symbol>, projectInfo: ProjectInfo) {
-        this.env = env;
-        this.typeEnv = typeEnv;
+    constructor(symbolTable: Map<AstNode, Symbol>, projectInfo: ProjectInfo) {
         this.symbolTable = symbolTable;
         this.projectInfo = projectInfo;
         this.warn = [];
@@ -40,10 +36,10 @@ export class AnalyzeContext {
     }
 }
 
-export class AnalysisEnv {
+export class SymbolEnv {
     private layers: Map<string, Symbol>[];
 
-    constructor(baseEnv?: AnalysisEnv) {
+    constructor(baseEnv?: SymbolEnv) {
         if (baseEnv != null) {
             this.layers = [...baseEnv.layers];
         } else {
@@ -76,64 +72,3 @@ export class AnalysisEnv {
         this.layers.shift();
     }
 }
-
-// symbols
-
-export type Symbol = FnSymbol | NativeFnSymbol | StructSymbol | VariableSymbol | ExprSymbol;
-
-export type FnSymbol = {
-    kind: 'FnSymbol',
-    params: { name: string }[],
-    ty: FunctionType | InvalidType | UnresolvedType,
-    /** for wasm */
-    vars: FnVar[],
-};
-
-export function createFunctionSymbol(params: { name: string }[], ty: FunctionType | InvalidType | UnresolvedType, vars: FnVar[]): FnSymbol {
-    return { kind: 'FnSymbol', params, ty, vars };
-}
-
-export type FnVar = { name: string, isParam: boolean, ty: FunctionType | InvalidType | UnresolvedType };
-
-export type NativeFnSymbol = {
-    kind: 'NativeFnSymbol',
-    params: { name: string }[],
-    ty: FunctionType | InvalidType | UnresolvedType,
-};
-
-export function createNativeFnSymbol(params: { name: string }[], ty: FunctionType | InvalidType | UnresolvedType): NativeFnSymbol {
-    return { kind: 'NativeFnSymbol', params, ty };
-}
-
-export type StructSymbol = {
-    kind: 'StructSymbol',
-    name: string,
-    fields: Map<string, Symbol>,
-};
-
-export function createStructSymbol(name: string, fields: Map<string, Symbol>): StructSymbol {
-    return { kind: 'StructSymbol', name, fields };
-}
-
-export type VariableSymbol = {
-    kind: 'VariableSymbol',
-    ty: Type,
-    isDefined: boolean,
-};
-
-export function createVariableSymbol(ty: Type, isDefined: boolean): VariableSymbol {
-    return { kind: 'VariableSymbol', ty, isDefined };
-}
-
-export type ExprSymbol = {
-    kind: 'ExprSymbol',
-    ty: Type,
-};
-
-export function createExprSymbol(ty: Type): ExprSymbol {
-    return { kind: 'ExprSymbol', ty };
-}
-
-// statement result
-
-export type StatementResult = 'invalid' | 'ok' | 'return' | 'break';
