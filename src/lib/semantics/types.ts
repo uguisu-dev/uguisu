@@ -40,16 +40,22 @@ export class TypeEnvItem {
     }
 }
 
-export type Type = CompleteType | IncompleteType;
+export type Type = IncompleteType | CompleteType;
+
 export type IncompleteType = InvalidType | UnresolvedType;
+
 export type CompleteType = AnyType | VoidType | NeverType | NamedType | FunctionType;
+
+export function isIncompleteType(ty: Type): ty is IncompleteType {
+    return isInvalidType(ty) || isUnresolvedType(ty);
+}
 
 export function isCompleteType(ty: Type): ty is CompleteType {
     return !isIncompleteType(ty);
 }
 
-export function isIncompleteType(ty: Type): ty is IncompleteType {
-    return ty.kind == 'InvalidType' || ty.kind == 'UnresolvedType';
+export function isInvalidType(ty: Type): ty is InvalidType {
+    return ty.kind == 'InvalidType';
 }
 
 export function isUnresolvedType(ty: Type): ty is UnresolvedType {
@@ -128,6 +134,12 @@ export class NamedType {
     }
 }
 
+export const numberType = new NamedType('number');
+export const boolType = new NamedType('bool');
+export const charType = new NamedType('char');
+export const stringType = new NamedType('string');
+export const arrayType = new NamedType('array');
+
 // when the isMethod is true:
 //   fn<TypeParam1, TypeParam2, ...>(this, FnParamType1, FnParamType2, ...): FnReturnType
 // when the isMethod is false:
@@ -146,17 +158,6 @@ export class FunctionType {
         this.fnReturnType = opts.fnReturnType;
     }
 }
-
-export function dispatchTypeError(actual: Type, expected: Type, errorNode: AstNode, a: AnalyzeContext) {
-    a.dispatchError(`type mismatched. expected \`${getTypeString(expected)}\`, found \`${getTypeString(actual)}\``, errorNode);
-}
-
-// builtin types
-export const numberType = new NamedType('number');
-export const boolType = new NamedType('bool');
-export const charType = new NamedType('char');
-export const stringType = new NamedType('string');
-export const arrayType = new NamedType('array');
 
 // compare types
 
@@ -232,6 +233,10 @@ export function compareType(x: Type, y: Type): TypeCompatibility {
             return 'compatible';
         }
     }
+}
+
+export function dispatchTypeError(actual: Type, expected: Type, errorNode: AstNode, a: AnalyzeContext) {
+    a.dispatchError(`type mismatched. expected \`${getTypeString(expected)}\`, found \`${getTypeString(actual)}\``, errorNode);
 }
 
 export function getTypeString(ty: Type): string {
