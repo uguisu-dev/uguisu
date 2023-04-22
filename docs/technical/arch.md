@@ -21,27 +21,32 @@ out
 
 ----
 
-[Collect]
+[CollectDecls]
 
 in
 - SyntaxTree
 
 out
-- SymbolTable (Declaration SyntaxNode -> Symbol)
+- DeclTable (DeclarationNode -> Symbol)
 
 ----
 
-[Resolve]
+[ResolveNames]
 
 in
 - SyntaxTree
-- SymbolTable
+- DeclTable
 
 out
-- SemanticTree (Tree of SemanticNode)
+- NameTable (ReferenceNode -> Symbol)
 
 ----
 
 [TypeCheck]
+
+in
+- SyntaxTree
+- DeclTable
+- NameTable
 
 ```
