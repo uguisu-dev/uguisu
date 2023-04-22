@@ -26,7 +26,7 @@ export class TypeEnv {
     }
 }
 
-export class TypeEnvItem {
+export class TypeSymbol {
     type: Type;
     private implemented: Map<string, Type>;
     constructor(type: Type) {
