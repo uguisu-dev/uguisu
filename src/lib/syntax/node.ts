@@ -13,6 +13,10 @@ export type FileNode =
     | FunctionDecl
     | StructDecl;
 
+export type StepNode =
+    | StatementNode
+    | ExprNode;
+
 export type StatementNode =
     | VariableDecl
     | AssignStatement
@@ -20,10 +24,6 @@ export type StatementNode =
     | LoopStatement
     | ReturnStatement
     | BreakStatement;
-
-export type StepNode =
-    | StatementNode
-    | ExprNode;
 
 export type ExprNode =
     | NumberLiteral

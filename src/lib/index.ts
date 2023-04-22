@@ -6,7 +6,10 @@ import { getDefaultProjectInfo, parseProjectFile, ProjectInfo } from './project-
 import { RunningEnv } from './running/common.js';
 import { run } from './running/run.js';
 import { analyze } from './semantics/analyze.js';
+import { checkTypes } from './semantics/check-types.js';
+import { collectDecls } from './semantics/collect-decls.js';
 import { AnalysisEnv } from './semantics/common.js';
+import { resolveNames } from './semantics/resolve-names.js';
 import { parse } from './syntax/parse.js';
 
 export {
@@ -95,6 +98,10 @@ export class Uguisu {
 
         // static analysis
         if (tasks.check) {
+            const declTable = collectDecls(sourceFile);
+            const nameTable = resolveNames(sourceFile, declTable);
+            checkTypes(sourceFile, declTable, nameTable);
+            return;
             const analysisEnv = new AnalysisEnv();
             const symbolTable = new Map();
             const result = analyze(sourceFile, analysisEnv, symbolTable, projectInfo);
