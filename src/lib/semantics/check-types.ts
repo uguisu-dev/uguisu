@@ -11,6 +11,7 @@ export function checkTypes(fileNode: SourceFile, declTable: Map<SyntaxNode, Symb
 }
 
 function visitNode(node: SyntaxNode, declTable: Map<SyntaxNode, Symbol>, nameTable: Map<SyntaxNode, Symbol>) {
+    //console.log(inspect(node, { depth: 10 }));
     switch (node.kind) {
     }
 }

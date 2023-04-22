@@ -4,7 +4,7 @@ import { Symbol } from './symbol.js';
 /**
  * resolve name nodes, and make NameTable.
 */
-export function resolveName(fileNode: SourceFile, declTable: Map<SyntaxNode, Symbol>): Map<SyntaxNode, Symbol> {
+export function resolveNames(fileNode: SourceFile, declTable: Map<SyntaxNode, Symbol>): Map<SyntaxNode, Symbol> {
     const nameTable = new Map<SyntaxNode, Symbol>();
 
     for (const node of fileNode.decls) {
@@ -15,6 +15,7 @@ export function resolveName(fileNode: SourceFile, declTable: Map<SyntaxNode, Sym
 }
 
 function visitNode(node: SyntaxNode, declTable: Map<SyntaxNode, Symbol>, nameTable: Map<SyntaxNode, Symbol>) {
+    //console.log(inspect(node, { depth: 10 }));
     switch (node.kind) {
     }
 }
