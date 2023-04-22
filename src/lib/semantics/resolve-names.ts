@@ -7,5 +7,14 @@ import { Symbol } from './symbol.js';
 export function resolveName(fileNode: SourceFile, declTable: Map<SyntaxNode, Symbol>): Map<SyntaxNode, Symbol> {
     const nameTable = new Map<SyntaxNode, Symbol>();
 
+    for (const node of fileNode.decls) {
+        visitNode(node, declTable, nameTable);
+    }
+
     return nameTable;
+}
+
+function visitNode(node: SyntaxNode, declTable: Map<SyntaxNode, Symbol>, nameTable: Map<SyntaxNode, Symbol>) {
+    switch (node.kind) {
+    }
 }
