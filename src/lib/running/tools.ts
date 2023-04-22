@@ -2,7 +2,7 @@ import { UguisuError } from '../misc/errors.js';
 import { UguisuOptions } from '../misc/options.js';
 import { Trace } from '../misc/trace.js';
 import { ProjectInfo } from '../project-file.js';
-import { FunctionDecl } from '../syntax/tools.js';
+import { FunctionDecl } from '../syntax/node.js';
 
 export class RunContext {
     env: RunningEnv;

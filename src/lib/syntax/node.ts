@@ -1,6 +1,6 @@
 export type Pos = [number, number];
 
-export type AstNode
+export type SyntaxNode
     = SourceFile
     | FileNode
     | StepNode
@@ -43,7 +43,7 @@ export type ReferenceExpr
     | FieldAccess
     | IndexAccess;
 
-export type NodeOf<T extends AstNode['kind']>
+export type SyntaxNodeOf<T extends SyntaxNode['kind']>
     = T extends 'SourceFile' ? SourceFile
     : T extends 'FunctionDecl' ? FunctionDecl
     : T extends 'FnDeclParam' ? FnDeclParam
@@ -73,11 +73,11 @@ export type NodeOf<T extends AstNode['kind']>
     : T extends 'IndexAccess' ? IndexAccess
     : never;
 
-const exprNodeKind: AstNode['kind'][] = [
+const exprNodeKind: SyntaxNode['kind'][] = [
     'NumberLiteral', 'BoolLiteral', 'CharLiteral', 'StringLiteral', 'BinaryOp', 'UnaryOp', 'Identifier', 'Call', 'StructExpr',
     'FieldAccess', 'ArrayNode', 'IndexAccess', 'IfExpr',
 ];
-export function isExprNode(node: AstNode): node is ExprNode {
+export function isExprNode(node: SyntaxNode): node is ExprNode {
     return exprNodeKind.includes(node.kind);
 }
 

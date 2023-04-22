@@ -6,7 +6,7 @@ import { getDefaultProjectInfo, parseProjectFile, ProjectInfo } from './project-
 import { run } from './running/run.js';
 import { RunningEnv } from './running/tools.js';
 import { analyze } from './semantics/analyze.js';
-import { AnalysisEnv } from './semantics/tools.js';
+import { AnalysisEnv } from './semantics/common.js';
 import { parse } from './syntax/parse.js';
 
 export {

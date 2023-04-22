@@ -1,5 +1,5 @@
 import { UguisuError } from '../misc/errors';
-import { ArithmeticOperator, EquivalentOperator, LogicalBinaryOperator, OrderingOperator } from '../syntax/tools';
+import { ArithmeticOperator, EquivalentOperator, LogicalBinaryOperator, OrderingOperator } from '../syntax/node';
 import {
     assertValue,
     BoolValue,

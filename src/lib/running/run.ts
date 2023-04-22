@@ -11,8 +11,13 @@ import {
     SourceFile,
     StatementNode,
     StepNode
-} from '../syntax/tools.js';
-import { evalArithmeticBinaryOp, evalEquivalentBinaryOp, evalLogicalBinaryOp, evalOrderingBinaryOp } from './binary-expr.js';
+} from '../syntax/node.js';
+import {
+    evalArithmeticBinaryOp,
+    evalEquivalentBinaryOp,
+    evalLogicalBinaryOp,
+    evalOrderingBinaryOp
+} from './binary-expr.js';
 import * as builtins from './builtins.js';
 import {
     assertValue,

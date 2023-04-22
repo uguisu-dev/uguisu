@@ -2,7 +2,7 @@ import charRegex from 'char-regex';
 import { UguisuError } from '../misc/errors.js';
 import { ProjectInfo } from '../project-file.js';
 import {
-    AstNode,
+    SyntaxNode,
     ExprNode,
     FileNode,
     isEquivalentOperator,
@@ -14,25 +14,27 @@ import {
     StatementNode,
     StepNode,
     TyLabel
-} from '../syntax/tools.js';
+} from '../syntax/node.js';
 import * as builtins from './builtins.js';
 import {
-    AnalysisEnv,
-    AnalyzeContext,
+    createExprSymbol,
+    createFunctionSymbol,
+    createStructSymbol,
+    createVariableSymbol,
+    FnSymbol,
+    Symbol
+} from './symbol.js';
+import { AnalysisEnv, AnalyzeContext } from './common.js';
+import {
     anyType,
     arrayType,
     badType,
     boolType,
     charType,
     compareType,
-    createExprSymbol,
-    createFunctionSymbol,
     createFunctionType,
     createNamedType,
-    createStructSymbol,
-    createVariableSymbol,
     dispatchTypeError,
-    FnSymbol,
     getTypeString,
     isNeverType,
     isPendingType,
@@ -40,12 +42,12 @@ import {
     neverType,
     numberType,
     pendingType,
-    StatementResult,
     stringType,
-    Symbol,
     Type,
     voidType
-} from './tools.js';
+} from './type.js';
+
+type StatementResult = 'invalid' | 'ok' | 'return' | 'break';
 
 export type AnalyzeResult = {
     success: boolean,
@@ -56,7 +58,7 @@ export type AnalyzeResult = {
 export function analyze(
     source: SourceFile,
     env: AnalysisEnv,
-    symbolTable: Map<AstNode, Symbol>,
+    symbolTable: Map<SyntaxNode, Symbol>,
     projectInfo: ProjectInfo
 ): AnalyzeResult {
     const a = new AnalyzeContext(env, symbolTable, projectInfo);
@@ -918,7 +920,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
     throw new UguisuError('unexpected node');
 }
 
-function getTypeFromSymbol(symbol: Symbol, errorNode: AstNode, a: AnalyzeContext): Type {
+function getTypeFromSymbol(symbol: Symbol, errorNode: SyntaxNode, a: AnalyzeContext): Type {
     switch (symbol.kind) {
         case 'FnSymbol':
         case 'NativeFnSymbol': {

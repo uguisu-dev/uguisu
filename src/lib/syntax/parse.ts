@@ -47,7 +47,7 @@ import {
     StructExprField,
     TyLabel,
     VariableDecl
-} from './tools.js';
+} from './node.js';
 
 const trace = Trace.getDefault().createChild(false);
 
