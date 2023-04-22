@@ -1,9 +1,18 @@
 import { SyntaxNode } from '../syntax/node.js';
 import { AnalyzeContext } from './common.js';
 
-export type Type = ValidType | BadType | PendingType;
+export type Type =
+    | ValidType
+    | BadType
+    | PendingType;
 
-export type ValidType = AnyType | VoidType | NeverType | NamedType | FunctionType | GenericType;
+export type ValidType =
+    | AnyType
+    | VoidType
+    | NeverType
+    | NamedType
+    | FunctionType
+    | GenericType;
 
 export function isValidType(ty: Type): ty is ValidType {
     return !isBadType(ty) && !isPendingType(ty);

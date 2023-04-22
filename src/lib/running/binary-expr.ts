@@ -1,13 +1,12 @@
-import { UguisuError } from '../misc/errors';
-import { ArithmeticOperator, EquivalentOperator, LogicalBinaryOperator, OrderingOperator } from '../syntax/node';
+import { UguisuError } from '../misc/errors.js';
+import { ArithmeticOperator, EquivalentOperator, LogicalBinaryOperator, OrderingOperator } from '../syntax/node.js';
+import { createOk, EvalResult } from './result.js';
 import {
     assertValue,
     BoolValue,
     CharValue,
     createBoolValue,
     createNumberValue,
-    createOk,
-    EvalResult,
     FunctionValue,
     getTypeName,
     getValueKind,
@@ -15,7 +14,7 @@ import {
     NumberValue,
     StringValue,
     Value
-} from './tools';
+} from './value.js';
 
 export function evalLogicalBinaryOp(op: LogicalBinaryOperator, left: Value, right: Value): EvalResult<BoolValue> {
     assertValue(left, 'BoolValue');

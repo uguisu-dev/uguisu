@@ -14,7 +14,12 @@ const spCharTable = new Map([
 
 export type LiteralValue = { kind: LiteralKind, value: string };
 
-export type LiteralKind = 'none' | 'number' | 'char' | 'string' | 'bool';
+export type LiteralKind =
+    | 'none'
+    | 'number'
+    | 'char'
+    | 'string'
+    | 'bool';
 
 export enum Token {
     EOF,

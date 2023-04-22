@@ -1,7 +1,7 @@
 export type Pos = [number, number];
 
-export type SyntaxNode
-    = SourceFile
+export type SyntaxNode =
+    | SourceFile
     | FileNode
     | StepNode
     | TyLabel
@@ -9,22 +9,24 @@ export type SyntaxNode
     | StructDeclField
     | StructExprField;
 
-export type FileNode = FunctionDecl | StructDecl;
+export type FileNode =
+    | FunctionDecl
+    | StructDecl;
 
-export type StatementNode
-    = VariableDecl
+export type StatementNode =
+    | VariableDecl
     | AssignStatement
     | ExprStatement
     | LoopStatement
     | ReturnStatement
     | BreakStatement;
 
-export type StepNode
-    = StatementNode
+export type StepNode =
+    | StatementNode
     | ExprNode;
 
-export type ExprNode
-    = NumberLiteral
+export type ExprNode =
+    | NumberLiteral
     | BoolLiteral
     | CharLiteral
     | StringLiteral
@@ -38,8 +40,8 @@ export type ExprNode
     | IndexAccess
     | IfExpr;
 
-export type ReferenceExpr
-    = Identifier
+export type ReferenceExpr =
+    | Identifier
     | FieldAccess
     | IndexAccess;
 

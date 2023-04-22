@@ -47,7 +47,11 @@ import {
     voidType
 } from './type.js';
 
-type StatementResult = 'invalid' | 'ok' | 'return' | 'break';
+type StatementResult =
+    | 'invalid'
+    | 'ok'
+    | 'return'
+    | 'break';
 
 export type AnalyzeResult = {
     success: boolean,

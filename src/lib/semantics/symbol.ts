@@ -1,6 +1,11 @@
 import { BadType, FunctionType, PendingType, Type } from './type.js';
 
-export type Symbol = FnSymbol | NativeFnSymbol | StructSymbol | VariableSymbol | ExprSymbol;
+export type Symbol =
+    | FnSymbol
+    | NativeFnSymbol
+    | StructSymbol
+    | VariableSymbol
+    | ExprSymbol;
 
 export type FnSymbol = {
     kind: 'FnSymbol',
