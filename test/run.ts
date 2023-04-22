@@ -1,11 +1,12 @@
 import assert from 'assert';
 import { parse } from '../src/lib/syntax/parse.js';
 import { analyze } from '../src/lib/semantics/analyze.js';
-import { AnalysisEnv } from '../src/lib/semantics/tools.js';
+import { SymbolEnv } from '../src/lib/semantics/tools.js';
 import { run } from '../src/lib/running/run.js';
 import { RunningEnv } from '../src/lib/running/tools.js';
 import { defaultVersion, ProjectInfo } from '../src/lib/project-file.js';
 import { UguisuOptions } from '../src/lib/misc/options.js';
+import { TypeEnv } from '../src/lib/semantics/types.js';
 
 class RunTestError extends Error {
     constructor(message: string, errors: string[], warnings: string[]) {
@@ -30,9 +31,10 @@ function expectOk(sourceCode: string) {
     const sourceFile = parse(sourceCode, projectInfo.filename, projectInfo);
 
     // static analysis
-    const analysisEnv = new AnalysisEnv();
+    const env = new SymbolEnv();
+    const typeEnv = new TypeEnv();
     const symbolTable = new Map();
-    const result = analyze(sourceFile, analysisEnv, symbolTable, projectInfo);
+    const result = analyze(sourceFile, env, typeEnv, symbolTable, projectInfo);
     if (!result.success) {
         throw new RunTestError('Syntax error.', result.errors, result.warnings);
     }

@@ -1,141 +1,130 @@
+import { createNativeFnSymbol, createStructSymbol } from './symbols.js';
+import { SymbolEnv } from './tools.js';
 import {
-    AnalyzeContext,
     anyType,
     arrayType,
     charType,
-    createFunctionType,
-    createNativeFnSymbol,
-    createStructSymbol,
-    createVariableSymbol,
+    CompleteType,
+    FunctionType,
+    NamedType,
     numberType,
     stringType,
-    Symbol,
-    ValidType,
+    TypeEnv,
     voidType
-} from './tools.js';
+} from './types.js';
 
-function setDecl(name: string, paramsTy: ValidType[], returnTy: ValidType, a: AnalyzeContext) {
+function setDecl(name: string, paramsTy: CompleteType[], returnTy: CompleteType, env: SymbolEnv) {
     const params = Array(paramsTy.length).map(() => ({ name: 'x' }));
-    const ty = createFunctionType(paramsTy, returnTy);
-    a.env.set(name, createNativeFnSymbol(params, ty));
+    const ty = new FunctionType({
+        isMethod: false,
+        fnParamTypes: paramsTy,
+        fnReturnType: returnTy,
+    });
+    env.set(name, createNativeFnSymbol(params, ty));
 }
 
-function group(name: string, a: AnalyzeContext, handler: (setItem: (name: string, paramsTy: ValidType[], returnTy: ValidType) => void) => void) {
-    const fields: Map<string, Symbol> = new Map();
-    function setItem(name: string, paramsTy: ValidType[], returnTy: ValidType) {
-        const ty = createFunctionType(paramsTy, returnTy);
-        const symbol = createVariableSymbol(ty, true);
-        fields.set(name, symbol);
-    }
-    handler(setItem);
-    a.env.set(name, createStructSymbol(name, fields));
-}
+export function setDeclarations(env: SymbolEnv, typeEnv: TypeEnv) {
+    // number
+    typeEnv.implement(numberType, 'toString', new FunctionType({
+        isMethod: true,
+        fnParamTypes: [],
+        fnReturnType: stringType,
+    }));
+    typeEnv.implement(numberType, 'parse', new FunctionType({
+        isMethod: false,
+        fnParamTypes: [stringType],
+        fnReturnType: numberType,
+    }));
+    typeEnv.implement(numberType, 'assertEq', new FunctionType({
+        isMethod: false,
+        fnParamTypes: [numberType, numberType],
+        fnReturnType: voidType,
+    }));
 
-export function setDeclarations(a: AnalyzeContext) {
-    group('number', a, setItem => {
-        setItem(
-            'parse',
-            [stringType],
-            numberType
-        );
-        setItem(
-            'toString',
-            [numberType],
-            stringType
-        );
-        setItem(
-            'assertEq',
-            [numberType, numberType],
-            voidType
-        );
-    });
+    // char
+    typeEnv.implement(charType, 'toString', new FunctionType({
+        isMethod: true,
+        fnParamTypes: [],
+        fnReturnType: stringType,
+    }));
+    typeEnv.implement(charType, 'toNumber', new FunctionType({
+        isMethod: true,
+        fnParamTypes: [],
+        fnReturnType: numberType,
+    }));
+    typeEnv.implement(charType, 'fromNumber', new FunctionType({
+        isMethod: false,
+        fnParamTypes: [numberType],
+        fnReturnType: charType,
+    }));
 
-    group('char', a, setItem => {
-        setItem(
-            'fromNumber',
-            [numberType],
-            charType
-        );
-        setItem(
-            'toNumber',
-            [charType],
-            numberType
-        );
-        setItem(
-            'toString',
-            [charType],
-            stringType
-        );
-    });
+    // string
+    typeEnv.implement(stringType, 'toChars', new FunctionType({
+        isMethod: true,
+        fnParamTypes: [],
+        fnReturnType: arrayType, // char[]
+    }));
+    typeEnv.implement(stringType, 'fromChars', new FunctionType({
+        isMethod: false,
+        fnParamTypes: [arrayType], // char[]
+        fnReturnType: stringType,
+    }));
+    typeEnv.implement(stringType, 'concat', new FunctionType({
+        isMethod: false,
+        fnParamTypes: [stringType, stringType],
+        fnReturnType: stringType,
+    }));
+    typeEnv.implement(stringType, 'assertEq', new FunctionType({
+        isMethod: false,
+        fnParamTypes: [stringType, stringType],
+        fnReturnType: voidType,
+    }));
 
-    group('string', a, setItem => {
-        setItem(
-            'concat',
-            [stringType, stringType],
-            stringType
-        );
-        setItem(
-            'fromChars',
-            [arrayType],
-            stringType
-        );
-        setItem(
-            'toChars',
-            [stringType],
-            arrayType
-        );
-        setItem(
-            'assertEq',
-            [stringType, stringType],
-            voidType
-        );
-    });
+    // array
+    typeEnv.implement(arrayType, 'insert', new FunctionType({
+        isMethod: true,
+        fnParamTypes: [numberType, anyType],
+        fnReturnType: voidType,
+    }));
+    typeEnv.implement(arrayType, 'add', new FunctionType({
+        isMethod: true,
+        fnParamTypes: [anyType], // char[]
+        fnReturnType: voidType,
+    }));
+    typeEnv.implement(arrayType, 'removeAt', new FunctionType({
+        isMethod: true,
+        fnParamTypes: [numberType],
+        fnReturnType: voidType,
+    }));
+    typeEnv.implement(arrayType, 'count', new FunctionType({
+        isMethod: true,
+        fnParamTypes: [],
+        fnReturnType: numberType,
+    }));
 
-    group('array', a, setItem => {
-        setItem(
-            'insert',
-            [arrayType, numberType, anyType],
-            voidType
-        );
-        setItem(
-            'add',
-            [arrayType, anyType],
-            voidType
-        );
-        setItem(
-            'removeAt',
-            [arrayType, numberType],
-            voidType
-        );
-        setItem(
-            'count',
-            [arrayType],
-            numberType
-        );
-    });
-
-    group('console', a, setItem => {
-        setItem(
-            'write',
-            [stringType],
-            voidType
-        );
-        setItem(
-            'writeNum',
-            [numberType],
-            voidType
-        );
-        setItem(
-            'read',
-            [],
-            stringType
-        );
-    });
+    // console namespace
+    env.set('console', createStructSymbol('console', new Map()));
+    const consoleSpaceTy = new NamedType('console');
+    typeEnv.implement(consoleSpaceTy, 'write', new FunctionType({
+        isMethod: false,
+        fnParamTypes: [stringType],
+        fnReturnType: voidType,
+    }));
+    typeEnv.implement(consoleSpaceTy, 'writeNum', new FunctionType({
+        isMethod: false,
+        fnParamTypes: [numberType],
+        fnReturnType: voidType,
+    }));
+    typeEnv.implement(consoleSpaceTy, 'read', new FunctionType({
+        isMethod: false,
+        fnParamTypes: [],
+        fnReturnType: stringType,
+    }));
 
     setDecl(
         'getUnixtime',
         [],
         numberType,
-        a
+        env
     );
 }
