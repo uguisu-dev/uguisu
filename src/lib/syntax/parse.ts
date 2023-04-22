@@ -1,7 +1,7 @@
 import { UguisuError } from '../misc/errors.js';
 import { Trace } from '../misc/trace.js';
 import { ProjectInfo } from '../project-file.js';
-import { LiteralValue, Scanner, Token } from './scan.js';
+import { LiteralValue, Scanner } from './scan.js';
 import {
     AssignMode,
     BinaryOperator,
@@ -48,6 +48,7 @@ import {
     TyLabel,
     VariableDecl
 } from './node.js';
+import { Token } from './token.js';
 
 const trace = Trace.getDefault().createChild(false);
 
