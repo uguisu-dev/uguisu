@@ -1,16 +1,17 @@
 import Wasm from 'binaryen';
 import { UguisuError } from '../misc/errors.js';
-import { boolType, compareType, FunctionType, numberType, Symbol, Type, voidType } from '../semantics/tools.js';
-import { AstNode, ExprNode, FileNode, Identifier, SourceFile, StepNode } from '../syntax/tools.js';
+import { boolType, compareType, FunctionType, numberType, Type, voidType } from '../semantics/type.js';
+import { Symbol } from '../semantics/symbol.js';
+import { SyntaxNode, ExprNode, FileNode, Identifier, SourceFile, StepNode } from '../syntax/node.js';
 
-export function codegen(symbolTable: Map<AstNode, Symbol>, node: SourceFile) {
+export function codegen(symbolTable: Map<SyntaxNode, Symbol>, node: SourceFile) {
     const mod = translate(symbolTable, node);
     console.log(mod.emitStackIR());
     return mod.emitBinary();
 }
 
 type Context = {
-    symbolTable: Map<AstNode, Symbol>,
+    symbolTable: Map<SyntaxNode, Symbol>,
     mod: Wasm.Module,
     labelCount: number;
 };
@@ -21,7 +22,7 @@ type FuncInfo = {
     returnTy: Type;
 };
 
-function translate(symbolTable: Map<AstNode, Symbol>, node: SourceFile): Wasm.Module {
+function translate(symbolTable: Map<SyntaxNode, Symbol>, node: SourceFile): Wasm.Module {
     const mod = new Wasm.Module();
     mod.addDebugInfoFileName(node.filename);
     const ctx: Context = {

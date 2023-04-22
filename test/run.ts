@@ -1,11 +1,11 @@
 import assert from 'assert';
 import { parse } from '../src/lib/syntax/parse.js';
 import { analyze } from '../src/lib/semantics/analyze.js';
-import { AnalysisEnv } from '../src/lib/semantics/tools.js';
 import { run } from '../src/lib/running/run.js';
-import { RunningEnv } from '../src/lib/running/tools.js';
 import { defaultVersion, ProjectInfo } from '../src/lib/project-file.js';
 import { UguisuOptions } from '../src/lib/misc/options.js';
+import { AnalysisEnv } from '../src/lib/semantics/common.js';
+import { RunningEnv } from '../src/lib/running/common.js';
 
 class RunTestError extends Error {
     constructor(message: string, errors: string[], warnings: string[]) {

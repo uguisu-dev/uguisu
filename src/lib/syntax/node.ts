@@ -1,7 +1,7 @@
 export type Pos = [number, number];
 
-export type AstNode
-    = SourceFile
+export type SyntaxNode =
+    | SourceFile
     | FileNode
     | StepNode
     | TyLabel
@@ -9,22 +9,24 @@ export type AstNode
     | StructDeclField
     | StructExprField;
 
-export type FileNode = FunctionDecl | StructDecl;
+export type FileNode =
+    | FunctionDecl
+    | StructDecl;
 
-export type StatementNode
-    = VariableDecl
+export type StatementNode =
+    | VariableDecl
     | AssignStatement
     | ExprStatement
     | LoopStatement
     | ReturnStatement
     | BreakStatement;
 
-export type StepNode
-    = StatementNode
+export type StepNode =
+    | StatementNode
     | ExprNode;
 
-export type ExprNode
-    = NumberLiteral
+export type ExprNode =
+    | NumberLiteral
     | BoolLiteral
     | CharLiteral
     | StringLiteral
@@ -38,12 +40,12 @@ export type ExprNode
     | IndexAccess
     | IfExpr;
 
-export type ReferenceExpr
-    = Identifier
+export type ReferenceExpr =
+    | Identifier
     | FieldAccess
     | IndexAccess;
 
-export type NodeOf<T extends AstNode['kind']>
+export type SyntaxNodeOf<T extends SyntaxNode['kind']>
     = T extends 'SourceFile' ? SourceFile
     : T extends 'FunctionDecl' ? FunctionDecl
     : T extends 'FnDeclParam' ? FnDeclParam
@@ -73,11 +75,11 @@ export type NodeOf<T extends AstNode['kind']>
     : T extends 'IndexAccess' ? IndexAccess
     : never;
 
-const exprNodeKind: AstNode['kind'][] = [
+const exprNodeKind: SyntaxNode['kind'][] = [
     'NumberLiteral', 'BoolLiteral', 'CharLiteral', 'StringLiteral', 'BinaryOp', 'UnaryOp', 'Identifier', 'Call', 'StructExpr',
     'FieldAccess', 'ArrayNode', 'IndexAccess', 'IfExpr',
 ];
-export function isExprNode(node: AstNode): node is ExprNode {
+export function isExprNode(node: SyntaxNode): node is ExprNode {
     return exprNodeKind.includes(node.kind);
 }
 

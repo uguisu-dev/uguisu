@@ -1,6 +1,7 @@
 import charRegex from 'char-regex';
 import { UguisuError } from '../misc/errors.js';
 import { UguisuOptions } from '../misc/options.js';
+import { RunningEnv, Symbol } from './common.js';
 import {
     ArrayValue,
     assertValue,
@@ -9,11 +10,9 @@ import {
     createNumberValue,
     createStringValue,
     FunctionValue,
-    RunningEnv,
     StructValue,
-    Symbol,
     Value
-} from './tools.js';
+} from './value.js';
 
 function group(name: string, env: RunningEnv, handle: (setItem: (name: string, value: Value) => void) => void) {
     const fields = new Map<string, Symbol>();

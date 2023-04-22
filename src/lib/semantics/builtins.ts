@@ -1,18 +1,17 @@
+import { createNativeFnSymbol, createStructSymbol, createVariableSymbol, Symbol } from './symbol.js';
 import {
-    AnalyzeContext,
+    AnalyzeContext
+} from './common.js';
+import {
     anyType,
     arrayType,
     charType,
     createFunctionType,
-    createNativeFnSymbol,
-    createStructSymbol,
-    createVariableSymbol,
     numberType,
     stringType,
-    Symbol,
     ValidType,
     voidType
-} from './tools.js';
+} from './type.js';
 
 function setDecl(name: string, paramsTy: ValidType[], returnTy: ValidType, a: AnalyzeContext) {
     const params = Array(paramsTy.length).map(() => ({ name: 'x' }));

@@ -11,23 +11,20 @@ import {
     SourceFile,
     StatementNode,
     StepNode
-} from '../syntax/tools.js';
-import { evalArithmeticBinaryOp, evalEquivalentBinaryOp, evalLogicalBinaryOp, evalOrderingBinaryOp } from './binary-expr.js';
+} from '../syntax/node.js';
+import {
+    evalArithmeticBinaryOp,
+    evalEquivalentBinaryOp,
+    evalLogicalBinaryOp,
+    evalOrderingBinaryOp
+} from './binary-expr.js';
 import * as builtins from './builtins.js';
+import { RunContext, RunningEnv, Symbol } from './common.js';
+import { createOk, EvalResult, isReturn, isBreak, isOk, createReturn, createBreak } from './result.js';
 import {
     assertValue,
-    EvalResult,
     FunctionValue,
-    createBreak,
-    createOk,
-    createReturn,
-    RunningEnv,
-    Symbol,
     Value,
-    isReturn,
-    isBreak,
-    isOk,
-    RunContext,
     createNoneValue,
     isNoneValue,
     createNumberValue,
@@ -36,7 +33,7 @@ import {
     createCharValue,
     createStructValue,
     createArrayValue
-} from './tools.js';
+} from './value.js';
 
 const trace = Trace.getDefault().createChild(false);
 
