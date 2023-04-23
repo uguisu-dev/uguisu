@@ -1,155 +1,153 @@
-import { inspect } from 'util';
 import { UguisuError } from '../misc/errors.js';
 import { SourceFile, SyntaxNode } from '../syntax/node.js';
-import { Symbol } from './symbol.js';
+import { createFunctionSymbol, createStructSymbol, createVariableSymbol, Symbol } from './symbol.js';
+import { pendingType } from './type.js';
 
 /**
  * collect declarations, and make DeclTable.
 */
 export function collectDecls(fileNode: SourceFile): Map<SyntaxNode, Symbol> {
     const declTable = new Map<SyntaxNode, Symbol>();
-    visitNodes(fileNode.decls, declTable);
+    const collector = new DeclCollector(declTable);
+    collector.visitNode(fileNode);
     return declTable;
 }
 
-function visitNodes(nodes: SyntaxNode[], declTable: Map<SyntaxNode, Symbol>) {
-    for (const node of nodes) {
-        visitNode(node, declTable);
+class DeclCollector {
+    declTable: Map<SyntaxNode, Symbol>;
+    constructor(declTable: Map<SyntaxNode, Symbol>) {
+        this.declTable = declTable;
     }
-}
+    dispatchWarn(message: string, errorNode?: SyntaxNode) {
+        // TODO
+    }
+    dispatchError(message: string, errorNode?: SyntaxNode) {
+        // TODO
+    }
+    visitNodes(nodes: SyntaxNode[]) {
+        for (const node of nodes) {
+            this.visitNode(node);
+        }
+    }
+    visitNode(node: SyntaxNode) {
+        switch (node.kind) {
+            case 'SourceFile': {
+                this.visitNodes(node.decls);
+                return;
+            }
+            case 'FunctionDecl': {
+                // export specifier
+                if (node.exported) {
+                    this.dispatchWarn('exported function is not supported yet.', node);
+                }
+                // make param list
+                const params = node.params.map(x => ({ name: x.name }));
+                // set symbol
+                const symbol = createFunctionSymbol(params, pendingType, []);
+                this.declTable.set(node, symbol);
 
-function visitNode(node: SyntaxNode, declTable: Map<SyntaxNode, Symbol>) {
-    console.log(inspect(node, { depth: 10 }));
-    switch (node.kind) {
-        // FileNode
-        case 'FunctionDecl': {
-            // TODO: create symbol
-            visitNodes(node.params, declTable);
-            visitNodes(node.body, declTable);
-            if (node.returnTy != null) {
-                visitNode(node.returnTy, declTable);
+                this.visitNodes(node.body);
+                return;
             }
-            break;
-        }
-        case 'StructDecl': {
-            // TODO: create symbol
-            visitNodes(node.fields, declTable);
-            break;
-        }
-        // StatementNode
-        case 'VariableDecl': {
-            if (node.ty != null) {
-                visitNode(node.ty, declTable);
+            case 'StructDecl': {
+                // export specifier
+                if (node.exported) {
+                    this.dispatchWarn('exported function is not supported yet.', node);
+                }
+                // make fields
+                const fields = new Map<string, Symbol>();
+                for (const field of node.fields) {
+                    const fieldSymbol = createVariableSymbol(pendingType, true);
+                    fields.set(field.name, fieldSymbol);
+                }
+                // set symbol
+                const symbol: Symbol = createStructSymbol(node.name, fields);
+                this.declTable.set(node, symbol);
+                return;
             }
-            if (node.body != null) {
-                visitNode(node.body, declTable);
+            case 'VariableDecl': {
+                // set symbol
+                const symbol = createVariableSymbol(pendingType, false);
+                this.declTable.set(node, symbol);
+
+                if (node.body != null) {
+                    this.visitNode(node.body);
+                }
+                return;
             }
-            break;
-        }
-        case 'AssignStatement': {
-            visitNode(node.target, declTable);
-            visitNode(node.body, declTable);
-            break;
-        }
-        case 'ExprStatement': {
-            visitNode(node.expr, declTable);
-            break;
-        }
-        case 'LoopStatement': {
-            visitNodes(node.block, declTable);
-            break;
-        }
-        case 'ReturnStatement': {
-            if (node.expr != null) {
-                visitNode(node.expr, declTable);
+            case 'AssignStatement': {
+                this.visitNode(node.target);
+                this.visitNode(node.body);
+                return;
             }
-            break;
-        }
-        case 'BreakStatement': {
-            // nop
-            break;
-        }
-        // ExprNode
-        case 'NumberLiteral': {
-            // nop
-            break;
-        }
-        case 'BoolLiteral': {
-            // nop
-            break;
-        }
-        case 'CharLiteral': {
-            // nop
-            break;
-        }
-        case 'StringLiteral': {
-            // nop
-            break;
-        }
-        case 'BinaryOp': {
-            visitNode(node.left, declTable);
-            visitNode(node.right, declTable);
-            break;
-        }
-        case 'UnaryOp': {
-            visitNode(node.expr, declTable);
-            break;
-        }
-        case 'Identifier': {
-            // nop
-            break;
-        }
-        case 'Call': {
-            visitNode(node.callee, declTable);
-            visitNodes(node.args, declTable);
-            break;
-        }
-        case 'StructExpr': {
-            visitNodes(node.fields, declTable);
-            break;
-        }
-        case 'FieldAccess': {
-            visitNode(node.target, declTable);
-            break;
-        }
-        case 'ArrayNode': {
-            visitNodes(node.items, declTable);
-            break;
-        }
-        case 'IndexAccess': {
-            visitNode(node.target, declTable);
-            visitNode(node.index, declTable);
-            break;
-        }
-        case 'IfExpr': {
-            visitNode(node.cond, declTable);
-            visitNodes(node.thenBlock, declTable);
-            visitNodes(node.elseBlock, declTable);
-            break;
-        }
-        // others
-        case 'FnDeclParam': {
-            if (node.ty != null) {
-                visitNode(node.ty, declTable);
+            case 'ExprStatement': {
+                this.visitNode(node.expr);
+                return;
             }
-            break;
-        }
-        case 'TyLabel': {
-            // nop
-            break;
-        }
-        case 'StructDeclField': {
-            if (node.ty != null) {
-                visitNode(node.ty, declTable);
+            case 'LoopStatement': {
+                this.visitNodes(node.block);
+                return;
             }
-            break;
+            case 'ReturnStatement': {
+                if (node.expr != null) {
+                    this.visitNode(node.expr);
+                }
+                return;
+            }
+            case 'BinaryOp': {
+                this.visitNode(node.left);
+                this.visitNode(node.right);
+                return;
+            }
+            case 'UnaryOp': {
+                this.visitNode(node.expr);
+                return;
+            }
+            case 'Call': {
+                this.visitNode(node.callee);
+                this.visitNodes(node.args);
+                return;
+            }
+            case 'StructExpr': {
+                this.visitNodes(node.fields);
+                return;
+            }
+            case 'StructExprField': {
+                this.visitNode(node.body);
+                return;
+            }
+            case 'FieldAccess': {
+                this.visitNode(node.target);
+                return;
+            }
+            case 'ArrayNode': {
+                this.visitNodes(node.items);
+                return;
+            }
+            case 'IndexAccess': {
+                this.visitNode(node.target);
+                this.visitNode(node.index);
+                return;
+            }
+            case 'IfExpr': {
+                this.visitNode(node.cond);
+                this.visitNodes(node.thenBlock);
+                this.visitNodes(node.elseBlock);
+                return;
+            }
+            case 'FnDeclParam':
+            case 'StructDeclField':
+            case 'BreakStatement':
+            case 'NumberLiteral':
+            case 'BoolLiteral':
+            case 'CharLiteral':
+            case 'StringLiteral':
+            case 'Identifier':
+            case 'TyLabel': {
+                // nop
+                return;
+            }
         }
-        case 'StructExprField': {
-            visitNode(node.body, declTable);
-            break;
-        }
-        default: {
-            throw new UguisuError('unhandled node');
-        }
+        throw new UguisuError('unexpected node');
     }
 }
