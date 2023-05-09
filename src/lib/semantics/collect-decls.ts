@@ -7,16 +7,15 @@ import { pendingType } from './type.js';
  * collect declarations, and make DeclTable.
 */
 export function collectDecls(fileNode: SourceFile): Map<SyntaxNode, Symbol> {
-    const declTable = new Map<SyntaxNode, Symbol>();
-    const collector = new DeclCollector(declTable);
+    const collector = new DeclCollector();
     collector.visitNode(fileNode);
-    return declTable;
+    return collector.declTable;
 }
 
 class DeclCollector {
     declTable: Map<SyntaxNode, Symbol>;
-    constructor(declTable: Map<SyntaxNode, Symbol>) {
-        this.declTable = declTable;
+    constructor() {
+        this.declTable = new Map<SyntaxNode, Symbol>();
     }
     dispatchWarn(message: string, errorNode?: SyntaxNode) {
         // TODO
