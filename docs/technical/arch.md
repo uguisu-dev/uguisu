@@ -1,7 +1,4 @@
-
-```text
-
-[Scan]
+## Scan
 
 in
 - SourceCode
@@ -9,9 +6,7 @@ in
 out
 - Tokens
 
-----
-
-[Parse]
+## Parse
 
 in
 - Tokens
@@ -19,9 +14,7 @@ in
 out
 - SyntaxTree (Tree of SyntaxNode)
 
-----
-
-[CollectDecls]
+## CollectDecls
 
 in
 - SyntaxTree
@@ -29,9 +22,11 @@ in
 out
 - DeclTable (DeclarationNode -> Symbol)
 
-----
+### 仕様
+- 宣言ノードとシンボルのマップを保持する。
+- 構造体シンボルの中で、各フィールドは名前とシンボルのマップとして保持される。
 
-[ResolveNames]
+## ResolveNames
 
 in
 - SyntaxTree
@@ -40,13 +35,9 @@ in
 out
 - NameTable (ReferenceNode -> Symbol)
 
-----
-
-[TypeCheck]
+## TypeCheck
 
 in
 - SyntaxTree
 - DeclTable
 - NameTable
-
-```
