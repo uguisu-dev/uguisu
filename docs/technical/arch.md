@@ -23,7 +23,7 @@ out
 - DeclTable (DeclarationNode -> Symbol)
 
 ### 仕様
-- 宣言ノードとシンボルのマップを保持する。
+- 宣言ノードとシンボルのマップを生成する。
 - 構造体シンボルの中で、各フィールドは名前とシンボルのマップとして保持される。
 
 ## ResolveNames
@@ -34,6 +34,9 @@ in
 
 out
 - NameTable (ReferenceNode -> Symbol)
+
+### 仕様
+- 参照ノード(識別子やフィールドアクセス)と参照先のシンボルのマップを生成する。
 
 ## TypeCheck
 
