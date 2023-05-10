@@ -1,3 +1,4 @@
+import { UguisuError } from '../misc/errors.js';
 import { SourceFile, SyntaxNode } from '../syntax/node.js';
 import { Symbol } from './symbol.js';
 
@@ -59,17 +60,28 @@ class NameResolver {
                 return;
             }
             case 'FunctionDecl': {
-                node.name;
-                node.params;
-
+                const symbol = this.declTable.get(node);
+                if (symbol == null) {
+                    throw new UguisuError('function not declared');
+                }
+                env.declare(node.name, symbol);
                 this.visitNodes(node.body, env);
                 return;
             }
             case 'StructDecl': {
-
+                const symbol = this.declTable.get(node);
+                if (symbol == null) {
+                    throw new UguisuError('struct not declared');
+                }
+                env.declare(node.name, symbol);
                 return;
             }
             case 'VariableDecl': {
+                const symbol = this.declTable.get(node);
+                if (symbol == null) {
+                    throw new UguisuError('variable not declared');
+                }
+                env.declare(node.name, symbol);
                 if (node.body != null) {
                     this.visitNode(node.body, env);
                 }
