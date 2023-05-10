@@ -1,12 +1,15 @@
+import { inspect } from 'util';
 import { UguisuError } from '../misc/errors.js';
 import { SourceFile, SyntaxNode } from '../syntax/node.js';
 import { Symbol } from './symbol.js';
 
 class NameEnv {
-    upperEnv?: NameEnv;
+    parentEnv?: WeakRef<NameEnv>;
+    children: NameEnv[];
     table: Map<string, Symbol>;
-    constructor(upperEnv?: NameEnv) {
-        this.upperEnv = upperEnv;
+    constructor(parentEnv?: WeakRef<NameEnv>) {
+        this.parentEnv = parentEnv;
+        this.children = [];
         this.table = new Map();
     }
     declare(name: string, symbol: Symbol) {
@@ -17,10 +20,20 @@ class NameEnv {
         if (symbol != null) {
             return symbol;
         }
-        return this.upperEnv?.lookup(name);
+        if (this.parentEnv) {
+            const envRef = this.parentEnv.deref();
+            return envRef?.lookup(name);
+        } else {
+            return undefined;
+        }
     }
-    createLowerEnv(): NameEnv {
-        return new NameEnv(this);
+    addChild(): NameEnv {
+        const child = new NameEnv(new WeakRef(this));
+        this.children.push(child);
+        return child;
+    }
+    clearChildren() {
+        this.children.splice(0, this.children.length);
     }
 }
 
@@ -31,6 +44,7 @@ export function resolveNames(fileNode: SourceFile, declTable: Map<SyntaxNode, Sy
     const resolver = new NameResolver(declTable);
     const rootEnv = new NameEnv();
     resolver.visitNode(fileNode, rootEnv);
+    console.log(inspect(rootEnv, { depth: 10 }));
     return resolver.nameTable;
 }
 
