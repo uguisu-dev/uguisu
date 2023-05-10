@@ -102,18 +102,18 @@ export class Uguisu {
             const nameTable = resolveNames(sourceFile, declTable);
             checkTypes(sourceFile, declTable, nameTable);
             return;
-            const analysisEnv = new AnalysisEnv();
-            const symbolTable = new Map();
-            const result = analyze(sourceFile, analysisEnv, symbolTable, projectInfo);
-            for (const message of result.errors) {
-                console.log(`Syntax Error: ${message}`);
-            }
-            for (const warn of result.warnings) {
-                console.log(`Warning: ${warn}`);
-            }
-            if (!result.success) {
-                throw new UguisuError('Syntax error.');
-            }
+            // const analysisEnv = new AnalysisEnv();
+            // const symbolTable = new Map();
+            // const result = analyze(sourceFile, analysisEnv, symbolTable, projectInfo);
+            // for (const message of result.errors) {
+            //     console.log(`Syntax Error: ${message}`);
+            // }
+            // for (const warn of result.warnings) {
+            //     console.log(`Warning: ${warn}`);
+            // }
+            // if (!result.success) {
+            //     throw new UguisuError('Syntax error.');
+            // }
         }
 
         // run
