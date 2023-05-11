@@ -67,18 +67,17 @@ class NameResolver {
     }
     visitBlock(nodes: SyntaxNode[], env: NameEnv) {
         const blockEnv = env.addChild();
-        this.visitNodes(nodes, blockEnv);
-    }
-    visitNodes(nodes: SyntaxNode[], env: NameEnv) {
-        for (const node of nodes) {
-            this.visitNode(node, env);
+        for (const step of nodes) {
+            this.visitNode(step, blockEnv);
         }
     }
     visitNode(node: SyntaxNode, env: NameEnv) {
         //console.log(inspect(node, { depth: 10 }));
         switch (node.kind) {
             case 'SourceFile': {
-                this.visitNodes(node.decls, env);
+                for (const decl of node.decls) {
+                    this.visitNode(decl, env);
+                }
                 return;
             }
             case 'FunctionDecl': {
@@ -139,11 +138,15 @@ class NameResolver {
             }
             case 'Call': {
                 this.visitNode(node.callee, env);
-                this.visitNodes(node.args, env);
+                for (const arg of node.args) {
+                    this.visitNode(arg, env);
+                }
                 return;
             }
             case 'StructExpr': {
-                this.visitNodes(node.fields, env);
+                for (const field of node.fields) {
+                    this.visitNode(field, env);
+                }
                 return;
             }
             case 'StructExprField': {
@@ -155,7 +158,9 @@ class NameResolver {
                 return;
             }
             case 'ArrayNode': {
-                this.visitNodes(node.items, env);
+                for (const item of node.items) {
+                    this.visitNode(item, env);
+                }
                 return;
             }
             case 'IndexAccess': {
