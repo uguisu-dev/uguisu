@@ -4,35 +4,39 @@ import { SourceFile, SyntaxNode } from '../syntax/node.js';
 import { Symbol } from './symbol.js';
 
 class NameEnv {
-    parentEnv?: WeakRef<NameEnv>;
+    private parentEnv?: WeakRef<NameEnv>; // use WeakRef for memory leak
+    private table: Map<string, Symbol>;
     children: NameEnv[];
-    table: Map<string, Symbol>;
     constructor(parentEnv?: WeakRef<NameEnv>) {
         this.parentEnv = parentEnv;
-        this.children = [];
         this.table = new Map();
+        this.children = [];
     }
     declare(name: string, symbol: Symbol) {
         this.table.set(name, symbol);
     }
     lookup(name: string): Symbol | undefined {
+        // current env
         const symbol = this.table.get(name);
         if (symbol != null) {
             return symbol;
         }
-        if (this.parentEnv) {
-            const envRef = this.parentEnv.deref();
-            return envRef?.lookup(name);
-        } else {
+        // lookup parent env
+        return this.getParentEnv()?.lookup(name);
+    }
+    getParentEnv(): NameEnv | undefined {
+        this.parentEnv;
+        if (!this.parentEnv) {
             return undefined;
         }
+        return this.parentEnv.deref();
     }
     addChild(): NameEnv {
         const child = new NameEnv(new WeakRef(this));
         this.children.push(child);
         return child;
     }
-    clearChildren() {
+    removeChildren() {
         this.children.splice(0, this.children.length);
     }
 }
@@ -61,6 +65,10 @@ class NameResolver {
     dispatchError(message: string, errorNode?: SyntaxNode) {
         // TODO
     }
+    visitBlock(nodes: SyntaxNode[], env: NameEnv) {
+        const blockEnv = env.addChild();
+        this.visitNodes(nodes, blockEnv);
+    }
     visitNodes(nodes: SyntaxNode[], env: NameEnv) {
         for (const node of nodes) {
             this.visitNode(node, env);
@@ -79,7 +87,7 @@ class NameResolver {
                     throw new UguisuError('function not declared');
                 }
                 env.declare(node.name, symbol);
-                this.visitNodes(node.body, env);
+                this.visitBlock(node.body, env);
                 return;
             }
             case 'StructDecl': {
@@ -111,7 +119,7 @@ class NameResolver {
                 return;
             }
             case 'LoopStatement': {
-                this.visitNodes(node.block, env);
+                this.visitBlock(node.block, env);
                 return;
             }
             case 'ReturnStatement': {
@@ -157,8 +165,8 @@ class NameResolver {
             }
             case 'IfExpr': {
                 this.visitNode(node.cond, env);
-                this.visitNodes(node.thenBlock, env);
-                this.visitNodes(node.elseBlock, env);
+                this.visitBlock(node.thenBlock, env);
+                this.visitBlock(node.elseBlock, env);
                 return;
             }
             case 'FnDeclParam':
