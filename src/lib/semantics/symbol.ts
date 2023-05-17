@@ -4,7 +4,8 @@ export type Symbol =
     | FnSymbol
     | NativeFnSymbol
     | StructSymbol
-    | ValueSymbol;
+    | ValueSymbol
+    | VariableSymbol;
 
 export type FnSymbol = {
     kind: 'FnSymbol',
@@ -49,15 +50,15 @@ export function createValueSymbol(ty: Type): ValueSymbol {
     return { kind: 'ValueSymbol', ty };
 }
 
-// export type VariableSymbol = {
-//     kind: 'VariableSymbol',
-//     ty: Type,
-//     isDefined: boolean,
-// };
+export type VariableSymbol = {
+    kind: 'VariableSymbol',
+    ty: Type,
+    isDefined: boolean,
+};
 
-// export function createVariableSymbol(ty: Type, isDefined: boolean): VariableSymbol {
-//     return { kind: 'VariableSymbol', ty, isDefined };
-// }
+export function createVariableSymbol(ty: Type, isDefined: boolean): VariableSymbol {
+    return { kind: 'VariableSymbol', ty, isDefined };
+}
 
 // export type ExprSymbol = {
 //     kind: 'ExprSymbol',

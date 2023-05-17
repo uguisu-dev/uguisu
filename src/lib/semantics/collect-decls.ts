@@ -1,6 +1,6 @@
 import { UguisuError } from '../misc/errors.js';
 import { SourceFile, SyntaxNode } from '../syntax/node.js';
-import { createFunctionSymbol, createStructSymbol, createValueSymbol, Symbol } from './symbol.js';
+import { createFunctionSymbol, createStructSymbol, createValueSymbol, createVariableSymbol, Symbol } from './symbol.js';
 import { pendingType } from './type.js';
 
 /**
@@ -66,7 +66,7 @@ class DeclCollector {
             }
             case 'VariableDecl': {
                 // set symbol
-                const symbol = createValueSymbol(pendingType); // TODO: defined flag
+                const symbol = createVariableSymbol(pendingType, false);
                 this.declTable.set(node, symbol);
 
                 if (node.body != null) {
