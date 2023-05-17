@@ -1,4 +1,4 @@
-import { createNativeFnSymbol, createStructSymbol, createVariableSymbol, Symbol } from './symbol.js';
+import { createNativeFnSymbol, createStructSymbol, createValueSymbol, Symbol } from './symbol.js';
 import {
     AnalyzeContext
 } from './common.js';
@@ -23,7 +23,7 @@ function group(name: string, a: AnalyzeContext, handler: (setItem: (name: string
     const fields: Map<string, Symbol> = new Map();
     function setItem(name: string, paramsTy: ValidType[], returnTy: ValidType) {
         const ty = createFunctionType(paramsTy, returnTy);
-        const symbol = createVariableSymbol(ty, true);
+        const symbol = createValueSymbol(ty);
         fields.set(name, symbol);
     }
     handler(setItem);

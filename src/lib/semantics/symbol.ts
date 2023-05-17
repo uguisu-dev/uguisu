@@ -4,8 +4,7 @@ export type Symbol =
     | FnSymbol
     | NativeFnSymbol
     | StructSymbol
-    | VariableSymbol
-    | ExprSymbol;
+    | ValueSymbol;
 
 export type FnSymbol = {
     kind: 'FnSymbol',
@@ -41,21 +40,30 @@ export function createStructSymbol(fields: Map<string, Symbol>): StructSymbol {
     return { kind: 'StructSymbol', fields };
 }
 
-export type VariableSymbol = {
-    kind: 'VariableSymbol',
-    ty: Type,
-    isDefined: boolean,
-};
-
-export function createVariableSymbol(ty: Type, isDefined: boolean): VariableSymbol {
-    return { kind: 'VariableSymbol', ty, isDefined };
-}
-
-export type ExprSymbol = {
-    kind: 'ExprSymbol',
+export type ValueSymbol = {
+    kind: 'ValueSymbol',
     ty: Type,
 };
 
-export function createExprSymbol(ty: Type): ExprSymbol {
-    return { kind: 'ExprSymbol', ty };
+export function createValueSymbol(ty: Type): ValueSymbol {
+    return { kind: 'ValueSymbol', ty };
 }
+
+// export type VariableSymbol = {
+//     kind: 'VariableSymbol',
+//     ty: Type,
+//     isDefined: boolean,
+// };
+
+// export function createVariableSymbol(ty: Type, isDefined: boolean): VariableSymbol {
+//     return { kind: 'VariableSymbol', ty, isDefined };
+// }
+
+// export type ExprSymbol = {
+//     kind: 'ExprSymbol',
+//     ty: Type,
+// };
+
+// export function createExprSymbol(ty: Type): ExprSymbol {
+//     return { kind: 'ExprSymbol', ty };
+// }

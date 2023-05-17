@@ -1,6 +1,6 @@
 import { UguisuError } from '../misc/errors.js';
 import { SourceFile, SyntaxNode } from '../syntax/node.js';
-import { createFunctionSymbol, createStructSymbol, createVariableSymbol, Symbol } from './symbol.js';
+import { createFunctionSymbol, createStructSymbol, createValueSymbol, Symbol } from './symbol.js';
 import { pendingType } from './type.js';
 
 /**
@@ -56,7 +56,7 @@ class DeclCollector {
                 // make fields
                 const fields = new Map<string, Symbol>();
                 for (const field of node.fields) {
-                    const fieldSymbol = createVariableSymbol(pendingType, true);
+                    const fieldSymbol = createValueSymbol(pendingType);
                     fields.set(field.name, fieldSymbol);
                 }
                 // set symbol
@@ -66,7 +66,7 @@ class DeclCollector {
             }
             case 'VariableDecl': {
                 // set symbol
-                const symbol = createVariableSymbol(pendingType, false);
+                const symbol = createValueSymbol(pendingType); // TODO: defined flag
                 this.declTable.set(node, symbol);
 
                 if (node.body != null) {
