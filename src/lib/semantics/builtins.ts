@@ -27,7 +27,7 @@ function group(name: string, a: AnalyzeContext, handler: (setItem: (name: string
         fields.set(name, symbol);
     }
     handler(setItem);
-    a.env.set(name, createStructSymbol(name, fields));
+    a.env.set(name, createStructSymbol(fields));
 }
 
 export function setDeclarations(a: AnalyzeContext) {

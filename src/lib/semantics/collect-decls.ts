@@ -60,7 +60,7 @@ class DeclCollector {
                     fields.set(field.name, fieldSymbol);
                 }
                 // set symbol
-                const symbol: Symbol = createStructSymbol(node.name, fields);
+                const symbol: Symbol = createStructSymbol(fields);
                 this.declTable.set(node, symbol);
                 return;
             }
