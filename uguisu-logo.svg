@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<svg version="1.1" id="layer" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="256px" height="256px" viewBox="0 0 256 256" enable-background="new 0 0 256 256">
+<rect x="-22" y="-29" fill="#F2D0C9" width="300" height="353"/>
+<rect x="-34.416" y="206.31" transform="matrix(0.9898 0.1426 -0.1426 0.9898 31.7583 -16.4812)" fill="#7A5F26" width="330.587" height="14.088"/>
+<polyline fill="none" stroke="#42473D" stroke-width="7" stroke-miterlimit="10" points="179.696,175.332 159.034,212.5 138,212.5"/>
+<path fill="#E8E1B0" d="M45.7,79.9c0,0,6.2,51,48.8,79.7c22.3,15,62,23.6,110,22.6c48.5-1,106.8,17.8,106.8,17.8L45.7,79.9z"/>
+<path fill="#81961D" d="M270,144.1c-34.9-23.7-109-56.3-164.8-70.1c-37.5-9.2-69,1.6-69,1.6l282.1,127.6C318.2,203.2,311,171.9,270,144.1z"/>
+<polygon fill="#E38B2A" points="46.4,84.3 22,71.8 45.7,73.1"/>
+<circle fill="#26291C" cx="91.5" cy="84.1" r="7.2"/>
+</svg>
