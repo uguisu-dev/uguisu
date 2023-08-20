@@ -46,6 +46,7 @@ import {
     StructDeclField,
     StructExprField,
     TyLabel,
+    UnaryOperator,
     VariableDecl
 } from './node.js';
 import { Token } from './token.js';
@@ -494,55 +495,81 @@ function parseLoopStatement(p: ParseContext): LoopStatement {
 //#region Expressions
 
 function parseExpr(p: ParseContext): ExprNode {
-    return parseInfix(p, 0);
+    return parsePratt(p, 0);
 }
 
-type OpInfo = { prec: number, assoc: 'left' | 'right', op: BinaryOperator };
+type OpInfo =
+    | PrefixOp
+    | InfixOp
+    | PostfixOp;
 
-const opTable: Map<Token, OpInfo> = new Map([
-    // 1
-    [Token.Or2, { prec: 1, assoc: 'left', op: '||' }],
-    // 2
-    [Token.And2, { prec: 2, assoc: 'left', op: '&&' }],
-    // 3
-    [Token.Eq, { prec: 3, assoc: 'left', op: '==' }],
-    [Token.NotEq, { prec: 3, assoc: 'left', op: '!=' }],
-    // 4
-    [Token.LessThan, { prec: 4, assoc: 'left', op: '<' }],
-    [Token.LessThanEq, { prec: 4, assoc: 'left', op: '<=' }],
-    [Token.GreaterThan, { prec: 4, assoc: 'left', op: '>' }],
-    [Token.GreaterThanEq, { prec: 4, assoc: 'left', op: '>=' }],
-    // 5
-    [Token.Plus, { prec: 5, assoc: 'left', op: '+' }],
-    [Token.Minus, { prec: 5, assoc: 'left', op: '-' }],
-    // 6
-    [Token.Asterisk, { prec: 6, assoc: 'left', op: '*' }],
-    [Token.Slash, { prec: 6, assoc: 'left', op: '/' }],
-    [Token.Percent, { prec: 6, assoc: 'left', op: '%' }],
-]);
+type PrefixOp = { kind: 'prefix', token: Token, op: UnaryOperator, bp: number };
+const prefixOp = (token: Token, op: UnaryOperator, bp: number): OpInfo => ({ kind: 'prefix', token, op, bp });
 
-function parseInfix(p: ParseContext, minPrec: number): ExprNode {
-    // precedence climbing
-    // https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
-    let expr = parseAtom(p);
+type InfixOp = { kind: 'infix', token: Token, op: BinaryOperator, lbp: number, rbp: number };
+const infixOp = (token: Token, op: BinaryOperator, lbp: number, rbp: number): OpInfo => ({ kind: 'infix', token, op, lbp, rbp });
+
+type PostfixOp = { kind: 'postfix', token: Token, op: UnaryOperator, bp: number };
+const postfixOp = (token: Token, op: UnaryOperator, bp: number): OpInfo => ({ kind: 'postfix', token, op, bp });
+
+const opTable: OpInfo[] = [
+    infixOp(Token.Asterisk, '*', 60, 61),
+    infixOp(Token.Slash, '/', 60, 61),
+    infixOp(Token.Percent, '%', 60, 61),
+    infixOp(Token.Plus, '+', 50, 51),
+    infixOp(Token.Minus, '-', 50, 51),
+    infixOp(Token.LessThan,'<', 40, 41),
+    infixOp(Token.LessThanEq, '<=', 40, 41),
+    infixOp(Token.GreaterThan, '>', 40, 41),
+    infixOp(Token.GreaterThanEq, '>=', 40, 41),
+    infixOp(Token.Eq, '==', 30, 31),
+    infixOp(Token.NotEq, '!=', 30, 31),
+    infixOp(Token.And2, '&&', 20, 21),
+    infixOp(Token.Or2, '||', 10, 11),
+];
+
+function parsePratt(p: ParseContext, minBp: number): ExprNode {
+    // pratt parsing
+    // https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
+    const pos = p.getPos();
+    const token = p.getToken();
+    const prefix = opTable.find((x): x is PrefixOp => x.kind == 'prefix' && x.token == token);
+    let left;
+    if (prefix != null) {
+        // prefix
+        p.next();
+        const right = parsePratt(p, prefix.bp);
+        left = createUnaryOp(pos, prefix.op, right);
+    } else {
+        left = parseAtom(p);
+    }
     while (true) {
         const pos = p.getPos();
-        const op = p.getToken();
-        const info = opTable.get(op);
-        if (info == null || info.prec < minPrec) {
-            break;
+        const token = p.getToken();
+        const postfix = opTable.find((x): x is PostfixOp => x.kind == 'postfix' && x.token == token);
+        if (postfix != null) {
+            // postfix
+            if (postfix.bp < minBp) {
+                break;
+            }
+            p.next();
+            left = createUnaryOp(pos, postfix.op, left);
+            continue;
         }
-        let nextMinPrec;
-        if (info.assoc == 'left') {
-            nextMinPrec = info.prec + 1;
-        } else {
-            nextMinPrec = info.prec;
+        const infix = opTable.find((x): x is InfixOp => x.kind == 'infix' && x.token == token);
+        if (infix != null) {
+            // infix
+            if (infix.lbp < minBp) {
+                break;
+            }
+            p.next();
+            const right = parsePratt(p, infix.rbp);
+            left = createBinaryOp(pos, infix.op, left, right);
+            continue;
         }
-        p.next();
-        const rightExpr = parseInfix(p, nextMinPrec);
-        expr = createBinaryOp(pos, info.op, expr, rightExpr);
+        break;
     }
-    return expr;
+    return left;
 }
 
 /**
