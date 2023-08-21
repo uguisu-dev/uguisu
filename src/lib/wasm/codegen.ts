@@ -3,6 +3,7 @@ import { UguisuError } from '../misc/errors.js';
 import { boolType, compareType, FunctionType, numberType, Type, voidType } from '../semantics/type.js';
 import { Symbol } from '../semantics/symbol.js';
 import { SyntaxNode, ExprNode, FileNode, Identifier, SourceFile, StepNode } from '../syntax/node.js';
+import { Token } from '../syntax/token.js';
 
 export function codegen(symbolTable: Map<SyntaxNode, Symbol>, node: SourceFile) {
     const mod = translate(symbolTable, node);
@@ -213,16 +214,16 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
             const right = translateExpr(ctx, node.right, func);
             if (compareType(symbol.ty, numberType) == 'compatible') {
                 switch (node.operator) {
-                    case '+': {
+                    case Token.Plus: {
                         return ctx.mod.i32.add(left, right);
                     }
-                    case '-': {
+                    case Token.Minus: {
                         return ctx.mod.i32.sub(left, right);
                     }
-                    case '*': {
+                    case Token.Asterisk: {
                         return ctx.mod.i32.mul(left, right);
                     }
-                    case '/': {
+                    case Token.Slash: {
                         return ctx.mod.i32.div_s(left, right);
                     }
                     default: {
@@ -231,28 +232,28 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
                 }
             } else if (compareType(symbol.ty, boolType) == 'compatible') {
                 switch (node.operator) {
-                    case '==': {
+                    case Token.Eq: {
                         return ctx.mod.i32.eq(left, right);
                     }
-                    case '!=': {
+                    case Token.NotEq: {
                         return ctx.mod.i32.ne(left, right);
                     }
-                    case '<': {
+                    case Token.LessThan: {
                         return ctx.mod.i32.lt_s(left, right);
                     }
-                    case '<=': {
+                    case Token.LessThanEq: {
                         return ctx.mod.i32.le_s(left, right);
                     }
-                    case '>': {
+                    case Token.GreaterThan: {
                         return ctx.mod.i32.gt_s(left, right);
                     }
-                    case '>=': {
+                    case Token.GreaterThanEq: {
                         return ctx.mod.i32.ge_s(left, right);
                     }
-                    case '&&': {
+                    case Token.And2: {
                         return ctx.mod.i32.and(left, right);
                     }
-                    case '||': {
+                    case Token.Or2: {
                         return ctx.mod.i32.or(left, right);
                     }
                     default: {
@@ -271,8 +272,14 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
             }
             const expr = translateExpr(ctx, node.expr, func);
             switch (node.operator) {
-                case '!': {
+                case Token.Not: {
                     return ctx.mod.i32.eq(expr, ctx.mod.i32.const(0));
+                }
+                case Token.Plus: {
+                    return expr;
+                }
+                case Token.Minus: {
+                    return ctx.mod.i32.sub(ctx.mod.i32.const(0), expr);
                 }
                 default: {
                     throw new UguisuError('unsupported operation');
