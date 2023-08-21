@@ -4,7 +4,6 @@ import { ProjectInfo } from '../project-file.js';
 import { LiteralValue, Scanner } from './scan.js';
 import {
     AssignMode,
-    BinaryOperator,
     BreakStatement,
     createArrayNode,
     createAssignStatement,
@@ -46,7 +45,6 @@ import {
     StructDeclField,
     StructExprField,
     TyLabel,
-    UnaryOperator,
     VariableDecl
 } from './node.js';
 import { Token } from './token.js';
@@ -498,73 +496,94 @@ function parseExpr(p: ParseContext): ExprNode {
     return parsePratt(p, 0);
 }
 
-type OpInfo =
-    | PrefixOp
-    | InfixOp
-    | PostfixOp;
+type OpInfo = PrefixInfo | InfixInfo | PostfixInfo;
 
-type PrefixOp = { kind: 'prefix', token: Token, op: UnaryOperator, bp: number };
-const prefixOp = (token: Token, op: UnaryOperator, bp: number): OpInfo => ({ kind: 'prefix', token, op, bp });
+type PrefixInfo = { kind: 'prefix', token: PrefixToken, bp: number };
+const prefixOp = (token: PrefixToken, bp: number): OpInfo => ({ kind: 'prefix', token, bp });
 
-type InfixOp = { kind: 'infix', token: Token, op: BinaryOperator, lbp: number, rbp: number };
-const infixOp = (token: Token, op: BinaryOperator, lbp: number, rbp: number): OpInfo => ({ kind: 'infix', token, op, lbp, rbp });
+type PrefixToken =
+    | Token.Not
+    | Token.Plus
+    | Token.Minus;
 
-type PostfixOp = { kind: 'postfix', token: Token, op: UnaryOperator, bp: number };
-const postfixOp = (token: Token, op: UnaryOperator, bp: number): OpInfo => ({ kind: 'postfix', token, op, bp });
+type InfixInfo = { kind: 'infix', token: InfixToken, lbp: number, rbp: number };
+const infixOp = (token: InfixToken, lbp: number, rbp: number): OpInfo => ({ kind: 'infix', token, lbp, rbp });
 
-const opTable: OpInfo[] = [
-    infixOp(Token.Asterisk, '*', 60, 61),
-    infixOp(Token.Slash, '/', 60, 61),
-    infixOp(Token.Percent, '%', 60, 61),
-    infixOp(Token.Plus, '+', 50, 51),
-    infixOp(Token.Minus, '-', 50, 51),
-    infixOp(Token.LessThan,'<', 40, 41),
-    infixOp(Token.LessThanEq, '<=', 40, 41),
-    infixOp(Token.GreaterThan, '>', 40, 41),
-    infixOp(Token.GreaterThanEq, '>=', 40, 41),
-    infixOp(Token.Eq, '==', 30, 31),
-    infixOp(Token.NotEq, '!=', 30, 31),
-    infixOp(Token.And2, '&&', 20, 21),
-    infixOp(Token.Or2, '||', 10, 11),
+type InfixToken =
+    | Token.Dot
+    | Token.Asterisk
+    | Token.Slash
+    | Token.Percent
+    | Token.Plus
+    | Token.Minus
+    | Token.LessThan
+    | Token.LessThanEq
+    | Token.GreaterThan
+    | Token.GreaterThanEq
+    | Token.Eq
+    | Token.NotEq
+    | Token.And2
+    | Token.Or2;
+
+type PostfixInfo = { kind: 'postfix', token: PostfixToken, bp: number };
+const postfixOp = (token: PostfixToken, bp: number): OpInfo => ({ kind: 'postfix', token, bp });
+
+type PostfixToken =
+    | Token.BeginBracket
+    | Token.BeginParen;
+
+const operators: OpInfo[] = [
+    postfixOp(Token.BeginParen, 90),
+    postfixOp(Token.BeginBracket, 90),
+    infixOp(Token.Dot, 90, 91),
+    prefixOp(Token.Not, 80),
+    prefixOp(Token.Plus, 80),
+    prefixOp(Token.Minus, 80),
+    infixOp(Token.Asterisk, 70, 71),
+    infixOp(Token.Slash, 70, 71),
+    infixOp(Token.Percent, 70, 71),
+    infixOp(Token.Plus, 60, 61),
+    infixOp(Token.Minus, 60, 61),
+    infixOp(Token.LessThan, 50, 51),
+    infixOp(Token.LessThanEq, 50, 51),
+    infixOp(Token.GreaterThan, 50, 51),
+    infixOp(Token.GreaterThanEq, 50, 51),
+    infixOp(Token.Eq, 40, 41),
+    infixOp(Token.NotEq, 40, 41),
+    infixOp(Token.And2, 30, 31),
+    infixOp(Token.Or2, 20, 21),
 ];
 
 function parsePratt(p: ParseContext, minBp: number): ExprNode {
     // pratt parsing
     // https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
-    const pos = p.getPos();
     const token = p.getToken();
-    const prefix = opTable.find((x): x is PrefixOp => x.kind == 'prefix' && x.token == token);
-    let left;
+    const prefix = operators.find((x): x is PrefixInfo => x.kind == 'prefix' && x.token == token);
+    let left: ExprNode;
     if (prefix != null) {
         // prefix
-        p.next();
-        const right = parsePratt(p, prefix.bp);
-        left = createUnaryOp(pos, prefix.op, right);
+        left = parsePrefix(p, prefix);
     } else {
         left = parseAtom(p);
     }
     while (true) {
-        const pos = p.getPos();
         const token = p.getToken();
-        const postfix = opTable.find((x): x is PostfixOp => x.kind == 'postfix' && x.token == token);
+        const postfix = operators.find((x): x is PostfixInfo => x.kind == 'postfix' && x.token == token);
         if (postfix != null) {
             // postfix
             if (postfix.bp < minBp) {
                 break;
             }
-            p.next();
-            left = createUnaryOp(pos, postfix.op, left);
+            left = parsePostfix(p, left, postfix);
             continue;
         }
-        const infix = opTable.find((x): x is InfixOp => x.kind == 'infix' && x.token == token);
+        const infix = operators.find((x): x is InfixInfo => x.kind == 'infix' && x.token == token);
         if (infix != null) {
             // infix
             if (infix.lbp < minBp) {
                 break;
             }
-            p.next();
-            const right = parsePratt(p, infix.rbp);
-            left = createBinaryOp(pos, infix.op, left, right);
+            left = parseInfix(p, left, infix);
             continue;
         }
         break;
@@ -572,25 +591,25 @@ function parsePratt(p: ParseContext, minBp: number): ExprNode {
     return left;
 }
 
-/**
- * ```text
- * <Atom> = <AtomInner> <SuffixChain>
- * ```
-*/
-function parseAtom(p: ParseContext): ExprNode {
-    const expr = parseAtomInner(p);
-    return parseSuffixChain(p, expr);
+function parsePrefix(p: ParseContext, info: PrefixInfo): ExprNode {
+    const pos = p.getPos();
+    p.next();
+    const right = parsePratt(p, info.bp);
+    return createUnaryOp(pos, info.token, right);
 }
 
-/**
- * Consumes a one suffix and the remaining of the chain is consumed in a recursive call.
- * If there is no suffix, the target is returned as is.
-*/
-function parseSuffixChain(p: ParseContext, target: ExprNode): ExprNode {
-    switch (p.getToken()) {
-        case Token.BeginParen: { // call
-            const pos = p.getPos();
-            p.next();
+function parsePostfix(p: ParseContext, left: ExprNode, info: PostfixInfo): ExprNode {
+    const pos = p.getPos();
+    p.next();
+    switch (info.token) {
+        case Token.BeginBracket: {
+            // index access
+            const index = parseExpr(p);
+            p.expectAndNext(Token.EndBracket);
+            return createIndexAccess(pos, left, index);
+        }
+        case Token.BeginParen: {
+            // call
             const args: ExprNode[] = [];
             if (!p.tokenIs(Token.EndParen)) {
                 args.push(parseExpr(p));
@@ -603,35 +622,31 @@ function parseSuffixChain(p: ParseContext, target: ExprNode): ExprNode {
                 }
             }
             p.expectAndNext(Token.EndParen);
-            return parseSuffixChain(p, createCall(pos, target, args));
-        }
-        case Token.Dot: { // field access
-            p.next();
-            const pos = p.getPos();
-            p.expect(Token.Ident);
-            const name = p.getIdentValue();
-            p.next();
-            return parseSuffixChain(p, createFieldAccess(pos, name, target));
-        }
-        case Token.BeginBracket: { // index access
-            const pos = p.getPos();
-            p.next();
-            const index = parseExpr(p);
-            p.expectAndNext(Token.EndBracket);
-            return parseSuffixChain(p, createIndexAccess(pos, target, index));
-        }
-        default: {
-            return target;
+            return createCall(pos, left, args);
         }
     }
 }
 
+function parseInfix(p: ParseContext, left: ExprNode, info: InfixInfo): ExprNode {
+    const pos = p.getPos();
+    p.next();
+    const right = parsePratt(p, info.rbp);
+    if (info.token == Token.Dot) {
+        // field access
+        if (right.kind !== 'Identifier') {
+            throw new UguisuError(`Identifier is expected. ${right.pos[0] + 1}:${right.pos[1] + 1}`);
+        }
+        return createFieldAccess(pos, right.name, left);
+    }
+    return createBinaryOp(pos, info.token, left, right);
+}
+
 /**
  * ```text
- * <AtomInner> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <StructExpr> / <Array> / <IfExpr> / <Identifier> / <Prefix> <Atom> / "(" <Expr> ")"
+ * <Atom> = <NumberLiteral> / <BoolLiteral> / <StringLiteral> / <StructExpr> / <Array> / <IfExpr> / <Identifier> / "(" <Expr> ")"
  * ```
 */
-function parseAtomInner(p: ParseContext): ExprNode {
+function parseAtom(p: ParseContext): ExprNode {
     const pos = p.getPos();
     switch (p.getToken()) {
         case Token.Literal: {
@@ -692,11 +707,6 @@ function parseAtomInner(p: ParseContext): ExprNode {
         }
         case Token.If: {
             return parseIfExpr(p);
-        }
-        case Token.Not: {
-            p.next();
-            const expr = parseAtom(p);
-            return createUnaryOp(pos, '!', expr);
         }
         case Token.BeginParen: {
             p.next();

@@ -1,3 +1,5 @@
+import { Token } from './token.js';
+
 export type Pos = [number, number];
 
 export type SyntaxNode =
@@ -202,8 +204,7 @@ export type UnaryOp = {
 export function createUnaryOp(pos: Pos, operator: UnaryOperator, expr: ExprNode): UnaryOp {
     return { kind: 'UnaryOp', pos, operator, expr };
 }
-export type UnaryOperator = LogicalUnaryOperator;
-export type LogicalUnaryOperator = '!';
+export type UnaryOperator = Token.Not | Token.Plus | Token.Minus;
 
 export type BinaryOp = {
     kind: 'BinaryOp',
@@ -224,29 +225,29 @@ export function createBinaryOp(
 export type BinaryOperator =
     LogicalBinaryOperator | EquivalentOperator | OrderingOperator | ArithmeticOperator;
 
-export type LogicalBinaryOperator = '||' | '&&';
-const logicalBinaryOperators: BinaryOperator[] = ['||', '&&'];
+export type LogicalBinaryOperator = Token.Or2 | Token.And2;
+const logicalBinaryOperators: BinaryOperator[] = [Token.Or2, Token.And2];
 
 export function isLogicalBinaryOperator(x: BinaryOperator): x is LogicalBinaryOperator {
     return logicalBinaryOperators.includes(x);
 }
 
-export type EquivalentOperator = '==' | '!=';
-const equivalentOperators: BinaryOperator[] = ['==', '!='];
+export type EquivalentOperator = Token.Eq | Token.NotEq;
+const equivalentOperators: BinaryOperator[] = [Token.Eq, Token.NotEq];
 
 export function isEquivalentOperator(x: BinaryOperator): x is EquivalentOperator {
     return equivalentOperators.includes(x);
 }
 
-export type OrderingOperator = '<' |'<=' | '>' | '>=';
-const orderingOperators: BinaryOperator[] = ['<', '<=', '>', '>='];
+export type OrderingOperator = Token.LessThan | Token.LessThanEq | Token.GreaterThan | Token.GreaterThanEq;
+const orderingOperators: BinaryOperator[] = [Token.LessThan, Token.LessThanEq, Token.GreaterThan, Token.GreaterThanEq];
 
 export function isOrderingOperator(x: BinaryOperator): x is OrderingOperator {
     return orderingOperators.includes(x);
 }
 
-export type ArithmeticOperator = '+' | '-' | '*' | '/' | '%';
-const arithmeticOperators: BinaryOperator[] = ['+', '-', '*', '/', '%'];
+export type ArithmeticOperator = Token.Plus | Token.Minus | Token.Asterisk | Token.Slash | Token.Percent;
+const arithmeticOperators: BinaryOperator[] = [Token.Plus, Token.Minus, Token.Asterisk, Token.Slash, Token.Percent];
 
 export function isArithmeticOperator(x: BinaryOperator): x is ArithmeticOperator {
     return arithmeticOperators.includes(x);
