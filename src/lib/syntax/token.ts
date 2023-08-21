@@ -46,7 +46,7 @@ export enum Token {
     /** "%=" */
     ModAssign,
     /** "==" */
-    Eq,
+    Eq2,
     /** ">" */
     GreaterThan,
     /** ">=" */
