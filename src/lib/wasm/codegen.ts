@@ -232,7 +232,7 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
                 }
             } else if (compareType(symbol.ty, boolType) == 'compatible') {
                 switch (node.operator) {
-                    case Token.Eq: {
+                    case Token.Eq2: {
                         return ctx.mod.i32.eq(left, right);
                     }
                     case Token.NotEq: {

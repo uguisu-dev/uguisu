@@ -520,7 +520,7 @@ type InfixToken =
     | Token.LessThanEq
     | Token.GreaterThan
     | Token.GreaterThanEq
-    | Token.Eq
+    | Token.Eq2
     | Token.NotEq
     | Token.And2
     | Token.Or2;
@@ -548,7 +548,7 @@ const operators: OpInfo[] = [
     infixOp(Token.LessThanEq, 50, 51),
     infixOp(Token.GreaterThan, 50, 51),
     infixOp(Token.GreaterThanEq, 50, 51),
-    infixOp(Token.Eq, 40, 41),
+    infixOp(Token.Eq2, 40, 41),
     infixOp(Token.NotEq, 40, 41),
     infixOp(Token.And2, 30, 31),
     infixOp(Token.Or2, 20, 21),

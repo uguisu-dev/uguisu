@@ -232,8 +232,8 @@ export function isLogicalBinaryOperator(x: BinaryOperator): x is LogicalBinaryOp
     return logicalBinaryOperators.includes(x);
 }
 
-export type EquivalentOperator = Token.Eq | Token.NotEq;
-const equivalentOperators: BinaryOperator[] = [Token.Eq, Token.NotEq];
+export type EquivalentOperator = Token.Eq2 | Token.NotEq;
+const equivalentOperators: BinaryOperator[] = [Token.Eq2, Token.NotEq];
 
 export function isEquivalentOperator(x: BinaryOperator): x is EquivalentOperator {
     return equivalentOperators.includes(x);

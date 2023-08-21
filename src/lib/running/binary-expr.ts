@@ -42,7 +42,7 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
             left = left as NumberValue;
             assertValue(right, 'NumberValue');
             switch (op) {
-                case Token.Eq: {
+                case Token.Eq2: {
                     return createOk(createBoolValue(left == right));
                 }
                 case Token.NotEq: {
@@ -55,7 +55,7 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
             left = left as BoolValue;
             assertValue(right, 'BoolValue');
             switch (op) {
-                case Token.Eq: {
+                case Token.Eq2: {
                     return createOk(createBoolValue(left == right));
                 }
                 case Token.NotEq: {
@@ -68,7 +68,7 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
             left = left as CharValue;
             assertValue(right, 'CharValue');
             switch (op) {
-                case Token.Eq: {
+                case Token.Eq2: {
                     return createOk(createBoolValue(left == right));
                 }
                 case Token.NotEq: {
@@ -81,7 +81,7 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
             left = left as StringValue;
             assertValue(right, 'StringValue');
             switch (op) {
-                case Token.Eq: {
+                case Token.Eq2: {
                     return createOk(createBoolValue(left == right));
                 }
                 case Token.NotEq: {
@@ -103,7 +103,7 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
             left = left as FunctionValue;
             assertValue(right, 'FunctionValue');
             switch (op) {
-                case Token.Eq: {
+                case Token.Eq2: {
                     return createOk(createBoolValue(equalFunc(left, right)));
                 }
                 case Token.NotEq: {

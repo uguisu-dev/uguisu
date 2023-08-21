@@ -254,7 +254,7 @@ export class Scanner {
                 case '=': {
                     this.nextChar();
                     if (this.ch == '=') {
-                        this.token = Token.Eq;
+                        this.token = Token.Eq2;
                         this.nextChar();
                     } else {
                         this.token = Token.Assign;
