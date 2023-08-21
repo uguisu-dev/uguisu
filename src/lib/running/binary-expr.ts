@@ -1,5 +1,6 @@
 import { UguisuError } from '../misc/errors.js';
 import { ArithmeticOperator, EquivalentOperator, LogicalBinaryOperator, OrderingOperator } from '../syntax/node.js';
+import { Token } from '../syntax/token.js';
 import { createOk, EvalResult } from './result.js';
 import {
     assertValue,
@@ -20,10 +21,10 @@ export function evalLogicalBinaryOp(op: LogicalBinaryOperator, left: Value, righ
     assertValue(left, 'BoolValue');
     assertValue(right, 'BoolValue');
     switch (op) {
-        case '&&': {
+        case Token.And2: {
             return createOk(createBoolValue(left && right));
         }
-        case '||': {
+        case Token.Or2: {
             return createOk(createBoolValue(left || right));
         }
     }
@@ -41,10 +42,10 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
             left = left as NumberValue;
             assertValue(right, 'NumberValue');
             switch (op) {
-                case '==': {
+                case Token.Eq: {
                     return createOk(createBoolValue(left == right));
                 }
-                case '!=': {
+                case Token.NotEq: {
                     return createOk(createBoolValue(left != right));
                 }
             }
@@ -54,10 +55,10 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
             left = left as BoolValue;
             assertValue(right, 'BoolValue');
             switch (op) {
-                case '==': {
+                case Token.Eq: {
                     return createOk(createBoolValue(left == right));
                 }
-                case '!=': {
+                case Token.NotEq: {
                     return createOk(createBoolValue(left != right));
                 }
             }
@@ -67,10 +68,10 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
             left = left as CharValue;
             assertValue(right, 'CharValue');
             switch (op) {
-                case '==': {
+                case Token.Eq: {
                     return createOk(createBoolValue(left == right));
                 }
-                case '!=': {
+                case Token.NotEq: {
                     return createOk(createBoolValue(left != right));
                 }
             }
@@ -80,10 +81,10 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
             left = left as StringValue;
             assertValue(right, 'StringValue');
             switch (op) {
-                case '==': {
+                case Token.Eq: {
                     return createOk(createBoolValue(left == right));
                 }
-                case '!=': {
+                case Token.NotEq: {
                     return createOk(createBoolValue(left != right));
                 }
             }
@@ -102,10 +103,10 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
             left = left as FunctionValue;
             assertValue(right, 'FunctionValue');
             switch (op) {
-                case '==': {
+                case Token.Eq: {
                     return createOk(createBoolValue(equalFunc(left, right)));
                 }
-                case '!=': {
+                case Token.NotEq: {
                     return createOk(createBoolValue(!equalFunc(left, right)));
                 }
             }
@@ -128,18 +129,19 @@ export function evalOrderingBinaryOp(op: OrderingOperator, left: Value, right: V
     }
     switch (getValueKind(left)) {
         case 'NumberValue': {
+            left = left as NumberValue;
             assertValue(right, 'NumberValue');
             switch (op) {
-                case '<': {
+                case Token.LessThan: {
                     return createOk(createBoolValue(left < right));
                 }
-                case '<=': {
+                case Token.LessThanEq: {
                     return createOk(createBoolValue(left <= right));
                 }
-                case '>': {
+                case Token.GreaterThan: {
                     return createOk(createBoolValue(left > right));
                 }
-                case '>=': {
+                case Token.GreaterThanEq: {
                     return createOk(createBoolValue(left >= right));
                 }
             }
@@ -161,19 +163,19 @@ export function evalArithmeticBinaryOp(op: ArithmeticOperator, left: Value, righ
     assertValue(left, 'NumberValue');
     assertValue(right, 'NumberValue');
     switch (op) {
-        case '+': {
+        case Token.Plus: {
             return createOk(createNumberValue(left + right));
         }
-        case '-': {
+        case Token.Minus: {
             return createOk(createNumberValue(left - right));
         }
-        case '*': {
+        case Token.Asterisk: {
             return createOk(createNumberValue(left * right));
         }
-        case '/': {
+        case Token.Slash: {
             return createOk(createNumberValue(left / right));
         }
-        case '%': {
+        case Token.Percent: {
             return createOk(createNumberValue(left % right));
         }
     }

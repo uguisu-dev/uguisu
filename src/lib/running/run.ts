@@ -12,6 +12,7 @@ import {
     StatementNode,
     StepNode
 } from '../syntax/node.js';
+import { Token } from '../syntax/token.js';
 import {
     evalArithmeticBinaryOp,
     evalEquivalentBinaryOp,
@@ -388,7 +389,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
             // Logical Operation
             assertValue(result.value, 'BoolValue');
             switch (expr.operator) {
-                case '!': {
+                case Token.Not: {
                     return createOk(createBoolValue(!result.value));
                 }
             }
