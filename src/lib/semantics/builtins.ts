@@ -13,13 +13,13 @@ import {
   voidType
 } from './type.js';
 
-function setDecl(name: string, paramsTy: ValidType[], returnTy: ValidType, a: AnalyzeContext) {
+function setDecl(name: string, paramsTy: ValidType[], returnTy: ValidType, ctx: AnalyzeContext) {
   const params = Array(paramsTy.length).map(() => ({ name: 'x' }));
   const ty = new FunctionType(paramsTy, returnTy);
-  a.env.set(name, new NativeFuncSymbol(params, ty));
+  ctx.env.set(name, new NativeFuncSymbol(params, ty));
 }
 
-function group(name: string, a: AnalyzeContext, handler: (setItem: (name: string, paramsTy: ValidType[], returnTy: ValidType) => void) => void) {
+function group(name: string, ctx: AnalyzeContext, handler: (setItem: (name: string, paramsTy: ValidType[], returnTy: ValidType) => void) => void) {
   const fields: Map<string, Symbol> = new Map();
   function setItem(name: string, paramsTy: ValidType[], returnTy: ValidType) {
     const ty = new FunctionType(paramsTy, returnTy);
@@ -27,11 +27,11 @@ function group(name: string, a: AnalyzeContext, handler: (setItem: (name: string
     fields.set(name, symbol);
   }
   handler(setItem);
-  a.env.set(name, new StructSymbol(name, fields));
+  ctx.env.set(name, new StructSymbol(name, fields));
 }
 
-export function setDeclarations(a: AnalyzeContext) {
-  group('number', a, setItem => {
+export function setDeclarations(ctx: AnalyzeContext) {
+  group('number', ctx, setItem => {
     setItem(
       'parse',
       [stringType],
@@ -49,7 +49,7 @@ export function setDeclarations(a: AnalyzeContext) {
     );
   });
 
-  group('char', a, setItem => {
+  group('char', ctx, setItem => {
     setItem(
       'fromNumber',
       [numberType],
@@ -67,7 +67,7 @@ export function setDeclarations(a: AnalyzeContext) {
     );
   });
 
-  group('string', a, setItem => {
+  group('string', ctx, setItem => {
     setItem(
       'concat',
       [stringType, stringType],
@@ -90,7 +90,7 @@ export function setDeclarations(a: AnalyzeContext) {
     );
   });
 
-  group('array', a, setItem => {
+  group('array', ctx, setItem => {
     setItem(
       'insert',
       [arrayType, numberType, anyType],
@@ -113,7 +113,7 @@ export function setDeclarations(a: AnalyzeContext) {
     );
   });
 
-  group('console', a, setItem => {
+  group('console', ctx, setItem => {
     setItem(
       'write',
       [stringType],
@@ -135,6 +135,6 @@ export function setDeclarations(a: AnalyzeContext) {
     'getUnixtime',
     [],
     numberType,
-    a
+    ctx
   );
 }
