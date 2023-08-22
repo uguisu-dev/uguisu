@@ -13,10 +13,11 @@
     "script-engine",
     "uguisu"
   ],
-  "main": "lib/index.js",
+  "module": "./build/lib/index.js",
+  "main": "./build/lib/index.js",
   "type": "module",
   "bin": {
-    "uguisu": "bin/uguisu.js"
+    "uguisu": "./build/bin/uguisu.js"
   },
   "directories": {
     "doc": "docs"
@@ -32,8 +33,8 @@
   "scripts": {
     "build": "tsc",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --verbose",
-    "cli": "node bin/uguisu.js",
-    "nightly": "node scripts/nightly.js"
+    "cli": "node ./build/bin/uguisu.js",
+    "nightly": "node ./scripts/nightly.js"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
@@ -48,8 +49,7 @@
     "char-regex": "^2.0.0"
   },
   "files": [
-    "bin/**/*",
-    "lib/**/*",
+    "build/**/*",
     "CHANGELOG.md"
   ]
 }

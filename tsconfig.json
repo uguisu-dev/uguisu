@@ -1,16 +1,16 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ES2020",
-    "outDir": "./",
-    "moduleResolution": "node",
-    "strict": true,
-    "noImplicitReturns": true,
+    "target": "es2020",
+    "module": "node16",
+    "outDir": "./build/",
+    "moduleResolution": "node16",
     "declaration": true,
-    "esModuleInterop": true,
-    "experimentalDecorators": true,
-    "removeComments": false
+    //"removeComments": true,
+    "strict": true,
+    "noImplicitReturns": true
+    //"esModuleInterop": true,
+    //"experimentalDecorators": true,
   },
   "include": [
     "src/**/*"

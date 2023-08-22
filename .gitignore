@@ -5,7 +5,7 @@
 /.vscode
 
 # user
-/built
+/build
 /bin
 /lib
 /temp
