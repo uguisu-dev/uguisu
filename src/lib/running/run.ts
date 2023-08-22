@@ -386,11 +386,18 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
       if (isReturn(result) || isBreak(result)) {
         return result;
       }
-      // Logical Operation
-      assertValue(result.value, 'BoolValue');
       switch (expr.operator) {
         case Token.Not: {
+          assertValue(result.value, 'BoolValue');
           return new Complete(new BoolValue(!result.value.raw));
+        }
+        case Token.Plus: {
+          assertValue(result.value, 'NumberValue');
+          return new Complete(result.value);
+        }
+        case Token.Minus: {
+          assertValue(result.value, 'NumberValue');
+          return new Complete(new NumberValue(0 - result.value.raw));
         }
       }
       throw new UguisuError('unexpected operation');

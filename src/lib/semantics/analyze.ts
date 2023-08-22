@@ -45,6 +45,7 @@ import {
   Type,
   voidType
 } from './type.js';
+import { Token } from '../syntax/token.js';
 
 type StatementResult =
   | 'invalid'
@@ -812,13 +813,26 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
         return badType;
       }
 
-      // Logical Operation
-      if (compareType(ty, boolType) == 'incompatible') {
-        dispatchTypeError(ty, boolType, node, a);
-        return badType;
+      switch (node.operator) {
+        case Token.Not: {
+          if (compareType(ty, boolType) == 'incompatible') {
+            dispatchTypeError(ty, boolType, node, a);
+            return badType;
+          }
+          a.symbolTable.set(node, new ExprSymbol(boolType));
+          return boolType;
+        }
+        case Token.Plus:
+        case Token.Minus: {
+          if (compareType(ty, numberType) == 'incompatible') {
+            dispatchTypeError(ty, numberType, node, a);
+            return badType;
+          }
+          a.symbolTable.set(node, new ExprSymbol(numberType));
+          return numberType;
+        }
       }
-      a.symbolTable.set(node, new ExprSymbol(boolType));
-      return boolType;
+      break;
     }
     case 'StructExpr': {
       // get symbol
