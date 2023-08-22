@@ -19,77 +19,64 @@ export function isValidType(ty: Type): ty is ValidType {
 }
 
 export function isBadType(ty: Type): ty is BadType {
-  return ty.kind == 'BadType';
+  return (ty.kind === 'BadType');
 }
 
 export function isPendingType(ty: Type): ty is PendingType {
-  return ty.kind == 'PendingType';
+  return (ty.kind === 'PendingType');
 }
 
 export function isNeverType(ty: Type): ty is NeverType {
-  return ty.kind == 'NeverType';
+  return (ty.kind === 'NeverType');
 }
 
-export type BadType = {
-  kind: 'BadType',
-};
-
-export type PendingType = {
-  kind: 'PendingType',
-};
-
-export type AnyType = {
-  kind: 'AnyType',
-};
-
-export type VoidType = {
-  kind: 'VoidType',
-};
-
-export type NeverType = {
-  kind: 'NeverType',
-};
-
-export type NamedType = {
-  kind: 'NamedType',
-  name: string,
-};
-
-export function createNamedType(name: string): NamedType {
-  return { kind: 'NamedType', name };
+export class BadType {
+  kind = 'BadType' as const;
+}
+export class PendingType {
+  kind = 'PendingType' as const;
+}
+export class AnyType {
+  kind = 'AnyType' as const;
+}
+export class VoidType {
+  kind = 'VoidType' as const;
+}
+export class NeverType {
+  kind = 'NeverType' as const;
+}
+export class NamedType {
+  kind = 'NamedType' as const;
+  constructor(public name: string) { }
 }
 
-export type FunctionType = {
-  kind: 'FunctionType',
-  paramTypes: Type[],
-  returnType: Type,
-};
-
-export function createFunctionType(paramTypes: Type[], returnType: Type): FunctionType {
-  return { kind: 'FunctionType', paramTypes, returnType };
+export class FunctionType {
+  kind = 'FunctionType' as const;
+  constructor(
+    public paramTypes: Type[],
+    public returnType: Type
+  ) { }
 }
 
-export type GenericType = {
-  kind: 'GenericType',
-  name: string,
-  innerTypes: Type[],
-};
-
-export function createGenericType(name: string, innerTypes: Type[]): GenericType {
-  return { kind: 'GenericType', name, innerTypes };
+export class GenericType {
+  kind = 'GenericType' as const;
+  constructor(
+    public name: string,
+    public innerTypes: Type[],
+  ) { }
 }
 
 // builtin types
-export const badType = { kind: 'BadType' } as BadType;
-export const pendingType = { kind: 'PendingType' } as PendingType;
-export const anyType = { kind: 'AnyType' } as AnyType;
-export const voidType = { kind: 'VoidType' } as VoidType;
-export const neverType = { kind: 'NeverType' } as NeverType;
-export const numberType = createNamedType('number');
-export const boolType = createNamedType('bool');
-export const charType = createNamedType('char');
-export const stringType = createNamedType('string');
-export const arrayType = createNamedType('array');
+export const badType = new BadType();
+export const pendingType = new PendingType();
+export const anyType = new AnyType();
+export const voidType = new VoidType();
+export const neverType = new NeverType();
+export const numberType = new NamedType('number');
+export const boolType = new NamedType('bool');
+export const charType = new NamedType('char');
+export const stringType = new NamedType('string');
+export const arrayType = new NamedType('array');
 
 export type CompareTypeResult = 'unknown' | 'compatible' | 'incompatible';
 

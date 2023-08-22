@@ -1,44 +1,32 @@
 import { Value } from './value.js';
 
 export type EvalResult<T> =
-  | OkResult<T>
-  | ReturnResult
-  | BreakResult;
+  | Complete<T>
+  | Return
+  | Break;
 
-export type OkResult<T> = {
-  code: 'ok',
-  value: T,
-};
-
-export type ReturnResult = {
-  code: 'return',
-  value: Value,
-};
-
-export type BreakResult = {
-  code: 'break',
-};
-
-export function createOk<T>(value: T): EvalResult<T> {
-  return { code: 'ok', value };
+export class Complete<T> {
+  kind = 'Complete' as const;
+  constructor(public value: T) { }
 }
 
-export function createReturn<T>(value: Value): EvalResult<T> {
-  return { code: 'return', value };
+export class Return {
+  kind = 'Return' as const;
+  constructor(public value: Value) { }
 }
 
-export function createBreak<T>(): EvalResult<T> {
-  return { code: 'break' };
+export class Break {
+  kind = 'Break' as const;
 }
 
-export function isOk<T>(x: EvalResult<T>): x is OkResult<T> {
-  return (x.code == 'ok');
+export function isComplete<T>(x: EvalResult<T>): x is Complete<T> {
+  return (x.kind === 'Complete');
 }
 
-export function isReturn(x: EvalResult<unknown>): x is ReturnResult {
-  return (x.code == 'return');
+export function isReturn(x: EvalResult<unknown>): x is Return {
+  return (x.kind === 'Return');
 }
 
-export function isBreak(x: EvalResult<unknown>): x is BreakResult {
-  return (x.code == 'break');
+export function isBreak(x: EvalResult<unknown>): x is Break {
+  return (x.kind === 'Break');
 }

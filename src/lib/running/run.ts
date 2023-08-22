@@ -21,7 +21,7 @@ import {
 } from './binary-expr.js';
 import * as builtins from './builtins.js';
 import { RunContext, RunningEnv, Symbol } from './common.js';
-import { createOk, EvalResult, isReturn, isBreak, isOk, createReturn, createBreak } from './result.js';
+import { EvalResult, isReturn, isBreak, isComplete, Complete, Return, Break } from './result.js';
 import {
   assertValue,
   FunctionValue,
@@ -84,7 +84,7 @@ export function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
       const arg = args[i];
       ctx.env.declare(param.name, arg);
     }
-    let result: EvalResult<Value> = createOk(createNoneValue());
+    let result: EvalResult<Value> = new Complete(createNoneValue());
     for (const step of func.user.node.body) {
       if (isExprNode(step)) {
         result = evalExpr(ctx, step);
@@ -112,7 +112,7 @@ export function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
 
 function evalBlock(r: RunContext, block: StepNode[]): EvalResult<Value> {
   r.env.enter();
-  let result: EvalResult<Value> = createOk(createNoneValue());
+  let result: EvalResult<Value> = new Complete(createNoneValue());
   for (let i = 0; i < block.length; i++) {
     const step = block[i];
     if (isExprNode(step)) {
@@ -122,7 +122,7 @@ function evalBlock(r: RunContext, block: StepNode[]): EvalResult<Value> {
       }
       const isFinalStep = (i == block.length - 1);
       if (isFinalStep) {
-        result = createOk(stepResult.value);
+        result = new Complete(stepResult.value);
       } else {
         // ignore the value
       }
@@ -146,7 +146,7 @@ function evalReferenceExpr(r: RunContext, expr: ExprNode): EvalResult<Symbol> {
       if (symbol == null) {
         throw new UguisuError(`identifier \`${expr.name}\` is not defined`);
       }
-      return createOk(symbol);
+      return new Complete(symbol);
     }
     case 'FieldAccess': {
       const target = evalExpr(r, expr.target);
@@ -158,7 +158,7 @@ function evalReferenceExpr(r: RunContext, expr: ExprNode): EvalResult<Symbol> {
       if (field == null) {
         throw new UguisuError('unknown field');
       }
-      return createOk(field);
+      return new Complete(field);
     }
     case 'IndexAccess': {
       const target = evalExpr(r, expr.target);
@@ -175,7 +175,7 @@ function evalReferenceExpr(r: RunContext, expr: ExprNode): EvalResult<Symbol> {
       if (symbol == null) {
         throw new UguisuError('index out of range');
       }
-      return createOk(symbol);
+      return new Complete(symbol);
     }
     default: {
       throw new UguisuError('unexpected expression');
@@ -187,23 +187,23 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
   switch (statement.kind) {
     case 'ExprStatement': {
       evalExpr(r, statement.expr);
-      return createOk(createNoneValue());
+      return new Complete(createNoneValue());
     }
     case 'ReturnStatement': {
       if (statement.expr != null) {
         const result = evalExpr(r, statement.expr);
-        if (isOk(result)) {
-          return createReturn(result.value);
+        if (isComplete(result)) {
+          return new Return(result.value);
         } else {
           return result;
         }
       } else {
-        return createReturn(createNoneValue());
+        return new Return(createNoneValue());
       }
       break;
     }
     case 'BreakStatement': {
-      return createBreak();
+      return new Break();
     }
     case 'LoopStatement': {
       while (true) {
@@ -214,7 +214,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
           break;
         }
       }
-      return createOk(createNoneValue());
+      return new Complete(createNoneValue());
     }
     case 'VariableDecl': {
       if (statement.body != null) {
@@ -229,7 +229,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
       } else {
         r.env.declare(statement.name);
       }
-      return createOk(createNoneValue());
+      return new Complete(createNoneValue());
     }
     case 'AssignStatement': {
       let target;
@@ -305,7 +305,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
           break;
         }
       }
-      return createOk(createNoneValue());
+      return new Complete(createNoneValue());
     }
   }
 }
@@ -313,16 +313,16 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
 function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
   switch (expr.kind) {
     case 'NumberLiteral': {
-      return createOk(createNumberValue(expr.value));
+      return new Complete(createNumberValue(expr.value));
     }
     case 'BoolLiteral': {
-      return createOk(createBoolValue(expr.value));
+      return new Complete(createBoolValue(expr.value));
     }
     case 'CharLiteral': {
-      return createOk(createCharValue(expr.value));
+      return new Complete(createCharValue(expr.value));
     }
     case 'StringLiteral': {
-      return createOk(createStringValue(expr.value));
+      return new Complete(createStringValue(expr.value));
     }
     case 'StructExpr': {
       const fields = new Map<string, Symbol>();
@@ -334,7 +334,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
         const symbol = new Symbol(result.value);
         fields.set(field.name, symbol);
       }
-      return createOk(createStructValue(fields));
+      return new Complete(createStructValue(fields));
     }
     case 'ArrayNode': {
       const items: Symbol[] = [];
@@ -345,7 +345,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
         }
         items.push(new Symbol(result.value));
       }
-      return createOk(createArrayValue(items));
+      return new Complete(createArrayValue(items));
     }
     case 'Identifier':
     case 'FieldAccess':
@@ -358,7 +358,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
       if (symbol.value == null) {
         throw new UguisuError('symbol not defined');
       }
-      return createOk(symbol.value);
+      return new Complete(symbol.value);
     }
     case 'BinaryOp': {
       const left = evalExpr(r, expr.left);
@@ -390,7 +390,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
       assertValue(result.value, 'BoolValue');
       switch (expr.operator) {
         case Token.Not: {
-          return createOk(createBoolValue(!result.value));
+          return new Complete(createBoolValue(!result.value));
         }
       }
       throw new UguisuError('unexpected operation');
@@ -424,7 +424,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
         }
         args.push(arg.value);
       }
-      return createOk(call(r, callee.value, args));
+      return new Complete(call(r, callee.value, args));
     }
   }
 }

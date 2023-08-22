@@ -32,13 +32,13 @@ import {
   boolType,
   charType,
   compareType,
-  createFunctionType,
-  createNamedType,
   dispatchTypeError,
+  FunctionType,
   getTypeString,
   isNeverType,
   isPendingType,
   isValidType,
+  NamedType,
   neverType,
   numberType,
   pendingType,
@@ -184,7 +184,7 @@ function resolveTopLevel(node: FileNode, a: AnalyzeContext) {
       }
 
       // replace function type
-      symbol.ty = createFunctionType(paramsTy, returnTy);
+      symbol.ty = new FunctionType(paramsTy, returnTy);
       break;
     }
     case 'StructDecl': {
@@ -877,7 +877,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
         }
       }
 
-      return createNamedType(symbol.name);
+      return new NamedType(symbol.name);
     }
     case 'ArrayNode': {
       // analyze elements
@@ -931,7 +931,7 @@ function getTypeFromSymbol(symbol: Symbol, errorNode: SyntaxNode, a: AnalyzeCont
       return symbol.ty;
     }
     case 'StructSymbol': {
-      return createNamedType(symbol.name);
+      return new NamedType(symbol.name);
     }
     case 'VariableSymbol': {
       return symbol.ty;
@@ -950,7 +950,7 @@ function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
     case 'char':
     case 'string':
     case 'array': {
-      return createNamedType(node.name);
+      return new NamedType(node.name);
     }
   }
 
@@ -963,7 +963,7 @@ function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
 
   switch (symbol.kind) {
     case 'StructSymbol': {
-      return createNamedType(node.name);
+      return new NamedType(node.name);
     }
     case 'FnSymbol':
     case 'NativeFnSymbol':
