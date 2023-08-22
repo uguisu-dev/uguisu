@@ -3,9 +3,9 @@ fn main() {
     console.write(src);
     // => A B C
 
-    var charArray = string.toArray(src);
+    var charArray = string.toChars(src);
     charArray[2] = '🍮';
-    var dest = string.fromArray(charArray);
+    var dest = string.fromChars(charArray);
 
     console.write(dest);
     // => A 🍮 C
