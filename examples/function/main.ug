@@ -1,12 +1,12 @@
 fn calc(x: number): number {
-    if x == 0 {
-        1
-    } else {
-        calc(x - 1) * 2
-    }
+  if x == 0 {
+    1
+  } else {
+    calc(x - 1) * 2
+  }
 }
 
 fn main() {
-    var value = 10;
-    console.writeNum(calc(value));
+  var value = 10;
+  console.writeNum(calc(value));
 }

@@ -8,42 +8,42 @@ const args = process.argv.slice(2);
 
 let sub: 'new' | 'run' | 'check' | null;
 if (args.length > 0) {
-    switch (args[0]) {
-        case 'new': {
-            sub = 'new';
-            break;
-        }
-        case 'run': {
-            sub = 'run';
-            break;
-        }
-        case 'check': {
-            sub = 'check';
-            break;
-        }
-        default: {
-            sub = null;
-        }
+  switch (args[0]) {
+    case 'new': {
+      sub = 'new';
+      break;
     }
+    case 'run': {
+      sub = 'run';
+      break;
+    }
+    case 'check': {
+      sub = 'check';
+      break;
+    }
+    default: {
+      sub = null;
+    }
+  }
 } else {
-    sub = null;
+  sub = null;
 }
 
 switch (sub) {
-    case 'new': {
-        _new(args.slice(1));
-        break;
-    }
-    case 'run': {
-        run(args.slice(1));
-        break;
-    }
-    case 'check': {
-        check(args.slice(1));
-        break;
-    }
-    default: {
-        root(args);
-        break;
-    }
+  case 'new': {
+    _new(args.slice(1));
+    break;
+  }
+  case 'run': {
+    run(args.slice(1));
+    break;
+  }
+  case 'check': {
+    check(args.slice(1));
+    break;
+  }
+  default: {
+    root(args);
+    break;
+  }
 }

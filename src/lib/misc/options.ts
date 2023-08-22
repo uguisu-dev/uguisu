@@ -1,4 +1,4 @@
 export type UguisuOptions = {
-    stdin?: () => string,
-    stdout?: (buf: string) => void,
+  stdin?: () => string,
+  stdout?: (buf: string) => void,
 };

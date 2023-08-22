@@ -8,96 +8,96 @@ import { AnalysisEnv } from '../src/lib/semantics/common.js';
 import { RunningEnv } from '../src/lib/running/common.js';
 
 class RunTestError extends Error {
-    constructor(message: string, errors: string[], warnings: string[]) {
-        for (const error of errors) {
-            message += `\n- Error: ${error}`;
-        }
-        for (const warn of warnings) {
-            message += `\n- Warn: ${warn}`;
-        }
-        super(message);
+  constructor(message: string, errors: string[], warnings: string[]) {
+    for (const error of errors) {
+      message += `\n- Error: ${error}`;
     }
+    for (const warn of warnings) {
+      message += `\n- Warn: ${warn}`;
+    }
+    super(message);
+  }
 }
 
 function expectOk(sourceCode: string) {
-    const options: UguisuOptions = {};
-    const projectInfo: ProjectInfo = {
-        filename: 'main.ug',
-        langVersion: defaultVersion,
-    };
+  const options: UguisuOptions = {};
+  const projectInfo: ProjectInfo = {
+    filename: 'main.ug',
+    langVersion: defaultVersion,
+  };
 
-    // parse
-    const sourceFile = parse(sourceCode, projectInfo.filename, projectInfo);
+  // parse
+  const sourceFile = parse(sourceCode, projectInfo.filename, projectInfo);
 
-    // static analysis
-    const analysisEnv = new AnalysisEnv();
-    const symbolTable = new Map();
-    const result = analyze(sourceFile, analysisEnv, symbolTable, projectInfo);
-    if (!result.success) {
-        throw new RunTestError('Syntax error.', result.errors, result.warnings);
-    }
+  // static analysis
+  const analysisEnv = new AnalysisEnv();
+  const symbolTable = new Map();
+  const result = analyze(sourceFile, analysisEnv, symbolTable, projectInfo);
+  if (!result.success) {
+    throw new RunTestError('Syntax error.', result.errors, result.warnings);
+  }
 
-    // run
-    const runningEnv = new RunningEnv();
-    run(sourceFile, runningEnv, options, projectInfo);
+  // run
+  const runningEnv = new RunningEnv();
+  run(sourceFile, runningEnv, options, projectInfo);
 }
 
 function expectErr(sourceCode: string) {
-    try {
-        expectOk(sourceCode);
-    } catch (err) {
-        if (err instanceof RunTestError) {
-            return;
-        }
-        throw err;
+  try {
+    expectOk(sourceCode);
+  } catch (err) {
+    if (err instanceof RunTestError) {
+      return;
     }
-    assert.fail();
+    throw err;
+  }
+  assert.fail();
 }
 
 describe('variable', () => {
-    test('variable arith 1', () => expectOk(`
-    fn main() {
-        var x = 1;
-        number.assertEq(x, 1);
-    }
-    `));
+  test('variable arith 1', () => expectOk(`
+  fn main() {
+      var x = 1;
+      number.assertEq(x, 1);
+  }
+  `));
 
-    test('variable arith 2', () => expectOk(`
-    fn main() {
-        var x = 1 + 2;
-        number.assertEq(x, 3);
-    }
-    `));
+  test('variable arith 2', () => expectOk(`
+  fn main() {
+      var x = 1 + 2;
+      number.assertEq(x, 3);
+  }
+  `));
 
-    test('delay defined variable', () => expectOk(`
-    fn main() {
-        var x: number;
-        x = 1;
-        console.writeNum(x);
-    }
-    `));
+  test('delay defined variable', () => expectOk(`
+  fn main() {
+      var x: number;
+      x = 1;
+      console.writeNum(x);
+  }
+  `));
 
-    test('delay defined variable (inference)', () => expectOk(`
-    fn main() {
-        var x;
-        x = 1;
-        console.writeNum(x);
-    }
-    `));
+  test('delay defined variable (inference)', () => expectOk(`
+  fn main() {
+      var x;
+      x = 1;
+      console.writeNum(x);
+  }
+  `));
 
-    test('not defined variable', () => expectErr(`
-    fn main() {
-        var x: number;
-        console.writeNum(x);
-    }
-    `));
+  test('not defined variable', () => expectErr(`
+  fn main() {
+      var x: number;
+      console.writeNum(x);
+  }
+  `));
 
-    test('not defined variable (inference)', () => expectErr(`
-    fn main() {
-        var x;
-        console.writeNum(x);
-    }
-    `));
+  test('not defined variable (inference)', () => expectErr(`
+  fn main() {
+      var x;
+      console.writeNum(x);
+  }
+  `));
 });
 
 // function declaration
@@ -449,71 +449,71 @@ fn main() {
 // function
 
 describe('function', () => {
-    test('assign', () => expectOk(`
-    fn main() {
-        var x = main;
-    }
-    `));
+  test('assign', () => expectOk(`
+  fn main() {
+      var x = main;
+  }
+  `));
 
-    // test('return', () => runTest(`
-    // fn f(): () => void {
-    //     return f;
-    // }
-    // fn main() {
-    //     f();
-    // }
-    // `));
+  // test('return', () => runTest(`
+  // fn f(): () => void {
+  //     return f;
+  // }
+  // fn main() {
+  //     f();
+  // }
+  // `));
 
-    test('compare', () => expectOk(`
-    fn main() {
-        if main == main { }
-    }
-    `));
+  test('compare', () => expectOk(`
+  fn main() {
+      if main == main { }
+  }
+  `));
 
-    test('expr statement', () => expectOk(`
-    fn main() {
-        main;
-    }
-    `));
+  test('expr statement', () => expectOk(`
+  fn main() {
+      main;
+  }
+  `));
 
-    test('generate error 1', () => expectErr(`
-    fn main() {
-        main = 1;
-    }
-    `));
+  test('generate error 1', () => expectErr(`
+  fn main() {
+      main = 1;
+  }
+  `));
 
-    test('generate error 2', () => expectErr(`
-    fn main() {
-        var x = 1;
-        x = main;
-    }
-    `));
+  test('generate error 2', () => expectErr(`
+  fn main() {
+      var x = 1;
+      x = main;
+  }
+  `));
 
-    test('generate error 3', () => expectErr(`
-    fn main() {
-        var x = !main;
-    }
-    `));
+  test('generate error 3', () => expectErr(`
+  fn main() {
+      var x = !main;
+  }
+  `));
 
-    test('generate error 4', () => expectErr(`
-    fn main() {
-        var x = main + main;
-    }
-    `));
+  test('generate error 4', () => expectErr(`
+  fn main() {
+      var x = main + main;
+  }
+  `));
 
-    test('generate error 5', () => expectErr(`
-    fn main() {
-        var x = main && main;
-    }
-    `));
+  test('generate error 5', () => expectErr(`
+  fn main() {
+      var x = main && main;
+  }
+  `));
 
-    test('generate error 6', () => expectErr(`
-    fn f() {
-    }
-    fn main() {
-        var x = f(main);
-    }
-    `));
+  test('generate error 6', () => expectErr(`
+  fn f() {
+  }
+  fn main() {
+      var x = f(main);
+  }
+  `));
 });
 
 // comments
@@ -566,53 +566,53 @@ fn main() {
 // if expr
 
 describe('if expr', () => {
-    test('with function', () => expectOk(`
-    fn f(x: bool): number {
-        if x {
-            1
-        } else {
-            2
-        }
-    }
-    fn main() {
-        number.assertEq(f(true), 1);
-        number.assertEq(f(false), 2);
-    }
-    `));
+  test('with function', () => expectOk(`
+  fn f(x: bool): number {
+      if x {
+          1
+      } else {
+          2
+      }
+  }
+  fn main() {
+      number.assertEq(f(true), 1);
+      number.assertEq(f(false), 2);
+  }
+  `));
 
-    test('with function (return)', () => expectOk(`
-    fn f(x: bool): number {
-        if x {
-            return 1;
-        } else {
-            2
-        }
-    }
-    fn main() {
-        number.assertEq(f(true), 1);
-        number.assertEq(f(false), 2);
-    }
-    `));
+  test('with function (return)', () => expectOk(`
+  fn f(x: bool): number {
+      if x {
+          return 1;
+      } else {
+          2
+      }
+  }
+  fn main() {
+      number.assertEq(f(true), 1);
+      number.assertEq(f(false), 2);
+  }
+  `));
 
-    test('with variable declaration', () => expectOk(`
-    fn main() {
-        var cond = true;
-        var x = if cond {
-            1
-        } else {
-            2
-        };
-        number.assertEq(x, 1);
+  test('with variable declaration', () => expectOk(`
+  fn main() {
+      var cond = true;
+      var x = if cond {
+          1
+      } else {
+          2
+      };
+      number.assertEq(x, 1);
 
-        cond = false;
-        x = if cond {
-            1
-        } else {
-            2
-        };
-        number.assertEq(x, 2);
-    }
-    `));
+      cond = false;
+      x = if cond {
+          1
+      } else {
+          2
+      };
+      number.assertEq(x, 2);
+  }
+  `));
 });
 
 // other examples

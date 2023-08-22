@@ -1,15 +1,15 @@
 struct User {
-    id: string,
-    name: string,
-    createdAt: number,
+  id: string,
+  name: string,
+  createdAt: number,
 }
 
 fn main() {
-    var x = new User {
-        id: "kani",
-        name: "kani san",
-        createdAt: 12345,
-    };
+  var x = new User {
+    id: "kani",
+    name: "kani san",
+    createdAt: 12345,
+  };
 
-    console.write(x.name);
+  console.write(x.name);
 }
