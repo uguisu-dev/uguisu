@@ -1,25 +1,25 @@
 import { BadType, FunctionType, PendingType, Type } from './type.js';
 
 export type Symbol =
-  | FnSymbol
-  | NativeFnSymbol
+  | FuncSymbol
+  | NativeFuncSymbol
   | StructSymbol
   | VariableSymbol
   | ExprSymbol;
 
-export class FnSymbol {
-  kind = 'FnSymbol' as const;
+export class FuncSymbol {
+  kind = 'FuncSymbol' as const;
   constructor(
     public params: { name: string }[],
     public ty: FunctionType | PendingType | BadType,
     /** for wasm */
-    public vars: FnVar[]
+    public vars: FuncVar[]
   ) { }
 }
-export type FnVar = { name: string, isParam: boolean, ty: Type };
+export type FuncVar = { name: string, isParam: boolean, ty: Type };
 
-export class NativeFnSymbol {
-  kind = 'NativeFnSymbol' as const;
+export class NativeFuncSymbol {
+  kind = 'NativeFuncSymbol' as const;
   constructor(
     public params: { name: string }[],
     public ty: FunctionType | PendingType | BadType,

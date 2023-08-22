@@ -48,7 +48,7 @@ function translateFunc(ctx: Context, node: FileNode) {
     return;
   }
   const symbol = ctx.symbolTable.get(node);
-  if (symbol == null || symbol.kind != 'FnSymbol') {
+  if (symbol == null || symbol.kind != 'FuncSymbol') {
     throw new UguisuError('unknown node');
   }
 
@@ -297,7 +297,7 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
     }
     case 'Call': {
       const calleeSymbol = ctx.symbolTable.get(node.callee);
-      if (calleeSymbol == null || calleeSymbol.kind != 'FnSymbol') {
+      if (calleeSymbol == null || calleeSymbol.kind != 'FuncSymbol') {
         throw new UguisuError('invalid node');
       }
       const callee = node.callee as Identifier;

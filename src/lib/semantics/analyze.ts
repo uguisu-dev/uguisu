@@ -18,7 +18,7 @@ import {
 import * as builtins from './builtins.js';
 import {
   ExprSymbol,
-  FnSymbol,
+  FuncSymbol,
   StructSymbol,
   Symbol,
   VariableSymbol
@@ -52,11 +52,13 @@ type StatementResult =
   | 'return'
   | 'break';
 
-export type AnalyzeResult = {
-  success: boolean,
-  errors: string[],
-  warnings: string[],
-};
+export class AnalyzeResult {
+  constructor(
+    public success: boolean,
+    public errors: string[],
+    public warnings: string[],
+  ) { }
+}
 
 export function analyze(
   source: SourceFile,
@@ -84,11 +86,7 @@ export function analyze(
     a.dispatchWarn('type checking of array elements is not supported yet.');
   }
 
-  return {
-    success: (a.error.length == 0),
-    errors: a.error,
-    warnings: a.warn,
-  };
+  return new AnalyzeResult((a.error.length == 0), a.error, a.warn);
 }
 
 function declareTopLevel(node: FileNode, a: AnalyzeContext) {
@@ -109,7 +107,7 @@ function declareTopLevel(node: FileNode, a: AnalyzeContext) {
       const params = node.params.map(x => ({ name: x.name }));
 
       // declare function
-      const symbol = new FnSymbol(params, pendingType, []);
+      const symbol = new FuncSymbol(params, pendingType, []);
       a.symbolTable.set(node, symbol);
       a.env.set(node.name, symbol);
       break;
@@ -152,7 +150,7 @@ function resolveTopLevel(node: FileNode, a: AnalyzeContext) {
       }
 
       // expect function symbol
-      if (symbol.kind != 'FnSymbol') {
+      if (symbol.kind != 'FuncSymbol') {
         a.dispatchError('function expected.', node);
         return;
       }
@@ -229,7 +227,7 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
       }
 
       // expect function symbol
-      if (symbol.kind != 'FnSymbol') {
+      if (symbol.kind != 'FuncSymbol') {
         a.dispatchError('function expected.', node);
         return;
       }
@@ -273,7 +271,7 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
 /**
  * @returns type of the last step of the block
 */
-function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext, before?: () => void): Type {
+function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FuncSymbol, a: AnalyzeContext, before?: () => void): Type {
   if (isPendingType(funcSymbol.ty)) {
     throw new UguisuError('unexpected type');
   }
@@ -331,7 +329,7 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FnSymbo
   return blockTy;
 }
 
-function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): Symbol | undefined {
+function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbol: FuncSymbol, a: AnalyzeContext): Symbol | undefined {
   switch (node.kind) {
     case 'Identifier': {
       // get symbol
@@ -430,7 +428,7 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
   throw new UguisuError('unexpected node');
 }
 
-function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): StatementResult {
+function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: FuncSymbol, a: AnalyzeContext): StatementResult {
   switch (node.kind) {
     case 'ExprStatement': {
       analyzeExpr(node.expr, allowJump, funcSymbol, a);
@@ -583,7 +581,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
   throw new UguisuError('unexpected node');
 }
 
-function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a: AnalyzeContext): Type {
+function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol, a: AnalyzeContext): Type {
   // validate expression
   switch (node.kind) {
     case 'Identifier':
@@ -643,8 +641,8 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
       // check callable
       let calleeTy;
       switch (calleeSymbol.kind) {
-        case 'FnSymbol':
-        case 'NativeFnSymbol': {
+        case 'FuncSymbol':
+        case 'NativeFuncSymbol': {
           calleeTy = calleeSymbol.ty;
           break;
         }
@@ -925,8 +923,8 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
 
 function getTypeFromSymbol(symbol: Symbol, errorNode: SyntaxNode, a: AnalyzeContext): Type {
   switch (symbol.kind) {
-    case 'FnSymbol':
-    case 'NativeFnSymbol': {
+    case 'FuncSymbol':
+    case 'NativeFuncSymbol': {
       return symbol.ty;
     }
     case 'StructSymbol': {
@@ -964,8 +962,8 @@ function resolveTyLabel(node: TyLabel, a: AnalyzeContext): Type {
     case 'StructSymbol': {
       return new NamedType(node.name);
     }
-    case 'FnSymbol':
-    case 'NativeFnSymbol':
+    case 'FuncSymbol':
+    case 'NativeFuncSymbol':
     case 'VariableSymbol':
     case 'ExprSymbol': {
       a.dispatchError('invalid type name.', node);

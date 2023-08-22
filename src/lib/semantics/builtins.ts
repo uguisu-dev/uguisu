@@ -1,4 +1,4 @@
-import { NativeFnSymbol, StructSymbol, Symbol, VariableSymbol } from './symbol.js';
+import { NativeFuncSymbol, StructSymbol, Symbol, VariableSymbol } from './symbol.js';
 import {
   AnalyzeContext
 } from './common.js';
@@ -16,7 +16,7 @@ import {
 function setDecl(name: string, paramsTy: ValidType[], returnTy: ValidType, a: AnalyzeContext) {
   const params = Array(paramsTy.length).map(() => ({ name: 'x' }));
   const ty = new FunctionType(paramsTy, returnTy);
-  a.env.set(name, new NativeFnSymbol(params, ty));
+  a.env.set(name, new NativeFuncSymbol(params, ty));
 }
 
 function group(name: string, a: AnalyzeContext, handler: (setItem: (name: string, paramsTy: ValidType[], returnTy: ValidType) => void) => void) {
