@@ -6,10 +6,10 @@ import {
   ArrayValue,
   assertValue,
   CharValue,
-  createNoneValue,
-  createNumberValue,
-  createStringValue,
   FunctionValue,
+  NoneValue,
+  NumberValue,
+  StringValue,
   StructValue,
   Value
 } from './value.js';
@@ -30,8 +30,8 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         throw new UguisuError('invalid arguments count');
       }
       assertValue(args[0], 'StringValue');
-      const parsedValue = Number(args[0]);
-      return createNumberValue(parsedValue);
+      const parsedValue = Number(args[0].raw);
+      return new NumberValue(parsedValue);
     });
     setItem('parse', parse);
 
@@ -40,7 +40,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         throw new UguisuError('invalid arguments count');
       }
       assertValue(args[0], 'NumberValue');
-      return createStringValue(args[0].toString());
+      return new StringValue(args[0].raw.toString());
     });
     setItem('toString', toString);
 
@@ -50,12 +50,12 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
       }
       assertValue(args[0], 'NumberValue');
       assertValue(args[1], 'NumberValue');
-      const actual = args[0];
-      const expected = args[1];
+      const actual = args[0].raw;
+      const expected = args[1].raw;
       if (actual != expected) {
         throw new UguisuError(`assertion error. expected \`${expected}\`, actual \`${actual}\`.`);
       }
-      return createNoneValue();
+      return new NoneValue();
     });
     setItem('assertEq', assertEq);
   });
@@ -66,7 +66,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         throw new UguisuError('invalid arguments count');
       }
       assertValue(args[0], 'NumberValue');
-      const charCode = args[0];
+      const charCode = args[0].raw;
       const charValue = String.fromCodePoint(charCode);
       return new CharValue(charValue);
     });
@@ -79,7 +79,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
       assertValue(args[0], 'CharValue');
       const charValue = args[0];
       const charCode = charValue.raw.codePointAt(0)!;
-      return createNumberValue(charCode);
+      return new NumberValue(charCode);
     });
     setItem('toNumber', toNumber);
 
@@ -88,7 +88,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         throw new UguisuError('invalid arguments count');
       }
       assertValue(args[0], 'CharValue');
-      return createStringValue(args[0].raw);
+      return new StringValue(args[0].raw);
     });
     setItem('toString', toString);
   });
@@ -100,7 +100,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
       }
       assertValue(args[0], 'StringValue');
       assertValue(args[1], 'StringValue');
-      return createStringValue(args[0] + args[1]);
+      return new StringValue(args[0].raw + args[1].raw);
     });
     setItem('concat', concat);
 
@@ -118,7 +118,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
         assertValue(s.value, 'CharValue');
         arr.push(s.value.raw);
       }
-      return createStringValue(arr.join(''));
+      return new StringValue(arr.join(''));
     });
     setItem('fromChars', fromChars);
 
@@ -128,7 +128,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
       }
       assertValue(args[0], 'StringValue');
       const src = args[0];
-      const arr = src.match(charRegex());
+      const arr = src.raw.match(charRegex());
       if (arr == null) {
         return new ArrayValue([]);
       }
@@ -142,12 +142,12 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
       }
       assertValue(args[0], 'StringValue');
       assertValue(args[1], 'StringValue');
-      const actual = args[0];
-      const expected = args[1];
+      const actual = args[0].raw;
+      const expected = args[1].raw;
       if (actual != expected) {
         throw new UguisuError(`assertion error. expected \`${expected}\`, actual \`${actual}\`.`);
       }
-      return createNoneValue();
+      return new NoneValue();
     });
     setItem('assertEq', assertEq);
   });
@@ -160,10 +160,10 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
       assertValue(args[0], 'ArrayValue');
       assertValue(args[1], 'NumberValue');
       const target = args[0];
-      const index = args[1];
+      const index = args[1].raw;
       const symbol = new Symbol(args[2]);
       target.insert(index, symbol);
-      return createNoneValue();
+      return new NoneValue();
     });
     setItem('insert', insert);
 
@@ -175,7 +175,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
       const target = args[0];
       const symbol = new Symbol(args[1]);
       target.insert(target.count(), symbol);
-      return createNoneValue();
+      return new NoneValue();
     });
     setItem('add', add);
 
@@ -186,9 +186,9 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
       assertValue(args[0], 'ArrayValue');
       assertValue(args[1], 'NumberValue');
       const target = args[0];
-      const index = args[1];
+      const index = args[1].raw;
       target.removeAt(index);
-      return createNoneValue();
+      return new NoneValue();
     });
     setItem('removeAt', removeAt);
 
@@ -198,7 +198,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
       }
       assertValue(args[0], 'ArrayValue');
       const target = args[0];
-      return createNumberValue(target.count());
+      return new NumberValue(target.count());
     });
     setItem('count', count);
   });
@@ -210,9 +210,9 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
       }
       assertValue(args[0], 'StringValue');
       if (options.stdout) {
-        options.stdout(args[0]);
+        options.stdout(args[0].raw);
       }
-      return createNoneValue();
+      return new NoneValue();
     });
     setItem('write', write);
 
@@ -222,9 +222,9 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
       }
       assertValue(args[0], 'NumberValue');
       if (options.stdout) {
-        options.stdout(args[0].toString());
+        options.stdout(args[0].raw.toString());
       }
-      return createNoneValue();
+      return new NoneValue();
     });
     setItem('writeNum', writeNum);
 
@@ -235,7 +235,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
       if (!options.stdin) {
         throw new UguisuError('stdin not found');
       }
-      return createStringValue(options.stdin());
+      return new StringValue(options.stdin());
     });
     setItem('read', read);
   });
@@ -245,7 +245,7 @@ export function setRuntime(env: RunningEnv, options: UguisuOptions) {
       throw new UguisuError('invalid arguments count');
     }
     const unixTime = Math.floor(Date.now() / 1000);
-    return createNumberValue(unixTime);
+    return new NumberValue(unixTime);
   });
   env.declare('getUnixtime', getUnixtime);
 }

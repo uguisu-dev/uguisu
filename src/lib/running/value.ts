@@ -54,9 +54,8 @@ export function getTypeName(valueKind: ValueKind): string {
 }
 
 export function assertValue<T extends ValueKind>(value: Value, expectKind: T): asserts value is ValueOf<T> {
-  const valueKind = getValueKind(value);
-  if (valueKind != expectKind) {
-    throw new UguisuError(`type mismatched. expected \`${getTypeName(expectKind)}\`, found \`${getTypeName(valueKind)}\``);
+  if (value.kind != expectKind) {
+    throw new UguisuError(`type mismatched. expected \`${getTypeName(expectKind)}\`, found \`${getTypeName(value.kind)}\``);
   }
 }
 
@@ -70,80 +69,47 @@ export type ValueKind =
   | 'ArrayValue'
   | 'FunctionValue';
 
-export function getValueKind(x: Value): ValueKind {
-  if (isNoneValue(x)) {
-    return 'NoneValue';
-  }
-  if (isNumberValue(x)) {
-    return 'NumberValue';
-  }
-  if (isBoolValue(x)) {
-    return 'BoolValue';
-  }
-  if (isStringValue(x)) {
-    return 'StringValue';
-  }
-  if (isCharValue(x)) {
-    return 'CharValue';
-  }
-  if (isStructValue(x)) {
-    return 'StructValue';
-  }
-  if (isArrayValue(x)) {
-    return 'ArrayValue';
-  }
-  if (isFunctionValue(x)) {
-    return 'FunctionValue';
-  }
-  throw new UguisuError('unexpected type');
-}
-
-export type NoneValue = undefined;
-export function createNoneValue(): NoneValue {
-  return undefined;
+export class NoneValue {
+  kind = 'NoneValue' as const;
 }
 export function isNoneValue(x: Value): x is NoneValue {
-  return (typeof x == 'undefined');
+  return x.kind === 'NoneValue';
 }
 
-export type NumberValue = number;
-export function createNumberValue(raw: number): NumberValue {
-  return raw;
+export class NumberValue {
+  kind = 'NumberValue' as const;
+  constructor(public raw: number) { }
 }
 export function isNumberValue(x: Value): x is NumberValue {
-  return (typeof x == 'number');
+  return x.kind === 'NumberValue';
 }
 
-export type BoolValue = boolean;
-export function createBoolValue(raw: boolean): BoolValue {
-  return raw;
+export class BoolValue {
+  kind = 'BoolValue' as const;
+  constructor(public raw: boolean) { }
 }
 export function isBoolValue(x: Value): x is BoolValue {
-  return (typeof x == 'boolean');
+  return x.kind === 'BoolValue';
 }
 
-export type StringValue = string;
-export function createStringValue(raw: string): StringValue {
-  return raw;
+export class StringValue {
+  kind = 'StringValue' as const;
+  constructor(public raw: string) { }
 }
 export function isStringValue(x: Value): x is StringValue {
-  return (typeof x == 'string');
+  return x.kind === 'StringValue';
 }
 
 export class CharValue {
-  raw: string;
-  constructor(raw: string) {
-    this.raw = raw;
-  }
-}
-export function createCharValue(raw: string): CharValue {
-  return new CharValue(raw);
+  kind = 'CharValue' as const;
+  constructor(public raw: string) { }
 }
 export function isCharValue(x: Value): x is CharValue {
-  return (x instanceof CharValue);
+  return x.kind === 'CharValue';
 }
 
 export class StructValue {
+  kind = 'StructValue' as const;
   private _fields: Map<string, Symbol>;
   constructor(fields: Map<string, Symbol>) {
     this._fields = fields;
@@ -155,17 +121,15 @@ export class StructValue {
     return this._fields.get(name);
   }
 }
-export function createStructValue(fields: Map<string, Symbol>): StructValue {
-  return new StructValue(fields);
-}
 export function isStructValue(x: Value): x is StructValue {
-  return (x instanceof StructValue);
+  return x.kind === 'StructValue';
 }
 
 export class ArrayValue {
+  kind = 'ArrayValue' as const;
   private _items: Symbol[];
-  constructor(items: Symbol[]) {
-    this._items = items;
+  constructor(raw: Symbol[]) {
+    this._items = raw;
   }
   at(index: number): Symbol | undefined {
     return this._items.at(index);
@@ -180,14 +144,12 @@ export class ArrayValue {
     return this._items.length;
   }
 }
-export function createArrayValue(raw: Symbol[]): ArrayValue {
-  return new ArrayValue(raw);
-}
 export function isArrayValue(x: Value): x is ArrayValue {
-  return (x instanceof ArrayValue);
+  return x.kind === 'ArrayValue';
 }
 
 export class FunctionValue {
+  kind = 'FunctionValue' as const;
   user?: {
     node: FunctionDecl;
     env: RunningEnv; // lexical scope
@@ -206,5 +168,5 @@ export class FunctionValue {
 }
 export type NativeFuncHandler = (args: Value[], options: UguisuOptions) => Value;
 export function isFunctionValue(x: Value): x is FunctionValue {
-  return (x instanceof FunctionValue);
+  return x.kind === 'FunctionValue';
 }

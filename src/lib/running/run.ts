@@ -26,14 +26,14 @@ import {
   assertValue,
   FunctionValue,
   Value,
-  createNoneValue,
   isNoneValue,
-  createNumberValue,
-  createBoolValue,
-  createStringValue,
-  createCharValue,
-  createStructValue,
-  createArrayValue
+  NoneValue,
+  NumberValue,
+  BoolValue,
+  CharValue,
+  StringValue,
+  StructValue,
+  ArrayValue
 } from './value.js';
 
 const trace = Trace.getDefault().createChild(false);
@@ -84,7 +84,7 @@ export function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
       const arg = args[i];
       ctx.env.declare(param.name, arg);
     }
-    let result: EvalResult<Value> = new Complete(createNoneValue());
+    let result: EvalResult<Value> = new Complete(new NoneValue());
     for (const step of func.user.node.body) {
       if (isExprNode(step)) {
         result = evalExpr(ctx, step);
@@ -112,7 +112,7 @@ export function call(r: RunContext, func: FunctionValue, args: Value[]): Value {
 
 function evalBlock(r: RunContext, block: StepNode[]): EvalResult<Value> {
   r.env.enter();
-  let result: EvalResult<Value> = new Complete(createNoneValue());
+  let result: EvalResult<Value> = new Complete(new NoneValue());
   for (let i = 0; i < block.length; i++) {
     const step = block[i];
     if (isExprNode(step)) {
@@ -171,7 +171,7 @@ function evalReferenceExpr(r: RunContext, expr: ExprNode): EvalResult<Symbol> {
       }
       assertValue(target.value, 'ArrayValue');
       assertValue(index.value, 'NumberValue');
-      const symbol = target.value.at(index.value);
+      const symbol = target.value.at(index.value.raw);
       if (symbol == null) {
         throw new UguisuError('index out of range');
       }
@@ -187,7 +187,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
   switch (statement.kind) {
     case 'ExprStatement': {
       evalExpr(r, statement.expr);
-      return new Complete(createNoneValue());
+      return new Complete(new NoneValue());
     }
     case 'ReturnStatement': {
       if (statement.expr != null) {
@@ -198,7 +198,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
           return result;
         }
       } else {
-        return new Return(createNoneValue());
+        return new Return(new NoneValue());
       }
       break;
     }
@@ -214,7 +214,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
           break;
         }
       }
-      return new Complete(createNoneValue());
+      return new Complete(new NoneValue());
     }
     case 'VariableDecl': {
       if (statement.body != null) {
@@ -229,7 +229,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
       } else {
         r.env.declare(statement.name);
       }
-      return new Complete(createNoneValue());
+      return new Complete(new NoneValue());
     }
     case 'AssignStatement': {
       let target;
@@ -260,7 +260,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
           }
           assertValue(symbol.value, 'NumberValue');
           assertValue(body.value, 'NumberValue');
-          const value = createNumberValue(symbol.value + body.value);
+          const value = new NumberValue(symbol.value.raw + body.value.raw);
           symbol.value = value;
           break;
         }
@@ -270,7 +270,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
           }
           assertValue(symbol.value, 'NumberValue');
           assertValue(body.value, 'NumberValue');
-          const value = createNumberValue(symbol.value - body.value);
+          const value = new NumberValue(symbol.value.raw - body.value.raw);
           symbol.value = value;
           break;
         }
@@ -280,7 +280,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
           }
           assertValue(symbol.value, 'NumberValue');
           assertValue(body.value, 'NumberValue');
-          const value = createNumberValue(symbol.value * body.value);
+          const value = new NumberValue(symbol.value.raw * body.value.raw);
           symbol.value = value;
           break;
         }
@@ -290,7 +290,7 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
           }
           assertValue(symbol.value, 'NumberValue');
           assertValue(body.value, 'NumberValue');
-          const value = createNumberValue(symbol.value / body.value);
+          const value = new NumberValue(symbol.value.raw / body.value.raw);
           symbol.value = value;
           break;
         }
@@ -300,12 +300,12 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
           }
           assertValue(symbol.value, 'NumberValue');
           assertValue(body.value, 'NumberValue');
-          const value = createNumberValue(symbol.value % body.value);
+          const value = new NumberValue(symbol.value.raw % body.value.raw);
           symbol.value = value;
           break;
         }
       }
-      return new Complete(createNoneValue());
+      return new Complete(new NoneValue());
     }
   }
 }
@@ -313,16 +313,16 @@ function evalStatement(r: RunContext, statement: StatementNode): EvalResult<Valu
 function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
   switch (expr.kind) {
     case 'NumberLiteral': {
-      return new Complete(createNumberValue(expr.value));
+      return new Complete(new NumberValue(expr.value));
     }
     case 'BoolLiteral': {
-      return new Complete(createBoolValue(expr.value));
+      return new Complete(new BoolValue(expr.value));
     }
     case 'CharLiteral': {
-      return new Complete(createCharValue(expr.value));
+      return new Complete(new CharValue(expr.value));
     }
     case 'StringLiteral': {
-      return new Complete(createStringValue(expr.value));
+      return new Complete(new StringValue(expr.value));
     }
     case 'StructExpr': {
       const fields = new Map<string, Symbol>();
@@ -334,7 +334,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
         const symbol = new Symbol(result.value);
         fields.set(field.name, symbol);
       }
-      return new Complete(createStructValue(fields));
+      return new Complete(new StructValue(fields));
     }
     case 'ArrayNode': {
       const items: Symbol[] = [];
@@ -345,7 +345,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
         }
         items.push(new Symbol(result.value));
       }
-      return new Complete(createArrayValue(items));
+      return new Complete(new ArrayValue(items));
     }
     case 'Identifier':
     case 'FieldAccess':
@@ -390,7 +390,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
       assertValue(result.value, 'BoolValue');
       switch (expr.operator) {
         case Token.Not: {
-          return new Complete(createBoolValue(!result.value));
+          return new Complete(new BoolValue(!result.value.raw));
         }
       }
       throw new UguisuError('unexpected operation');
@@ -401,7 +401,7 @@ function evalExpr(r: RunContext, expr: ExprNode): EvalResult<Value> {
         return cond;
       }
       assertValue(cond.value, 'BoolValue');
-      if (cond.value) {
+      if (cond.value.raw) {
         return evalBlock(r, expr.thenBlock);
       } else {
         return evalBlock(r, expr.elseBlock);

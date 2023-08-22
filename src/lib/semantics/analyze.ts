@@ -17,12 +17,11 @@ import {
 } from '../syntax/node.js';
 import * as builtins from './builtins.js';
 import {
-  createExprSymbol,
-  createFunctionSymbol,
-  createStructSymbol,
-  createVariableSymbol,
+  ExprSymbol,
   FnSymbol,
-  Symbol
+  StructSymbol,
+  Symbol,
+  VariableSymbol
 } from './symbol.js';
 import { AnalysisEnv, AnalyzeContext } from './common.js';
 import {
@@ -110,7 +109,7 @@ function declareTopLevel(node: FileNode, a: AnalyzeContext) {
       const params = node.params.map(x => ({ name: x.name }));
 
       // declare function
-      const symbol = createFunctionSymbol(params, pendingType, []);
+      const symbol = new FnSymbol(params, pendingType, []);
       a.symbolTable.set(node, symbol);
       a.env.set(node.name, symbol);
       break;
@@ -130,12 +129,12 @@ function declareTopLevel(node: FileNode, a: AnalyzeContext) {
       // make fields
       const fields = new Map<string, Symbol>();
       for (const field of node.fields) {
-        const fieldSymbol = createVariableSymbol(pendingType, true);
+        const fieldSymbol = new VariableSymbol(pendingType, true);
         fields.set(field.name, fieldSymbol);
       }
 
       // declare struct
-      const symbol: Symbol = createStructSymbol(node.name, fields);
+      const symbol: Symbol = new StructSymbol(node.name, fields);
       a.symbolTable.set(node, symbol);
       a.env.set(node.name, symbol);
       break;
@@ -247,7 +246,7 @@ function analyzeTopLevel(node: FileNode, a: AnalyzeContext) {
       const beforeAnalyzeBlock = () => {
         // set function params to the env
         for (let i = 0; i < node.params.length; i++) {
-          const paramSymbol = createVariableSymbol(fnType.paramTypes[i], true);
+          const paramSymbol = new VariableSymbol(fnType.paramTypes[i], true);
           a.symbolTable.set(node.params[i], paramSymbol);
           a.env.set(node.params[i].name, paramSymbol);
         }
@@ -424,7 +423,7 @@ function analyzeReferenceExpr(node: ReferenceExpr, allowJump: boolean, funcSymbo
       }
 
       // create index symbol
-      const symbol = createVariableSymbol(anyType, true);
+      const symbol = new VariableSymbol(anyType, true);
       return symbol;
     }
   }
@@ -516,7 +515,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
       }
 
       // set symbol
-      const symbol = createVariableSymbol(ty, isDefined);
+      const symbol = new VariableSymbol(ty, isDefined);
       a.symbolTable.set(node, symbol);
       a.env.set(node.name, symbol);
 
@@ -718,7 +717,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
         }
       }
 
-      a.symbolTable.set(node, createExprSymbol(calleeTy.returnType));
+      a.symbolTable.set(node, new ExprSymbol(calleeTy.returnType));
       return calleeTy.returnType;
     }
     case 'BinaryOp': {
@@ -760,7 +759,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
           return badType;
         }
 
-        a.symbolTable.set(node, createExprSymbol(boolType));
+        a.symbolTable.set(node, new ExprSymbol(boolType));
         return boolType;
       } else if (isEquivalentOperator(node.operator)) {
         // Equivalent Operation
@@ -769,7 +768,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
           return badType;
         }
 
-        a.symbolTable.set(node, createExprSymbol(boolType));
+        a.symbolTable.set(node, new ExprSymbol(boolType));
         return boolType;
       } else if (isOrderingOperator(node.operator)) {
         // Ordering Operation
@@ -780,7 +779,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
           dispatchTypeError(rightTy, numberType, node.right, a);
         }
 
-        a.symbolTable.set(node, createExprSymbol(boolType));
+        a.symbolTable.set(node, new ExprSymbol(boolType));
         return boolType;
       } else {
         // Arithmetic Operation
@@ -791,7 +790,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
           dispatchTypeError(rightTy, numberType, node.right, a);
         }
 
-        a.symbolTable.set(node, createExprSymbol(numberType));
+        a.symbolTable.set(node, new ExprSymbol(numberType));
         return numberType;
       }
       break;
@@ -820,7 +819,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FnSymbol, a
         dispatchTypeError(ty, boolType, node, a);
         return badType;
       }
-      a.symbolTable.set(node, createExprSymbol(boolType));
+      a.symbolTable.set(node, new ExprSymbol(boolType));
       return boolType;
     }
     case 'StructExpr': {

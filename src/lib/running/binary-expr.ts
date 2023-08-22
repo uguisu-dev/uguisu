@@ -6,11 +6,8 @@ import {
   assertValue,
   BoolValue,
   CharValue,
-  createBoolValue,
-  createNumberValue,
   FunctionValue,
   getTypeName,
-  getValueKind,
   isNoneValue,
   NumberValue,
   StringValue,
@@ -22,10 +19,10 @@ export function evalLogicalBinaryOp(op: LogicalBinaryOperator, left: Value, righ
   assertValue(right, 'BoolValue');
   switch (op) {
     case Token.And2: {
-      return new Complete(createBoolValue(left && right));
+      return new Complete(new BoolValue(left.raw && right.raw));
     }
     case Token.Or2: {
-      return new Complete(createBoolValue(left || right));
+      return new Complete(new BoolValue(left.raw || right.raw));
     }
   }
 }
@@ -37,16 +34,16 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
   if (isNoneValue(right)) {
     throw new UguisuError('no values');
   }
-  switch (getValueKind(left)) {
+  switch (left.kind) {
     case 'NumberValue': {
       left = left as NumberValue;
       assertValue(right, 'NumberValue');
       switch (op) {
         case Token.Eq2: {
-          return new Complete(createBoolValue(left == right));
+          return new Complete(new BoolValue(left.raw === right.raw));
         }
         case Token.NotEq: {
-          return new Complete(createBoolValue(left != right));
+          return new Complete(new BoolValue(left.raw !== right.raw));
         }
       }
       break;
@@ -56,10 +53,10 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
       assertValue(right, 'BoolValue');
       switch (op) {
         case Token.Eq2: {
-          return new Complete(createBoolValue(left == right));
+          return new Complete(new BoolValue(left.raw == right.raw));
         }
         case Token.NotEq: {
-          return new Complete(createBoolValue(left != right));
+          return new Complete(new BoolValue(left.raw != right.raw));
         }
       }
       break;
@@ -69,10 +66,10 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
       assertValue(right, 'CharValue');
       switch (op) {
         case Token.Eq2: {
-          return new Complete(createBoolValue(left == right));
+          return new Complete(new BoolValue(left.raw == right.raw));
         }
         case Token.NotEq: {
-          return new Complete(createBoolValue(left != right));
+          return new Complete(new BoolValue(left.raw != right.raw));
         }
       }
       break;
@@ -82,10 +79,10 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
       assertValue(right, 'StringValue');
       switch (op) {
         case Token.Eq2: {
-          return new Complete(createBoolValue(left == right));
+          return new Complete(new BoolValue(left.raw == right.raw));
         }
         case Token.NotEq: {
-          return new Complete(createBoolValue(left != right));
+          return new Complete(new BoolValue(left.raw != right.raw));
         }
       }
       break;
@@ -104,10 +101,10 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
       assertValue(right, 'FunctionValue');
       switch (op) {
         case Token.Eq2: {
-          return new Complete(createBoolValue(equalFunc(left, right)));
+          return new Complete(new BoolValue(equalFunc(left, right)));
         }
         case Token.NotEq: {
-          return new Complete(createBoolValue(!equalFunc(left, right)));
+          return new Complete(new BoolValue(!equalFunc(left, right)));
         }
       }
       break;
@@ -117,7 +114,7 @@ export function evalEquivalentBinaryOp(op: EquivalentOperator, left: Value, righ
       break;
     }
   }
-  throw new UguisuError(`type \`${getTypeName(getValueKind(left))}\` cannot be used for equivalence comparisons.`);
+  throw new UguisuError(`type \`${getTypeName(left.kind)}\` cannot be used for equivalence comparisons.`);
 }
 
 export function evalOrderingBinaryOp(op: OrderingOperator, left: Value, right: Value): EvalResult<BoolValue> {
@@ -127,22 +124,22 @@ export function evalOrderingBinaryOp(op: OrderingOperator, left: Value, right: V
   if (isNoneValue(right)) {
     throw new UguisuError('no values');
   }
-  switch (getValueKind(left)) {
+  switch (left.kind) {
     case 'NumberValue': {
       left = left as NumberValue;
       assertValue(right, 'NumberValue');
       switch (op) {
         case Token.LessThan: {
-          return new Complete(createBoolValue(left < right));
+          return new Complete(new BoolValue(left.raw < right.raw));
         }
         case Token.LessThanEq: {
-          return new Complete(createBoolValue(left <= right));
+          return new Complete(new BoolValue(left.raw <= right.raw));
         }
         case Token.GreaterThan: {
-          return new Complete(createBoolValue(left > right));
+          return new Complete(new BoolValue(left.raw > right.raw));
         }
         case Token.GreaterThanEq: {
-          return new Complete(createBoolValue(left >= right));
+          return new Complete(new BoolValue(left.raw >= right.raw));
         }
       }
       break;
@@ -156,7 +153,7 @@ export function evalOrderingBinaryOp(op: OrderingOperator, left: Value, right: V
       break;
     }
   }
-  throw new UguisuError(`type \`${getTypeName(getValueKind(left))}\` cannot be used to compare large and small relations.`);
+  throw new UguisuError(`type \`${getTypeName(left.kind)}\` cannot be used to compare large and small relations.`);
 }
 
 export function evalArithmeticBinaryOp(op: ArithmeticOperator, left: Value, right: Value): EvalResult<NumberValue> {
@@ -164,19 +161,19 @@ export function evalArithmeticBinaryOp(op: ArithmeticOperator, left: Value, righ
   assertValue(right, 'NumberValue');
   switch (op) {
     case Token.Plus: {
-      return new Complete(createNumberValue(left + right));
+      return new Complete(new NumberValue(left.raw + right.raw));
     }
     case Token.Minus: {
-      return new Complete(createNumberValue(left - right));
+      return new Complete(new NumberValue(left.raw - right.raw));
     }
     case Token.Asterisk: {
-      return new Complete(createNumberValue(left * right));
+      return new Complete(new NumberValue(left.raw * right.raw));
     }
     case Token.Slash: {
-      return new Complete(createNumberValue(left / right));
+      return new Complete(new NumberValue(left.raw / right.raw));
     }
     case Token.Percent: {
-      return new Complete(createNumberValue(left % right));
+      return new Complete(new NumberValue(left.raw % right.raw));
     }
   }
 }

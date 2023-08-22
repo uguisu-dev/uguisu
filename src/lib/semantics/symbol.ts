@@ -7,55 +7,44 @@ export type Symbol =
   | VariableSymbol
   | ExprSymbol;
 
-export type FnSymbol = {
-  kind: 'FnSymbol',
-  params: { name: string }[],
-  ty: FunctionType | PendingType | BadType,
-  /** for wasm */
-  vars: FnVar[],
-};
-
-export function createFunctionSymbol(params: { name: string }[], ty: FunctionType | PendingType | BadType, vars: FnVar[]): FnSymbol {
-  return { kind: 'FnSymbol', params, ty, vars };
+export class FnSymbol {
+  kind = 'FnSymbol' as const;
+  constructor(
+    public params: { name: string }[],
+    public ty: FunctionType | PendingType | BadType,
+    /** for wasm */
+    public vars: FnVar[]
+  ) { }
 }
-
 export type FnVar = { name: string, isParam: boolean, ty: Type };
 
-export type NativeFnSymbol = {
-  kind: 'NativeFnSymbol',
-  params: { name: string }[],
-  ty: FunctionType | PendingType | BadType,
-};
-
-export function createNativeFnSymbol(params: { name: string }[], ty: FunctionType | PendingType | BadType): NativeFnSymbol {
-  return { kind: 'NativeFnSymbol', params, ty };
+export class NativeFnSymbol {
+  kind = 'NativeFnSymbol' as const;
+  constructor(
+    public params: { name: string }[],
+    public ty: FunctionType | PendingType | BadType,
+  ) { }
 }
 
-export type StructSymbol = {
-  kind: 'StructSymbol',
-  name: string,
-  fields: Map<string, Symbol>,
-};
-
-export function createStructSymbol(name: string, fields: Map<string, Symbol>): StructSymbol {
-  return { kind: 'StructSymbol', name, fields };
+export class StructSymbol {
+  kind = 'StructSymbol' as const;
+  constructor(
+    public name: string,
+    public fields: Map<string, Symbol>,
+  ) { }
 }
 
-export type VariableSymbol = {
-  kind: 'VariableSymbol',
-  ty: Type,
-  isDefined: boolean,
-};
-
-export function createVariableSymbol(ty: Type, isDefined: boolean): VariableSymbol {
-  return { kind: 'VariableSymbol', ty, isDefined };
+export class VariableSymbol {
+  kind = 'VariableSymbol' as const;
+  constructor(
+    public ty: Type,
+    public isDefined: boolean,
+  ) { }
 }
 
-export type ExprSymbol = {
-  kind: 'ExprSymbol',
-  ty: Type,
-};
-
-export function createExprSymbol(ty: Type): ExprSymbol {
-  return { kind: 'ExprSymbol', ty };
+export class ExprSymbol {
+  kind = 'ExprSymbol' as const;
+  constructor(
+    public ty: Type,
+  ) { }
 }
