@@ -421,7 +421,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
       }
 
       // analyze target
-      let targetTy = analyzeExpr(node.target, allowJump, funcSymbol, ctx);
+      let targetTy = analyzeExpr(node.target, allowJump, funcSymbol, ctx, { assignMode: true });
       let symbol = ctx.symbolTable.get(node.target);
 
       // variable symbol?
@@ -468,7 +468,9 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
   throw new UguisuError('unexpected node');
 }
 
-function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol, ctx: AnalyzeContext): Type {
+function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol, ctx: AnalyzeContext, opts?: { assignMode?: boolean }): Type {
+  const assignMode = opts?.assignMode ?? false;
+
   // validate expression
   switch (node.kind) {
     case 'Identifier': {
@@ -480,7 +482,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
       ctx.symbolTable.set(node, symbol);
 
       // if the variable is not assigned
-      if (symbol.kind == 'VariableSymbol' && !symbol.isDefined) {
+      if (!assignMode && symbol.kind == 'VariableSymbol' && !symbol.isDefined) {
         ctx.dispatchError('variable is not assigned yet.', node);
         return badType;
       }
@@ -557,7 +559,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
       }
 
       if (!isValidType(targetTy)) {
-        if (isPendingType(targetTy)) {
+        if (!assignMode && isPendingType(targetTy)) {
           ctx.dispatchError('variable is not assigned yet.', node.target);
         }
         return badType;
