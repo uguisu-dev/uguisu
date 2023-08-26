@@ -514,8 +514,6 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
 
       const symbol = ctx.symbolTable.get(node.target);
 
-      console.log(symbol);
-
       if (symbol == null || symbol.kind != 'StructSymbol') {
         ctx.dispatchError('invalid field access.', node);
         return badType;
