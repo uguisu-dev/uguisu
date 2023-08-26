@@ -66,7 +66,7 @@ function translateFunc(ctx: Context, node: FileNode) {
   const func: FuncInfo = {
     name: node.name,
     vars,
-    returnTy: (symbol.ty as FunctionType).returnType,
+    returnTy: symbol.retTy,
   };
 
   const body = translateStatements(ctx, node.body, func, null);
@@ -302,7 +302,7 @@ function translateExpr(ctx: Context, node: ExprNode, func: FuncInfo): number {
       }
       const callee = node.callee as Identifier;
       const args = node.args.map(x => translateExpr(ctx, x, func));
-      return ctx.mod.call(callee.name, args, mapType((calleeSymbol.ty as FunctionType).returnType));
+      return ctx.mod.call(callee.name, args, mapType(calleeSymbol.retTy));
     }
     case 'IfExpr': {
       throw new UguisuError('not impelemented yet');

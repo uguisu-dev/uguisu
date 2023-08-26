@@ -1,4 +1,4 @@
-import { NativeFuncSymbol, StructSymbol, Symbol, VariableSymbol } from './symbol.js';
+import { NativeFuncSymbol, StructFieldSymbol, StructSymbol, VariableSymbol } from './symbol.js';
 import {
   AnalyzeContext
 } from './common.js';
@@ -14,16 +14,16 @@ import {
 } from './type.js';
 
 function setDecl(name: string, paramsTy: ValidType[], returnTy: ValidType, ctx: AnalyzeContext) {
-  const params = Array(paramsTy.length).map(() => ({ name: 'x' }));
+  const params = paramsTy.map(x => ({ name: 'x', ty: x }));
   const ty = new FunctionType(paramsTy, returnTy);
   ctx.env.set(name, new NativeFuncSymbol(params, ty));
 }
 
 function group(name: string, ctx: AnalyzeContext, handler: (setItem: (name: string, paramsTy: ValidType[], returnTy: ValidType) => void) => void) {
-  const fields: Map<string, Symbol> = new Map();
+  const fields: Map<string, StructFieldSymbol> = new Map();
   function setItem(name: string, paramsTy: ValidType[], returnTy: ValidType) {
     const ty = new FunctionType(paramsTy, returnTy);
-    const symbol = new VariableSymbol(ty, true);
+    const symbol = new StructFieldSymbol(name, ty);
     fields.set(name, symbol);
   }
   handler(setItem);
