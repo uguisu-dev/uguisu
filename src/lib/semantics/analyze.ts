@@ -470,8 +470,6 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
 
 function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol, ctx: AnalyzeContext, opts?: { assignMode?: boolean }): Type {
   const assignMode = opts?.assignMode ?? false;
-
-  // validate expression
   switch (node.kind) {
     case 'Identifier': {
       const symbol = ctx.env.get(node.name);
@@ -887,24 +885,6 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
   }
   throw new UguisuError('unexpected node');
 }
-
-// function getTypeFromSymbol(symbol: Symbol, errorNode: SyntaxNode, ctx: AnalyzeContext): Type {
-//   switch (symbol.kind) {
-//     case 'FuncSymbol':
-//     case 'NativeFuncSymbol': {
-//       return symbol.ty;
-//     }
-//     case 'StructSymbol': {
-//       return new NamedType(symbol.name);
-//     }
-//     case 'VariableSymbol': {
-//       return symbol.ty;
-//     }
-//     case 'ExprSymbol': {
-//       return symbol.ty;
-//     }
-//   }
-// }
 
 function resolveTyLabel(node: TyLabel, ctx: AnalyzeContext): Type {
   // builtin type
