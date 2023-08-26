@@ -494,7 +494,9 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
         case 'NativeFuncSymbol': {
           return new FunctionType(symbol.params.map(x => x.ty), symbol.retTy);
         }
-        case 'StructSymbol':
+        case 'StructSymbol': {
+          return new NamedType(symbol.name, symbol);
+        }
         case 'ExprSymbol': {
           ctx.dispatchError('invalid identifier.', node);
           return badType;
@@ -605,16 +607,17 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
         'FuncSymbol',
         'NativeFuncSymbol',
         'VariableSymbol',
+        'StructFieldSymbol',
       ];
       if (calleeSymbol == null || !callables.includes(calleeSymbol.kind)) {
         ctx.dispatchError('invalid callee.');
         return badType;
       }
 
-      if (calleeSymbol.kind == 'VariableSymbol') {
+      if (calleeSymbol.kind == 'VariableSymbol' || calleeSymbol.kind == 'StructFieldSymbol') {
           // if the variable is not assigned
           if (isPendingType(calleeSymbol.ty)) {
-            ctx.dispatchError('variable is not assigned yet.', node.callee);
+            ctx.dispatchError('variable or field is not assigned yet.', node.callee);
             return badType;
           }
 

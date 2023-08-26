@@ -55,6 +55,18 @@ function expectErr(sourceCode: string) {
 }
 
 describe('variable', () => {
+  test('declare variable', () => expectOk(`
+  fn main() {
+      var x;
+  }
+  `));
+
+  test('define variable', () => expectOk(`
+  fn main() {
+      var x = 1;
+  }
+  `));
+
   test('variable arith 1', () => expectOk(`
   fn main() {
       var x = 1;
