@@ -125,15 +125,12 @@ function declareTopLevel(node: FileNode, ctx: AnalyzeContext) {
         ctx.dispatchWarn('exported function is not supported yet.', node);
       }
 
-      // make fields
-      const fields = new Map<string, StructFieldSymbol>();
-      for (const field of node.fields) {
-        const fieldSymbol = new StructFieldSymbol(node.name, pendingType);
-        fields.set(field.name, fieldSymbol);
-      }
-
       // declare struct
-      const symbol: Symbol = new StructSymbol(node.name, fields);
+      const symbol: Symbol = new StructSymbol(node.name, new Map());
+      for (const field of node.fields) {
+        const fieldSymbol = new StructFieldSymbol(node.name, symbol, pendingType);
+        symbol.fields.set(field.name, fieldSymbol);
+      }
       ctx.symbolTable.set(node, symbol);
       ctx.env.set(node.name, symbol);
       break;
@@ -468,44 +465,41 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
   const assignMode = opts?.assignMode ?? false;
   switch (node.kind) {
     case 'Identifier': {
-      const symbol = new ExprSymbol(badType);
+      let symbol: Symbol = new BadSymbol();
       ctx.symbolTable.set(node, symbol);
 
+      // lookup identifier
       const destSymbol = ctx.env.get(node.name);
       if (destSymbol == null) {
         ctx.dispatchError('unknown identifier.', node);
         return;
       }
-
+      if (destSymbol.kind == 'BadSymbol') {
+        return;
+      }
       switch (destSymbol.kind) {
-        case 'VariableSymbol': {
-          // if the variable is not assigned
-          if (!destSymbol.isDefined) {
-            ctx.dispatchError('variable is not assigned yet.', node);
-            return;
-          }
-          symbol.ty = destSymbol.ty;
-          return;
-        }
-        case 'StructFieldSymbol': {
-          symbol.ty = destSymbol.ty;
-          return;
-        }
+        case 'VariableSymbol':
+        case 'StructFieldSymbol':
         case 'FuncSymbol':
-        case 'NativeFuncSymbol': {
-          symbol.ty = new FunctionType(destSymbol.params.map(x => x.ty), destSymbol.retTy);
-          return;
-        }
+        case 'NativeFuncSymbol':
         case 'StructSymbol': {
-          symbol.ty = new NamedType(destSymbol.name, destSymbol);
-          return;
+          break;
         }
-        case 'ExprSymbol': {
+        default: {
           ctx.dispatchError('invalid identifier.', node);
           return;
         }
       }
-      break;
+
+      // set symbol
+      symbol = destSymbol;
+      ctx.symbolTable.set(node, symbol);
+
+      // variable is assigned?
+      if (symbol.kind == 'VariableSymbol' && !symbol.isDefined) {
+        ctx.dispatchError('variable is not assigned yet.', node);
+      }
+      return;
     }
     case 'FieldAccess': {
       let symbol: Symbol = new BadSymbol();
@@ -514,22 +508,20 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
       // analyze target
       analyzeExpr(node.target, allowJump, funcSymbol, ctx);
 
+      // target: expect variable symbol
       const targetSymbol = ctx.symbolTable.get(node.target);
       if (targetSymbol == null) {
         throw new UguisuError('symbol not found');
       }
-
-      switch (targetSymbol.kind) {
-        case 'VariableSymbol':
-        case 'StructFieldSymbol': {
-          break;
-        }
-        default: {
-          ctx.dispatchError('invalid field access.', node);
+      if (targetSymbol.kind == 'BadSymbol') {
+        return;
+      }
+      if (targetSymbol.kind != 'VariableSymbol') {
+        ctx.dispatchError('invalid field access.', node);
           return;
-        }
       }
 
+      // target: type of variable is expected to be the named type
       if (targetSymbol.ty.kind != 'NamedType') {
         if (targetSymbol.ty.kind != 'BadType') {
           ctx.dispatchError('invalid field access.', node);
@@ -537,14 +529,11 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
         return;
       }
 
-      // if the variable is not assigned
-      if (!assignMode && targetSymbol.kind == 'VariableSymbol' && !targetSymbol.isDefined) {
-        ctx.dispatchError('variable is not assigned yet.', node);
+      // target: expect named type of struct
+      const structSymbol = targetSymbol.ty.symbol;
+      if (structSymbol.kind == 'BadSymbol') {
         return;
       }
-
-      const structSymbol = targetSymbol.ty.symbol;
-
       if (structSymbol.kind != 'StructSymbol') {
         ctx.dispatchError('invalid field access.', node);
         return;
@@ -559,14 +548,9 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
         return;
       }
 
+      // set symbol
       symbol = field;
       ctx.symbolTable.set(node, symbol);
-
-      // if the variable is not assigned
-      if (!isValidType(symbol.ty)) {
-        ctx.dispatchError('invalid field type.', node);
-        return;
-      }
 
       return;
     }

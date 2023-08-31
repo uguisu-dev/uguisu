@@ -1,4 +1,4 @@
-import { Type } from './type.js';
+import { FunctionType, NamedType, Type } from './type.js';
 
 export type Symbol =
   | BadSymbol
@@ -22,6 +22,10 @@ export class FuncSymbol {
     /** for wasm */
     public vars: FuncVar[]
   ) { }
+
+  createType() {
+    return new FunctionType(this.params.map(x => x.ty), this.retTy);
+  }
 }
 export type FuncVar = { name: string, isParam: boolean, ty: Type };
 
@@ -31,6 +35,10 @@ export class NativeFuncSymbol {
     public params: { name: string, ty: Type }[],
     public retTy: Type,
   ) { }
+
+  createType() {
+    return new FunctionType(this.params.map(x => x.ty), this.retTy);
+  }
 }
 
 export class StructSymbol {
@@ -39,12 +47,17 @@ export class StructSymbol {
     public name: string,
     public fields: Map<string, StructFieldSymbol>,
   ) { }
+
+  createType() {
+    return new NamedType(this.name, this);
+  }
 }
 
 export class StructFieldSymbol {
   kind = 'StructFieldSymbol' as const;
   constructor(
     public name: string,
+    public parent: StructSymbol,
     public ty: Type,
   ) { }
 }
