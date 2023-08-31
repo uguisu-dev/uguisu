@@ -421,23 +421,42 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
       }
 
       // analyze target
-      let targetTy = analyzeExpr(node.target, allowJump, funcSymbol, ctx, { assignMode: true });
+      analyzeExpr(node.target, allowJump, funcSymbol, ctx, { assignMode: true });
       let symbol = ctx.symbolTable.get(node.target);
 
       // variable symbol?
-      if (symbol == null || symbol.kind != 'VariableSymbol') {
+      if (symbol == null) {
         ctx.dispatchError('invalid assign target.', node.target);
         return 'invalid';
       }
 
-      // if it was the first assignment
-      if (!symbol.isDefined) {
-        // if need inference
-        if (isPendingType(targetTy)) {
-          targetTy = bodyTy;
-          symbol.ty = targetTy;
+      let targetTy: Type;
+      switch (symbol.kind) {
+        case 'VariableSymbol': {
+          targetTy = symbol.ty;
+          // if it was the first assignment
+          if (!symbol.isDefined) {
+            // if need inference
+            if (isPendingType(targetTy)) {
+              targetTy = bodyTy;
+              symbol.ty = targetTy;
+            }
+            symbol.isDefined = true;
+          }
+          break;
         }
-        symbol.isDefined = true;
+        case 'StructFieldSymbol': {
+          targetTy = symbol.ty;
+          break;
+        }
+        default: {
+          ctx.dispatchError('invalid assign target.', node.target);
+          return 'invalid';
+        }
+      }
+
+      if (!isValidType(targetTy)) {
+        return 'invalid';
       }
 
       // check type
@@ -506,21 +525,36 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
     }
     case 'FieldAccess': {
       // analyze target
-      const targetTy = analyzeExpr(node.target, allowJump, funcSymbol, ctx);
+      analyzeExpr(node.target, allowJump, funcSymbol, ctx);
+      const variableSymbol = ctx.symbolTable.get(node.target);
 
-      if (!isValidType(targetTy)) {
+      if (variableSymbol == null || variableSymbol.kind != 'VariableSymbol') {
+        ctx.dispatchError('invalid field access.', node);
+        return badType;
+      }
+      if (variableSymbol.ty.kind == 'BadType') {
+        return badType;
+      }
+      if (variableSymbol.ty.kind != 'NamedType') {
+        ctx.dispatchError('invalid field access.', node);
         return badType;
       }
 
-      const symbol = ctx.symbolTable.get(node.target);
+      // if the target is not assigned
+      if (!assignMode && !variableSymbol.isDefined) {
+        ctx.dispatchError('variable is not assigned yet.', node);
+        return badType;
+      }
 
-      if (symbol == null || symbol.kind != 'StructSymbol') {
+      const structSymbol = variableSymbol.ty.symbol;
+
+      if (structSymbol.kind != 'StructSymbol') {
         ctx.dispatchError('invalid field access.', node);
         return badType;
       }
 
       // get field symbol
-      const field = symbol.fields.get(node.name);
+      const field = structSymbol.fields.get(node.name);
 
       // if specified field name is invalid
       if (field == null) {

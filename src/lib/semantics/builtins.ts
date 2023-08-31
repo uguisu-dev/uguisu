@@ -7,6 +7,7 @@ import {
   arrayType,
   charType,
   FunctionType,
+  NamedType,
   numberType,
   stringType,
   ValidType,
@@ -27,7 +28,7 @@ function group(name: string, ctx: AnalyzeContext, handler: (setItem: (name: stri
     fields.set(name, symbol);
   }
   handler(setItem);
-  ctx.env.set(name, new StructSymbol(name, fields));
+  ctx.env.set(name, new VariableSymbol(true, new NamedType(name, new StructSymbol(name, fields))));
 }
 
 export function setDeclarations(ctx: AnalyzeContext) {
