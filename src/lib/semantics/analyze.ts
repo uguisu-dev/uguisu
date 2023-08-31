@@ -163,7 +163,7 @@ function resolveTopLevel(node: FileNode, ctx: AnalyzeContext) {
         retTy = voidType;
       }
 
-      // make params type
+      // make function params
       let funcParams: FuncSymbol['params'][number][] = [];
       for (let i = 0; i < symbol.params.length; i++) {
         const paramNode = node.params[i];
@@ -180,7 +180,7 @@ function resolveTopLevel(node: FileNode, ctx: AnalyzeContext) {
         funcParams.push({ name: node.params[i].name, ty: paramTy });
       }
 
-      // replace function type
+      // replace function info
       symbol.isDefined = true;
       symbol.params = funcParams;
       symbol.retTy = retTy;
@@ -218,42 +218,37 @@ function analyzeTopLevel(node: FileNode, ctx: AnalyzeContext) {
   switch (node.kind) {
     case 'FunctionDecl': {
       // get function symbol
-      const symbol = ctx.env.get(node.name);
-      if (symbol == null) {
+      const funcSymbol = ctx.env.get(node.name);
+      if (funcSymbol == null) {
         throw new UguisuError('symbol not found.');
       }
 
       // expect defined function symbol
-      if (symbol.kind != 'FuncSymbol') {
+      if (funcSymbol.kind != 'FuncSymbol') {
         ctx.dispatchError('function expected.', node);
         return;
       }
-      if (!symbol.isDefined) {
+      if (!funcSymbol.isDefined) {
         ctx.dispatchError('function is not defined yet.', node);
-        return;
-      }
-
-      // check the function type is valid
-      if (symbol.params.some(x => !isValidType(x.ty))) {
         return;
       }
 
       const beforeAnalyzeBlock = () => {
         // set function params to the env
         for (let i = 0; i < node.params.length; i++) {
-          const paramSymbol = new VariableSymbol(true, symbol.params[i].ty);
+          const paramSymbol = new VariableSymbol(true, funcSymbol.params[i].ty);
           ctx.symbolTable.set(node.params[i], paramSymbol);
           ctx.env.set(node.params[i].name, paramSymbol);
         }
       }
 
       // analyze function body
-      const retTy = analyzeBlock(node.body, false, symbol, ctx, beforeAnalyzeBlock);
+      const retTy = analyzeBlock(node.body, false, funcSymbol, ctx, beforeAnalyzeBlock);
 
       // check return type
       if (!isNeverType(retTy)) {
-        if (compareType(retTy, symbol.retTy) == 'incompatible') {
-          dispatchTypeError(retTy, symbol.retTy, node, ctx);
+        if (compareType(retTy, funcSymbol.retTy) == 'incompatible') {
+          dispatchTypeError(retTy, funcSymbol.retTy, node, ctx);
         }
       }
       break;
@@ -269,13 +264,6 @@ function analyzeTopLevel(node: FileNode, ctx: AnalyzeContext) {
  * @returns type of the last step of the block
 */
 function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FuncSymbol, ctx: AnalyzeContext, before?: () => void): Type {
-  if (funcSymbol.params.some(x => !isValidType(x.ty))) {
-    throw new UguisuError('unexpected type');
-  }
-  if (!isValidType(funcSymbol.retTy)) {
-    throw new UguisuError('unexpected type');
-  }
-
   ctx.env.enter();
 
   if (before != null) {
