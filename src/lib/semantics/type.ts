@@ -1,5 +1,6 @@
 import { SyntaxNode } from '../syntax/node.js';
 import { AnalyzeContext } from './common.js';
+import { Symbol } from './symbol.js';
 
 export type Type =
   | ValidType
@@ -10,16 +11,13 @@ export type ValidType =
   | AnyType
   | VoidType
   | NeverType
+  | PremitiveType
   | NamedType
   | FunctionType
   | GenericType;
 
 export function isValidType(ty: Type): ty is ValidType {
-  return !isBadType(ty) && !isPendingType(ty);
-}
-
-export function isBadType(ty: Type): ty is BadType {
-  return (ty.kind === 'BadType');
+  return ty.kind !== 'BadType' && !isPendingType(ty);
 }
 
 export function isPendingType(ty: Type): ty is PendingType {
@@ -33,21 +31,36 @@ export function isNeverType(ty: Type): ty is NeverType {
 export class BadType {
   kind = 'BadType' as const;
 }
+
 export class PendingType {
   kind = 'PendingType' as const;
 }
+
 export class AnyType {
   kind = 'AnyType' as const;
 }
+
 export class VoidType {
   kind = 'VoidType' as const;
 }
+
 export class NeverType {
   kind = 'NeverType' as const;
 }
+
+export class PremitiveType {
+  kind = 'PremitiveType' as const;
+  constructor(
+    public name: string,
+    ) { }
+}
+
 export class NamedType {
   kind = 'NamedType' as const;
-  constructor(public name: string) { }
+  constructor(
+    public name: string,
+    public symbol: Symbol,
+    ) { }
 }
 
 export class FunctionType {
@@ -72,16 +85,16 @@ export const pendingType = new PendingType();
 export const anyType = new AnyType();
 export const voidType = new VoidType();
 export const neverType = new NeverType();
-export const numberType = new NamedType('number');
-export const boolType = new NamedType('bool');
-export const charType = new NamedType('char');
-export const stringType = new NamedType('string');
-export const arrayType = new NamedType('array');
+export const numberType = new PremitiveType('number');
+export const boolType = new PremitiveType('bool');
+export const charType = new PremitiveType('char');
+export const stringType = new PremitiveType('string');
+export const arrayType = new PremitiveType('array');
 
 export type CompareTypeResult = 'unknown' | 'compatible' | 'incompatible';
 
 export function compareType(x: Type, y: Type): CompareTypeResult {
-  if (isBadType(x) || isBadType(y)) {
+  if (x.kind === 'BadType' || y.kind === 'BadType') {
     return 'unknown';
   }
   if (isPendingType(x) || isPendingType(y)) {
@@ -105,29 +118,34 @@ export function compareType(x: Type, y: Type): CompareTypeResult {
     case 'NeverType': {
       return 'compatible';
     }
-    case 'NamedType': {
-      if (x.name == (y as NamedType).name) {
-        return 'compatible';
-      } else {
+    case 'PremitiveType': {
+      if (x.name !== (y as PremitiveType).name) {
         return 'incompatible';
       }
-      break;
+      return 'compatible';
+    }
+    case 'NamedType': {
+      if (x.name !== (y as NamedType).name) {
+        return 'incompatible';
+      }
+      if (x.symbol !== (y as NamedType).symbol) {
+        return 'incompatible';
+      }
+      return 'compatible';
     }
     case 'FunctionType': {
       y = y as FunctionType;
-      if (isBadType(x.returnType) || isBadType(y.returnType)) {
+      if (x.returnType.kind === 'BadType' || y.returnType.kind === 'BadType') {
+        return 'unknown';
+      }
+      if ([...x.paramTypes, ...y.paramTypes].some(x => x.kind === 'BadType')) {
         return 'unknown';
       }
       if (isPendingType(x.returnType) || isPendingType(y.returnType)) {
         return 'incompatible';
       }
-      for (const ty of [...x.paramTypes, ...y.paramTypes]) {
-        if (isBadType(ty) || isBadType(ty)) {
-          return 'unknown';
-        }
-        if (isPendingType(ty) || isPendingType(ty)) {
-          return 'incompatible';
-        }
+      if ([...x.paramTypes, ...y.paramTypes].some(x => isPendingType(x))) {
+        return 'incompatible';
       }
       if (compareType(x.returnType, y.returnType) == 'incompatible') {
         return 'incompatible';
@@ -144,13 +162,11 @@ export function compareType(x: Type, y: Type): CompareTypeResult {
     }
     case 'GenericType': {
       y = y as GenericType;
-      for (const ty of [...x.innerTypes, ...y.innerTypes]) {
-        if (isBadType(ty) || isBadType(ty)) {
-          return 'unknown';
-        }
-        if (isPendingType(ty) || isPendingType(ty)) {
-          return 'incompatible';
-        }
+      if ([...x.innerTypes, ...y.innerTypes].some(x => x.kind === 'BadType')) {
+        return 'unknown';
+      }
+      if ([...x.innerTypes, ...y.innerTypes].some(x => isPendingType(x))) {
+        return 'incompatible';
       }
       if (x.name != y.name) {
         return 'incompatible';
@@ -187,6 +203,7 @@ export function getTypeString(ty: Type): string {
     case 'NeverType': {
       return 'never';
     }
+    case 'PremitiveType':
     case 'NamedType': {
       return ty.name;
     }

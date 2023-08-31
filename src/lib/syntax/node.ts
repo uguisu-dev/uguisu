@@ -42,11 +42,6 @@ export type ExprNode =
   | IndexAccess
   | IfExpr;
 
-export type ReferenceExpr =
-  | Identifier
-  | FieldAccess
-  | IndexAccess;
-
 export type SyntaxNodeOf<T extends SyntaxNode['kind']>
   = T extends 'SourceFile' ? SourceFile
   : T extends 'FunctionDecl' ? FunctionDecl

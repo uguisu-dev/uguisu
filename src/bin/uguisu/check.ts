@@ -63,7 +63,18 @@ export function command(args: string[]) {
   // lint
   try {
     const uguisu = new Uguisu();
-    uguisu.check(dirPath);
+    const result = uguisu.check(dirPath);
+
+    if (!result.success) {
+      for (const message of result.errors) {
+        console.log(`Syntax Error: ${message}`);
+      }
+      for (const warn of result.warnings) {
+        console.log(`Warning: ${warn}`);
+      }
+      process.exitCode = -1;
+      process.exit();
+    }
   }
   catch (e) {
     console.log(e);

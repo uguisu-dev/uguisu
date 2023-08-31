@@ -74,7 +74,18 @@ export function command(args: string[]) {
         console.log(str);
       }
     });
-    uguisu.run(dirPath, { skipCheck: match.skipCheck });
+    const result = uguisu.run(dirPath, { skipCheck: match.skipCheck });
+
+    if (!result.success) {
+      for (const message of result.errors) {
+        console.log(`Syntax Error: ${message}`);
+      }
+      for (const warn of result.warnings) {
+        console.log(`Warning: ${warn}`);
+      }
+      process.exitCode = -1;
+      process.exit();
+    }
   }
   catch (e) {
     console.log(e);
