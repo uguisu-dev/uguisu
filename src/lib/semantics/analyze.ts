@@ -16,8 +16,9 @@ import {
 } from '../syntax/node.js';
 import * as builtins from './builtins.js';
 import {
-  ExprSymbol,
+  BadSymbol,
   FuncSymbol,
+  PremitiveSymbol,
   StructFieldSymbol,
   StructSymbol,
   Symbol,
@@ -405,9 +406,8 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
       // analyze target
       analyzeExpr(node.target, allowJump, funcSymbol, ctx, { assignMode: true });
       let symbol = ctx.symbolTable.get(node.target);
-
       if (symbol == null) {
-        return 'none';
+        throw new UguisuError('symbol not found');
       }
 
       let targetTy: Type;
@@ -464,70 +464,90 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
   throw new UguisuError('unexpected node');
 }
 
-function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol, ctx: AnalyzeContext, opts?: { assignMode?: boolean }): Type {
+function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol, ctx: AnalyzeContext, opts?: { assignMode?: boolean }): void {
   const assignMode = opts?.assignMode ?? false;
   switch (node.kind) {
     case 'Identifier': {
-      const symbol = ctx.env.get(node.name);
-      if (symbol == null) {
-        ctx.dispatchError('unknown identifier.', node);
-        return badType;
-      }
+      const symbol = new ExprSymbol(badType);
       ctx.symbolTable.set(node, symbol);
 
-      // if the variable is not assigned
-      if (!assignMode && symbol.kind == 'VariableSymbol' && !symbol.isDefined) {
-        ctx.dispatchError('variable is not assigned yet.', node);
-        return badType;
+      const destSymbol = ctx.env.get(node.name);
+      if (destSymbol == null) {
+        ctx.dispatchError('unknown identifier.', node);
+        return;
       }
 
-      switch (symbol.kind) {
-        case 'VariableSymbol':
+      switch (destSymbol.kind) {
+        case 'VariableSymbol': {
+          // if the variable is not assigned
+          if (!destSymbol.isDefined) {
+            ctx.dispatchError('variable is not assigned yet.', node);
+            return;
+          }
+          symbol.ty = destSymbol.ty;
+          return;
+        }
         case 'StructFieldSymbol': {
-          return symbol.ty;
+          symbol.ty = destSymbol.ty;
+          return;
         }
         case 'FuncSymbol':
         case 'NativeFuncSymbol': {
-          return new FunctionType(symbol.params.map(x => x.ty), symbol.retTy);
+          symbol.ty = new FunctionType(destSymbol.params.map(x => x.ty), destSymbol.retTy);
+          return;
         }
         case 'StructSymbol': {
-          return new NamedType(symbol.name, symbol);
+          symbol.ty = new NamedType(destSymbol.name, destSymbol);
+          return;
         }
         case 'ExprSymbol': {
           ctx.dispatchError('invalid identifier.', node);
-          return badType;
+          return;
         }
       }
       break;
     }
     case 'FieldAccess': {
+      let symbol: Symbol = new BadSymbol();
+      ctx.symbolTable.set(node, symbol);
+
       // analyze target
       analyzeExpr(node.target, allowJump, funcSymbol, ctx);
-      const variableSymbol = ctx.symbolTable.get(node.target);
 
-      if (variableSymbol == null || variableSymbol.kind != 'VariableSymbol') {
-        ctx.dispatchError('invalid field access.', node);
-        return badType;
-      }
-      if (variableSymbol.ty.kind == 'BadType') {
-        return badType;
-      }
-      if (variableSymbol.ty.kind != 'NamedType') {
-        ctx.dispatchError('invalid field access.', node);
-        return badType;
+      const targetSymbol = ctx.symbolTable.get(node.target);
+      if (targetSymbol == null) {
+        throw new UguisuError('symbol not found');
       }
 
-      // if the target is not assigned
-      if (!assignMode && !variableSymbol.isDefined) {
+      switch (targetSymbol.kind) {
+        case 'VariableSymbol':
+        case 'StructFieldSymbol': {
+          break;
+        }
+        default: {
+          ctx.dispatchError('invalid field access.', node);
+          return;
+        }
+      }
+
+      if (targetSymbol.ty.kind != 'NamedType') {
+        if (targetSymbol.ty.kind != 'BadType') {
+          ctx.dispatchError('invalid field access.', node);
+        }
+        return;
+      }
+
+      // if the variable is not assigned
+      if (!assignMode && targetSymbol.kind == 'VariableSymbol' && !targetSymbol.isDefined) {
         ctx.dispatchError('variable is not assigned yet.', node);
-        return badType;
+        return;
       }
 
-      const structSymbol = variableSymbol.ty.symbol;
+      const structSymbol = targetSymbol.ty.symbol;
 
       if (structSymbol.kind != 'StructSymbol') {
         ctx.dispatchError('invalid field access.', node);
-        return badType;
+        return;
       }
 
       // get field symbol
@@ -536,18 +556,19 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
       // if specified field name is invalid
       if (field == null) {
         ctx.dispatchError('unknown field name.', node);
-        return badType;
+        return;
       }
 
-      ctx.symbolTable.set(node, field);
+      symbol = field;
+      ctx.symbolTable.set(node, symbol);
 
       // if the variable is not assigned
-      if (!isValidType(field.ty)) {
+      if (!isValidType(symbol.ty)) {
         ctx.dispatchError('invalid field type.', node);
-        return badType;
+        return;
       }
 
-      return field.ty;
+      return;
     }
     case 'IndexAccess': {
       const targetTy = analyzeExpr(node.target, allowJump, funcSymbol, ctx);
@@ -580,37 +601,46 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
       }
 
       // create index symbol
-      const symbol = new VariableSymbol(true, anyType);
+      const elementSymbol = new VariableSymbol(true, anyType);
 
-      ctx.symbolTable.set(node, symbol);
+      ctx.symbolTable.set(node, elementSymbol);
 
-      return symbol.ty;
+      return elementSymbol.ty;
     }
     case 'NumberLiteral': {
-      // return expr type
-      return numberType;
+      const symbol = new PremitiveSymbol(numberType);
+      ctx.symbolTable.set(node, symbol);
+      return;
     }
     case 'BoolLiteral': {
-      // return expr type
-      return boolType;
+      const symbol = new PremitiveSymbol(boolType);
+      ctx.symbolTable.set(node, symbol);
+      return;
     }
     case 'CharLiteral': {
+      const symbol = new PremitiveSymbol(charType);
+      ctx.symbolTable.set(node, symbol);
+
       // check if literal is valid
       const arr = node.value.match(charRegex());
       if (arr == null || arr.length > 1) {
         ctx.dispatchError('invalid char literal.', node);
       }
-      // return expr type
-      return charType;
+      return;
     }
     case 'StringLiteral': {
-      // return expr type
-      return stringType;
+      const symbol = new PremitiveSymbol(stringType);
+      ctx.symbolTable.set(node, symbol);
+      return;
     }
     case 'Call': {
       // analyze callee
       const calleeTy = analyzeExpr(node.callee, allowJump, funcSymbol, ctx);
+
       let calleeSymbol = ctx.symbolTable.get(node.callee);
+      if (calleeSymbol == null) {
+        throw new UguisuError('symbol not found');
+      }
 
       const callables: Symbol['kind'][] = [
         'FuncSymbol',
@@ -618,7 +648,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
         'VariableSymbol',
         'StructFieldSymbol',
       ];
-      if (calleeSymbol == null || !callables.includes(calleeSymbol.kind)) {
+      if (!callables.includes(calleeSymbol.kind)) {
         ctx.dispatchError('invalid callee.');
         return badType;
       }
@@ -801,14 +831,14 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
     }
     case 'StructExpr': {
       // get symbol
-      const symbol = ctx.env.get(node.name);
-      if (symbol == null) {
+      const structSymbol = ctx.env.get(node.name);
+      if (structSymbol == null) {
         ctx.dispatchError('unknown identifier.', node);
         return badType;
       }
 
       // expect struct symbol
-      if (symbol.kind != 'StructSymbol') {
+      if (structSymbol.kind != 'StructSymbol') {
         ctx.dispatchError('struct expected.', node);
         return badType;
       }
@@ -833,7 +863,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
         }
 
         // get field symbol
-        const fieldSymbol = symbol.fields.get(fieldNode.name)!;
+        const fieldSymbol = structSymbol.fields.get(fieldNode.name)!;
 
         // check field type
         if (compareType(bodyTy, fieldSymbol.ty) == 'incompatible') {
@@ -842,13 +872,13 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
       }
 
       // check fields are all defined
-      for (const [name, _field] of symbol.fields) {
+      for (const [name, _field] of structSymbol.fields) {
         if (!defined.includes(name)) {
           ctx.dispatchError(`field \`${name}\` is not initialized.`, node);
         }
       }
 
-      return new NamedType(symbol.name, symbol);
+      return new NamedType(structSymbol.name, structSymbol);
     }
     case 'ArrayNode': {
       // analyze elements

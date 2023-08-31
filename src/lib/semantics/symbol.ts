@@ -1,12 +1,17 @@
 import { Type } from './type.js';
 
 export type Symbol =
+  | BadSymbol
   | FuncSymbol
   | NativeFuncSymbol
   | StructSymbol
   | StructFieldSymbol
   | VariableSymbol
-  | ExprSymbol;
+  | PremitiveSymbol;
+
+export class BadSymbol {
+  kind = 'BadSymbol' as const;
+}
 
 export class FuncSymbol {
   kind = 'FuncSymbol' as const;
@@ -52,8 +57,8 @@ export class VariableSymbol {
   ) { }
 }
 
-export class ExprSymbol {
-  kind = 'ExprSymbol' as const;
+export class PremitiveSymbol {
+  kind = 'PremitiveSymbol' as const;
   constructor(
     public ty: Type,
   ) { }
