@@ -13,6 +13,14 @@ export {
   UguisuError
 };
 
+export class UguisuResult {
+  constructor(
+    public success: boolean,
+    public warnings: string[],
+    public errors: string[],
+  ) { }
+}
+
 export class Uguisu {
   private _options: UguisuOptions;
 
@@ -33,8 +41,8 @@ export class Uguisu {
    * @throws TypeError (Invalid arguments)
    * @throws UguisuError
   */
-  check(dirPath: string) {
-    this._perform(dirPath, {
+  check(dirPath: string): UguisuResult {
+    return this._perform(dirPath, {
       check: true,
       run: false,
     });
@@ -44,16 +52,16 @@ export class Uguisu {
    * @throws TypeError (Invalid arguments)
    * @throws UguisuError
   */
-  run(dirPath: string, opts?: { skipCheck?: boolean }) {
+  run(dirPath: string, opts?: { skipCheck?: boolean }): UguisuResult {
     opts = opts ?? {};
     const skipCheck = opts.skipCheck ?? false;
-    this._perform(dirPath, {
+    return this._perform(dirPath, {
       check: !skipCheck,
       run: true,
     });
   }
 
-  private _perform(dirPath: string, tasks: { check: boolean, run: boolean }) {
+  private _perform(dirPath: string, tasks: { check: boolean, run: boolean }): UguisuResult {
     if (typeof dirPath != 'string') {
       throw new TypeError('Invalid arguments.');
     }
@@ -93,19 +101,18 @@ export class Uguisu {
     // parse
     const sourceFile = parse(sourceCode, scriptFilePath, projectInfo);
 
+    let checkResult = new UguisuResult(true, [], []);
+
     // static analysis
     if (tasks.check) {
       const analysisEnv = new AnalysisEnv();
       const symbolTable = new Map();
       const result = analyze(sourceFile, analysisEnv, symbolTable, projectInfo);
-      for (const message of result.errors) {
-        console.log(`Syntax Error: ${message}`);
-      }
-      for (const warn of result.warnings) {
-        console.log(`Warning: ${warn}`);
-      }
+      checkResult.success = result.success;
+      checkResult.errors = result.errors;
+      checkResult.warnings = result.warnings;
       if (!result.success) {
-        throw new UguisuError('Syntax error.');
+        return checkResult;
       }
     }
 
@@ -114,5 +121,7 @@ export class Uguisu {
       const runningEnv = new RunningEnv();
       run(sourceFile, runningEnv, this._options, projectInfo);
     }
+
+    return checkResult;
   }
 }

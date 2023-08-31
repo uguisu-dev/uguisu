@@ -31,7 +31,7 @@ export class AnalyzeContext {
 
   dispatchError(message: string, errorNode?: SyntaxNode) {
     if (errorNode != null) {
-      this.error.push(`${message} (${errorNode.pos[0]}:${errorNode.pos[1]})`);
+      this.error.push(`${message} (${errorNode.pos[0]}:${errorNode.pos[1]}) ErrorNode=${errorNode.kind}`);
     } else {
       this.error.push(message);
     }
