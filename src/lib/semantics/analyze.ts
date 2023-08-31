@@ -48,8 +48,7 @@ import {
 import { Token } from '../syntax/token.js';
 
 type StatementResult =
-  | 'invalid'
-  | 'ok'
+  | 'none'
   | 'return'
   | 'break';
 
@@ -295,12 +294,8 @@ function analyzeBlock(nodes: StepNode[], allowJump: boolean, funcSymbol: FuncSym
     } else {
       const result = analyzeStatement(step, allowJump, funcSymbol, ctx);
       switch (result) {
-        case 'ok': {
+        case 'none': {
           ty = voidType;
-          break;
-        }
-        case 'invalid': {
-          ty = badType;
           break;
         }
         case 'return':
@@ -331,7 +326,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
   switch (node.kind) {
     case 'ExprStatement': {
       analyzeExpr(node.expr, allowJump, funcSymbol, ctx);
-      return 'ok';
+      return 'none';
     }
     case 'ReturnStatement': {
       // if there is a return value
@@ -347,7 +342,6 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
         // check type
         if (compareType(ty, funcSymbol.retTy) == 'incompatible') {
           dispatchTypeError(ty, funcSymbol.retTy, node.expr, ctx);
-          return 'invalid';
         }
       }
       return 'return';
@@ -356,7 +350,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
       // if there is no associated loop
       if (!allowJump) {
         ctx.dispatchError('invalid break statement.');
-        return 'invalid';
+        return 'none';
       }
       return 'break';
     }
@@ -370,7 +364,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
       if (compareType(ty, voidType) == 'incompatible') {
         dispatchTypeError(ty, voidType, node, ctx);
       }
-      return 'ok';
+      return 'none';
     }
     case 'VariableDecl': {
       let isDefined = false;
@@ -409,7 +403,7 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
       ctx.symbolTable.set(node, symbol);
       ctx.env.set(node.name, symbol);
 
-      return 'ok';
+      return 'none';
     }
     case 'AssignStatement': {
       let bodyTy = analyzeExpr(node.body, allowJump, funcSymbol, ctx);
@@ -424,10 +418,8 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
       analyzeExpr(node.target, allowJump, funcSymbol, ctx, { assignMode: true });
       let symbol = ctx.symbolTable.get(node.target);
 
-      // variable symbol?
       if (symbol == null) {
-        ctx.dispatchError('invalid assign target.', node.target);
-        return 'invalid';
+        return 'none';
       }
 
       let targetTy: Type;
@@ -451,12 +443,8 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
         }
         default: {
           ctx.dispatchError('invalid assign target.', node.target);
-          return 'invalid';
+          return 'none';
         }
-      }
-
-      if (!isValidType(targetTy)) {
-        return 'invalid';
       }
 
       // check type
@@ -481,7 +469,8 @@ function analyzeStatement(node: StatementNode, allowJump: boolean, funcSymbol: F
           break;
         }
       }
-      return 'ok';
+
+      return 'none';
     }
   }
   throw new UguisuError('unexpected node');
