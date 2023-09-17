@@ -1,12 +1,35 @@
-import { Type } from './type.js';
+import { FunctionType, NamedType, Type, badType } from './type.js';
 
 export type Symbol =
+  | BadSymbol
   | FuncSymbol
   | NativeFuncSymbol
   | StructSymbol
   | StructFieldSymbol
   | VariableSymbol
-  | ExprSymbol;
+  | PremitiveSymbol;
+
+export class BadSymbol {
+  kind = 'BadSymbol' as const;
+}
+
+export function getTypeFromSymbol(symbol: Symbol): Type {
+  switch (symbol.kind) {
+    case 'FuncSymbol':
+    case 'NativeFuncSymbol':
+    case 'StructSymbol': {
+      return symbol.createType();
+    }
+    case 'StructFieldSymbol':
+    case 'VariableSymbol':
+    case 'PremitiveSymbol': {
+      return symbol.ty;
+    }
+    case 'BadSymbol': {
+      return badType;
+    }
+  }
+}
 
 export class FuncSymbol {
   kind = 'FuncSymbol' as const;
@@ -17,6 +40,10 @@ export class FuncSymbol {
     /** for wasm */
     public vars: FuncVar[]
   ) { }
+
+  createType() {
+    return new FunctionType(this.params.map(x => x.ty), this.retTy);
+  }
 }
 export type FuncVar = { name: string, isParam: boolean, ty: Type };
 
@@ -26,6 +53,10 @@ export class NativeFuncSymbol {
     public params: { name: string, ty: Type }[],
     public retTy: Type,
   ) { }
+
+  createType() {
+    return new FunctionType(this.params.map(x => x.ty), this.retTy);
+  }
 }
 
 export class StructSymbol {
@@ -34,12 +65,17 @@ export class StructSymbol {
     public name: string,
     public fields: Map<string, StructFieldSymbol>,
   ) { }
+
+  createType() {
+    return new NamedType(this.name, this);
+  }
 }
 
 export class StructFieldSymbol {
   kind = 'StructFieldSymbol' as const;
   constructor(
     public name: string,
+    public parent: StructSymbol,
     public ty: Type,
   ) { }
 }
@@ -52,8 +88,8 @@ export class VariableSymbol {
   ) { }
 }
 
-export class ExprSymbol {
-  kind = 'ExprSymbol' as const;
+export class PremitiveSymbol {
+  kind = 'PremitiveSymbol' as const;
   constructor(
     public ty: Type,
   ) { }
