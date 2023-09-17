@@ -22,7 +22,8 @@ import {
   StructFieldSymbol,
   StructSymbol,
   Symbol,
-  VariableSymbol
+  VariableSymbol,
+  getTypeFromSymbol
 } from './symbol.js';
 import { AnalysisEnv, AnalyzeContext } from './common.js';
 import {
@@ -555,41 +556,49 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
       return;
     }
     case 'IndexAccess': {
-      const targetTy = analyzeExpr(node.target, allowJump, funcSymbol, ctx);
-      const indexTy = analyzeExpr(node.index, allowJump, funcSymbol, ctx);
+      let symbol: Symbol = new BadSymbol();
+      ctx.symbolTable.set(node, symbol);
+
+      analyzeExpr(node.target, allowJump, funcSymbol, ctx);
+      const targetSymbol = ctx.symbolTable.get(node.target);
+      if (targetSymbol == null) {
+        throw new UguisuError('symbol not found');
+      }
+
+      analyzeExpr(node.index, allowJump, funcSymbol, ctx);
+      const indexSymbol = ctx.symbolTable.get(node.index);
+      if (indexSymbol == null) {
+        throw new UguisuError('symbol not found');
+      }
+
+      const targetTy = getTypeFromSymbol(targetSymbol);
+      const indexTy = getTypeFromSymbol(indexSymbol);
 
       // check target type
       if (compareType(targetTy, arrayType) == 'incompatible') {
         dispatchTypeError(targetTy, arrayType, node.target, ctx);
-        return badType;
+      }
+      if (!assignMode && isPendingType(targetTy)) {
+        ctx.dispatchError('variable is not assigned yet.', node.target);
       }
 
       // check index type
       if (compareType(indexTy, numberType) == 'incompatible') {
         dispatchTypeError(indexTy, numberType, node.index, ctx);
-        return badType;
+      }
+      if (isPendingType(indexTy)) {
+        ctx.dispatchError('variable is not assigned yet.', node.index);
       }
 
-      if (!isValidType(targetTy)) {
-        if (!assignMode && isPendingType(targetTy)) {
-          ctx.dispatchError('variable is not assigned yet.', node.target);
-        }
-        return badType;
-      }
-
-      if (!isValidType(indexTy)) {
-        if (isPendingType(indexTy)) {
-          ctx.dispatchError('variable is not assigned yet.', node.index);
-        }
-        return badType;
+      if (!isValidType(targetTy) || !isValidType(indexTy)) {
+        return;
       }
 
       // create index symbol
-      const elementSymbol = new VariableSymbol(true, anyType);
+      symbol = new VariableSymbol(true, anyType);
+      ctx.symbolTable.set(node, symbol);
 
-      ctx.symbolTable.set(node, elementSymbol);
-
-      return elementSymbol.ty;
+      return;
     }
     case 'NumberLiteral': {
       const symbol = new PremitiveSymbol(numberType);
@@ -618,6 +627,9 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
       return;
     }
     case 'Call': {
+      let symbol: Symbol = new BadSymbol();
+      ctx.symbolTable.set(node, symbol);
+
       // analyze callee
       const calleeTy = analyzeExpr(node.callee, allowJump, funcSymbol, ctx);
 
@@ -634,24 +646,24 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
       ];
       if (!callables.includes(calleeSymbol.kind)) {
         ctx.dispatchError('invalid callee.');
-        return badType;
+        return;
       }
 
       if (calleeSymbol.kind == 'VariableSymbol' || calleeSymbol.kind == 'StructFieldSymbol') {
           // if the variable is not assigned
           if (isPendingType(calleeSymbol.ty)) {
             ctx.dispatchError('variable or field is not assigned yet.', node.callee);
-            return badType;
+            return;
           }
 
           if (!isValidType(calleeSymbol.ty)) {
-            return badType;
+            return;
           }
 
           // expect function
           if (calleeSymbol.ty.kind != 'FunctionType') {
             ctx.dispatchError(`type mismatched. expected function, found \`${getTypeString(calleeSymbol.ty)}\``, node.callee);
-            return badType;
+            return;
           }
       }
 
@@ -659,7 +671,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
         if (isPendingType(calleeTy)) {
           ctx.dispatchError('callee is not assigned yet.', node.callee);
         }
-        return badType;
+        return;
       }
 
       let isCorrectArgCount = true;
@@ -699,6 +711,9 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
       return calleeTy.returnType;
     }
     case 'BinaryOp': {
+      let symbol: Symbol = new BadSymbol();
+      ctx.symbolTable.set(node, symbol);
+
       let leftTy = analyzeExpr(node.left, allowJump, funcSymbol, ctx);
       let rightTy = analyzeExpr(node.right, allowJump, funcSymbol, ctx);
 
@@ -723,18 +738,18 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
       }
 
       if (!isValidType(leftTy) || !isValidType(rightTy)) {
-        return badType;
+        return;
       }
 
       if (isLogicalBinaryOperator(node.operator)) {
         // Logical Operation
         if (compareType(leftTy, boolType) == 'incompatible') {
           dispatchTypeError(leftTy, boolType, node.left, ctx);
-          return badType;
+          return;
         }
         if (compareType(rightTy, boolType) == 'incompatible') {
           dispatchTypeError(rightTy, boolType, node.right, ctx);
-          return badType;
+          return;
         }
 
         ctx.symbolTable.set(node, new ExprSymbol(boolType));
@@ -743,7 +758,7 @@ function analyzeExpr(node: ExprNode, allowJump: boolean, funcSymbol: FuncSymbol,
         // Equivalent Operation
         if (compareType(rightTy, leftTy) == 'incompatible') {
           dispatchTypeError(rightTy, leftTy, node.right, ctx);
-          return badType;
+          return;
         }
 
         ctx.symbolTable.set(node, new ExprSymbol(boolType));

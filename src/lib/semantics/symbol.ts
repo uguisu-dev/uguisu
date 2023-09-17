@@ -1,4 +1,4 @@
-import { FunctionType, NamedType, Type } from './type.js';
+import { FunctionType, NamedType, Type, badType } from './type.js';
 
 export type Symbol =
   | BadSymbol
@@ -11,6 +11,24 @@ export type Symbol =
 
 export class BadSymbol {
   kind = 'BadSymbol' as const;
+}
+
+export function getTypeFromSymbol(symbol: Symbol): Type {
+  switch (symbol.kind) {
+    case 'FuncSymbol':
+    case 'NativeFuncSymbol':
+    case 'StructSymbol': {
+      return symbol.createType();
+    }
+    case 'StructFieldSymbol':
+    case 'VariableSymbol':
+    case 'PremitiveSymbol': {
+      return symbol.ty;
+    }
+    case 'BadSymbol': {
+      return badType;
+    }
+  }
 }
 
 export class FuncSymbol {
